@@ -167,6 +167,9 @@ func (s *Session) handleDidChange(params json.RawMessage) *protocol.ResponseErro
 		return nil
 	}
 	last := change.ContentChanges[len(change.ContentChanges)-1]
+	if last.Range != nil || last.RangeLength != nil {
+		return protocol.InvalidParams("incremental document changes are not supported")
+	}
 	doc, err := s.documents.Change(
 		change.TextDocument.URI,
 		change.TextDocument.Version,
@@ -208,6 +211,9 @@ func (s *Session) handleDidChangeWatchedFiles(params json.RawMessage) *protocol.
 func (s *Session) handleDidClose(params json.RawMessage) *protocol.ResponseError {
 	var close protocol.DidCloseTextDocumentParams
 	if err := decodeParams(params, &close); err != nil {
+		return err
+	}
+	if err := s.publishEmptyDiagnostics(close.TextDocument.URI); err != nil {
 		return err
 	}
 	s.documents.Close(close.TextDocument.URI)
@@ -318,6 +324,20 @@ func (s *Session) publishDiagnostics(doc *Document) *protocol.ResponseError {
 		URI:         doc.URI,
 		Version:     &version,
 		Diagnostics: diagnostics,
+	})
+	if err != nil {
+		return protocol.InternalError(err)
+	}
+	return nil
+}
+
+func (s *Session) publishEmptyDiagnostics(uri string) *protocol.ResponseError {
+	if s.sender == nil {
+		return nil
+	}
+	err := s.sender("textDocument/publishDiagnostics", protocol.PublishDiagnosticsParams{
+		URI:         uri,
+		Diagnostics: []protocol.Diagnostic{},
 	})
 	if err != nil {
 		return protocol.InternalError(err)

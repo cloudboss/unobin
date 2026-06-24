@@ -109,6 +109,23 @@ func TestSessionDidOpenPublishesSchemaDiagnostic(t *testing.T) {
 	require.Contains(t, params.Diagnostics[0].Message, "schema:")
 }
 
+func TestSessionDidCloseClearsDiagnostics(t *testing.T) {
+	session, sent := newDiagnosticSession(t)
+	src := ubtest.ReadFixture(t, "testdata/ub/diagnostics/invalid/wrong-role.ub")
+	uri := "file:///tmp/factory.ub"
+
+	rpcErr := openDocument(t, session, uri, 1, src)
+	require.Nil(t, rpcErr)
+	rpcErr = closeDocument(t, session, uri)
+	require.Nil(t, rpcErr)
+
+	require.Len(t, *sent, 2)
+	params := requirePublishDiagnostics(t, (*sent)[1])
+	require.Equal(t, uri, params.URI)
+	require.Nil(t, params.Version)
+	require.Empty(t, params.Diagnostics)
+}
+
 func TestSessionDidChangeClearsDiagnostics(t *testing.T) {
 	session, sent := newDiagnosticSession(t)
 	invalid := ubtest.ReadFixture(t, "testdata/ub/diagnostics/invalid/wrong-role.ub")
@@ -154,6 +171,23 @@ func openDocument(
 	require.NoError(t, err)
 	_, rpcErr := session.HandleRequest(context.Background(), &protocol.RequestMessage{
 		JSONRPC: "2.0", Method: "textDocument/didOpen", Params: body,
+	})
+	return rpcErr
+}
+
+func closeDocument(
+	t *testing.T,
+	session *Session,
+	uri string,
+) *protocol.ResponseError {
+	t.Helper()
+	params := protocol.DidCloseTextDocumentParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+	}
+	body, err := json.Marshal(params)
+	require.NoError(t, err)
+	_, rpcErr := session.HandleRequest(context.Background(), &protocol.RequestMessage{
+		JSONRPC: "2.0", Method: "textDocument/didClose", Params: body,
 	})
 	return rpcErr
 }

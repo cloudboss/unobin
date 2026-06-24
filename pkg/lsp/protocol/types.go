@@ -125,9 +125,11 @@ type DidChangeTextDocumentParams struct {
 	ContentChanges []TextDocumentContentChangeEvent `json:"contentChanges"`
 }
 
-// TextDocumentContentChangeEvent is a full-text change in the first server.
+// TextDocumentContentChangeEvent is a full-text or incremental change.
 type TextDocumentContentChangeEvent struct {
-	Text string `json:"text"`
+	Range       *Range `json:"range,omitempty"`
+	RangeLength *int   `json:"rangeLength,omitempty"`
+	Text        string `json:"text"`
 }
 
 // DidSaveTextDocumentParams is sent when a text document is saved.

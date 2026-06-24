@@ -121,6 +121,38 @@ func TestSessionInitializeUsesRootURIWithoutWorkspaceFolders(t *testing.T) {
 	require.Equal(t, []string{root}, session.projects.workspaceRoots)
 }
 
+func TestSessionRejectsIncrementalChange(t *testing.T) {
+	session := NewSession("dev")
+	_, path, source := completionProject(t)
+	uri := PathToFileURI(path)
+	rpcErr := openDocument(t, session, uri, 1, source)
+	require.Nil(t, rpcErr)
+	editRange := protocol.Range{
+		Start: protocol.Position{Line: 0, Character: 0},
+		End:   protocol.Position{Line: 0, Character: 0},
+	}
+	params := protocol.DidChangeTextDocumentParams{
+		TextDocument: protocol.VersionedTextDocumentIdentifier{URI: uri, Version: 2},
+		ContentChanges: []protocol.TextDocumentContentChangeEvent{{
+			Range: &editRange,
+			Text:  "changed",
+		}},
+	}
+	body, err := json.Marshal(params)
+	require.NoError(t, err)
+
+	_, rpcErr = session.HandleRequest(context.Background(), &protocol.RequestMessage{
+		JSONRPC: "2.0",
+		Method:  "textDocument/didChange",
+		Params:  body,
+	})
+	require.NotNil(t, rpcErr)
+	require.Equal(t, protocol.ErrorCodeInvalidParams, rpcErr.Code)
+	doc, ok := session.documents.Get(uri)
+	require.True(t, ok)
+	require.Equal(t, source, doc.Text)
+}
+
 func TestSessionDidSaveInvalidatesProjectCache(t *testing.T) {
 	session := NewSession("dev")
 	root := writeUBProject(t, nil, nil)
