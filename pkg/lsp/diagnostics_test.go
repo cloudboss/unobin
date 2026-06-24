@@ -233,8 +233,8 @@ func diagnosticProjectWithFixture(t *testing.T, name string) (string, string, st
 }
 
 func diagnosticFixturePath(name string) string {
-	if strings.Contains(name, "wrong-role") {
-		return "factory.ub"
+	if strings.Contains(name, "project-") {
+		return "project.ub"
 	}
 	return "factory.ub"
 }
