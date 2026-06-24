@@ -125,7 +125,8 @@ factory: {
                                     (field_key)
                                     (type_expression
                                       (library_config_type
-                                        (string))))))))))
+                                        (string
+                                          (single_quoted_string)))))))))))
                       (field
                         (value_field
                           (field_key
@@ -157,3 +158,81 @@ factory: {
                                                         (identifier))
                                                       (type_expression
                                                         (atomic_type)))))))))))))))))))))))))))))
+
+================================
+Trailing comma type constructors
+================================
+
+factory: {
+  inputs: {
+    replicas: {
+      type: list(
+        object(
+          {
+            name: string,
+            labels: map(string,),
+            settings: optional(open(object({ enabled: boolean, }),),),
+          },
+        ),
+      )
+    }
+  }
+}
+
+---
+
+(source_file
+  (field
+    (value_field
+      (field_key
+        (identifier))
+      (expression
+        (primary_expression
+          (object
+            (field
+              (value_field
+                (field_key
+                  (identifier))
+                (expression
+                  (primary_expression
+                    (object
+                      (field
+                        (value_field
+                          (field_key
+                            (identifier))
+                          (expression
+                            (primary_expression
+                              (object
+                                (field
+                                  (type_value_field
+                                    (field_key)
+                                    (type_expression
+                                      (list_type
+                                        (type_expression
+                                          (object_type
+                                            (type_field
+                                              (field_key
+                                                (identifier))
+                                              (type_expression
+                                                (atomic_type)))
+                                            (type_field
+                                              (field_key
+                                                (identifier))
+                                              (type_expression
+                                                (map_type
+                                                  (type_expression
+                                                    (atomic_type)))))
+                                            (type_field
+                                              (field_key
+                                                (identifier))
+                                              (type_expression
+                                                (optional_type
+                                                  (type_expression
+                                                    (open_type
+                                                      (type_expression
+                                                        (object_type
+                                                          (type_field
+                                                            (field_key
+                                                              (identifier))
+                                                            (type_expression
+                                                              (atomic_type))))))))))))))))))))))))))))))))

@@ -34,7 +34,11 @@ factory: {
                   (identifier))
                 (expression
                   (primary_expression
-                    (string)))))
+                    (string
+                      (triple_quoted_string
+                        (block_triple_quoted_string
+                          (triple_string_sigil)
+                          (triple_quoted_string_text))))))))
             (field
               (value_field
                 (field_key
@@ -48,25 +52,154 @@ factory: {
                             (identifier))
                           (expression
                             (primary_expression
-                              (string)))))
+                              (string
+                                (single_quoted_string))))))
                       (field
                         (value_field
                           (field_key
                             (identifier))
                           (expression
                             (primary_expression
-                              (string)))))
+                              (string
+                                (triple_quoted_string
+                                  (single_line_triple_quoted_string)))))))
                       (field
                         (value_field
                           (field_key
                             (identifier))
                           (expression
                             (primary_expression
-                              (interpolated_string)))))
+                              (interpolated_string
+                                (single_interpolated_string
+                                  (interpolated_string_text)
+                                  (interpolation
+                                    (expression
+                                      (primary_expression
+                                        (path
+                                          (identifier)
+                                          (identifier)))))))))))
                       (field
                         (value_field
                           (field_key
                             (identifier))
                           (expression
                             (primary_expression
-                              (interpolated_string))))))))))))))))
+                              (interpolated_string
+                                (triple_interpolated_string
+                                  (triple_interpolated_string_text)
+                                  (interpolation
+                                    (expression
+                                      (primary_expression
+                                        (path
+                                          (identifier)
+                                          (identifier)))))
+                                  (triple_interpolated_string_text))))))))))))))))))
+
+===================
+Interpolation slots
+===================
+
+content: $'{{ @core.join(input.items[*].name, ', ') }}\n'
+indexed: $'{{resource.nodes['alpha'].id}}'
+escaped: $'a \{{ b }} c'
+multi: $'''>-
+  region: {{ input.region }}
+  '''
+embedded: '''|
+  before '''mid''' after
+  '''
+
+---
+
+(source_file
+  (field
+    (value_field
+      (field_key
+        (identifier))
+      (expression
+        (primary_expression
+          (interpolated_string
+            (single_interpolated_string
+              (interpolation
+                (expression
+                  (primary_expression
+                    (call
+                      (path
+                        (identifier)
+                        (identifier))
+                      (expression
+                        (primary_expression
+                          (path
+                            (identifier)
+                            (identifier)
+                            (identifier))))
+                      (expression
+                        (primary_expression
+                          (string
+                            (single_quoted_string))))))))
+              (escape_sequence)))))))
+  (field
+    (value_field
+      (field_key
+        (identifier))
+      (expression
+        (primary_expression
+          (interpolated_string
+            (single_interpolated_string
+              (interpolation
+                (expression
+                  (primary_expression
+                    (path
+                      (identifier)
+                      (identifier)
+                      (expression
+                        (primary_expression
+                          (string
+                            (single_quoted_string))))
+                      (identifier)))))))))))
+  (field
+    (value_field
+      (field_key
+        (identifier))
+      (expression
+        (primary_expression
+          (interpolated_string
+            (single_interpolated_string
+              (interpolated_string_text)
+              (escape_sequence)
+              (interpolated_string_text)
+              (interpolated_string_text)
+              (interpolated_string_text)
+              (interpolated_string_text)
+              (interpolated_string_text)))))))
+  (field
+    (value_field
+      (field_key
+        (identifier))
+      (expression
+        (primary_expression
+          (interpolated_string
+            (triple_interpolated_string
+              (triple_interpolated_string_text)
+              (interpolation
+                (expression
+                  (primary_expression
+                    (path
+                      (identifier)
+                      (identifier)))))
+              (triple_interpolated_string_text)))))))
+  (field
+    (value_field
+      (field_key
+        (identifier))
+      (expression
+        (primary_expression
+          (string
+            (triple_quoted_string
+              (block_triple_quoted_string
+                (triple_string_sigil)
+                (triple_quoted_string_text)
+                (triple_quoted_string_text)
+                (triple_quoted_string_text)
+                (triple_quoted_string_text)
+                (triple_quoted_string_text)))))))))

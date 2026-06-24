@@ -211,11 +211,12 @@ module.exports = grammar({
       'boolean',
       'null',
       'opaque',
+      'object',
     ),
 
-    list_type: $ => seq('list', '(', $.type_expression, ')'),
+    list_type: $ => seq('list', '(', $.type_expression, optional(','), ')'),
 
-    map_type: $ => seq('map', '(', $.type_expression, ')'),
+    map_type: $ => seq('map', '(', $.type_expression, optional(','), ')'),
 
     tuple_type: $ => seq(
       'tuple',
@@ -225,9 +226,9 @@ module.exports = grammar({
       ')',
     ),
 
-    optional_type: $ => seq('optional', '(', $.type_expression, ')'),
+    optional_type: $ => seq('optional', '(', $.type_expression, optional(','), ')'),
 
-    open_type: $ => seq('open', '(', $.type_expression, ')'),
+    open_type: $ => seq('open', '(', $.type_expression, optional(','), ')'),
 
     object_type: $ => seq(
       'object',
@@ -260,14 +261,99 @@ module.exports = grammar({
       ')',
     ),
 
-    string: _ => token(choice(
-      seq("'", repeat(choice(/[^'\\\n\r]/, /\\./)), "'"),
-      seq("'''", repeat(choice(/[^']/, /'[^']/, /''[^']/)), "'''"),
+    string: $ => choice(
+      $.single_quoted_string,
+      $.double_quoted_string,
+      $.triple_quoted_string,
+    ),
+
+    single_quoted_string: _ => token(seq(
+      "'",
+      repeat(choice(/[^'\\\n\r]/, /\\./)),
+      "'",
     )),
 
-    interpolated_string: _ => token(choice(
-      seq("$'", repeat(choice(/[^'\\\n\r]/, /\\./)), "'"),
-      seq("$'''", repeat(choice(/[^']/, /'[^']/, /''[^']/)), "'''"),
+    double_quoted_string: _ => token(seq(
+      '"',
+      repeat(choice(/[^"\\\n\r]/, /\\./)),
+      '"',
+    )),
+
+    triple_quoted_string: $ => choice(
+      $.block_triple_quoted_string,
+      $.single_line_triple_quoted_string,
+    ),
+
+    block_triple_quoted_string: $ => seq(
+      "'''",
+      $.triple_string_sigil,
+      repeat($.triple_quoted_string_text),
+      "'''",
+    ),
+
+    single_line_triple_quoted_string: _ => token(seq(
+      "'''",
+      repeat(choice(/[^'\n\r]/, /'[^'\n\r]/, /''[^'\n\r]/)),
+      "'''",
+    )),
+
+    triple_string_sigil: _ => token(choice('|-', '|', '>-', '>', '\\-', '\\')),
+
+    triple_quoted_string_text: _ => token.immediate(choice(
+      /[^']+/,
+      /'''[^,\n}\])]/,
+      /'[^']/,
+      /''[^']/,
+    )),
+
+    interpolated_string: $ => choice(
+      $.single_interpolated_string,
+      $.triple_interpolated_string,
+    ),
+
+    single_interpolated_string: $ => seq(
+      "$'",
+      repeat(choice(
+        $.interpolation,
+        $.escape_sequence,
+        $.interpolated_string_text,
+      )),
+      "'",
+    ),
+
+    triple_interpolated_string: $ => seq(
+      "$'''",
+      optional(choice('|-', '|', '>-', '>', '\\-', '\\')),
+      repeat(choice(
+        $.interpolation,
+        $.triple_interpolated_string_text,
+      )),
+      "'''",
+    ),
+
+    interpolation: $ => seq(
+      '{{',
+      field('value', $.expression),
+      optional(seq(':', field('format', $.format_verb))),
+      '}}',
+    ),
+
+    format_verb: _ => token(/[^}\s]+/),
+
+    escape_sequence: _ => token.immediate(seq('\\', /./)),
+
+    interpolated_string_text: _ => token.immediate(choice(
+      /[^'{}\\\n\r]+/,
+      '{',
+      '}',
+    )),
+
+    triple_interpolated_string_text: _ => token.immediate(choice(
+      /[^{}']+/,
+      /'[^'\n]/,
+      /''[^'\n]/,
+      '{',
+      '}',
     )),
 
     number: _ => token(seq(

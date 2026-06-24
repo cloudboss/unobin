@@ -43,7 +43,8 @@ factory: {
                                     (identifier))))
                               (expression
                                 (primary_expression
-                                  (string)))))))
+                                  (string
+                                    (single_quoted_string))))))))
                       (field
                         (value_field
                           (field_key
@@ -84,7 +85,8 @@ factory: {
                                       (identifier))))
                                 (expression
                                   (primary_expression
-                                    (string))))))))
+                                    (string
+                                      (single_quoted_string)))))))))
                       (field
                         (value_field
                           (field_key

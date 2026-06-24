@@ -53,7 +53,8 @@ factory: {
                                       (identifier))
                                     (expression
                                       (primary_expression
-                                        (string)))))))))))))))
+                                        (string
+                                          (single_quoted_string))))))))))))))))
             (field
               (value_field
                 (field_key
@@ -67,7 +68,8 @@ factory: {
                             (identifier))
                           (expression
                             (primary_expression
-                              (string))))))))))
+                              (string
+                                (single_quoted_string)))))))))))
             (field
               (value_field
                 (field_key
@@ -162,7 +164,8 @@ stack: {
                                       (identifier))
                                     (expression
                                       (primary_expression
-                                        (string)))))))))))))))
+                                        (string
+                                          (single_quoted_string))))))))))))))))
             (field
               (value_field
                 (field_key
@@ -177,7 +180,8 @@ stack: {
                           (identifier))
                         (expression
                           (primary_expression
-                            (string)))))))))
+                            (string
+                              (single_quoted_string))))))))))
             (field
               (value_field
                 (field_key
@@ -230,7 +234,8 @@ project-lock: {
                   (identifier))
                 (expression
                   (primary_expression
-                    (string)))))
+                    (string
+                      (single_quoted_string))))))
             (field
               (value_field
                 (field_key
@@ -242,7 +247,8 @@ project-lock: {
                         (value_field
                           (field_key
                             (quoted_key
-                              (string)))
+                              (string
+                                (single_quoted_string))))
                           (expression
                             (primary_expression
                               (object
@@ -252,7 +258,8 @@ project-lock: {
                                       (identifier))
                                     (expression
                                       (primary_expression
-                                        (string)))))))))))))))
+                                        (string
+                                          (single_quoted_string))))))))))))))))
             (field
               (value_field
                 (field_key
@@ -264,10 +271,12 @@ project-lock: {
                         (value_field
                           (field_key
                             (quoted_key
-                              (string)))
+                              (string
+                                (single_quoted_string))))
                           (expression
                             (primary_expression
-                              (string)))))))))))))))
+                              (string
+                                (single_quoted_string))))))))))))))))
   (field
     (value_field
       (field_key
@@ -295,7 +304,8 @@ project-lock: {
                             (identifier))
                           (expression
                             (primary_expression
-                              (string))))))))))
+                              (string
+                                (single_quoted_string)))))))))))
             (field
               (value_field
                 (field_key
@@ -307,7 +317,8 @@ project-lock: {
                         (value_field
                           (field_key
                             (quoted_key
-                              (string)))
+                              (string
+                                (single_quoted_string))))
                           (expression
                             (primary_expression
                               (object
@@ -324,21 +335,24 @@ project-lock: {
                                       (identifier))
                                     (expression
                                       (primary_expression
-                                        (string)))))
+                                        (string
+                                          (single_quoted_string))))))
                                 (field
                                   (value_field
                                     (field_key
                                       (identifier))
                                     (expression
                                       (primary_expression
-                                        (string)))))
+                                        (string
+                                          (single_quoted_string))))))
                                 (field
                                   (value_field
                                     (field_key
                                       (identifier))
                                     (expression
                                       (primary_expression
-                                        (string)))))))))))))))))))))
+                                        (string
+                                          (single_quoted_string))))))))))))))))))))))
 
 ==================
 Library composites
