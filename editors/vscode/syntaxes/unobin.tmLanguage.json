@@ -4,9 +4,14 @@
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },
-    { "include": "#keywords" },
+    { "include": "#operators" },
+    { "include": "#punctuation" },
+    { "include": "#declarations" },
+    { "include": "#properties" },
     { "include": "#types" },
     { "include": "#constants" },
+    { "include": "#selectors" },
+    { "include": "#functions" },
     { "include": "#paths" }
   ],
   "repository": {
@@ -21,41 +26,88 @@
     "strings": {
       "patterns": [
         {
+          "name": "string.quoted.triple.interpolated.unobin",
+          "begin": "\\$'''",
+          "end": "'''",
+          "patterns": [
+            { "include": "#interpolations" }
+          ]
+        },
+        {
           "name": "string.quoted.triple.unobin",
-          "begin": "\\$?'''",
+          "begin": "'''",
           "end": "'''"
         },
         {
-          "name": "string.quoted.single.unobin",
-          "begin": "\\$?'",
+          "name": "string.quoted.single.interpolated.unobin",
+          "begin": "\\$'",
           "end": "'",
           "patterns": [
-            {
-              "name": "constant.character.escape.unobin",
-              "match": "\\\\."
-            },
-            {
-              "name": "meta.interpolation.unobin",
-              "begin": "\\{\\{",
-              "end": "\\}\\}"
-            }
+            { "include": "#escapes" },
+            { "include": "#interpolations" }
+          ]
+        },
+        {
+          "name": "string.quoted.single.unobin",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            { "include": "#escapes" }
           ]
         }
       ]
     },
-    "keywords": {
+    "escapes": {
       "patterns": [
         {
-          "name": "keyword.control.unobin",
-          "match": "\\b(if|then|else|for|in|when)\\b"
+          "name": "constant.character.escape.unobin",
+          "match": "\\\\(?:\\\\|'|n|t|r|0|\\{\\{)"
+        },
+        {
+          "name": "invalid.illegal.escape.unobin",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "interpolations": {
+      "patterns": [
+        {
+          "name": "meta.interpolation.unobin",
+          "begin": "\\{\\{",
+          "end": "\\}\\}",
+          "patterns": [
+            { "include": "#strings" },
+            { "include": "#operators" },
+            { "include": "#punctuation" },
+            { "include": "#types" },
+            { "include": "#constants" },
+            { "include": "#functions" },
+            { "include": "#paths" }
+          ]
+        }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "name": "keyword.other.directive.unobin",
+          "match": "@[A-Za-z][A-Za-z0-9_-]*(?=\\s*:)"
         },
         {
           "name": "keyword.declaration.unobin",
-          "match": "\\b(factory|stack|project|project-lock|library)\\b"
+          "match": "\\b(?:actions|configurations|constraints|data-sources|deps|encryption|factory|imports|inputs|library|library-configs|locals|outputs|parallelism|pin|project|project-lock|replace|requires|resources|stack|state|state-moves|toolchain|unobin-version|version)\\b(?=\\s*:)"
         },
         {
-          "name": "keyword.declaration.block.unobin",
-          "match": "\\b(inputs|locals|imports|resources|data-sources|actions|outputs)\\b"
+          "name": "keyword.control.unobin",
+          "match": "\\b(?:if|then|else|for|in|when)\\b"
+        }
+      ]
+    },
+    "properties": {
+      "patterns": [
+        {
+          "name": "variable.other.property.unobin",
+          "match": "\\b[A-Za-z][A-Za-z0-9_-]*(?:\\.[A-Za-z][A-Za-z0-9_-]*)*(?=\\s*:)"
         }
       ]
     },
@@ -63,11 +115,11 @@
       "patterns": [
         {
           "name": "storage.type.unobin",
-          "match": "\\b(string|number|integer|boolean|null|opaque)\\b"
+          "match": "\\b(?:string|number|integer|boolean|null|opaque)\\b"
         },
         {
           "name": "support.type.unobin",
-          "match": "\\b(list|map|tuple|optional|open|object|library-config)\\b"
+          "match": "\\b(?:list|map|tuple|optional|open|object|library-config)\\b(?=\\s*\\()"
         }
       ]
     },
@@ -75,11 +127,27 @@
       "patterns": [
         {
           "name": "constant.language.unobin",
-          "match": "\\b(true|false|null)\\b"
+          "match": "\\b(?:true|false|null)\\b"
         },
         {
           "name": "constant.numeric.unobin",
-          "match": "-?\\b[0-9]+(\\.[0-9]+)?\\b"
+          "match": "(?<![A-Za-z0-9_-])-?\\b(?:0|[1-9][0-9]*|[0-9]+\\.[0-9]+)\\b"
+        }
+      ]
+    },
+    "selectors": {
+      "patterns": [
+        {
+          "name": "entity.name.function.selector.unobin",
+          "match": "\\b@?[A-Za-z][A-Za-z0-9_-]*(?:\\.@?[A-Za-z][A-Za-z0-9_-]*)+(?=\\s*\\{)"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.call.unobin",
+          "match": "\\b@?[A-Za-z][A-Za-z0-9_-]*(?:\\.@?[A-Za-z][A-Za-z0-9_-]*)*(?=\\s*\\()"
         }
       ]
     },
@@ -87,7 +155,63 @@
       "patterns": [
         {
           "name": "variable.language.unobin",
-          "match": "@?[A-Za-z][A-Za-z0-9_-]*(?=\\.)"
+          "match": "(?<![A-Za-z0-9_-])(?:@core|@each|@self|action|data-source|input|local|resource)\\b(?=\\.)"
+        },
+        {
+          "name": "variable.other.readwrite.unobin",
+          "match": "\\b@?[A-Za-z][A-Za-z0-9_-]*(?=(?:\\?\\.)|\\.|\\[)"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.unobin",
+          "match": "=>|\\.\\.\\.|\\?\\?|\\|\\||&&|==|!=|<=|>=|[!+\\-*/<>]"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.section.block.begin.unobin",
+          "match": "\\{"
+        },
+        {
+          "name": "punctuation.section.block.end.unobin",
+          "match": "\\}"
+        },
+        {
+          "name": "punctuation.section.array.begin.unobin",
+          "match": "\\["
+        },
+        {
+          "name": "punctuation.section.array.end.unobin",
+          "match": "\\]"
+        },
+        {
+          "name": "punctuation.section.parens.begin.unobin",
+          "match": "\\("
+        },
+        {
+          "name": "punctuation.section.parens.end.unobin",
+          "match": "\\)"
+        },
+        {
+          "name": "punctuation.separator.comma.unobin",
+          "match": ","
+        },
+        {
+          "name": "punctuation.separator.key-value.unobin",
+          "match": ":"
+        },
+        {
+          "name": "punctuation.accessor.guarded.unobin",
+          "match": "\\?\\."
+        },
+        {
+          "name": "punctuation.accessor.dot.unobin",
+          "match": "\\."
         }
       ]
     }

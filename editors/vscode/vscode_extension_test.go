@@ -45,13 +45,96 @@ func TestExtensionStartsUnobinLSP(t *testing.T) {
 
 func TestTextMateGrammarIsJSON(t *testing.T) {
 	var grammar struct {
-		ScopeName string `json:"scopeName"`
-		Patterns  []any  `json:"patterns"`
+		ScopeName  string                 `json:"scopeName"`
+		Patterns   []any                  `json:"patterns"`
+		Repository map[string]textMateSet `json:"repository"`
 	}
 	readJSON(t, filepath.Join("syntaxes", "unobin.tmLanguage.json"), &grammar)
 
 	require.Equal(t, "source.unobin", grammar.ScopeName)
 	require.NotEmpty(t, grammar.Patterns)
+	for _, name := range []string{
+		"comments",
+		"strings",
+		"escapes",
+		"interpolations",
+		"declarations",
+		"properties",
+		"types",
+		"constants",
+		"selectors",
+		"functions",
+		"paths",
+		"operators",
+		"punctuation",
+	} {
+		require.Contains(t, grammar.Repository, name)
+		require.NotEmpty(t, grammar.Repository[name].Patterns)
+	}
+}
+
+func TestTextMateGrammarScopesMatchEditorScheme(t *testing.T) {
+	var grammar struct {
+		Repository map[string]textMateSet `json:"repository"`
+	}
+	readJSON(t, filepath.Join("syntaxes", "unobin.tmLanguage.json"), &grammar)
+	scopes := textMateScopes(grammar.Repository)
+
+	for _, scope := range []string{
+		"comment.line.number-sign.unobin",
+		"string.quoted.single.unobin",
+		"string.quoted.single.interpolated.unobin",
+		"string.quoted.triple.unobin",
+		"string.quoted.triple.interpolated.unobin",
+		"constant.character.escape.unobin",
+		"invalid.illegal.escape.unobin",
+		"meta.interpolation.unobin",
+		"keyword.declaration.unobin",
+		"keyword.control.unobin",
+		"keyword.other.directive.unobin",
+		"variable.other.property.unobin",
+		"storage.type.unobin",
+		"support.type.unobin",
+		"constant.language.unobin",
+		"constant.numeric.unobin",
+		"entity.name.function.selector.unobin",
+		"entity.name.function.call.unobin",
+		"variable.language.unobin",
+		"variable.other.readwrite.unobin",
+		"keyword.operator.unobin",
+		"punctuation.accessor.dot.unobin",
+		"punctuation.accessor.guarded.unobin",
+		"punctuation.separator.key-value.unobin",
+		"punctuation.section.block.begin.unobin",
+	} {
+		require.Contains(t, scopes, scope)
+	}
+}
+
+type textMateSet struct {
+	Patterns []textMatePattern `json:"patterns"`
+}
+
+type textMatePattern struct {
+	Name     string            `json:"name"`
+	Patterns []textMatePattern `json:"patterns"`
+}
+
+func textMateScopes(repository map[string]textMateSet) map[string]bool {
+	scopes := map[string]bool{}
+	var visit func(patterns []textMatePattern)
+	visit = func(patterns []textMatePattern) {
+		for _, pattern := range patterns {
+			if pattern.Name != "" {
+				scopes[pattern.Name] = true
+			}
+			visit(pattern.Patterns)
+		}
+	}
+	for _, set := range repository {
+		visit(set.Patterns)
+	}
+	return scopes
 }
 
 func readJSON(t *testing.T, path string, target any) {
