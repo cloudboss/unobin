@@ -121,6 +121,34 @@ func TestImportResolverServesCachedProjectLockImports(t *testing.T) {
 	require.Equal(t, "example.com/lib", src.GoImportPath)
 }
 
+func TestImportResolverServesCachedProjectLockPackageImports(t *testing.T) {
+	cacheRoot := t.TempDir()
+	cached := filepath.Join(cacheRoot, "imports", "example.com/lib", "abc123")
+	pkg := filepath.Join(cached, "ub", "helloer")
+	require.NoError(t, os.MkdirAll(pkg, 0o755))
+	lock := deps.NewProjectLock()
+	lock.ToolchainVersion = "dev"
+	lock.Deps["example.com/lib"] = &deps.ProjectLockDep{
+		Kind: deps.ProjectLockKindUB, Version: "v1.0.0", Commit: "abc123", Hash: "sha256:test",
+	}
+	root := writeUBProject(t, nil, lock)
+	cache := newProjectCacheWithRemote("", func() (cachedRemoteSource, error) {
+		return &resolve.RemoteResolver{CacheRoot: cacheRoot}, nil
+	})
+	project, err := cache.ProjectForPath(filepath.Join(root, deps.ProjectFileName))
+	require.NoError(t, err)
+	ref, err := resolve.ParseImportRef("example.com/lib//ub/helloer")
+	require.NoError(t, err)
+
+	src, ok, err := project.Resolver.ResolveNoFetch(ref)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, pkg, src.Path)
+	require.Equal(t, cached, src.ProjectPath)
+	require.Empty(t, src.ProjectSubdir)
+	require.Equal(t, "ub/helloer", src.PackageSubdir)
+}
+
 func TestImportResolverMissingRemoteCacheReturnsNoSource(t *testing.T) {
 	lock := deps.NewProjectLock()
 	lock.ToolchainVersion = "dev"

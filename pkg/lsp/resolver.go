@@ -102,12 +102,39 @@ func (r *ImportResolver) resolveCachedRemote(
 	if r.lock == nil || r.remote == nil {
 		return nil, false, nil
 	}
-	dep := deps.Dependency{URL: ref.URL, Subdir: ref.Subdir}
-	entry, ok := r.lock.Deps[dep.String()]
+	owner, entry, ok := cachedProjectLockOwner(r.lock, ref)
 	if !ok {
 		return nil, false, nil
 	}
 	cachedRef := *ref
+	cachedRef.ProjectSubdir = owner.Project.Subdir
+	cachedRef.PackageSubdir = ref.Subdir
 	cachedRef.Version = entry.Version
 	return r.remote.CachedSource(&cachedRef, entry.Commit)
+}
+
+func cachedProjectLockOwner(
+	lock *deps.ProjectLock,
+	ref *resolve.RemoteImport,
+) (deps.PackageOwner, *deps.ProjectLockDep, bool) {
+	projects := make([]deps.ProjectID, 0, len(lock.Deps))
+	entries := make(map[deps.Dependency]*deps.ProjectLockDep, len(lock.Deps))
+	for id, entry := range lock.Deps {
+		dep, err := deps.ParseDependency(id)
+		if err != nil {
+			continue
+		}
+		project := deps.ProjectIDFromDependency(dep)
+		projects = append(projects, project)
+		entries[dep] = entry
+	}
+	owner, ok := deps.MostSpecificProject(projects, deps.RemotePackage{
+		URL:    ref.URL,
+		Subdir: ref.Subdir,
+	})
+	if !ok {
+		return deps.PackageOwner{}, nil, false
+	}
+	entry := entries[owner.Project.Dependency()]
+	return owner, entry, entry != nil
 }
