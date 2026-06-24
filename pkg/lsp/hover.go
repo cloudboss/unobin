@@ -18,13 +18,13 @@ func HoverForText(
 	pos protocol.Position,
 	projects *ProjectCache,
 ) (*protocol.Hover, *protocol.ResponseError) {
-	file, err := syntax.ParseSource(path, []byte(text))
-	if err != nil {
-		return nil, protocol.InvalidParams(err.Error())
-	}
 	offset, ok := LSPToOffset(text, pos)
 	if !ok {
 		return nil, protocol.InvalidParams("invalid document position")
+	}
+	file, err := syntax.ParseSource(path, []byte(text))
+	if err != nil {
+		return nil, nil
 	}
 	if projects == nil {
 		projects = NewProjectCache("")

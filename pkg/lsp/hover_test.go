@@ -92,6 +92,15 @@ func TestHoverUnknownTarget(t *testing.T) {
 	require.Nil(t, hover)
 }
 
+func TestHoverInvalidSourceReturnsNoHover(t *testing.T) {
+	root, path, source := inputDeclarationCompletionProject(t)
+	source, pos := inputDeclarationSourceWithPrefix(t, source, "h")
+
+	hover, rpcErr := HoverForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	require.Nil(t, hover)
+}
+
 func TestSessionHoverReturnsContents(t *testing.T) {
 	_, path, source := completionProject(t)
 	session := NewSession("dev")
@@ -105,6 +114,19 @@ func TestSessionHoverReturnsContents(t *testing.T) {
 	hover, ok := result.(*protocol.Hover)
 	require.True(t, ok)
 	require.Contains(t, hover.Contents.Value, "input region: string")
+}
+
+func TestSessionHoverInvalidSourceReturnsNoHover(t *testing.T) {
+	_, path, source := inputDeclarationCompletionProject(t)
+	source, pos := inputDeclarationSourceWithPrefix(t, source, "h")
+	session := NewSession("dev")
+	uri := PathToFileURI(path)
+	rpcErr := openDocument(t, session, uri, 1, source)
+	require.Nil(t, rpcErr)
+
+	result, rpcErr := requestHover(t, session, uri, pos)
+	require.Nil(t, rpcErr)
+	require.Nil(t, result)
 }
 
 func requestHover(

@@ -293,6 +293,15 @@ func TestDefinitionFunctionWithMissingCachedSourceReturnsNoLocations(t *testing.
 	require.Empty(t, locations)
 }
 
+func TestDefinitionInvalidSourceReturnsNoLocations(t *testing.T) {
+	root, path, source := inputDeclarationCompletionProject(t)
+	source, pos := inputDeclarationSourceWithPrefix(t, source, "h")
+
+	locations, rpcErr := DefinitionForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	require.Empty(t, locations)
+}
+
 func TestSessionDefinitionReturnsLocations(t *testing.T) {
 	root, factoryPath, factorySource, _ := definitionProject(t)
 	session := NewSession("dev")
