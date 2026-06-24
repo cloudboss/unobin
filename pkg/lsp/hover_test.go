@@ -21,6 +21,16 @@ func TestHoverInputTypeAndDescription(t *testing.T) {
 	require.Contains(t, hover.Contents.Value, "AWS region to use.")
 }
 
+func TestHoverLocalInferredType(t *testing.T) {
+	root, path, source := completionProject(t)
+
+	hover, rpcErr := HoverForText(path, source,
+		positionInText(source, "local.name", "name"), NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	require.NotNil(t, hover)
+	require.Equal(t, "local name: string", hover.Contents.Value)
+}
+
 func TestHoverGoSchemaFieldType(t *testing.T) {
 	root, path, source, _ := goDefinitionProject(t)
 

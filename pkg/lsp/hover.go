@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/check"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/lsp/protocol"
@@ -45,7 +46,7 @@ func HoverForText(
 	if tok.text == "" {
 		return nil, nil
 	}
-	hover, err := hoverForToken(path, tok.text, decls, projects)
+	hover, err := hoverForToken(path, tok.text, body, decls, projects)
 	if err != nil {
 		return nil, protocol.InternalError(err)
 	}
@@ -115,6 +116,7 @@ func libraryConfigInputHover(
 func hoverForToken(
 	path string,
 	token string,
+	body *syntax.FactoryBody,
 	decls definitionDecls,
 	projects *ProjectCache,
 ) (*protocol.Hover, error) {
@@ -129,7 +131,11 @@ func hoverForToken(
 		}
 	case "local":
 		if local, ok := decls.locals[parts[1]]; ok {
-			return plainHover("local " + local.Name.Name), nil
+			text, err := localHoverText(path, body, local, projects)
+			if err != nil {
+				return nil, err
+			}
+			return plainHover(text), nil
 		}
 	case string(syntax.NodeResource):
 		return hoverForNodeRef(path, parts, syntax.NodeResource, decls, projects)
@@ -171,6 +177,32 @@ func hoverForNodeRef(
 	}
 	return plainHover(fmt.Sprintf("%s %s: %s.%s",
 		node.Kind, node.Name.Name, node.Selector.Alias.Name, node.Selector.Export.Name)), nil
+}
+
+func localHoverText(
+	path string,
+	body *syntax.FactoryBody,
+	local syntax.LocalDecl,
+	projects *ProjectCache,
+) (string, error) {
+	fallback := "local " + local.Name.Name
+	if body == nil || local.Value == nil {
+		return fallback, nil
+	}
+	libs, err := diagnosticLibraries(path, *body, projects)
+	if err != nil {
+		return "", err
+	}
+	var inferred *typecheck.Type
+	check.NewSyntax(*body, libs).References(func(expr parse.Expr, typ typecheck.Type) {
+		if expr == local.Value {
+			inferred = &typ
+		}
+	})
+	if inferred == nil {
+		return fallback, nil
+	}
+	return fmt.Sprintf("local %s: %s", local.Name.Name, inferred.String()), nil
 }
 
 func inputHoverText(input syntax.InputDecl) string {
