@@ -87,7 +87,7 @@ func completionForSourceContext(
 		return completionList(stackBlockCompletionItems()), true
 	}
 	if inputDeclarationCompletionContext(text, offset) {
-		return completionList(inputDeclarationCompletionItems()), true
+		return completionList(inputDeclarationCompletionItems(text, offset)), true
 	}
 	if factoryBlockCompletionContext(text, offset) {
 		return completionList(factoryBlockCompletionItems()), true
@@ -131,7 +131,7 @@ func inputDeclarationCompletionContext(text string, offset int) bool {
 	if candidate == "" {
 		return true
 	}
-	for _, key := range []string{"type", "description", "default", "sensitive"} {
+	for _, key := range []string{"type", "description", "default", "@sensitive"} {
 		if strings.HasPrefix(key, candidate) || strings.HasPrefix(candidate, key+":") {
 			return true
 		}
@@ -165,11 +165,7 @@ func factoryBlockCompletionContext(text string, offset int) bool {
 }
 
 func completionCandidateMatches(text string, offset int, keys []string) bool {
-	line := strings.TrimSpace(currentLinePrefix(text, offset))
-	candidate := line
-	if candidate == "" {
-		candidate = strings.TrimSpace(currentLineSuffix(text, offset))
-	}
+	candidate := completionCandidatePrefix(text, offset)
 	if candidate == "" {
 		return true
 	}
@@ -179,6 +175,23 @@ func completionCandidateMatches(text string, offset int, keys []string) bool {
 		}
 	}
 	return false
+}
+
+func completionCandidatePrefix(text string, offset int) string {
+	line := strings.TrimSpace(currentLinePrefix(text, offset))
+	if line != "" {
+		return line
+	}
+	return strings.TrimSpace(currentLineSuffix(text, offset))
+}
+
+func completionFieldKeyPrefix(text string, offset int) string {
+	candidate := strings.TrimSpace(currentLinePrefix(text, offset))
+	before, _, ok := strings.Cut(candidate, ":")
+	if ok {
+		return strings.TrimSpace(before)
+	}
+	return candidate
 }
 
 func insideNamedBlock(text string, offset int, name string) bool {
@@ -213,7 +226,7 @@ func parseCompletionSource(path string, text string, offset int) (*syntax.File, 
 	if err == nil {
 		return file, nil
 	}
-	for _, insertion := range []string{"complete", ": null"} {
+	for _, insertion := range []string{"complete", ": null", "complete: null"} {
 		repaired := text[:offset] + insertion + text[offset:]
 		file, err := syntax.ParseSource(path, []byte(repaired))
 		if err == nil {
@@ -250,6 +263,22 @@ func completionAtOffset(
 		}
 		return goConfigFieldCompletions(path, cfg.Alias.Name, fieldPath, decls, projects)
 	}
+	for _, output := range body.Outputs {
+		fieldPath, ok := objectKeyPathAtOffset(text, output.Body, offset)
+		if ok {
+			list, found := outputFieldCompletions(text, offset, output.Body, fieldPath)
+			if found {
+				return list, true, nil
+			}
+		}
+		if objectBodyKeyCompletionContext(text, output.Body, offset) {
+			fieldPrefix := strings.TrimSpace(currentObjectEntryPrefix(text, offset))
+			list, found := outputFieldCompletions(text, offset, output.Body, fieldPrefix)
+			if found {
+				return list, true, nil
+			}
+		}
+	}
 	for _, node := range allNodes(*body) {
 		if tokenAtOffset(text, offset).text == "" {
 			valuePath, ok := objectValuePathAtOffset(node.Body, offset)
@@ -259,11 +288,11 @@ func completionAtOffset(
 		}
 		fieldPath, ok := objectKeyPathAtOffset(text, node.Body, offset)
 		if ok {
-			return nodeFieldCompletions(path, node, fieldPath, decls, projects)
+			return nodeFieldCompletions(path, text, offset, node, fieldPath, decls, projects)
 		}
 		if objectBodyKeyCompletionContext(text, node.Body, offset) {
 			fieldPrefix := strings.TrimSpace(currentObjectEntryPrefix(text, offset))
-			return nodeFieldCompletions(path, node, fieldPrefix, decls, projects)
+			return nodeFieldCompletions(path, text, offset, node, fieldPrefix, decls, projects)
 		}
 	}
 	return protocol.CompletionList{}, false, nil
@@ -461,8 +490,12 @@ func stackEncryptionCompletionItems() []protocol.CompletionItem {
 	return keywordCompletionItems("env-key", "kms", "noop")
 }
 
-func inputDeclarationCompletionItems() []protocol.CompletionItem {
-	return keywordCompletionItems("type", "description", "default", "sensitive")
+func inputDeclarationCompletionItems(text string, offset int) []protocol.CompletionItem {
+	items := fieldKeyCompletionItems(
+		[]string{"type", "description", "default", "@sensitive"},
+		completionFieldKeyPrefix(text, offset), nil,
+	)
+	return withMetaKeyTextEdits(text, offset, items)
 }
 
 func typeCompletionItems() []protocol.CompletionItem {
@@ -662,20 +695,32 @@ func nodeValueCompletions(
 
 func nodeFieldCompletions(
 	path string,
+	text string,
+	offset int,
 	node syntax.NodeDecl,
 	fieldPath string,
 	decls definitionDecls,
 	projects *ProjectCache,
 ) (protocol.CompletionList, bool, error) {
+	metaItems := nodeMetaCompletionItems(text, offset, node.Kind, fieldPath, node.Body)
 	if list, found, err := goNodeFieldCompletions(
 		path, node, fieldPath, decls, projects,
 	); found || err != nil {
-		return list, found, err
+		if err != nil {
+			return list, found, err
+		}
+		return completionList(combineCompletionItems(list.Items, metaItems)), found, nil
 	}
 	if list, found, err := compositeNodeFieldCompletions(
 		path, node, fieldPath, decls, projects,
 	); found || err != nil {
-		return list, found, err
+		if err != nil {
+			return list, found, err
+		}
+		return completionList(combineCompletionItems(list.Items, metaItems)), found, nil
+	}
+	if len(metaItems) > 0 {
+		return completionList(metaItems), true, nil
 	}
 	return completionList([]protocol.CompletionItem{}), true, nil
 }
@@ -920,6 +965,108 @@ func goConfigFieldCompletions(
 		return protocol.CompletionList{}, found, err
 	}
 	return completionList(fieldCompletionItems(schema.Configuration, fieldPath, nil)), true, nil
+}
+
+func outputFieldCompletions(
+	text string,
+	offset int,
+	obj *parse.ObjectLit,
+	fieldPath string,
+) (protocol.CompletionList, bool) {
+	if fieldParentPath(fieldPath) != "" {
+		return protocol.CompletionList{}, false
+	}
+	items := fieldKeyCompletionItems(
+		[]string{"value", "description", "@sensitive"}, fieldPath, obj,
+	)
+	return completionList(withMetaKeyTextEdits(text, offset, items)), true
+}
+
+func nodeMetaCompletionItems(
+	text string,
+	offset int,
+	kind syntax.NodeKind,
+	fieldPath string,
+	obj *parse.ObjectLit,
+) []protocol.CompletionItem {
+	items := fieldKeyCompletionItems(nodeMetaKeyNames(kind), fieldPath, obj)
+	return withMetaKeyTextEdits(text, offset, items)
+}
+
+func nodeMetaKeyNames(kind syntax.NodeKind) []string {
+	names := []string{"@depends-on", "@for-each", "@lock", "@timeout"}
+	if kind == syntax.NodeAction {
+		names = append(names, "@trigger")
+	}
+	return names
+}
+
+func fieldKeyCompletionItems(
+	names []string,
+	fieldPath string,
+	obj *parse.ObjectLit,
+) []protocol.CompletionItem {
+	parent := fieldParentPath(fieldPath)
+	if parent != "" {
+		return nil
+	}
+	prefix := fieldLeafPrefix(fieldPath)
+	present := objectFieldNamesAtPath(obj, parent)
+	if fieldPath != "" {
+		delete(present, fieldPath)
+	}
+	return namedFieldCompletionItems(names, prefix, present)
+}
+
+func withMetaKeyTextEdits(
+	text string,
+	offset int,
+	items []protocol.CompletionItem,
+) []protocol.CompletionItem {
+	replacement := completionReplacementRange(text, offset)
+	out := make([]protocol.CompletionItem, 0, len(items))
+	for _, item := range items {
+		if !strings.HasPrefix(item.Label, "@") {
+			out = append(out, item)
+			continue
+		}
+		item.FilterText = item.Label
+		item.TextEdit = &protocol.TextEdit{Range: replacement, NewText: item.Label}
+		out = append(out, item)
+	}
+	return out
+}
+
+func completionReplacementRange(text string, offset int) protocol.Range {
+	start := offset
+	if tok := tokenAtOffset(text, offset); tok.text != "" && tok.start <= offset {
+		start = tok.start
+	}
+	pos := OffsetToLSP(text, offset)
+	return protocol.Range{Start: OffsetToLSP(text, start), End: pos}
+}
+
+func combineCompletionItems(groups ...[]protocol.CompletionItem) []protocol.CompletionItem {
+	byLabel := map[string]protocol.CompletionItem{}
+	labels := make([]string, 0)
+	for _, group := range groups {
+		for _, item := range group {
+			if item.Label == "" {
+				continue
+			}
+			if _, ok := byLabel[item.Label]; ok {
+				continue
+			}
+			byLabel[item.Label] = item
+			labels = append(labels, item.Label)
+		}
+	}
+	slices.Sort(labels)
+	items := make([]protocol.CompletionItem, 0, len(labels))
+	for _, label := range labels {
+		items = append(items, byLabel[label])
+	}
+	return items
 }
 
 func fieldCompletionItems(

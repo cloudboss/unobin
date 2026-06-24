@@ -103,6 +103,18 @@ func TestCompletionInputDeclarationKeys(t *testing.T) {
 	requireCompletionLabels(t, list, "type", "description", "default")
 }
 
+func TestCompletionInputDeclarationMetaKeys(t *testing.T) {
+	root, path, source := completionProject(t)
+	source, pos := sourceWithCompletionCursor(
+		t, source, "description: 'AWS region to use.'", "@",
+	)
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "@sensitive")
+	requireNotCompletionLabels(t, list, "default", "description", "sensitive", "type")
+}
+
 func TestCompletionTypeConstructors(t *testing.T) {
 	root, path, source := completionProject(t)
 	source, pos := sourceWithCompletionCursor(t, source, "type: string", "type: ")
@@ -134,6 +146,47 @@ func TestCompletionGoBackedBodyFieldsAtBlankPosition(t *testing.T) {
 	require.Nil(t, rpcErr)
 	requireCompletionLabels(t, list, "server-name")
 	requireNotCompletionLabels(t, list, "id", "settings")
+}
+
+func TestCompletionResourceBodyMetaKeys(t *testing.T) {
+	root, path, source, _ := goDefinitionProject(t)
+	source, pos := sourceWithCompletionCursor(t, source, "server-name: 'web'", "@")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "@depends-on", "@for-each", "@lock", "@timeout")
+	requireNotCompletionLabels(t, list, "@trigger")
+}
+
+func TestCompletionResourceBodyMetaKeysReplaceTypedAt(t *testing.T) {
+	root, path, source, _ := goDefinitionProject(t)
+	source, pos := sourceWithCompletionCursor(t, source, "server-name: 'web'", "@")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	item := requireCompletionItem(t, list, "@for-each")
+	require.Equal(t, "@for-each", item.FilterText)
+	require.Equal(t, "@for-each", applyCompletionTextEdit(t, source, item, "@"))
+}
+
+func TestCompletionResourceBodyMetaKeysKeepTypedPrefix(t *testing.T) {
+	root, path, source, _ := goDefinitionProject(t)
+	source, pos := sourceWithCompletionCursor(t, source, "server-name: 'web'", "@f")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	item := requireCompletionItem(t, list, "@for-each")
+	require.Equal(t, "@for-each", item.FilterText)
+	require.Equal(t, "@for-each", applyCompletionTextEdit(t, source, item, "@f"))
+}
+
+func TestCompletionActionBodyMetaKeys(t *testing.T) {
+	root, path, source, _ := goDefinitionProject(t)
+	source, pos := sourceWithCompletionCursor(t, source, "version: def.slug('v1')", "@")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "@depends-on", "@for-each", "@lock", "@timeout", "@trigger")
 }
 
 func TestCompletionGoBackedBodyKeyPrefixUsesSchemaContext(t *testing.T) {
@@ -184,6 +237,16 @@ func TestCompletionGoBackedFieldValueDoesNotFallBackToRoots(t *testing.T) {
 	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
 	require.Nil(t, rpcErr)
 	require.Empty(t, list.Items)
+}
+
+func TestCompletionOutputMetaKeys(t *testing.T) {
+	root, path, source := completionProject(t)
+	source, pos := sourceWithCompletionCursor(t, source, "value: null", "@")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "@sensitive")
+	requireNotCompletionLabels(t, list, "sensitive")
 }
 
 func TestCompletionRoots(t *testing.T) {
@@ -428,6 +491,39 @@ func requireCompletionLabels(
 	for _, label := range labels {
 		require.Truef(t, byLabel[label], "missing completion label %q in %#v", label, list.Items)
 	}
+}
+
+func requireCompletionItem(
+	t *testing.T,
+	list protocol.CompletionList,
+	label string,
+) protocol.CompletionItem {
+	t.Helper()
+	for _, item := range list.Items {
+		if item.Label == label {
+			return item
+		}
+	}
+	t.Fatalf("missing completion label %q in %#v", label, list.Items)
+	return protocol.CompletionItem{}
+}
+
+func applyCompletionTextEdit(
+	t *testing.T,
+	source string,
+	item protocol.CompletionItem,
+	inserted string,
+) string {
+	t.Helper()
+	require.NotNil(t, item.TextEdit)
+	start, ok := LSPToOffset(source, item.TextEdit.Range.Start)
+	require.True(t, ok)
+	end, ok := LSPToOffset(source, item.TextEdit.Range.End)
+	require.True(t, ok)
+	require.Equal(t, inserted, source[start:end])
+	edited := source[:start] + item.TextEdit.NewText + source[end:]
+	require.NotContains(t, edited, "@@for-each")
+	return edited[start : start+len(item.TextEdit.NewText)]
 }
 
 func requireNotCompletionLabels(

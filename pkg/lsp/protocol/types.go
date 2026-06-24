@@ -248,8 +248,10 @@ type CompletionList struct {
 
 // CompletionItem is one completion candidate.
 type CompletionItem struct {
-	Label string             `json:"label"`
-	Kind  CompletionItemKind `json:"kind,omitempty"`
+	Label      string             `json:"label"`
+	Kind       CompletionItemKind `json:"kind,omitempty"`
+	FilterText string             `json:"filterText,omitempty"`
+	TextEdit   *TextEdit          `json:"textEdit,omitempty"`
 }
 
 // HoverParams is a hover request.

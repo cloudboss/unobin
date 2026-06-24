@@ -45,6 +45,16 @@ func TestPackageDisablesWordSuggestionsForUnobin(t *testing.T) {
 		pkg.Contributes.ConfigurationDefaults["[unobin]"]["editor.wordBasedSuggestions"])
 }
 
+func TestLanguageConfigurationIncludesMetaKeyWords(t *testing.T) {
+	var config struct {
+		WordPattern string `json:"wordPattern"`
+	}
+	readJSON(t, "language-configuration.json", &config)
+
+	require.Contains(t, config.WordPattern, "@?")
+	require.Contains(t, config.WordPattern, "A-Za-z0-9_-")
+}
+
 func TestPackageCanBuildForPublishing(t *testing.T) {
 	var pkg struct {
 		Scripts    map[string]string `json:"scripts"`
