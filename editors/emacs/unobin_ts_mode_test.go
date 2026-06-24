@@ -51,6 +51,64 @@ func TestUnobinTsModeByteCompiles(t *testing.T) {
 	require.NoError(t, err, string(out))
 }
 
+func TestUnobinTsModeFontifiesSample(t *testing.T) {
+	emacs, err := exec.LookPath("emacs")
+	if err != nil {
+		t.Skip("emacs not found")
+	}
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	modePath := filepath.Join(cwd, "unobin-ts-mode.el")
+	helperPath := filepath.Join(cwd, "testdata", "fontify.el")
+	samplePath := filepath.Join(cwd, "testdata", "highlights.txt")
+	grammarDir := filepath.Clean(filepath.Join(
+		cwd, "..", "..", "tree-sitter-unobin", "src",
+	))
+	libraryPath := filepath.Join(grammarDir, "libtree-sitter-unobin.so")
+	if _, err := os.Stat(libraryPath); err != nil {
+		t.Skip("tree-sitter Unobin shared library not found")
+	}
+	form := fmt.Sprintf("(unobin-test-fontify %s %s %s)",
+		strconv.Quote(grammarDir),
+		strconv.Quote(modePath),
+		strconv.Quote(samplePath),
+	)
+
+	cmd := exec.Command(
+		emacs, "-Q", "--batch", "--load", helperPath, "--eval", form,
+	)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+}
+
+func TestUnobinTsModeFallbackQueriesCompile(t *testing.T) {
+	emacs, err := exec.LookPath("emacs")
+	if err != nil {
+		t.Skip("emacs not found")
+	}
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	modePath := filepath.Join(cwd, "unobin-ts-mode.el")
+	helperPath := filepath.Join(cwd, "testdata", "fontify.el")
+	grammarDir := filepath.Clean(filepath.Join(
+		cwd, "..", "..", "tree-sitter-unobin", "src",
+	))
+	libraryPath := filepath.Join(grammarDir, "libtree-sitter-unobin.so")
+	if _, err := os.Stat(libraryPath); err != nil {
+		t.Skip("tree-sitter Unobin shared library not found")
+	}
+	form := fmt.Sprintf("(unobin-test-fallback-queries-compile %s %s)",
+		strconv.Quote(grammarDir),
+		strconv.Quote(modePath),
+	)
+
+	cmd := exec.Command(
+		emacs, "-Q", "--batch", "--load", helperPath, "--eval", form,
+	)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+}
+
 func TestUnobinTsModeUsesCheckoutGrammarRecipe(t *testing.T) {
 	emacs, err := exec.LookPath("emacs")
 	if err != nil {
@@ -59,16 +117,23 @@ func TestUnobinTsModeUsesCheckoutGrammarRecipe(t *testing.T) {
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
 	modePath := filepath.Join(cwd, "unobin-ts-mode.el")
+	helperPath := filepath.Join(cwd, "testdata", "fontify.el")
 	grammarDir := filepath.Clean(filepath.Join(cwd, "..", "..", "tree-sitter-unobin"))
 	form := fmt.Sprintf(
-		`(let* ((recipe (unobin-ts-mode--grammar-recipe))
-		        (source (nth 1 recipe)))
-		   (unless (equal source %s)
-		     (error "expected local grammar source, got %%S" recipe)))`,
-		strconv.Quote(grammarDir),
+		"(unobin-test-checkout-recipe %s)", strconv.Quote(grammarDir),
 	)
 
-	cmd := exec.Command(emacs, "-Q", "--batch", "--load", modePath, "--eval", form)
+	cmd := exec.Command(
+		emacs,
+		"-Q",
+		"--batch",
+		"--load",
+		modePath,
+		"--load",
+		helperPath,
+		"--eval",
+		form,
+	)
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(out))
 }

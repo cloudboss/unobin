@@ -1,6 +1,7 @@
 package tree_sitter_unobin_test
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"testing"
@@ -17,6 +18,22 @@ func TestQueryFilesExist(t *testing.T) {
 		body := readQueryFile(t, path)
 		require.NotEmpty(t, body)
 	}
+}
+
+func TestPackageScriptsPinTreeSitterCLI(t *testing.T) {
+	var pkg struct {
+		Scripts map[string]string `json:"scripts"`
+	}
+	body, err := os.ReadFile("package.json")
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(body, &pkg))
+
+	for _, name := range []string{"generate", "compile", "test"} {
+		script := pkg.Scripts[name]
+		require.Contains(t, script, "tree-sitter-cli@0.26.9")
+		require.Contains(t, script, "tree-sitter")
+	}
+	require.Contains(t, pkg.Scripts["compile"], "src/libtree-sitter-unobin.so")
 }
 
 func TestQueriesValidateWithTreeSitter(t *testing.T) {

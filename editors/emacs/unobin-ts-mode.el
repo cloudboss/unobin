@@ -52,20 +52,110 @@ Emacs session.  When t, install automatically."
     "tree_sitter_unobin"))
 
 (defconst unobin-ts-mode--fallback-highlights
-  "
-(comment) @font-lock-comment-face
+  (string-join
+   '(
+     "(comment) @font-lock-comment-face"
+     ""
+     "["
+     "  (string)"
+     "  (interpolated_string)"
+     "] @font-lock-string-face"
+     ""
+     "["
+     "  \"else\""
+     "  \"for\""
+     "  \"if\""
+     "  \"in\""
+     "  \"then\""
+     "  \"when\""
+     "] @font-lock-keyword-face"
+     ""
+     "["
+     "  \"library-config\""
+     "  \"list\""
+     "  \"map\""
+     "  \"object\""
+     "  \"open\""
+     "  \"optional\""
+     "  \"tuple\""
+     "] @font-lock-type-face"
+     ""
+     "(atomic_type) @font-lock-type-face"
+     ""
+     "["
+     "  (boolean)"
+     "  (null)"
+     "  (number)"
+     "] @font-lock-constant-face"
+     ""
+     "["
+     "  \"!\""
+     "  \"!=\""
+     "  \"&&\""
+     "  \"*\""
+     "  \"+\""
+     "  \"-\""
+     "  \"/\""
+     "  \"<\""
+     "  \"<=\""
+     "  \"==\""
+     "  \">\""
+     "  \">=\""
+     "  \"??\""
+     "  \"=>\""
+     "  \"||\""
+     "  \"...\""
+     "] @font-lock-operator-face"
+     ""
+     "["
+     "  \"(\""
+     "  \")\""
+     "  \"[\""
+     "  \"]\""
+     "  \"{\""
+     "  \"}\""
+     "] @font-lock-bracket-face"
+     ""
+     "["
+     "  \":\""
+     "  \",\""
+     "  \".\""
+     "  \"?.\""
+     "] @font-lock-delimiter-face"
+     ""
+     "(field_key) @font-lock-property-name-face"
+     ""
+     "(path (identifier) @font-lock-variable-name-face)"
+     "(binding (identifier) @font-lock-variable-name-face)"
+     "(primary_expression (identifier) @font-lock-variable-name-face)"
+     ""
+     "((field_key (identifier) @font-lock-keyword-face)"
+     " (#match? @font-lock-keyword-face \"^(actions|configurations|constraints|data-sources|deps|encryption|factory|imports|inputs|library|library-configs|locals|outputs|parallelism|pin|project|project-lock|replace|requires|resources|stack|state|state-moves|toolchain|unobin-version|version)$\"))"
+     ""
+     "((field_key (identifier) @font-lock-preprocessor-face)"
+     " (#match? @font-lock-preprocessor-face \"^@\"))"
+     ""
+     "((path (identifier) @font-lock-builtin-face)"
+     " (#match? @font-lock-builtin-face \"^(@core|@each|@self|action|data-source|input|local|resource)$\"))"
+     ""
+     "(selector (identifier) @font-lock-function-name-face)"
+     ""
+     "(call"
+     "  function: (identifier) @font-lock-function-name-face)"
+     ""
+     "(call"
+     "  function: (path (identifier) @font-lock-function-name-face))"
+     )
+   "\n"))
 
-[(string) (interpolated_string)] @font-lock-string-face
+(defconst unobin-ts-mode--field-keywords
+  '("actions" "configurations" "constraints" "data-sources" "deps" "encryption"
+    "factory" "imports" "inputs" "library" "library-configs" "locals" "outputs"
+    "parallelism" "pin" "project" "project-lock" "replace" "requires" "resources"
+    "stack" "state" "state-moves" "toolchain" "unobin-version" "version"))
 
-(field_key) @font-lock-property-name-face
-
-(selector (identifier) @font-lock-function-name-face)
-
-(call function: (identifier) @font-lock-function-name-face)
-(call function: (path) @font-lock-function-name-face)
-
-(identifier) @font-lock-variable-name-face
-")
+(defconst unobin-ts-mode--reference-roots
+  '("@core" "@each" "@self" "action" "data-source" "input" "local" "resource"))
 
 (defvar unobin-ts-mode--install-asked nil)
 
@@ -108,13 +198,67 @@ Emacs session.  When t, install automatically."
         (buffer-string))
     unobin-ts-mode--fallback-highlights))
 
+(defun unobin-ts-mode--emacs-regexp (regexp)
+  "Return REGEXP in Emacs regular expression syntax."
+  (cond
+   ((string-match-p "\\`^(.*)$\\'" regexp)
+    (concat "\\`\\("
+            (replace-regexp-in-string
+             "|" "\\|" (substring regexp 2 -2) t t)
+            "\\)\\'"))
+   ((string-prefix-p "^" regexp)
+    (concat "\\`" (substring regexp 1)))
+   (t regexp)))
+
+(defun unobin-ts-mode--emacs-query (query)
+  "Return QUERY with Tree-sitter predicates translated for Emacs."
+  (with-temp-buffer
+    (insert query)
+    (goto-char (point-min))
+    (while (re-search-forward
+            "(#match\\?? \\(@[-[:alnum:]_]+\\) \\\"\\([^\\\"]+\\)\\\")"
+            nil t)
+      (replace-match
+       (format "(#match %S %s)"
+               (unobin-ts-mode--emacs-regexp (match-string 2))
+               (match-string 1))
+       t t))
+    (buffer-string)))
+
+(defun unobin-ts-mode--field-keyword-query ()
+  "Return the field keyword override query."
+  (mapconcat
+   (lambda (word)
+     (format "((field_key) @font-lock-keyword-face (#equal %S @font-lock-keyword-face))"
+             word))
+   unobin-ts-mode--field-keywords
+   "\n"))
+
+(defun unobin-ts-mode--reference-root-query ()
+  "Return the reference root override query."
+  (mapconcat
+   (lambda (word)
+     (format "((path (identifier) @font-lock-builtin-face) (#equal %S @font-lock-builtin-face))"
+             word))
+   unobin-ts-mode--reference-roots
+   "\n"))
+
 (defun unobin-ts-mode--font-lock-settings ()
   "Return Tree-sitter font-lock settings for `unobin-ts-mode'."
   (when (fboundp 'treesit-font-lock-rules)
     (treesit-font-lock-rules
      :language unobin-ts-mode--language
+     :override t
      :feature 'highlight
-     (unobin-ts-mode--highlight-query))))
+     (unobin-ts-mode--emacs-query (unobin-ts-mode--highlight-query))
+     :language unobin-ts-mode--language
+     :override t
+     :feature 'highlight
+     (unobin-ts-mode--field-keyword-query)
+     :language unobin-ts-mode--language
+     :override t
+     :feature 'highlight
+     (unobin-ts-mode--reference-root-query))))
 
 (defun unobin-ts-mode--grammar-recipe ()
   "Return the Tree-sitter grammar recipe for Unobin."

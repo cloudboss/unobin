@@ -1,0 +1,23 @@
+# highlight sample
+factory: {
+  inputs: {
+    name: {
+      type: string
+      description: 'Name'
+    }
+    count: { type: optional(integer) }
+  }
+  locals: {
+    interpolated: $'name={{ input.name }}'
+    enabled: true
+    missing: null
+    math: (input.count ?? 0) + 1 >= 2 && !false
+    ids: [ for s in input.subnets : s.id when s.public ]
+  }
+  resources: {
+    server: example.web {
+      name: local.interpolated
+      tags.env: 'dev'
+    }
+  }
+}

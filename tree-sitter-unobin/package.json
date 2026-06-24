@@ -5,8 +5,9 @@
   "main": "grammar.js",
   "license": "MIT",
   "scripts": {
-    "generate": "tree-sitter generate",
-    "test": "tree-sitter test"
+    "generate": "npm exec --package=tree-sitter-cli@0.26.9 -- tree-sitter generate",
+    "compile": "npm exec --package=tree-sitter-cli@0.26.9 -- tree-sitter build -o src/libtree-sitter-unobin.so",
+    "test": "npm exec --package=tree-sitter-cli@0.26.9 -- tree-sitter test"
   },
   "devDependencies": {
     "tree-sitter-cli": "0.26.9"
