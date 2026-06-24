@@ -1,0 +1,23 @@
+name: docs
+
+on:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version label for this build.
+        required: true
+        type: string
+
+jobs:
+  publish:
+    permissions:
+      contents: write
+      id-token: write
+    uses: cloudboss/cloudboss-docs/.github/workflows/docs.yml@v0.2.0
+    with:
+      version: ${{ inputs.version || github.ref_name }}
+      setup-go: true
+      generate: go run ./cmd/hack docs all
