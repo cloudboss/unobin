@@ -3,14 +3,18 @@ package lsp
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/internal/ubtest"
+	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lsp/protocol"
+	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
 func TestDiagnosticFromSingleParseError(t *testing.T) {
@@ -44,6 +48,39 @@ func TestDiagnosticsFixtures(t *testing.T) {
 		diags := DiagnosticsForText(diagnosticFixturePath(name), string(src))
 		return "", diagnosticMessages(diags)
 	}, ubtest.Substring())
+}
+
+func TestDiagnosticsUseCachedGoSchema(t *testing.T) {
+	root, sourcePath, source := diagnosticProjectWithFixture(t, "go-field-typo")
+	goDir, err := filepath.Abs(filepath.Join("..", "goschema", "testdata", "definition"))
+	require.NoError(t, err)
+	require.NoError(t, deps.WriteProject(filepath.Join(root, deps.ProjectFileName), &deps.Project{
+		Requires: map[deps.Dependency]deps.Requirement{},
+		Replace: map[deps.Dependency]string{
+			{URL: "example.com/definition"}: goDir,
+		},
+	}))
+	cache := NewProjectCache(root)
+
+	diags := DiagnosticsForTextWithProjects(sourcePath, source, cache)
+	require.NotEmpty(t, diags)
+	require.Contains(t, strings.Join(diagnosticMessages(diags), "\n"), "unknown-field")
+}
+
+func TestDiagnosticsMissingRemoteCacheDoesNotPublishDiagnostic(t *testing.T) {
+	root, sourcePath, source := diagnosticProjectWithFixture(t, "missing-remote")
+	lock := deps.NewProjectLock()
+	lock.ToolchainVersion = "dev"
+	lock.Deps["example.com/missing"] = &deps.ProjectLockDep{
+		Kind: deps.ProjectLockKindGo, Version: "v1.0.0", Commit: "missing",
+	}
+	require.NoError(t, deps.WriteProjectLock(filepath.Join(root, deps.ProjectLockFileName), lock))
+	cache := newProjectCacheWithRemote(root, func() (cachedRemoteSource, error) {
+		return &resolve.RemoteResolver{CacheRoot: t.TempDir()}, nil
+	})
+
+	diags := DiagnosticsForTextWithProjects(sourcePath, source, cache)
+	require.Empty(t, diags)
 }
 
 func TestSessionDidOpenPublishesParseDiagnostic(t *testing.T) {
@@ -150,6 +187,15 @@ func requirePublishDiagnostics(
 	params, ok := notification.params.(protocol.PublishDiagnosticsParams)
 	require.True(t, ok)
 	return params
+}
+
+func diagnosticProjectWithFixture(t *testing.T, name string) (string, string, string) {
+	t.Helper()
+	root := writeUBProject(t, nil, nil)
+	source := ubtest.ReadValidFixture(t, "testdata/ub/diagnostics", name)
+	sourcePath := filepath.Join(root, "factory.ub")
+	require.NoError(t, os.WriteFile(sourcePath, []byte(source), 0o644))
+	return root, sourcePath, source
 }
 
 func diagnosticFixturePath(name string) string {

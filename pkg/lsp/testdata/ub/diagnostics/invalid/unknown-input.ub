@@ -1,0 +1,5 @@
+factory: {
+  outputs: {
+    missing: { value: input.missing }
+  }
+}

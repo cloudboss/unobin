@@ -310,7 +310,7 @@ func (s *Session) publishDiagnostics(doc *Document) *protocol.ResponseError {
 		return nil
 	}
 	version := doc.Version
-	diagnostics := DiagnosticsForText(doc.Path, doc.Text)
+	diagnostics := DiagnosticsForTextWithProjects(doc.Path, doc.Text, s.projects)
 	if diagnostics == nil {
 		diagnostics = []protocol.Diagnostic{}
 	}

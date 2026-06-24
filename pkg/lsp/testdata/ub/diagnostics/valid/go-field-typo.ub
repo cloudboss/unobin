@@ -1,0 +1,6 @@
+factory: {
+  imports: { def: 'example.com/definition' }
+  resources: {
+    server: def.server { unknown-field: 'x' }
+  }
+}

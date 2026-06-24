@@ -1,0 +1,6 @@
+factory: {
+  imports: { ext: 'example.com/missing' }
+  resources: {
+    server: ext.server {}
+  }
+}
