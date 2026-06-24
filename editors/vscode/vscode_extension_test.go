@@ -62,6 +62,25 @@ func TestPackageReadmeExists(t *testing.T) {
 	require.Contains(t, text, "npm run compile")
 }
 
+func TestPackageContributesRestartCommand(t *testing.T) {
+	var pkg struct {
+		Activation  []string `json:"activationEvents"`
+		Contributes struct {
+			Commands []struct {
+				Command string `json:"command"`
+				Title   string `json:"title"`
+			} `json:"commands"`
+		} `json:"contributes"`
+	}
+	readJSON(t, "package.json", &pkg)
+
+	require.Contains(t, pkg.Activation, "onCommand:unobin.restartLanguageServer")
+	require.Contains(t, pkg.Contributes.Commands, struct {
+		Command string `json:"command"`
+		Title   string `json:"title"`
+	}{Command: "unobin.restartLanguageServer", Title: "Unobin: Restart Language Server"})
+}
+
 func TestExtensionWatchesFilesThatAffectLSPCaches(t *testing.T) {
 	body, err := os.ReadFile(filepath.Join("src", "extension.ts"))
 	require.NoError(t, err)
@@ -76,6 +95,17 @@ func TestExtensionWatchesFilesThatAffectLSPCaches(t *testing.T) {
 	} {
 		require.Contains(t, source, "createFileSystemWatcher('"+pattern+"')")
 	}
+}
+
+func TestExtensionRestartsLSP(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("src", "extension.ts"))
+	require.NoError(t, err)
+	source := string(body)
+
+	require.Contains(t, source, "restartLanguageServer")
+	require.Contains(t, source, "registerCommand('unobin.restartLanguageServer'")
+	require.Contains(t, source, "onDidChangeConfiguration")
+	require.Contains(t, source, "affectsConfiguration('unobin.path')")
 }
 
 func TestExtensionStartsUnobinLSP(t *testing.T) {

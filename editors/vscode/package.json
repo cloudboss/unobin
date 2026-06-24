@@ -12,7 +12,8 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onLanguage:unobin"
+    "onLanguage:unobin",
+    "onCommand:unobin.restartLanguageServer"
   ],
   "main": "./out/extension.js",
   "scripts": {
@@ -50,7 +51,13 @@
           "description": "Path to the unobin executable."
         }
       }
-    }
+    },
+    "commands": [
+      {
+        "command": "unobin.restartLanguageServer",
+        "title": "Unobin: Restart Language Server"
+      }
+    ]
   },
   "dependencies": {
     "vscode-languageclient": "10.0.1"
