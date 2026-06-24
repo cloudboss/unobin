@@ -251,6 +251,9 @@ func completionAtOffset(
 	); found || err != nil {
 		return list, found, err
 	}
+	if list, found := inputDeclarationValueCompletions(offset, body.Inputs); found {
+		return list, true, nil
+	}
 	if list, found := inputDeclarationFieldCompletions(text, offset, body.Inputs); found {
 		return list, true, nil
 	}
@@ -266,6 +269,9 @@ func completionAtOffset(
 		return goConfigFieldCompletions(path, cfg.Alias.Name, fieldPath, decls, projects)
 	}
 	for _, output := range body.Outputs {
+		if list, found := outputValueCompletions(offset, output.Body); found {
+			return list, true, nil
+		}
 		fieldPath, ok := objectKeyPathAtOffset(text, output.Body, offset)
 		if ok {
 			list, found := outputFieldCompletions(text, offset, output.Body, fieldPath)
@@ -298,6 +304,40 @@ func completionAtOffset(
 		}
 	}
 	return protocol.CompletionList{}, false, nil
+}
+
+func inputDeclarationValueCompletions(
+	offset int,
+	inputs []syntax.InputDecl,
+) (protocol.CompletionList, bool) {
+	for _, input := range inputs {
+		fieldPath, ok := objectValuePathAtOffset(input.Body, offset)
+		if !ok || fieldParentPath(fieldPath) != "" {
+			continue
+		}
+		target, ok := inputDeclarationValueType(input, fieldPath)
+		if !ok {
+			return protocol.CompletionList{}, false
+		}
+		return completionList(staticValueCompletionItems(target)), true
+	}
+	return protocol.CompletionList{}, false
+}
+
+func inputDeclarationValueType(
+	input syntax.InputDecl,
+	fieldPath string,
+) (typecheck.Type, bool) {
+	switch fieldPath {
+	case "@sensitive":
+		return typecheck.TBoolean(), true
+	case "default":
+		return typecheck.FromLang(input.Type), true
+	case "description":
+		return typecheck.TString(), true
+	default:
+		return typecheck.Type{}, false
+	}
 }
 
 func inputDeclarationFieldCompletions(
@@ -976,13 +1016,15 @@ func compositeInputTypes(inputs []syntax.InputDecl) map[string]typecheck.Type {
 	return out
 }
 
-func valueCompletionItems(
-	path string,
-	body *syntax.FactoryBody,
-	target typecheck.Type,
-	decls definitionDecls,
-	projects *ProjectCache,
-) ([]protocol.CompletionItem, error) {
+func staticValueCompletionItems(target typecheck.Type) []protocol.CompletionItem {
+	items := scalarValueCompletionItems(target)
+	slices.SortFunc(items, func(a, b protocol.CompletionItem) int {
+		return strings.Compare(a.Label, b.Label)
+	})
+	return items
+}
+
+func scalarValueCompletionItems(target typecheck.Type) []protocol.CompletionItem {
 	items := make([]protocol.CompletionItem, 0)
 	if typecheck.Assignable(target, typecheck.TNull()) {
 		items = append(items, protocol.CompletionItem{
@@ -996,6 +1038,17 @@ func valueCompletionItems(
 			protocol.CompletionItem{Label: "true", Kind: protocol.CompletionItemKindKeyword},
 		)
 	}
+	return items
+}
+
+func valueCompletionItems(
+	path string,
+	body *syntax.FactoryBody,
+	target typecheck.Type,
+	decls definitionDecls,
+	projects *ProjectCache,
+) ([]protocol.CompletionItem, error) {
+	items := scalarValueCompletionItems(target)
 	for _, input := range body.Inputs {
 		candidate := typecheck.FromLang(input.Type)
 		if completionTypeAssignable(target, candidate) {
@@ -1103,6 +1156,32 @@ func goConfigFieldCompletions(
 		return protocol.CompletionList{}, found, err
 	}
 	return completionList(fieldCompletionItems(schema.Configuration, fieldPath, nil)), true, nil
+}
+
+func outputValueCompletions(
+	offset int,
+	obj *parse.ObjectLit,
+) (protocol.CompletionList, bool) {
+	fieldPath, ok := objectValuePathAtOffset(obj, offset)
+	if !ok || fieldParentPath(fieldPath) != "" {
+		return protocol.CompletionList{}, false
+	}
+	target, ok := outputValueType(fieldPath)
+	if !ok {
+		return protocol.CompletionList{}, false
+	}
+	return completionList(staticValueCompletionItems(target)), true
+}
+
+func outputValueType(fieldPath string) (typecheck.Type, bool) {
+	switch fieldPath {
+	case "@sensitive":
+		return typecheck.TBoolean(), true
+	case "description":
+		return typecheck.TString(), true
+	default:
+		return typecheck.Type{}, false
+	}
 }
 
 func outputFieldCompletions(

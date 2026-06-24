@@ -115,6 +115,28 @@ func TestCompletionInputDeclarationMetaKeys(t *testing.T) {
 	requireNotCompletionLabels(t, list, "default", "description", "sensitive", "type")
 }
 
+func TestCompletionInputMetaValueUsesExpectedType(t *testing.T) {
+	root, path, source := completionProject(t)
+	source, pos := sourceWithCompletionCursor(
+		t, source, "description: 'AWS region to use.'", "@sensitive: ",
+	)
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireOnlyCompletionLabels(t, list, "false", "true")
+}
+
+func TestCompletionInputDefaultUsesDeclaredType(t *testing.T) {
+	root, path, source := completionProject(t)
+	source, pos := sourceWithCompletionCursor(
+		t, source, "type: integer", "type: boolean default: ",
+	)
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireOnlyCompletionLabels(t, list, "false", "true")
+}
+
 func TestCompletionInlineInputDeclarationFieldsExcludeRoots(t *testing.T) {
 	root, path, source := inputDeclarationCompletionProject(t)
 	tests := []struct {
@@ -362,6 +384,17 @@ func TestCompletionOutputMetaKeys(t *testing.T) {
 	require.Nil(t, rpcErr)
 	requireCompletionLabels(t, list, "@sensitive")
 	requireNotCompletionLabels(t, list, "sensitive")
+}
+
+func TestCompletionOutputMetaValueUsesExpectedType(t *testing.T) {
+	root, path, source := completionProject(t)
+	source, pos := sourceWithCompletionCursor(
+		t, source, "value: null", "value: null @sensitive: ",
+	)
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireOnlyCompletionLabels(t, list, "false", "true")
 }
 
 func TestCompletionRoots(t *testing.T) {
@@ -647,6 +680,19 @@ func requireCompletionLabels(
 	for _, label := range labels {
 		require.Truef(t, byLabel[label], "missing completion label %q in %#v", label, list.Items)
 	}
+}
+
+func requireOnlyCompletionLabels(
+	t *testing.T,
+	list protocol.CompletionList,
+	labels ...string,
+) {
+	t.Helper()
+	got := make([]string, 0, len(list.Items))
+	for _, item := range list.Items {
+		got = append(got, item.Label)
+	}
+	require.ElementsMatch(t, labels, got)
 }
 
 func requireCompletionItem(
