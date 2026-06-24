@@ -29,7 +29,9 @@ func HoverForText(
 		projects = NewProjectCache("")
 	}
 	decls := definitionDeclsForFile(file)
-	if hover, found, err := hoverAtOffset(path, offset, file, decls, projects); found || err != nil {
+	if hover, found, err := hoverAtOffset(
+		path, text, offset, file, decls, projects,
+	); found || err != nil {
 		if err != nil {
 			return nil, protocol.InternalError(err)
 		}
@@ -48,6 +50,7 @@ func HoverForText(
 
 func hoverAtOffset(
 	path string,
+	text string,
 	offset int,
 	file *syntax.File,
 	decls definitionDecls,
@@ -58,7 +61,7 @@ func hoverAtOffset(
 	}
 	body := file.Factory.Body
 	if hover, found, err := libraryConfigInputHover(
-		path, offset, body.Inputs, decls, projects,
+		path, text, offset, body.Inputs, decls, projects,
 	); found || err != nil {
 		return hover, found, err
 	}
@@ -67,14 +70,14 @@ func hoverAtOffset(
 		if !ok {
 			continue
 		}
-		fieldPath, ok := objectKeyPathAtOffset(obj, offset)
+		fieldPath, ok := objectKeyPathAtOffset(text, obj, offset)
 		if !ok {
 			continue
 		}
 		return goConfigFieldHover(path, cfg.Alias.Name, fieldPath, decls, projects)
 	}
 	for _, node := range allNodes(body) {
-		fieldPath, ok := objectKeyPathAtOffset(node.Body, offset)
+		fieldPath, ok := objectKeyPathAtOffset(text, node.Body, offset)
 		if !ok {
 			continue
 		}
@@ -85,6 +88,7 @@ func hoverAtOffset(
 
 func libraryConfigInputHover(
 	path string,
+	text string,
 	offset int,
 	inputs []syntax.InputDecl,
 	decls definitionDecls,
@@ -96,7 +100,7 @@ func libraryConfigInputHover(
 			continue
 		}
 		defaultObj := inputDefaultObject(input.Body)
-		fieldPath, ok := objectKeyPathAtOffset(defaultObj, offset)
+		fieldPath, ok := objectKeyPathAtOffset(text, defaultObj, offset)
 		if !ok {
 			continue
 		}

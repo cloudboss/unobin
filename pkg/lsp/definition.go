@@ -32,7 +32,7 @@ func DefinitionForText(
 	}
 	decls := definitionDeclsForFile(file)
 	if locations, found, err := definitionAtOffset(
-		path, offset, file, decls, projects,
+		path, text, offset, file, decls, projects,
 	); found || err != nil {
 		if err != nil {
 			return nil, protocol.InternalError(err)
@@ -114,6 +114,7 @@ func definitionDeclsForFile(file *syntax.File) definitionDecls {
 
 func definitionAtOffset(
 	path string,
+	text string,
 	offset int,
 	file *syntax.File,
 	decls definitionDecls,
@@ -129,7 +130,7 @@ func definitionAtOffset(
 		}
 	}
 	if locations, found, err := libraryConfigInputDefinition(
-		path, offset, body.Inputs, decls, projects,
+		path, text, offset, body.Inputs, decls, projects,
 	); found || err != nil {
 		return locations, found, err
 	}
@@ -138,7 +139,7 @@ func definitionAtOffset(
 		if !ok {
 			continue
 		}
-		fieldPath, ok := objectKeyPathAtOffset(obj, offset)
+		fieldPath, ok := objectKeyPathAtOffset(text, obj, offset)
 		if !ok {
 			continue
 		}
@@ -151,7 +152,7 @@ func definitionAtOffset(
 		if spanContainsOffset(node.Selector.Export.S, offset) {
 			return goNodeSelectorDefinition(path, node, decls, projects)
 		}
-		fieldPath, ok := objectKeyPathAtOffset(node.Body, offset)
+		fieldPath, ok := objectKeyPathAtOffset(text, node.Body, offset)
 		if !ok {
 			continue
 		}
@@ -162,6 +163,7 @@ func definitionAtOffset(
 
 func libraryConfigInputDefinition(
 	path string,
+	text string,
 	offset int,
 	inputs []syntax.InputDecl,
 	decls definitionDecls,
@@ -173,7 +175,7 @@ func libraryConfigInputDefinition(
 			continue
 		}
 		defaultObj := inputDefaultObject(input.Body)
-		fieldPath, ok := objectKeyPathAtOffset(defaultObj, offset)
+		fieldPath, ok := objectKeyPathAtOffset(text, defaultObj, offset)
 		if !ok {
 			continue
 		}
@@ -596,11 +598,12 @@ func inputDefaultObject(body *parse.ObjectLit) *parse.ObjectLit {
 	return nil
 }
 
-func objectKeyPathAtOffset(obj *parse.ObjectLit, offset int) (string, bool) {
-	return objectKeyPathAtOffsetPrefix(obj, offset, "")
+func objectKeyPathAtOffset(text string, obj *parse.ObjectLit, offset int) (string, bool) {
+	return objectKeyPathAtOffsetPrefix(text, obj, offset, "")
 }
 
 func objectKeyPathAtOffsetPrefix(
+	text string,
 	obj *parse.ObjectLit,
 	offset int,
 	prefix string,
@@ -614,17 +617,17 @@ func objectKeyPathAtOffsetPrefix(
 			continue
 		}
 		path := prefix + name
-		if spanContainsOffset(field.Key.S, offset) {
+		if fieldKeyContainsOffset(text, field.Key, offset) {
 			return path, true
 		}
 		if child, ok := field.Value.(*parse.ObjectLit); ok {
-			if found, ok := objectKeyPathAtOffsetPrefix(child, offset, path+"."); ok {
+			if found, ok := objectKeyPathAtOffsetPrefix(text, child, offset, path+"."); ok {
 				return found, true
 			}
 		}
 		if field.Decl != nil {
 			if found, ok := objectKeyPathAtOffsetPrefix(
-				field.Decl.Body, offset, path+".",
+				text, field.Decl.Body, offset, path+".",
 			); ok {
 				return found, true
 			}
@@ -643,6 +646,21 @@ func fieldKeyName(key parse.FieldKey) (string, bool) {
 		return strings.Join(key.Path, "."), true
 	default:
 		return "", false
+	}
+}
+
+func fieldKeyContainsOffset(text string, key parse.FieldKey, offset int) bool {
+	switch key.Kind {
+	case parse.FieldIdent, parse.FieldPath:
+		start := key.S.Start.Offset
+		if start < 0 || start >= len(text) {
+			return spanContainsOffset(key.S, offset)
+		}
+		return offset >= start && offset < symbolEnd(text, start)
+	case parse.FieldString:
+		return spanContainsOffset(key.S, offset)
+	default:
+		return false
 	}
 }
 

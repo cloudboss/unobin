@@ -132,6 +132,18 @@ func TestDefinitionGoNodeBodyFields(t *testing.T) {
 		sharedSource, "URL  string", "URL")
 }
 
+func TestDefinitionGoNodeBodyFieldWorksInsideKey(t *testing.T) {
+	root, factoryPath, factorySource, goDir := goDefinitionProject(t)
+	cache := NewProjectCache(root)
+	librarySource := readTestFile(t, filepath.Join(goDir, "library.go"))
+	pos := positionInText(factorySource, "server-name: 'web'", "name")
+
+	locations, rpcErr := DefinitionForText(factoryPath, factorySource, pos, cache)
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, filepath.Join(goDir, "library.go"), librarySource,
+		"Name     string", "Name")
+}
+
 func TestDefinitionGoInputOutputCollisionPrefersOutputForRefs(t *testing.T) {
 	root, factoryPath, factorySource, goDir := goDefinitionProject(t)
 	cache := NewProjectCache(root)

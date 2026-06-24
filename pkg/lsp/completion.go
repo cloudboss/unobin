@@ -32,7 +32,7 @@ func CompleteForText(
 	}
 	decls := definitionDeclsForFile(file)
 	if list, found, err := completionAtOffset(
-		path, offset, file, decls, projects,
+		path, text, offset, file, decls, projects,
 	); found || err != nil {
 		if err != nil {
 			return protocol.CompletionList{}, protocol.InternalError(err)
@@ -61,6 +61,7 @@ func parseCompletionSource(path string, text string, offset int) (*syntax.File, 
 
 func completionAtOffset(
 	path string,
+	text string,
 	offset int,
 	file *syntax.File,
 	decls definitionDecls,
@@ -71,7 +72,7 @@ func completionAtOffset(
 	}
 	body := file.Factory.Body
 	if list, found, err := libraryConfigInputCompletions(
-		path, offset, body.Inputs, decls, projects,
+		path, text, offset, body.Inputs, decls, projects,
 	); found || err != nil {
 		return list, found, err
 	}
@@ -80,14 +81,14 @@ func completionAtOffset(
 		if !ok {
 			continue
 		}
-		fieldPath, ok := objectKeyPathAtOffset(obj, offset)
+		fieldPath, ok := objectKeyPathAtOffset(text, obj, offset)
 		if !ok {
 			continue
 		}
 		return goConfigFieldCompletions(path, cfg.Alias.Name, fieldPath, decls, projects)
 	}
 	for _, node := range allNodes(body) {
-		fieldPath, ok := objectKeyPathAtOffset(node.Body, offset)
+		fieldPath, ok := objectKeyPathAtOffset(text, node.Body, offset)
 		if !ok {
 			continue
 		}
@@ -98,6 +99,7 @@ func completionAtOffset(
 
 func libraryConfigInputCompletions(
 	path string,
+	text string,
 	offset int,
 	inputs []syntax.InputDecl,
 	decls definitionDecls,
@@ -109,7 +111,7 @@ func libraryConfigInputCompletions(
 			continue
 		}
 		defaultObj := inputDefaultObject(input.Body)
-		fieldPath, ok := objectKeyPathAtOffset(defaultObj, offset)
+		fieldPath, ok := objectKeyPathAtOffset(text, defaultObj, offset)
 		if !ok {
 			continue
 		}
