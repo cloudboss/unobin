@@ -30,14 +30,18 @@ func DefinitionForText(
 	if projects == nil {
 		projects = NewProjectCache("")
 	}
-	decls := definitionDeclsForFile(file)
-	if locations, found, err := definitionAtOffset(
-		path, text, offset, file, decls, projects,
-	); found || err != nil {
-		if err != nil {
-			return nil, protocol.InternalError(err)
+	body, hasScope := definitionBodyForOffset(file, offset)
+	decls := definitionDeclsForBody(body)
+	if hasScope {
+		locations, found, err := definitionAtOffset(
+			path, text, offset, body, decls, projects,
+		)
+		if found || err != nil {
+			if err != nil {
+				return nil, protocol.InternalError(err)
+			}
+			return locations, nil
 		}
-		return locations, nil
 	}
 	tok := tokenAtOffset(text, offset)
 	if tok.text == "" {
@@ -76,7 +80,29 @@ type resolvedImport struct {
 	sourceOK bool
 }
 
-func definitionDeclsForFile(file *syntax.File) definitionDecls {
+func definitionBodyForOffset(file *syntax.File, offset int) (*syntax.FactoryBody, bool) {
+	if file == nil {
+		return nil, false
+	}
+	if file.Factory != nil {
+		return &file.Factory.Body, true
+	}
+	if file.Library != nil {
+		for i := range file.Library.Exports {
+			composite := &file.Library.Exports[i]
+			if spanContainsOffset(composite.S, offset) ||
+				spanContainsOffset(composite.Body.S, offset) {
+				return &composite.Body, true
+			}
+		}
+		if len(file.Library.Exports) == 1 {
+			return &file.Library.Exports[0].Body, true
+		}
+	}
+	return nil, false
+}
+
+func definitionDeclsForBody(body *syntax.FactoryBody) definitionDecls {
 	decls := definitionDecls{
 		inputs:  map[string]syntax.InputDecl{},
 		locals:  map[string]syntax.LocalDecl{},
@@ -87,10 +113,9 @@ func definitionDeclsForFile(file *syntax.File) definitionDecls {
 			syntax.NodeAction:     {},
 		},
 	}
-	if file == nil || file.Factory == nil {
+	if body == nil {
 		return decls
 	}
-	body := file.Factory.Body
 	for _, input := range body.Inputs {
 		decls.inputs[input.Name.Name] = input
 	}
@@ -116,14 +141,13 @@ func definitionAtOffset(
 	path string,
 	text string,
 	offset int,
-	file *syntax.File,
+	body *syntax.FactoryBody,
 	decls definitionDecls,
 	projects *ProjectCache,
 ) ([]protocol.Location, bool, error) {
-	if file == nil || file.Factory == nil {
+	if body == nil {
 		return nil, false, nil
 	}
-	body := file.Factory.Body
 	for _, imp := range body.Imports {
 		if spanContainsOffset(imp.Alias.S, offset) {
 			return goImportAliasDefinition(path, imp.Alias.Name, decls, projects)
@@ -145,7 +169,7 @@ func definitionAtOffset(
 		}
 		return goConfigFieldDefinition(path, cfg.Alias.Name, fieldPath, decls, projects)
 	}
-	for _, node := range allNodes(body) {
+	for _, node := range allNodes(*body) {
 		if spanContainsOffset(node.Selector.Alias.S, offset) {
 			return goImportAliasDefinition(path, node.Selector.Alias.Name, decls, projects)
 		}

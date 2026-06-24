@@ -1,0 +1,8 @@
+hello: resource {
+  imports: { def: 'example.com/definition' }
+  resources: {
+    server: def.server {
+      server-name: 'web'
+    }
+  }
+}

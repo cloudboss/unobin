@@ -30,14 +30,18 @@ func CompleteForText(
 	if projects == nil {
 		projects = NewProjectCache("")
 	}
-	decls := definitionDeclsForFile(file)
-	if list, found, err := completionAtOffset(
-		path, text, offset, file, decls, projects,
-	); found || err != nil {
-		if err != nil {
-			return protocol.CompletionList{}, protocol.InternalError(err)
+	body, hasScope := definitionBodyForOffset(file, offset)
+	decls := definitionDeclsForBody(body)
+	if hasScope {
+		list, found, err := completionAtOffset(
+			path, text, offset, body, decls, projects,
+		)
+		if found || err != nil {
+			if err != nil {
+				return protocol.CompletionList{}, protocol.InternalError(err)
+			}
+			return list, nil
 		}
-		return list, nil
 	}
 	tok := tokenAtOffset(text, offset)
 	if tok.text == "" {
@@ -63,14 +67,13 @@ func completionAtOffset(
 	path string,
 	text string,
 	offset int,
-	file *syntax.File,
+	body *syntax.FactoryBody,
 	decls definitionDecls,
 	projects *ProjectCache,
 ) (protocol.CompletionList, bool, error) {
-	if file == nil || file.Factory == nil {
+	if body == nil {
 		return protocol.CompletionList{}, false, nil
 	}
-	body := file.Factory.Body
 	if list, found, err := libraryConfigInputCompletions(
 		path, text, offset, body.Inputs, decls, projects,
 	); found || err != nil {
@@ -87,7 +90,7 @@ func completionAtOffset(
 		}
 		return goConfigFieldCompletions(path, cfg.Alias.Name, fieldPath, decls, projects)
 	}
-	for _, node := range allNodes(body) {
+	for _, node := range allNodes(*body) {
 		fieldPath, ok := objectKeyPathAtOffset(text, node.Body, offset)
 		if !ok {
 			continue

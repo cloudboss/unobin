@@ -164,6 +164,17 @@ func TestDefinitionGoUsesProjectLockCacheBeforeReplacement(t *testing.T) {
 		"\"server\": runtime.MakeResource", "\"server\"")
 }
 
+func TestDefinitionCachedUBCompositeGoSelector(t *testing.T) {
+	libraryPath, librarySource, cachedLibrary, cache := cachedUBCompositeWithImportProject(t)
+	goSource := readTestFile(t, cachedLibrary)
+
+	locations, rpcErr := DefinitionForText(libraryPath, librarySource,
+		positionInText(librarySource, "def.server", "server"), cache)
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, cachedLibrary, goSource,
+		"\"server\": runtime.MakeResource", "\"server\"")
+}
+
 func TestDefinitionGoNodeBodyFields(t *testing.T) {
 	root, factoryPath, factorySource, goDir := goDefinitionProject(t)
 	cache := NewProjectCache(root)
@@ -372,6 +383,46 @@ func cachedUBCompositePackageProject(
 		return &resolve.RemoteResolver{CacheRoot: cacheRoot}, nil
 	})
 	return root, factoryPath, factorySource, libraryPath, cache
+}
+
+func cachedUBCompositeWithImportProject(
+	t *testing.T,
+) (string, string, string, *ProjectCache) {
+	t.Helper()
+	root := t.TempDir()
+	cacheRoot := filepath.Join(root, "cache")
+	libRoot := filepath.Join(cacheRoot, "imports", "example.com/lib", "abc123")
+	goRoot := filepath.Join(cacheRoot, "imports", "example.com/definition", "def123")
+	require.NoError(t, os.MkdirAll(libRoot, 0o755))
+	copyTestTree(t, filepath.Join("..", "goschema", "testdata", "definition"), goRoot)
+
+	dep := deps.Dependency{URL: "example.com/definition"}
+	require.NoError(t, deps.WriteProject(filepath.Join(libRoot, deps.ProjectFileName), &deps.Project{
+		Requires: map[deps.Dependency]deps.Requirement{
+			dep: {Version: "v1.0.0"},
+		},
+		Replace: map[deps.Dependency]string{},
+	}))
+	lock := deps.NewProjectLock()
+	lock.ToolchainVersion = "dev"
+	lock.Deps[dep.String()] = &deps.ProjectLockDep{
+		Kind:    deps.ProjectLockKindGo,
+		Version: "v1.0.0",
+		Commit:  "def123",
+	}
+	require.NoError(t, deps.WriteProjectLock(filepath.Join(libRoot, deps.ProjectLockFileName), lock))
+
+	libraryDir := filepath.Join(libRoot, "ub", "helloer")
+	require.NoError(t, os.MkdirAll(libraryDir, 0o755))
+	librarySource := ubtest.ReadFixture(
+		t, "testdata/ub/definition/valid/cached-package-import-library.ub",
+	)
+	libraryPath := filepath.Join(libraryDir, "resource-hello.ub")
+	require.NoError(t, os.WriteFile(libraryPath, []byte(librarySource), 0o644))
+	cache := newProjectCacheWithRemote(root, func() (cachedRemoteSource, error) {
+		return &resolve.RemoteResolver{CacheRoot: cacheRoot}, nil
+	})
+	return libraryPath, librarySource, filepath.Join(goRoot, "library.go"), cache
 }
 
 func missingCachedGoDefinitionProject(t *testing.T) (string, string, string, *ProjectCache) {

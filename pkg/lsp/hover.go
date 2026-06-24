@@ -28,14 +28,18 @@ func HoverForText(
 	if projects == nil {
 		projects = NewProjectCache("")
 	}
-	decls := definitionDeclsForFile(file)
-	if hover, found, err := hoverAtOffset(
-		path, text, offset, file, decls, projects,
-	); found || err != nil {
-		if err != nil {
-			return nil, protocol.InternalError(err)
+	body, hasScope := definitionBodyForOffset(file, offset)
+	decls := definitionDeclsForBody(body)
+	if hasScope {
+		hover, found, err := hoverAtOffset(
+			path, text, offset, body, decls, projects,
+		)
+		if found || err != nil {
+			if err != nil {
+				return nil, protocol.InternalError(err)
+			}
+			return hover, nil
 		}
-		return hover, nil
 	}
 	tok := tokenAtOffset(text, offset)
 	if tok.text == "" {
@@ -52,14 +56,13 @@ func hoverAtOffset(
 	path string,
 	text string,
 	offset int,
-	file *syntax.File,
+	body *syntax.FactoryBody,
 	decls definitionDecls,
 	projects *ProjectCache,
 ) (*protocol.Hover, bool, error) {
-	if file == nil || file.Factory == nil {
+	if body == nil {
 		return nil, false, nil
 	}
-	body := file.Factory.Body
 	if hover, found, err := libraryConfigInputHover(
 		path, text, offset, body.Inputs, decls, projects,
 	); found || err != nil {
@@ -76,7 +79,7 @@ func hoverAtOffset(
 		}
 		return goConfigFieldHover(path, cfg.Alias.Name, fieldPath, decls, projects)
 	}
-	for _, node := range allNodes(body) {
+	for _, node := range allNodes(*body) {
 		fieldPath, ok := objectKeyPathAtOffset(text, node.Body, offset)
 		if !ok {
 			continue
