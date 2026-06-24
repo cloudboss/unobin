@@ -1,0 +1,9 @@
+factory: {
+  inputs: {
+    domain: { type: string }
+    namecheap-config: {
+      type: library-config('github.com/cloudboss/unobin-library-namecheap')
+      default: {}
+    }
+  }
+}

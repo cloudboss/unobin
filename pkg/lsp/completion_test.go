@@ -115,6 +115,121 @@ func TestCompletionInputDeclarationMetaKeys(t *testing.T) {
 	requireNotCompletionLabels(t, list, "default", "description", "sensitive", "type")
 }
 
+func TestCompletionInlineInputDeclarationFieldsExcludeRoots(t *testing.T) {
+	root, path, source := inputDeclarationCompletionProject(t)
+	tests := []struct {
+		name     string
+		inserted string
+		want     []string
+		notWant  []string
+	}{
+		{
+			name:     "empty prefix",
+			inserted: "",
+			want:     []string{"@sensitive", "default", "description"},
+			notWant:  []string{"@core", "action", "input", "local", "resource", "type"},
+		},
+		{
+			name:     "meta key",
+			inserted: "@",
+			want:     []string{"@sensitive"},
+			notWant:  []string{"@core", "default", "description", "type"},
+		},
+		{
+			name:     "description prefix",
+			inserted: "d",
+			want:     []string{"default", "description"},
+			notWant:  []string{"@core", "action", "input", "local", "resource", "type"},
+		},
+		{
+			name:     "unknown prefix",
+			inserted: "h",
+			notWant:  []string{"@core", "action", "input", "local", "resource"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source, pos := inlineInputDeclarationSourceWithPrefix(t, source, tt.inserted)
+			list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+			require.Nil(t, rpcErr)
+			requireCompletionLabels(t, list, tt.want...)
+			requireNotCompletionLabels(t, list, tt.notWant...)
+		})
+	}
+}
+
+func TestCompletionInputDeclarationFieldsExcludePresentKeys(t *testing.T) {
+	root, path, source := inputDeclarationCompletionProject(t)
+	tests := []struct {
+		name      string
+		inserted  string
+		want      []string
+		notWant   []string
+		wantEmpty bool
+	}{
+		{
+			name:     "meta key",
+			inserted: "@",
+			want:     []string{"@sensitive"},
+			notWant:  []string{"default", "description", "sensitive", "type"},
+		},
+		{
+			name:      "unknown prefix",
+			inserted:  "a",
+			notWant:   []string{"@core", "action", "input", "local", "resource"},
+			wantEmpty: true,
+		},
+		{
+			name:     "description prefix",
+			inserted: "d",
+			want:     []string{"description"},
+			notWant:  []string{"default", "type"},
+		},
+		{
+			name:      "present type prefix",
+			inserted:  "t",
+			notWant:   []string{"@core", "action", "input", "local", "resource", "type"},
+			wantEmpty: true,
+		},
+		{
+			name:      "input root prefix",
+			inserted:  "i",
+			notWant:   []string{"input"},
+			wantEmpty: true,
+		},
+		{
+			name:      "local root prefix",
+			inserted:  "l",
+			notWant:   []string{"local"},
+			wantEmpty: true,
+		},
+		{
+			name:      "resource root prefix",
+			inserted:  "r",
+			notWant:   []string{"resource"},
+			wantEmpty: true,
+		},
+		{
+			name:      "data source root prefix",
+			inserted:  "s",
+			notWant:   []string{"@sensitive", "data-source"},
+			wantEmpty: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source, pos := inputDeclarationSourceWithPrefix(t, source, tt.inserted)
+			list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+			require.Nil(t, rpcErr)
+			if tt.wantEmpty {
+				require.Empty(t, list.Items)
+			}
+			requireCompletionLabels(t, list, tt.want...)
+			requireNotCompletionLabels(t, list, tt.notWant...)
+		})
+	}
+}
+
 func TestCompletionTypeConstructors(t *testing.T) {
 	root, path, source := completionProject(t)
 	source, pos := sourceWithCompletionCursor(t, source, "type: string", "type: ")
@@ -445,6 +560,47 @@ func completionProject(t *testing.T) (string, string, string) {
 	path := filepath.Join(root, "factory.ub")
 	require.NoError(t, os.WriteFile(path, []byte(source), 0o644))
 	return root, path, source
+}
+
+func inputDeclarationCompletionProject(t *testing.T) (string, string, string) {
+	t.Helper()
+	root := writeUBProject(t, &deps.Project{
+		Requires: map[deps.Dependency]deps.Requirement{},
+		Replace:  map[deps.Dependency]string{},
+	}, nil)
+	source := ubtest.ReadValidFixture(t, "testdata/ub/completion", "input-declaration-fields")
+	path := filepath.Join(root, "factory.ub")
+	require.NoError(t, os.WriteFile(path, []byte(source), 0o644))
+	return root, path, source
+}
+
+func inputDeclarationSourceWithPrefix(
+	t *testing.T,
+	source string,
+	inserted string,
+) (string, protocol.Position) {
+	t.Helper()
+	marker := "      type: library-config"
+	offset := strings.Index(source, marker)
+	require.NotEqual(t, -1, offset)
+	line := "      " + inserted
+	source = source[:offset] + line + "\n" + source[offset:]
+	return source, OffsetToLSP(source, offset+len(line))
+}
+
+func inlineInputDeclarationSourceWithPrefix(
+	t *testing.T,
+	source string,
+	inserted string,
+) (string, protocol.Position) {
+	t.Helper()
+	marker := "type: string"
+	offset := strings.Index(source, marker)
+	require.NotEqual(t, -1, offset)
+	offset += len(marker)
+	prefix := " " + inserted
+	source = source[:offset] + prefix + source[offset:]
+	return source, OffsetToLSP(source, offset+len(prefix))
 }
 
 func sourceWithCompletionCursor(

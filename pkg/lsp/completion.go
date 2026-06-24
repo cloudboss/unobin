@@ -123,16 +123,15 @@ func inputDeclarationCompletionContext(text string, offset int) bool {
 		typeValueCompletionContext(currentLinePrefix(text, offset)) {
 		return false
 	}
-	line := strings.TrimSpace(currentLinePrefix(text, offset))
-	candidate := line
-	if candidate == "" {
-		candidate = strings.TrimSpace(currentLineSuffix(text, offset))
+	if strings.TrimSpace(currentLinePrefix(text, offset)) != "" {
+		return false
 	}
+	candidate := strings.TrimSpace(currentLineSuffix(text, offset))
 	if candidate == "" {
-		return true
+		return false
 	}
 	for _, key := range []string{"type", "description", "default", "@sensitive"} {
-		if strings.HasPrefix(key, candidate) || strings.HasPrefix(candidate, key+":") {
+		if strings.HasPrefix(candidate, key+":") {
 			return true
 		}
 	}
@@ -252,6 +251,9 @@ func completionAtOffset(
 	); found || err != nil {
 		return list, found, err
 	}
+	if list, found := inputDeclarationFieldCompletions(text, offset, body.Inputs); found {
+		return list, true, nil
+	}
 	for _, cfg := range body.LibraryConfigs {
 		obj, ok := cfg.Value.(*parse.ObjectLit)
 		if !ok {
@@ -296,6 +298,43 @@ func completionAtOffset(
 		}
 	}
 	return protocol.CompletionList{}, false, nil
+}
+
+func inputDeclarationFieldCompletions(
+	text string,
+	offset int,
+	inputs []syntax.InputDecl,
+) (protocol.CompletionList, bool) {
+	for _, input := range inputs {
+		if input.Body == nil || !spanContainsOffset(input.Body.S, offset) {
+			continue
+		}
+		if fieldPrefix, ok := objectEntryPrefixAfterValue(text, input.Body, offset); ok {
+			items := inputDeclarationFieldCompletionItems(
+				text, offset, fieldPrefix, input.Body,
+			)
+			return completionList(items), true
+		}
+		fieldPath, ok := objectKeyPathAtOffset(text, input.Body, offset)
+		if ok {
+			if fieldParentPath(fieldPath) != "" {
+				continue
+			}
+			items := inputDeclarationFieldCompletionItems(
+				text, offset, fieldPath, input.Body,
+			)
+			return completionList(items), true
+		}
+		if !immediateObjectBodyKeyCompletionContext(text, input.Body, offset) {
+			continue
+		}
+		fieldPrefix := strings.TrimSpace(currentObjectEntryPrefix(text, offset))
+		items := inputDeclarationFieldCompletionItems(
+			text, offset, fieldPrefix, input.Body,
+		)
+		return completionList(items), true
+	}
+	return protocol.CompletionList{}, false
 }
 
 func libraryConfigInputCompletions(
@@ -386,6 +425,95 @@ func objectBodyKeyCompletionContext(text string, obj *parse.ObjectLit, offset in
 	}
 	suffix := strings.TrimSpace(currentLineSuffix(text, offset))
 	return suffix == "" || strings.HasPrefix(suffix, "}")
+}
+
+func objectEntryPrefixAfterValue(
+	text string,
+	obj *parse.ObjectLit,
+	offset int,
+) (string, bool) {
+	if obj == nil || !spanContainsOffset(obj.Span(), offset) ||
+		objectChildContainsOffset(obj, offset) {
+		return "", false
+	}
+	for i, field := range obj.Fields {
+		if field.Value == nil {
+			continue
+		}
+		end, ok := objectFieldValueEnd(text, obj, i)
+		if !ok || end > offset {
+			continue
+		}
+		between := text[end:offset]
+		if strings.ContainsAny(between, "{}") || strings.Contains(between, ":") {
+			continue
+		}
+		prefix := strings.TrimSpace(between)
+		if strings.ContainsAny(prefix, " \t\r\n") {
+			continue
+		}
+		return prefix, true
+	}
+	return "", false
+}
+
+func objectFieldValueEnd(text string, obj *parse.ObjectLit, index int) (int, bool) {
+	if obj == nil || index < 0 || index >= len(obj.Fields) {
+		return 0, false
+	}
+	field := obj.Fields[index]
+	if field.Value == nil {
+		return 0, false
+	}
+	start := field.Value.Span().Start.Offset
+	if start < 0 || start > len(text) {
+		return 0, false
+	}
+	end := field.Value.Span().End.Offset
+	if end <= start || end > len(text) {
+		end = obj.S.End.Offset - 1
+		if index+1 < len(obj.Fields) {
+			next := obj.Fields[index+1].S.Start.Offset
+			if next > start && next <= len(text) {
+				end = next
+			}
+		}
+		if end < start || end > len(text) {
+			return 0, false
+		}
+		for end > start && isSpaceByte(text[end-1]) {
+			end--
+		}
+	}
+	return end, true
+}
+
+func isSpaceByte(b byte) bool {
+	return b == ' ' || b == '\t' || b == '\r' || b == '\n'
+}
+
+func immediateObjectBodyKeyCompletionContext(
+	text string,
+	obj *parse.ObjectLit,
+	offset int,
+) bool {
+	if !objectBodyKeyCompletionContext(text, obj, offset) {
+		return false
+	}
+	return !objectChildContainsOffset(obj, offset)
+}
+
+func objectChildContainsOffset(obj *parse.ObjectLit, offset int) bool {
+	for _, field := range obj.Fields {
+		if child, ok := field.Value.(*parse.ObjectLit); ok && spanContainsOffset(child.S, offset) {
+			return true
+		}
+		if field.Decl != nil && field.Decl.Body != nil &&
+			spanContainsOffset(field.Decl.Body.S, offset) {
+			return true
+		}
+	}
+	return false
 }
 
 func currentObjectEntryPrefix(text string, offset int) string {
@@ -491,9 +619,19 @@ func stackEncryptionCompletionItems() []protocol.CompletionItem {
 }
 
 func inputDeclarationCompletionItems(text string, offset int) []protocol.CompletionItem {
+	return inputDeclarationFieldCompletionItems(
+		text, offset, completionFieldKeyPrefix(text, offset), nil,
+	)
+}
+
+func inputDeclarationFieldCompletionItems(
+	text string,
+	offset int,
+	fieldPath string,
+	obj *parse.ObjectLit,
+) []protocol.CompletionItem {
 	items := fieldKeyCompletionItems(
-		[]string{"type", "description", "default", "@sensitive"},
-		completionFieldKeyPrefix(text, offset), nil,
+		[]string{"type", "description", "default", "@sensitive"}, fieldPath, obj,
 	)
 	return withMetaKeyTextEdits(text, offset, items)
 }
