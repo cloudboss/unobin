@@ -380,6 +380,7 @@ Emacs session.  When t, install automatically."
 (define-derived-mode unobin-ts-mode prog-mode "Unobin"
   "Major mode for Unobin source files."
   (setq-local comment-start "# ")
+  (setq-local comment-start-skip "#+[ \t]*")
   (setq-local comment-end "")
   (setq-local imenu-create-index-function #'unobin-ts-mode--imenu-create-index)
   (unobin-ts-mode--register-eglot)
