@@ -114,6 +114,24 @@ func TestUnobinTsModeFallbackQueriesCompile(t *testing.T) {
 	require.NoError(t, err, string(out))
 }
 
+func TestUnobinTsModeCommentsIndentedRegions(t *testing.T) {
+	emacs, err := exec.LookPath("emacs")
+	if err != nil {
+		t.Skip("emacs not found")
+	}
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	modePath := filepath.Join(cwd, "unobin-ts-mode.el")
+	helperPath := filepath.Join(cwd, "testdata", "fontify.el")
+	form := fmt.Sprintf("(unobin-test-comment-region %s)", strconv.Quote(modePath))
+
+	cmd := exec.Command(
+		emacs, "-Q", "--batch", "--load", helperPath, "--eval", form,
+	)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+}
+
 func TestUnobinTsModeUsesReleaseGrammarRecipe(t *testing.T) {
 	emacs, err := exec.LookPath("emacs")
 	if err != nil {

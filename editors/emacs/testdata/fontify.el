@@ -48,6 +48,21 @@
   (treesit-query-compile 'unobin (unobin-ts-mode--field-keyword-query))
   (treesit-query-compile 'unobin (unobin-ts-mode--reference-root-query)))
 
+(defun unobin-test-comment-region (mode-path)
+  (load-file mode-path)
+  (let ((source "  first: 1\n  second: 2"))
+    (with-temp-buffer
+      (insert source)
+      (setq buffer-file-name "comment-test.ub")
+      (let ((unobin-treesit-auto-install nil))
+        (unobin-ts-mode))
+      (comment-region (point-min) (point-max))
+      (unless (equal (buffer-string) "  # first: 1\n  # second: 2")
+        (error "comment-region produced %S" (buffer-string)))
+      (uncomment-region (point-min) (point-max))
+      (unless (equal (buffer-string) source)
+        (error "uncomment-region produced %S" (buffer-string))))))
+
 (defun unobin-test-fontify (grammar-dir mode-path sample-path)
   (add-to-list 'treesit-extra-load-path grammar-dir)
   (load-file mode-path)
