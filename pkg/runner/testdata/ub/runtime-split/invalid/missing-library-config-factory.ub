@@ -1,0 +1,5 @@
+factory: {
+  actions: {
+    hi: core.echo { echo: 'hello' }
+  }
+}

@@ -294,9 +294,6 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	if e.Store == nil {
 		return nil, errors.New("executor: Store is required")
 	}
-	if err := e.CheckLibraryConfigs(); err != nil {
-		return nil, err
-	}
 	rs, err := e.initRun()
 	if err != nil {
 		return nil, err
