@@ -1,2 +1,2 @@
 notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
-UB_INPUT_size: expected integer, got a string
+UB_INPUT_use_spot: expected boolean, got a string

@@ -20,7 +20,7 @@
       "a",
       "b"
     ],
-    "use-spot": true
+    "use-spot": false
   },
   "said": "from-config"
 }

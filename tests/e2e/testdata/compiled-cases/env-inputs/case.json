@@ -19,7 +19,7 @@
         "UB_INPUT_size": "5",
         "UB_INPUT_subnets": "['subnet-a', 'subnet-b']",
         "UB_INPUT_tags": "[\"a\", \"b\"]",
-        "UB_INPUT_use_spot": "true"
+        "UB_INPUT_use_spot": "false"
       },
       "stdout": "want/plan-env.stdout",
       "stderr": "want/plan-env.stderr"
@@ -35,6 +35,26 @@
       "args": ["output", "--json", "-c", "stacks/dev.ub"],
       "stdout": "want/output-env.json",
       "stderr": "want/output-env.stderr"
+    },
+    {
+      "name": "plan-invalid-env",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "invalid.ubp"],
+      "env": {
+        "UB_INPUT_answer": "true",
+        "UB_INPUT_cluster_name": "web-prod",
+        "UB_INPUT_comment": "42",
+        "UB_INPUT_config": "{\"host\": \"web\", \"port\": 8080}",
+        "UB_INPUT_endpoint": "https://example.com/health",
+        "UB_INPUT_greeting": "from-env",
+        "UB_INPUT_quoted": "'hello world'",
+        "UB_INPUT_ratio": "1.5",
+        "UB_INPUT_size": "5",
+        "UB_INPUT_subnets": "['subnet-a', 'subnet-b']",
+        "UB_INPUT_tags": "[\"a\", \"b\"]",
+        "UB_INPUT_use_spot": "not-bool"
+      },
+      "stderr": "want/plan-invalid-env.stderr",
+      "exitCode": 1
     }
   ],
   "deterministic": true
