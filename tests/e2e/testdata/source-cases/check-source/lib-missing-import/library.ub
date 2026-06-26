@@ -1,0 +1,9 @@
+bad: data-source {
+  data-sources: {
+    x: missing.lookup {}
+  }
+
+  outputs: {
+    value: { value: data-source.x.value }
+  }
+}

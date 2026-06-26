@@ -1,0 +1,15 @@
+inner: data-source {
+  inputs: {
+    items: { type: map(string) }
+  }
+
+  imports: { leaf: '../lib-leaf' }
+
+  data-sources: {
+    item: leaf.value { @for-each: input.items }
+  }
+
+  outputs: {
+    value: { value: 'ok' }
+  }
+}
