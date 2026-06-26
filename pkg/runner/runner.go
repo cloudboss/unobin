@@ -24,7 +24,6 @@ import (
 	"github.com/cloudboss/unobin/pkg/runtime"
 	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
-	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/cloudboss/unobin/pkg/ui"
 	"github.com/spf13/cobra"
 )
@@ -763,7 +762,9 @@ func buildInputs(
 	if err != nil {
 		return nil, err
 	}
-	fillMissingEnvInputs(inputs, decl)
+	if err := fillMissingEnvInputs(inputs, decl); err != nil {
+		return nil, err
+	}
 	validated, errs := lang.ValidateInputsWithLibraryConfigs(
 		decl, inputs, defaultEval, libraryConfigInputResolver(parsed.syntaxBody, libs))
 	if errs.Len() > 0 {
@@ -857,13 +858,10 @@ func loadStackInputs(config *parsedStack, path string) (map[string]any, error) {
 // The declared input type directs the parse: a string input takes the raw text
 // exactly as given, so a value that happens to look like another literal (true,
 // 42) arrives unmangled, while every other type reads its value as a UB literal
-// and, failing that, as JSON, so `UB_INPUT_size=5` arrives as int64,
-// `UB_INPUT_subnets=['a', 'b']` as a list, and a value written as JSON --
-// double-quoted, which UB does not accept -- as a map or list. A value that
-// parses as neither falls through to the raw string and input validation reports
-// it against the declaration.
-func fillMissingEnvInputs(inputs map[string]any, decl *lang.ObjectLit) {
-	declared := typecheck.InputsFromBlock(decl)
+// and, failing that, as JSON, so `UB_INPUT_size=5` arrives as int64 and
+// `UB_INPUT_subnets=['a', 'b']` arrives as a list.
+func fillMissingEnvInputs(inputs map[string]any, decl *lang.ObjectLit) error {
+	declared := envInputDecls(decl)
 	for _, env := range os.Environ() {
 		if !strings.HasPrefix(env, EnvVarPrefix) {
 			continue
@@ -879,41 +877,124 @@ func fillMissingEnvInputs(inputs map[string]any, decl *lang.ObjectLit) {
 		if _, ok := inputs[name]; ok {
 			continue
 		}
-		if stringDeclared(declared, name) {
-			inputs[name] = env[eq+1:]
+		typ, ok := declared[name]
+		if !ok {
+			inputs[name] = parseEnvValue(env[eq+1:])
 			continue
 		}
-		inputs[name] = parseEnvValue(env[eq+1:])
+		value, err := parseEnvValueAs(env[eq+1:], typ)
+		if err != nil {
+			return fmt.Errorf("%s: %w", env[:eq], err)
+		}
+		inputs[name] = value
 	}
+	return nil
 }
 
-// stringDeclared reports whether the named input is declared as a
-// string, an optional() wrapper included; its env value then needs no
-// literal parse.
-func stringDeclared(declared []typecheck.ObjectField, name string) bool {
-	for _, f := range declared {
-		if f.Name == name {
-			return f.Type.Kind == typecheck.String
+func envInputDecls(decl *lang.ObjectLit) map[string]lang.TypeExpr {
+	if decl == nil {
+		return nil
+	}
+	out := map[string]lang.TypeExpr{}
+	for _, fld := range decl.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+			continue
+		}
+		obj, ok := fld.Value.(*lang.ObjectLit)
+		if !ok {
+			continue
+		}
+		if typ := envInputDeclType(obj); typ != nil {
+			out[fld.Key.Name] = typ
 		}
 	}
-	return false
+	return out
 }
 
-// parseEnvValue reads raw as a value for a non-string input. It tries a
-// single UB literal first, then JSON. UB strings are single-quoted, so
-// a value written as JSON -- double-quoted, the way another tool emits
-// it -- does not parse as UB; the JSON pass accepts it as is. A value
-// that parses as neither falls through to the raw string, so a URL or
-// path arrives without shell-escape ceremony, and input validation
-// reports it against the declaration.
-func parseEnvValue(raw string) any {
-	if v, ok := parseUBValue(raw); ok {
-		return v
+func envInputDeclType(decl *lang.ObjectLit) lang.TypeExpr {
+	for _, fld := range decl.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "type" {
+			continue
+		}
+		typ, _ := fld.Value.(lang.TypeExpr)
+		return typ
 	}
-	if v, ok := parseJSONValue(raw); ok {
+	return nil
+}
+
+func parseEnvValueAs(raw string, typ lang.TypeExpr) (any, error) {
+	if opt, ok := typ.(*lang.TypeOptional); ok {
+		if value, ok := parseEnvValueLiteral(raw); ok && value == nil {
+			return nil, nil
+		}
+		return parseEnvValueAs(raw, opt.Elem)
+	}
+	if atom, ok := typ.(*lang.TypeAtomic); ok {
+		switch atom.Name {
+		case "string":
+			return raw, nil
+		case "opaque":
+			return parseEnvValue(raw), nil
+		}
+	}
+	value, ok := parseEnvValueLiteral(raw)
+	if !ok {
+		value = raw
+	}
+	if !envValueMatchesType(value, typ) {
+		return nil, fmt.Errorf("expected %s, got %s", printType(typ), lang.TypeMessage(value))
+	}
+	return value, nil
+}
+
+func parseEnvValue(raw string) any {
+	if v, ok := parseEnvValueLiteral(raw); ok {
 		return v
 	}
 	return raw
+}
+
+func parseEnvValueLiteral(raw string) (any, bool) {
+	if v, ok := parseUBValue(raw); ok {
+		return v, true
+	}
+	return parseJSONValue(raw)
+}
+
+func envValueMatchesType(value any, typ lang.TypeExpr) bool {
+	switch tt := typ.(type) {
+	case *lang.TypeOptional:
+		return value == nil || envValueMatchesType(value, tt.Elem)
+	case *lang.TypeAtomic:
+		switch tt.Name {
+		case "opaque":
+			return true
+		case "string":
+			_, ok := value.(string)
+			return ok
+		case "integer":
+			_, ok := value.(int64)
+			return ok
+		case "number":
+			switch value.(type) {
+			case int64, float64:
+				return true
+			}
+			return false
+		case "boolean":
+			_, ok := value.(bool)
+			return ok
+		case "null":
+			return value == nil
+		}
+	case *lang.TypeList, *lang.TypeTuple:
+		_, ok := value.([]any)
+		return ok
+	case *lang.TypeMap, *lang.TypeObject, *lang.TypeLibraryConfig:
+		_, ok := value.(map[string]any)
+		return ok
+	}
+	return true
 }
 
 // parseUBValue reads raw as a single UB literal expression, returning ok
