@@ -20,9 +20,9 @@ import (
 var ErrEvalNotFound = errors.New("not found")
 
 // EvalContext supplies the values that addresses resolve against. Inputs
-// is the validated `inputs:` map after the stack file and `UB_INPUT_*` env
-// overrides. Resources, Data, and Actions hold the outputs of nodes
-// that have already executed, indexed by their source address path.
+// is the validated `inputs:` map after stack file values and missing values
+// read from `UB_INPUT_*` env vars. Resources, Data, and Actions hold the outputs
+// of nodes that have already executed, indexed by their source address path.
 // Libraries is the import table the scope's `<alias>.<func>(...)` calls
 // resolve against; nil disables library-qualified calls. Bindings holds
 // comprehension-bound names, which resolve as bare values and as

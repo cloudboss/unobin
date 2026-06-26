@@ -42,6 +42,21 @@ stack: {
 
 A `locals` block in a stack file is the top level scope. It can define variables that are reused among state, encryption, and factory inputs.
 
+## Input environment variables
+
+Factory inputs can be passed in as environment variables named `UB_INPUT_<name>`, where `<name>` is in snake case and converted to kebab case. Inputs defined in stack files take priority, so environment variables take effect only for inputs that are omitted from the stack file.
+
+Input types are first tried as Unobin literals such as `true`, `5`, or `['a', 'b']`, falling back to JSON, and finally raw strings.
+
+The following are valid:
+
+```
+UB_INPUT_az_map="{'us-east-1a': 'subnet-9bcba3cf2f71bf934', 'us-east-1b': 'subnet-edb4ca868a33e5daf'}"
+UB_INPUT_az_map='{"us-east-1a": "subnet-9bcba3cf2f71bf934", "us-east-1b": "subnet-edb4ca868a33e5daf"}'
+UB_INPUT_azs="['us-east-1a', 'us-east-1b', 'us-east-1c']"
+UB_INPUT_azs='["us-east-1a", "us-east-1b", "us-east-1c"]'
+```
+
 ## Factory pin
 
 Generated stack schema templates include a factory pin. This records the factory's library path, version, and content revision accepted by this stack file.
