@@ -46,9 +46,9 @@ A `locals` block in a stack file is the top level scope. It can define variables
 
 Factory inputs can be passed in as environment variables named `UB_INPUT_<name>`, where `<name>` is in snake case and converted to kebab case. Inputs defined in stack files take priority, so environment variables take effect only for inputs that are omitted from the stack file.
 
-Input types are first tried as Unobin literals such as `true`, `5`, or `['a', 'b']`, falling back to JSON, and finally raw strings.
+Environment values are decoded against the declared input type. String inputs use the raw text, so if `input.abc` is defined as a `string`, `UB_INPUT_abc=true` is the string `true`, not decoded to a boolean value. Other types first try Unobin literals such as `true`, `5`, or `['a', 'b']`, falling back to JSON. If the decoded value does not match the declared type, the command fails.
 
-The following are valid:
+The following are valid possibilities:
 
 ```
 UB_INPUT_az_map="{'us-east-1a': 'subnet-9bcba3cf2f71bf934', 'us-east-1b': 'subnet-edb4ca868a33e5daf'}"
