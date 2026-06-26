@@ -339,9 +339,8 @@ func constraintForEach(obj *lang.ObjectLit) lang.Expr {
 // anywhere else.
 func (c *referenceChecker) checkConstraintExpr(expr lang.Expr, scope string, it iterScope) {
 	c.checkExprIdents(expr)
-	lang.Walk(expr, func(node lang.Expr) {
-		switch n := node.(type) {
-		case *lang.DotPath:
+	lang.ScanExpr(expr, lang.ScanCallbacks{
+		DotPath: func(n *lang.DotPath, _ lang.ScanContext) lang.ScanDecision {
 			c.checkSplat(n)
 			switch {
 			case n.Root.Name == "input":
@@ -353,9 +352,12 @@ func (c *referenceChecker) checkConstraintExpr(expr lang.Expr, scope string, it 
 			case strings.HasPrefix(n.Root.Name, "@"):
 				c.checkBindingPath(n, it)
 			}
-		case *lang.Call:
+			return lang.ScanContinue
+		},
+		Call: func(n *lang.Call, _ lang.ScanContext) lang.ScanDecision {
 			c.checkCall(n, scope)
-		}
+			return lang.ScanContinue
+		},
 	})
 }
 
@@ -398,9 +400,8 @@ func (c *referenceChecker) checkBody(body lang.Expr, scope string, eachOK bool) 
 
 func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) {
 	c.checkExprIdents(expr)
-	lang.Walk(expr, func(node lang.Expr) {
-		switch n := node.(type) {
-		case *lang.DotPath:
+	lang.ScanExpr(expr, lang.ScanCallbacks{
+		DotPath: func(n *lang.DotPath, _ lang.ScanContext) lang.ScanDecision {
 			c.checkSplat(n)
 			switch n.Root.Name {
 			case "input":
@@ -414,9 +415,12 @@ func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) 
 					c.checkBindingPath(n, iterScope{bare: eachOK})
 				}
 			}
-		case *lang.Call:
+			return lang.ScanContinue
+		},
+		Call: func(n *lang.Call, _ lang.ScanContext) lang.ScanDecision {
 			c.checkCall(n, scope)
-		}
+			return lang.ScanContinue
+		},
 	})
 }
 
@@ -699,15 +703,17 @@ func syntaxLocalNames(locals []syntax.LocalDecl) map[string]bool {
 // `local.<name>` references, in source order.
 func localRefNames(e lang.Expr) []string {
 	var out []string
-	lang.Walk(e, func(node lang.Expr) {
-		dp, ok := node.(*lang.DotPath)
-		if !ok || dp.Root.Name != "local" {
-			return
-		}
-		if len(dp.Segments) == 0 || dp.Segments[0].Name == "" {
-			return
-		}
-		out = append(out, dp.Segments[0].Name)
+	lang.ScanExpr(e, lang.ScanCallbacks{
+		DotPath: func(dp *lang.DotPath, _ lang.ScanContext) lang.ScanDecision {
+			if dp.Root.Name != "local" {
+				return lang.ScanContinue
+			}
+			if len(dp.Segments) == 0 || dp.Segments[0].Name == "" {
+				return lang.ScanContinue
+			}
+			out = append(out, dp.Segments[0].Name)
+			return lang.ScanContinue
+		},
 	})
 	return out
 }

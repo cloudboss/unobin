@@ -15,14 +15,13 @@ func Refs(e lang.Expr) []string {
 		return nil
 	}
 	var out []string
-	lang.Walk(e, func(node lang.Expr) {
-		dp, ok := node.(*lang.DotPath)
-		if !ok {
-			return
-		}
-		if addr := RefAddress(dp); addr != "" {
-			out = append(out, addr)
-		}
+	lang.ScanExpr(e, lang.ScanCallbacks{
+		DotPath: func(dp *lang.DotPath, _ lang.ScanContext) lang.ScanDecision {
+			if addr := RefAddress(dp); addr != "" {
+				out = append(out, addr)
+			}
+			return lang.ScanContinue
+		},
 	})
 	return dedupe(out)
 }
@@ -43,31 +42,30 @@ func walkExpandingLocals(e lang.Expr, locals map[string]lang.Expr, visit func(*l
 	expanding := map[string]bool{}
 	var walk func(lang.Expr)
 	walk = func(expr lang.Expr) {
-		lang.Walk(expr, func(node lang.Expr) {
-			dp, ok := node.(*lang.DotPath)
-			if !ok {
-				return
-			}
-			if dp.Root.Name != "local" {
-				visit(dp)
-				return
-			}
-			if len(dp.Segments) == 0 || dp.Segments[0].Name == "" {
-				return
-			}
-			name := dp.Segments[0].Name
-			if expanding[name] {
-				return
-			}
-			sub, ok := locals[name]
-			if !ok {
-				return
-			}
-			expanding[name] = true
-			for _, narrowed := range narrowLocal(sub, dp.Segments[1:]) {
-				walk(narrowed)
-			}
-			delete(expanding, name)
+		lang.ScanExpr(expr, lang.ScanCallbacks{
+			DotPath: func(dp *lang.DotPath, _ lang.ScanContext) lang.ScanDecision {
+				if dp.Root.Name != "local" {
+					visit(dp)
+					return lang.ScanContinue
+				}
+				if len(dp.Segments) == 0 || dp.Segments[0].Name == "" {
+					return lang.ScanSkipChildren
+				}
+				name := dp.Segments[0].Name
+				if expanding[name] {
+					return lang.ScanSkipChildren
+				}
+				sub, ok := locals[name]
+				if !ok {
+					return lang.ScanSkipChildren
+				}
+				expanding[name] = true
+				for _, narrowed := range narrowLocal(sub, dp.Segments[1:]) {
+					walk(narrowed)
+				}
+				delete(expanding, name)
+				return lang.ScanSkipChildren
+			},
 		})
 	}
 	walk(e)
@@ -321,35 +319,34 @@ func pairKeyDeps(
 		return nil
 	}
 	out := map[string]bool{}
-	lang.Walk(e, func(node lang.Expr) {
-		dp, ok := node.(*lang.DotPath)
-		if !ok {
-			return
-		}
-		match, ok := RefMatchInScope(dp, nodes, scope)
-		if !ok {
-			return
-		}
-		if !strings.HasPrefix(match.Address, "resource.") &&
-			!strings.HasPrefix(match.Address, "data-source.") &&
-			!strings.HasPrefix(match.Address, "action.") {
-			return
-		}
-		if len(dp.Segments) <= match.Segments {
-			return
-		}
-		seg := dp.Segments[match.Segments]
-		if seg.Index == nil {
-			return
-		}
-		idx, ok := seg.Index.(*lang.DotPath)
-		if !ok || idx.Root == nil || idx.Root.Name != "@each" {
-			return
-		}
-		if len(idx.Segments) != 1 || idx.Segments[0].Name != "key" {
-			return
-		}
-		out[match.Address] = true
+	lang.ScanExpr(e, lang.ScanCallbacks{
+		DotPath: func(dp *lang.DotPath, _ lang.ScanContext) lang.ScanDecision {
+			match, ok := RefMatchInScope(dp, nodes, scope)
+			if !ok {
+				return lang.ScanContinue
+			}
+			if !strings.HasPrefix(match.Address, "resource.") &&
+				!strings.HasPrefix(match.Address, "data-source.") &&
+				!strings.HasPrefix(match.Address, "action.") {
+				return lang.ScanContinue
+			}
+			if len(dp.Segments) <= match.Segments {
+				return lang.ScanContinue
+			}
+			seg := dp.Segments[match.Segments]
+			if seg.Index == nil {
+				return lang.ScanContinue
+			}
+			idx, ok := seg.Index.(*lang.DotPath)
+			if !ok || idx.Root == nil || idx.Root.Name != "@each" {
+				return lang.ScanContinue
+			}
+			if len(idx.Segments) != 1 || idx.Segments[0].Name != "key" {
+				return lang.ScanContinue
+			}
+			out[match.Address] = true
+			return lang.ScanContinue
+		},
 	})
 	if len(out) == 0 {
 		return nil
