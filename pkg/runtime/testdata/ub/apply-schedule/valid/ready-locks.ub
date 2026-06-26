@@ -1,0 +1,5 @@
+actions: {
+  locked-one: core.slow { @lock: 'cluster', delay-ms: 120 }
+  locked-two: core.slow { @lock: 'cluster', delay-ms: 10 }
+  free: core.slow { delay-ms: 10 }
+}
