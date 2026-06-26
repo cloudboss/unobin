@@ -1,0 +1,1 @@
+resource app: @lock must be a string literal

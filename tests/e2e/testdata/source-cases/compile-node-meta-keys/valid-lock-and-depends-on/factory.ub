@@ -1,0 +1,19 @@
+factory: {
+  imports: { e2e: 'example.com/unobin/e2elib' }
+  library-configs: {
+    e2e: {
+      base-dir: '.'
+      event-log-path: 'events.ndjson'
+      nested: { label: 'nested' }
+    }
+  }
+  resources: {
+    first: e2e.file { path: 'files/first.txt', content: 'first' }
+    second: e2e.file {
+      path: 'files/second.txt'
+      content: 'second'
+      @lock: 'deploy'
+      @depends-on: [resource.first]
+    }
+  }
+}

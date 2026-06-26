@@ -1,0 +1,6 @@
+factory: {
+  imports: { core: 'example.com/core' }
+  data-sources: {
+    image: core.thing { @lock: 1 }
+  }
+}

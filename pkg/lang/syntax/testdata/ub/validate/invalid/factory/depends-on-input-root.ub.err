@@ -1,0 +1,1 @@
+resource app: @depends-on[0] must name a resource, data-source, or action

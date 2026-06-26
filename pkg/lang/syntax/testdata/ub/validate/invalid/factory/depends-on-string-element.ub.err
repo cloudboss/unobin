@@ -1,0 +1,1 @@
+resource app: @depends-on[0] must be an unquoted resource, data-source, or action ref

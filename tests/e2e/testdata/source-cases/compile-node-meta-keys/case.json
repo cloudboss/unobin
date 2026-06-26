@@ -1,0 +1,27 @@
+{
+  "name": "compile-node-meta-keys",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "invalid-lock-expression",
+      "dir": "invalid-lock-expression",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-lock-expression.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "invalid-depends-on-string",
+      "dir": "invalid-depends-on-string",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-depends-on-string.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "valid-lock-and-depends-on",
+      "dir": "valid-lock-and-depends-on",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    }
+  ]
+}
