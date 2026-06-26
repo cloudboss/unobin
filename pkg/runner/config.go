@@ -39,7 +39,7 @@ func parseStackSource(path string, src []byte) (*parsedStack, error) {
 	if !hasStackDeclaration(raw) {
 		return nil, fmt.Errorf("%s must declare stack", filepath.Base(path))
 	}
-	sf, err := syntax.ParseSource(path, src)
+	sf, err := syntax.LowerParsedSource(path, src, raw)
 	if err != nil {
 		return nil, err
 	}
