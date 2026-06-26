@@ -1,10 +1,6 @@
-// Package lang holds the unobin source language: PEG grammar, lexer, AST.
+// Package lang parses and validates Unobin source files.
 //
-// Scope: parsing factory, stack, project, project-lock, and library export files
-// into a typed AST. Multi-error reporting with line/column from the parser.
-//
-// Companion packages:
-//   - pkg/types - type system and type-expression evaluation
-//   - pkg/codegen - AST to Go source
-//   - pkg/resolve - import resolution and project-lock file
+// It contains the generic parse AST, grammar entry points, formatting, and
+// schema validation helpers. The typed syntax layer lives in pkg/lang/syntax;
+// compile-time reference and type checks live in pkg/check and pkg/typecheck.
 package lang
