@@ -1,0 +1,8 @@
+resources: {
+  left: slow.r { name: 'left', delay-ms: 20 }
+  right: slow.r { name: 'right', delay-ms: 20 }
+  join: slow.r {
+    name: $'{{resource.left.name}}-{{resource.right.name}}'
+    delay-ms: 0
+  }
+}
