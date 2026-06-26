@@ -713,17 +713,6 @@ func outputDeclsObject(decls []OutputDecl) *parse.ObjectLit {
 	return obj
 }
 
-func libraryConfigDeclsObject(decls []LibraryConfigDecl) *parse.ObjectLit {
-	obj := &parse.ObjectLit{}
-	if len(decls) > 0 {
-		obj.S = decls[0].S
-	}
-	for _, decl := range decls {
-		obj.Fields = append(obj.Fields, identField(decl.Alias.Name, decl.Alias.S, decl.Value))
-	}
-	return obj
-}
-
 func projectRequiresObject(decls []ProjectRequire) *parse.ObjectLit {
 	obj := &parse.ObjectLit{}
 	if len(decls) > 0 {
