@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 
 	"github.com/cloudboss/unobin/pkg/codegen"
@@ -181,73 +182,19 @@ func (v *importVisitor) OnUBLibrary(
 	if v.generatePackages {
 		packageID = v.packageIDs.ID(alias, canonicalKey)
 	}
-	composites := make(map[string]map[string]map[string]string, len(lib.BodyImports))
-	goSpecs := map[string]codegen.GoLibrarySpecs{}
-	runtimeLib := &runtime.Library{Name: alias}
-	for _, entry := range entries {
-		resols := lib.BodyImports[entry.Kind][entry.Name]
-		bodyLibs := make(map[string]*runtime.Library, len(resols))
-		bodyUsed := usedSyntaxLibraryTypes(entry.SyntaxBody)
-		for _, res := range resols {
-			switch res.Kind {
-			case resolve.ResolutionGo:
-				schema, warnings, err := v.schemas.Read(res.SourcePath)
-				if err != nil {
-					return fmt.Errorf(
-						"%s composite %q import %q: %w",
-						entry.Kind, entry.Name, res.LocalAlias, err)
-				}
-				printSchemaWarnings(v.warnOut, res.LocalAlias, warnings)
-				bodyLibs[res.LocalAlias] = &runtime.Library{Schema: schema}
-				if v.generatePackages {
-					used := bodyUsed[res.LocalAlias]
-					specs := codegen.GoLibrarySpecs{
-						Constraints: keepUsedTypes(constraintsFromSchema(schema), used),
-						Defaults:    keepUsedTypes(defaultsFromSchema(schema), used),
-						Schema:      keepUsedSchema(schema, used),
-					}
-					if !specs.Empty() {
-						goSpecs[res.Path] = specs
-					}
-				}
-			case resolve.ResolutionUB:
-				bodyLibs[res.LocalAlias] = v.runtimeLibraries[res.CanonicalKey]
-			}
-		}
-		syntaxBody := entry.SyntaxBody
-		runtimeLib.AddComposite(&runtime.CompositeType{
-			Name:       entry.Name,
-			Kind:       runtime.NodeKind(entry.Kind),
-			SyntaxBody: &syntaxBody,
-			Libraries:  bodyLibs,
-		})
+	composites, err := v.buildCompiledComposites(entries, lib.BodyImports)
+	if err != nil {
+		return err
 	}
+	runtimeLib := runtimeLibraryForCompiledComposites(alias, composites)
 	if v.generatePackages {
-		for kind, byName := range lib.BodyImports {
-			for name, resols := range byName {
-				composite := make(map[string]string, len(resols))
-				for _, res := range resols {
-					switch res.Kind {
-					case resolve.ResolutionGo:
-						composite[res.LocalAlias] = res.Path
-					case resolve.ResolutionUB:
-						importPath, err := v.ubImportPath(res.CanonicalKey)
-						if err != nil {
-							return err
-						}
-						composite[res.LocalAlias] = importPath
-					}
-				}
-				if len(composite) > 0 {
-					if composites[kind] == nil {
-						composites[kind] = map[string]map[string]string{}
-					}
-					composites[kind][name] = composite
-				}
-			}
-		}
 		src, err := codegen.GenerateUBLibraryPackage(
-			packageID, alias, lib.SyntaxBodies, composites, goSpecs)
+			packageID,
+			alias,
+			syntaxBodiesForCompiledComposites(composites),
+			codegenImportsForCompiledComposites(composites),
+			goSpecsForCompiledComposites(composites),
+		)
 		if err != nil {
 			return err
 		}
@@ -255,6 +202,225 @@ func (v *importVisitor) OnUBLibrary(
 	}
 	v.runtimeLibraries[canonicalKey] = runtimeLib
 	return nil
+}
+
+type compiledComposite struct {
+	entry          resolve.CompositeEntry
+	bodyLibs       map[string]*runtime.Library
+	codegenImports map[string]string
+	goSpecs        map[string]codegen.GoLibrarySpecs
+}
+
+func (v *importVisitor) buildCompiledComposites(
+	entries []resolve.CompositeEntry,
+	bodyImports map[string]map[string][]resolve.Resolution,
+) ([]compiledComposite, error) {
+	composites := make([]compiledComposite, 0, len(entries))
+	for _, entry := range entries {
+		resols := bodyImports[entry.Kind][entry.Name]
+		composite := compiledComposite{
+			entry:    entry,
+			bodyLibs: make(map[string]*runtime.Library, len(resols)),
+		}
+		if v.generatePackages {
+			composite.codegenImports = make(map[string]string, len(resols))
+			composite.goSpecs = map[string]codegen.GoLibrarySpecs{}
+		}
+		bodyUsed := usedSyntaxLibraryTypes(entry.SyntaxBody)
+		for _, res := range resols {
+			switch res.Kind {
+			case resolve.ResolutionGo:
+				if err := v.addCompiledGoImport(&composite, entry, bodyUsed, res); err != nil {
+					return nil, err
+				}
+			case resolve.ResolutionUB:
+				if err := v.addCompiledUBImport(&composite, res); err != nil {
+					return nil, err
+				}
+			}
+		}
+		if len(composite.codegenImports) == 0 {
+			composite.codegenImports = nil
+		}
+		if len(composite.goSpecs) == 0 {
+			composite.goSpecs = nil
+		}
+		composites = append(composites, composite)
+	}
+	return composites, nil
+}
+
+func (v *importVisitor) addCompiledGoImport(
+	composite *compiledComposite,
+	entry resolve.CompositeEntry,
+	bodyUsed map[string]map[string]bool,
+	res resolve.Resolution,
+) error {
+	schema, warnings, err := v.schemas.Read(res.SourcePath)
+	if err != nil {
+		return fmt.Errorf(
+			"%s composite %q import %q: %w",
+			entry.Kind, entry.Name, res.LocalAlias, err)
+	}
+	printSchemaWarnings(v.warnOut, res.LocalAlias, warnings)
+	composite.bodyLibs[res.LocalAlias] = &runtime.Library{Schema: schema}
+	if !v.generatePackages {
+		return nil
+	}
+	composite.codegenImports[res.LocalAlias] = res.Path
+	used := bodyUsed[res.LocalAlias]
+	specs := codegen.GoLibrarySpecs{
+		Constraints: keepUsedTypes(constraintsFromSchema(schema), used),
+		Defaults:    keepUsedTypes(defaultsFromSchema(schema), used),
+		Schema:      keepUsedSchema(schema, used),
+	}
+	if !specs.Empty() {
+		composite.goSpecs[res.Path] = specs
+	}
+	return nil
+}
+
+func (v *importVisitor) addCompiledUBImport(
+	composite *compiledComposite,
+	res resolve.Resolution,
+) error {
+	composite.bodyLibs[res.LocalAlias] = v.runtimeLibraries[res.CanonicalKey]
+	if !v.generatePackages {
+		return nil
+	}
+	importPath, err := v.ubImportPath(res.CanonicalKey)
+	if err != nil {
+		return err
+	}
+	composite.codegenImports[res.LocalAlias] = importPath
+	return nil
+}
+
+func runtimeLibraryForCompiledComposites(
+	name string,
+	composites []compiledComposite,
+) *runtime.Library {
+	lib := &runtime.Library{Name: name}
+	for _, composite := range composites {
+		syntaxBody := composite.entry.SyntaxBody
+		lib.AddComposite(&runtime.CompositeType{
+			Name:       composite.entry.Name,
+			Kind:       runtime.NodeKind(composite.entry.Kind),
+			SyntaxBody: &syntaxBody,
+			Libraries:  composite.bodyLibs,
+		})
+	}
+	return lib
+}
+
+func syntaxBodiesForCompiledComposites(
+	composites []compiledComposite,
+) map[string]map[string]syntax.FactoryBody {
+	out := map[string]map[string]syntax.FactoryBody{}
+	for _, composite := range composites {
+		kind := composite.entry.Kind
+		if out[kind] == nil {
+			out[kind] = map[string]syntax.FactoryBody{}
+		}
+		out[kind][composite.entry.Name] = composite.entry.SyntaxBody
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func codegenImportsForCompiledComposites(
+	composites []compiledComposite,
+) map[string]map[string]map[string]string {
+	out := map[string]map[string]map[string]string{}
+	for _, composite := range composites {
+		if len(composite.codegenImports) == 0 {
+			continue
+		}
+		kind := composite.entry.Kind
+		if out[kind] == nil {
+			out[kind] = map[string]map[string]string{}
+		}
+		imports := make(map[string]string, len(composite.codegenImports))
+		maps.Copy(imports, composite.codegenImports)
+		out[kind][composite.entry.Name] = imports
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func goSpecsForCompiledComposites(
+	composites []compiledComposite,
+) map[string]codegen.GoLibrarySpecs {
+	out := map[string]codegen.GoLibrarySpecs{}
+	for _, composite := range composites {
+		for importPath, specs := range composite.goSpecs {
+			mergeGoLibrarySpecs(out, importPath, specs)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func mergeGoLibrarySpecs(
+	out map[string]codegen.GoLibrarySpecs,
+	importPath string,
+	specs codegen.GoLibrarySpecs,
+) {
+	if specs.Empty() {
+		return
+	}
+	current := out[importPath]
+	current.Constraints = mergeSpecMap(current.Constraints, specs.Constraints)
+	current.Defaults = mergeSpecMap(current.Defaults, specs.Defaults)
+	current.Schema = mergeLibrarySchema(current.Schema, specs.Schema)
+	out[importPath] = current
+}
+
+func mergeSpecMap[T any](dst, src map[string][]T) map[string][]T {
+	if len(src) == 0 {
+		return dst
+	}
+	if dst == nil {
+		dst = map[string][]T{}
+	}
+	maps.Copy(dst, src)
+	return dst
+}
+
+func mergeLibrarySchema(
+	dst *runtime.LibrarySchema,
+	src *runtime.LibrarySchema,
+) *runtime.LibrarySchema {
+	if src == nil {
+		return dst
+	}
+	if dst == nil {
+		dst = &runtime.LibrarySchema{}
+	}
+	dst.Resources = mergeTypeSchemaMap(dst.Resources, src.Resources)
+	dst.DataSources = mergeTypeSchemaMap(dst.DataSources, src.DataSources)
+	dst.Actions = mergeTypeSchemaMap(dst.Actions, src.Actions)
+	return dst
+}
+
+func mergeTypeSchemaMap(
+	dst map[string]*runtime.TypeSchema,
+	src map[string]*runtime.TypeSchema,
+) map[string]*runtime.TypeSchema {
+	if len(src) == 0 {
+		return dst
+	}
+	if dst == nil {
+		dst = map[string]*runtime.TypeSchema{}
+	}
+	maps.Copy(dst, src)
+	return dst
 }
 
 func constraintsFromSchema(schema *runtime.LibrarySchema) map[string][]lang.ConstraintSpec {
