@@ -1,0 +1,12 @@
+factory: {
+  imports: { bundles: './libraries/bundles' }
+
+  resources: {
+    bundle: bundles.bundle {
+      path: 'files/bundle.txt'
+      body: 'bundle body'
+    }
+  }
+
+  outputs: { path: { value: resource.bundle.path } }
+}

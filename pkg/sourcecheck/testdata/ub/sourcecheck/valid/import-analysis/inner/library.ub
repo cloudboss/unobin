@@ -1,0 +1,14 @@
+leaf: resource {
+  inputs: { path: { type: string } }
+
+  imports: { std: 'example.com/schema' }
+
+  resources: {
+    file: std.file {
+      path:    input.path
+      content: 'leaf'
+    }
+  }
+
+  outputs: { path: { value: resource.file.path } }
+}

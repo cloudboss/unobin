@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"testing/fstest"
 
 	"github.com/cloudboss/unobin/pkg/check"
@@ -118,95 +117,19 @@ func buildLibraries(
 	refs map[string]resolve.ImportRef,
 	opts Options,
 ) (map[string]*runtime.Library, error) {
-	if len(refs) > 0 && opts.Resolver == nil {
-		return nil, errors.New("sourcecheck: resolver is required when imports are present")
-	}
-	resolver := opts.Resolver
-	if opts.Mode == ModeNoFetch {
-		resolver = noFetchResolver{wrapped: resolver}
-	}
-	schemas := opts.SchemaCache
-	if schemas == nil {
-		schemas = NewSchemaCache()
-	}
-	visitor := &libraryVisitor{
-		byKey:   map[string]*runtime.Library{},
-		warnOut: opts.WarnOut,
-		schemas: schemas,
-	}
-	top, err := resolve.WalkUBFrom(refs, resolver, visitor, opts.Versions, sourceForOptions(opts))
+	analysis, err := AnalyzeImports(refs, ImportAnalysisOptions{
+		ProjectDir:  opts.ProjectDir,
+		Source:      opts.Source,
+		Resolver:    opts.Resolver,
+		Versions:    opts.Versions,
+		SchemaCache: opts.SchemaCache,
+		WarnOut:     opts.WarnOut,
+		Mode:        opts.Mode,
+	})
 	if err != nil {
 		return nil, err
 	}
-	libs := make(map[string]*runtime.Library, len(top))
-	for _, res := range top {
-		switch res.Kind {
-		case resolve.ResolutionGo:
-			schema, warnings, err := schemas.Read(res.SourcePath)
-			if err != nil {
-				return nil, fmt.Errorf("import %q: %w", res.LocalAlias, err)
-			}
-			printSchemaWarnings(opts.WarnOut, res.LocalAlias, warnings)
-			libs[res.LocalAlias] = &runtime.Library{Schema: schema}
-		case resolve.ResolutionUB:
-			libs[res.LocalAlias] = visitor.byKey[res.CanonicalKey]
-		}
-	}
-	return libs, nil
-}
-
-func sourceForOptions(opts Options) *resolve.Source {
-	if opts.Source != nil {
-		return opts.Source
-	}
-	if opts.ProjectDir == "" {
-		return nil
-	}
-	return &resolve.Source{FS: os.DirFS(opts.ProjectDir), Path: opts.ProjectDir}
-}
-
-type libraryVisitor struct {
-	byKey   map[string]*runtime.Library
-	warnOut io.Writer
-	schemas *SchemaCache
-}
-
-func (v *libraryVisitor) OnGoImport(_, _, _, _ string) error {
-	return nil
-}
-
-func (v *libraryVisitor) OnUBLibrary(
-	alias, canonicalKey string, _ resolve.ImportRef, lib *resolve.UBLibrary,
-) error {
-	runtimeLib := &runtime.Library{Name: alias}
-	for _, entry := range lib.CompositeEntries() {
-		resols := lib.BodyImports[entry.Kind][entry.Name]
-		bodyLibs := make(map[string]*runtime.Library, len(resols))
-		for _, res := range resols {
-			switch res.Kind {
-			case resolve.ResolutionGo:
-				schema, warnings, err := v.schemas.Read(res.SourcePath)
-				if err != nil {
-					return fmt.Errorf(
-						"%s composite %q import %q: %w",
-						entry.Kind, entry.Name, res.LocalAlias, err)
-				}
-				printSchemaWarnings(v.warnOut, res.LocalAlias, warnings)
-				bodyLibs[res.LocalAlias] = &runtime.Library{Schema: schema}
-			case resolve.ResolutionUB:
-				bodyLibs[res.LocalAlias] = v.byKey[res.CanonicalKey]
-			}
-		}
-		syntaxBody := entry.SyntaxBody
-		runtimeLib.AddComposite(&runtime.CompositeType{
-			Name:       entry.Name,
-			Kind:       runtime.NodeKind(entry.Kind),
-			SyntaxBody: &syntaxBody,
-			Libraries:  bodyLibs,
-		})
-	}
-	v.byKey[canonicalKey] = runtimeLib
-	return nil
+	return analysis.Libraries, nil
 }
 
 func printSchemaWarnings(out io.Writer, alias string, warnings []string) {

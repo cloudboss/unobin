@@ -1,0 +1,9 @@
+leaf: resource {
+  imports: { std: 'example.com/schema' }
+  resources: {
+    file: std.file {
+      path:    'inner.txt'
+      content: 'inner'
+    }
+  }
+}

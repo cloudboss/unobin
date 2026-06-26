@@ -1,0 +1,24 @@
+factory: {
+  imports: {
+    direct:     '../inner'
+    std:        'example.com/schema'
+    wrap:       '../wrap'
+    wrap-again: '../wrap'
+  }
+
+  resources: {
+    direct: direct.leaf {
+      path: 'direct.txt'
+    }
+    root: wrap.wrapper {
+      path: 'wrapped.txt'
+    }
+    again: wrap-again.wrapper {
+      path: 'again.txt'
+    }
+    go: std.file {
+      path:    'go.txt'
+      content: 'go'
+    }
+  }
+}

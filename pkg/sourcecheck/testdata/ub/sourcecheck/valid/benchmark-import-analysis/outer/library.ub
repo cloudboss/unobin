@@ -1,0 +1,13 @@
+wrapper: resource {
+  imports: {
+    leaf: '../inner'
+    std:  'example.com/schema'
+  }
+  resources: {
+    child: leaf.leaf {}
+    file: std.file {
+      path:    'outer.txt'
+      content: 'outer'
+    }
+  }
+}
