@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
-	"go/parser"
 	"go/token"
 	"go/types"
 	"maps"
@@ -26,6 +25,22 @@ import (
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
+// Analysis is the complete Go library source analysis.
+type Analysis struct {
+	Schema   *runtime.LibrarySchema
+	Index    *SourceIndex
+	Warnings []string
+}
+
+// Analyze reads a Go library's source and returns its schema facts and locations.
+func Analyze(dir string, extra ...ModuleRoot) (*Analysis, error) {
+	ctx, err := newAnalysisContext(dir, extra...)
+	if err != nil {
+		return nil, err
+	}
+	return ctx.run()
+}
+
 // Read parses the Go library rooted at dir and returns its schema
 // plus any warnings: registered types whose sibling Output struct
 // could not be located, and constraints whose pieces could not be
@@ -35,47 +50,92 @@ import (
 // read source from when a referenced type lives outside the
 // library's own module.
 func Read(dir string, extra ...ModuleRoot) (*runtime.LibrarySchema, []string, error) {
-	schema, _, warnings, err := ReadWithIndex(dir, extra...)
-	return schema, warnings, err
+	analysis, err := Analyze(dir, extra...)
+	if err != nil {
+		if analysis == nil {
+			return nil, nil, err
+		}
+		return analysis.Schema, analysis.Warnings, err
+	}
+	return analysis.Schema, analysis.Warnings, nil
 }
 
-func readSchema(dir string, extra ...ModuleRoot) (*runtime.LibrarySchema, []string, error) {
-	rootPkg, err := parsePackageDir(dir)
-	if err != nil {
-		return nil, nil, err
-	}
-	libraryFunc := findModuleFunc(rootPkg)
-	if libraryFunc == nil {
-		return nil, nil, fmt.Errorf("no Library() function in %s", dir)
-	}
-	roots := append([]ModuleRoot{{Path: readGoModPath(dir), Dir: dir}}, extra...)
+type analysisContext struct {
+	dir      string
+	roots    []ModuleRoot
+	root     *indexedPackage
+	packages map[string]*indexedPackage
+	warnings []string
+	errs     []error
+}
 
+func newAnalysisContext(dir string, extra ...ModuleRoot) (*analysisContext, error) {
+	root := ModuleRoot{Path: readGoModPath(dir), Dir: dir}
+	rootPkg, err := parseIndexedPackageDir(dir, root.Path)
+	if err != nil {
+		return nil, err
+	}
+	roots := make([]ModuleRoot, 0, 1+len(extra))
+	roots = append(roots, root)
+	roots = append(roots, extra...)
+	packages := map[string]*indexedPackage{}
+	if root.Path != "" {
+		packages[root.Path] = rootPkg
+	}
+	return &analysisContext{
+		dir:      dir,
+		roots:    roots,
+		root:     rootPkg,
+		packages: packages,
+	}, nil
+}
+
+func (c *analysisContext) run() (*Analysis, error) {
+	libraryFunc := findModuleFunc(c.root.files)
+	if libraryFunc == nil {
+		return nil, fmt.Errorf("no Library() function in %s", c.dir)
+	}
+	schema, err := c.readSchema(libraryFunc)
+	if err != nil {
+		return &Analysis{Warnings: slices.Clone(c.warnings)}, err
+	}
+	index, err := c.buildSourceIndex(libraryFunc)
+	if err != nil {
+		return &Analysis{Schema: schema, Warnings: slices.Clone(c.warnings)}, err
+	}
+	return &Analysis{
+		Schema:   schema,
+		Index:    index,
+		Warnings: slices.Clone(c.warnings),
+	}, nil
+}
+
+func (c *analysisContext) readSchema(
+	libraryFunc *ast.FuncDecl,
+) (*runtime.LibrarySchema, error) {
 	schema := &runtime.LibrarySchema{
 		Resources:   map[string]*runtime.TypeSchema{},
 		DataSources: map[string]*runtime.TypeSchema{},
 		Actions:     map[string]*runtime.TypeSchema{},
 		Functions:   map[string]typecheck.FuncSig{},
 	}
-	var warnings []string
 
-	cache := map[string][]*ast.File{}
-	errs := &[]error{}
 	for _, reg := range extractRegistrations(libraryFunc) {
 		kind := registrationKindLabel(reg.Field)
-		w := newWalker(roots, rootPkg, cache, errs, &warnings)
+		w := c.newWalker()
 		w.subject = fmt.Sprintf("%s %q input", kind, reg.Name)
 		inputs, sensitiveIn := w.lookupFields(reg.InputRef)
-		w = newWalker(roots, rootPkg, cache, errs, &warnings)
+		w = c.newWalker()
 		w.subject = fmt.Sprintf("%s %q output", kind, reg.Name)
 		outputs, sensitiveOut := w.lookupFields(reg.OutputRef)
 		if outputs == nil {
-			warnings = append(warnings, fmt.Sprintf(
+			c.warnings = append(c.warnings, fmt.Sprintf(
 				"%s %q: %s not found in reachable source",
 				registrationKindLabel(reg.Field), reg.Name, reg.OutputRef))
 		}
-		w = newWalker(roots, rootPkg, cache, errs, &warnings)
+		w = c.newWalker()
 		constraints := w.lookupConstraints(reg.InputRef)
-		w = newWalker(roots, rootPkg, cache, errs, &warnings)
+		w = c.newWalker()
 		defaultSpecs := w.lookupDefaults(reg.InputRef)
 		ts := &runtime.TypeSchema{
 			Inputs:           inputs,
@@ -97,16 +157,16 @@ func readSchema(dir string, extra ...ModuleRoot) (*runtime.LibrarySchema, []stri
 	if ref, init, found, ok := extractConfigurationRef(libraryFunc); found {
 		schema.HasConfiguration = true
 		if !ok {
-			warnings = append(warnings,
+			c.warnings = append(c.warnings,
 				"library configuration: cannot read the struct behind New from source "+
 					"(write `New: func() any { return &T{} }`), so configuration fields "+
 					"are unchecked")
 		} else {
-			w := newWalker(roots, rootPkg, cache, errs, &warnings)
+			w := c.newWalker()
 			w.subject = "library configuration"
 			fields, defaults, _ := w.lookupConfigurationFields(ref, init)
 			if fields == nil {
-				warnings = append(warnings, fmt.Sprintf(
+				c.warnings = append(c.warnings, fmt.Sprintf(
 					"library configuration: %s not found in reachable source, "+
 						"so configuration fields are unchecked", ref))
 			} else {
@@ -118,11 +178,24 @@ func readSchema(dir string, extra ...ModuleRoot) (*runtime.LibrarySchema, []stri
 			}
 		}
 	}
-	maps.Copy(schema.Functions, extractFunctions(libraryFunc, rootPkg, errs))
-	if len(*errs) > 0 {
-		return nil, warnings, errors.Join(*errs...)
+	maps.Copy(schema.Functions, extractFunctions(libraryFunc, c.root.files, &c.errs))
+	if len(c.errs) > 0 {
+		return nil, errors.Join(c.errs...)
 	}
-	return schema, warnings, nil
+	return schema, nil
+}
+
+func (c *analysisContext) newWalker() *walker {
+	return newWalker(c.roots, c.root, c.packages, &c.errs, &c.warnings)
+}
+
+func (c *analysisContext) buildSourceIndex(libraryFunc *ast.FuncDecl) (*SourceIndex, error) {
+	indexer := &sourceIndexer{
+		roots:    c.roots,
+		packages: c.packages,
+		root:     c.root,
+	}
+	return indexer.build(libraryFunc)
 }
 
 func sortedKeys(m map[string]bool) []string {
@@ -199,7 +272,7 @@ type ModuleRoot struct {
 // two packages is still broken at re-entry.
 type walker struct {
 	roots        []ModuleRoot
-	packageCache map[string][]*ast.File
+	packageCache map[string]*indexedPackage
 	visiting     map[string]bool
 	errs         *[]error
 	warns        *[]string
@@ -218,13 +291,13 @@ type walker struct {
 // through cross-package recursion.
 func newWalker(
 	roots []ModuleRoot,
-	rootFiles []*ast.File,
-	cache map[string][]*ast.File,
+	rootPkg *indexedPackage,
+	cache map[string]*indexedPackage,
 	errs *[]error,
 	warns *[]string,
 ) *walker {
 	if roots[0].Path != "" {
-		cache[roots[0].Path] = rootFiles
+		cache[roots[0].Path] = rootPkg
 	}
 	return &walker{
 		roots:        roots,
@@ -233,8 +306,8 @@ func newWalker(
 		errs:         errs,
 		warns:        warns,
 		importPath:   roots[0].Path,
-		files:        rootFiles,
-		imports:      buildImportMap(rootFiles),
+		files:        rootPkg.files,
+		imports:      buildImportMap(rootPkg.files),
 	}
 }
 
@@ -259,20 +332,20 @@ func (w *walker) sub(importPath string) *walker {
 // the module roots, parsing the directory lazily and caching the
 // result. Imports outside every root return (nil, false).
 func (w *walker) loadPackage(importPath string) ([]*ast.File, bool) {
-	if files, ok := w.packageCache[importPath]; ok {
-		return files, true
+	if pkg, ok := w.packageCache[importPath]; ok {
+		return pkg.files, true
 	}
 	root, ok := w.rootFor(importPath)
 	if !ok {
 		return nil, false
 	}
 	rel := strings.TrimPrefix(strings.TrimPrefix(importPath, root.Path), "/")
-	files, err := parsePackageDir(filepath.Join(root.Dir, rel))
+	pkg, err := parseIndexedPackageDir(filepath.Join(root.Dir, rel), importPath)
 	if err != nil {
 		return nil, false
 	}
-	w.packageCache[importPath] = files
-	return files, true
+	w.packageCache[importPath] = pkg
+	return pkg.files, true
 }
 
 // rootFor finds the module root containing importPath, preferring the
@@ -604,37 +677,6 @@ func objectField(name string, t typecheck.Type) typecheck.ObjectField {
 		return typecheck.ObjectField{Name: name, Type: t.Unwrap(), Optional: true}
 	}
 	return typecheck.ObjectField{Name: name, Type: t}
-}
-
-func parsePackageDir(dir string) ([]*ast.File, error) {
-	fset := token.NewFileSet()
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, fmt.Errorf("parse %s: %w", dir, err)
-	}
-	var packageName string
-	var files []*ast.File
-	for _, entry := range entries {
-		name := entry.Name()
-		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
-			continue
-		}
-		file, err := parser.ParseFile(fset, filepath.Join(dir, name), nil, parser.ParseComments)
-		if err != nil {
-			return nil, fmt.Errorf("parse %s: %w", dir, err)
-		}
-		if packageName == "" {
-			packageName = file.Name.Name
-		}
-		if file.Name.Name != packageName {
-			return nil, fmt.Errorf("more than one Go package found in %s", dir)
-		}
-		files = append(files, file)
-	}
-	if len(files) == 0 {
-		return nil, fmt.Errorf("no Go package found in %s", dir)
-	}
-	return files, nil
 }
 
 func findModuleFunc(files []*ast.File) *ast.FuncDecl {
