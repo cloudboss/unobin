@@ -19,10 +19,17 @@ type schemaCacheEntry struct {
 
 // NewSchemaCache returns a cache that reads Go source with extra module roots.
 func NewSchemaCache(extra ...goschema.ModuleRoot) *SchemaCache {
+	return NewSchemaCacheWithReader(func(sourcePath string) (*runtime.LibrarySchema, []string, error) {
+		return readGoSchema(sourcePath, extra...)
+	})
+}
+
+// NewSchemaCacheWithReader returns a cache that reads Go schemas through read.
+func NewSchemaCacheWithReader(
+	read func(sourcePath string) (*runtime.LibrarySchema, []string, error),
+) *SchemaCache {
 	return &SchemaCache{
-		read: func(sourcePath string) (*runtime.LibrarySchema, []string, error) {
-			return readGoSchema(sourcePath, extra...)
-		},
+		read:    read,
 		entries: map[string]schemaCacheEntry{},
 	}
 }

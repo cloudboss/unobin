@@ -3,6 +3,7 @@ package lsp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -46,64 +47,83 @@ func TestDiagnosticsFromErrorListPreserveSourceOrder(t *testing.T) {
 
 func TestDiagnosticsFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/diagnostics", func(name string, src []byte) (string, []string) {
-		diags := DiagnosticsForText(diagnosticFixturePath(name), string(src))
+		diags := diagnosticsForFixture(t, name, string(src))
 		return "", diagnosticMessages(diags)
 	}, ubtest.Substring())
 }
 
 func TestDiagnosticsUseCachedGoSchema(t *testing.T) {
-	root, sourcePath, source := diagnosticProjectWithFixture(t, "go-field-typo")
-	goDir, err := filepath.Abs(filepath.Join("..", "goschema", "testdata", "definition"))
-	require.NoError(t, err)
-	require.NoError(t, deps.WriteProject(filepath.Join(root, deps.ProjectFileName), &deps.Project{
-		Requires: map[deps.Dependency]deps.Requirement{},
-		Replace: map[deps.Dependency]string{
-			{URL: "example.com/definition"}: goDir,
-		},
-	}))
-	cache := NewProjectCache(root)
+	source := readDiagnosticFixture(t, "invalid/go-field-typo")
 
-	diags := DiagnosticsForTextWithProjects(sourcePath, source, cache)
+	diags := diagnosticsForDefinitionFixture(t, source)
+
 	require.NotEmpty(t, diags)
 	require.Contains(t, strings.Join(diagnosticMessages(diags), "\n"), "unknown-field")
 }
 
-func TestDiagnosticsMissingRemoteCacheDoesNotPublishDiagnostic(t *testing.T) {
-	root, sourcePath, source := diagnosticProjectWithFixture(t, "missing-remote")
-	lock := deps.NewProjectLock()
-	lock.ToolchainVersion = "dev"
-	lock.Deps["example.com/missing"] = &deps.ProjectLockDep{
-		Kind: deps.ProjectLockKindGo, Version: "v1.0.0", Commit: "missing",
-	}
-	require.NoError(t, deps.WriteProjectLock(filepath.Join(root, deps.ProjectLockFileName), lock))
-	cache := newProjectCacheWithRemote(root, func() (cachedRemoteSource, error) {
-		return &resolve.RemoteResolver{CacheRoot: t.TempDir()}, nil
-	})
+func TestDiagnosticsNoFetchStillIgnoresUncachedRemote(t *testing.T) {
+	source := readDiagnosticFixture(t, "invalid/missing-remote")
 
-	diags := DiagnosticsForTextWithProjects(sourcePath, source, cache)
+	diags := diagnosticsForMissingRemoteFixture(t, source)
+
 	require.Empty(t, diags)
 }
 
 func TestDiagnosticsUseSchemaRootsForLibraryConfigTypes(t *testing.T) {
-	root, sourcePath, source := diagnosticProjectWithFixture(t, "go-config-field-type")
-	libraryDir, err := filepath.Abs(filepath.Join("..", "goschema", "testdata", "extroot", "library"))
-	require.NoError(t, err)
-	sharedDir, err := filepath.Abs(filepath.Join("..", "goschema", "testdata", "extroot", "shared"))
-	require.NoError(t, err)
-	require.NoError(t, deps.WriteProject(filepath.Join(root, deps.ProjectFileName), &deps.Project{
-		Requires: map[deps.Dependency]deps.Requirement{},
-		Replace: map[deps.Dependency]string{
-			{URL: "example.com/extlib"}: libraryDir,
-		},
-	}))
-	cache := newProjectCacheWithSchemaRoots(root, []goschema.ModuleRoot{
-		{Path: "example.com/shared", Dir: sharedDir},
-	})
+	source := readDiagnosticFixture(t, "invalid/go-config-field-type")
 
-	diags := DiagnosticsForTextWithProjects(sourcePath, source, cache)
+	diags := diagnosticsForConfigFieldTypeFixture(t, source)
+
 	require.NotEmpty(t, diags)
 	require.Contains(t, strings.Join(diagnosticMessages(diags), "\n"),
 		"type mismatch: expected string, got integer")
+}
+
+func TestDiagnosticsReportLiteralConstraints(t *testing.T) {
+	source := ubtest.ReadFixture(t,
+		"testdata/ub/diagnostics/invalid/literal-constraint.ub")
+
+	diags := diagnosticsForLiteralConstraintFixture(t, source)
+
+	require.NotEmpty(t, diags)
+	messages := strings.Join(diagnosticMessages(diags), "\n")
+	require.Contains(t, messages, "expected exactly one to be set")
+	require.Contains(t, messages, "expected at most one to be set")
+}
+
+func TestDiagnosticsReportForEachNesting(t *testing.T) {
+	source := ubtest.ReadFixture(t,
+		"testdata/ub/diagnostics/invalid/nested-for-each.ub")
+
+	diags := diagnosticsForNestedForEachFixture(t, source)
+
+	require.NotEmpty(t, diags)
+	require.Contains(t, strings.Join(diagnosticMessages(diags), "\n"),
+		"@for-each inside a @for-each composite is not supported")
+}
+
+func TestDiagnosticsCheckLibraryFiles(t *testing.T) {
+	source := ubtest.ReadFixture(t,
+		"testdata/ub/diagnostics/invalid/library-file-semantic-error.ub")
+
+	diags := diagnosticsForLibraryFixture(t, source)
+
+	require.NotEmpty(t, diags)
+	require.Contains(t, strings.Join(diagnosticMessages(diags), "\n"),
+		"library \"missing\" is not imported")
+}
+
+func BenchmarkDiagnosticsForTextWithProjectsLargeFactory(b *testing.B) {
+	root, sourcePath, source := largeDiagnosticProject(b, 500)
+	cache := NewProjectCache(root)
+
+	b.ReportAllocs()
+	for b.Loop() {
+		diags := DiagnosticsForTextWithProjects(sourcePath, source, cache)
+		if len(diags) > 0 {
+			b.Fatalf("unexpected diagnostics: %v", diagnosticMessages(diags))
+		}
+	}
 }
 
 func TestSessionDidOpenPublishesParseDiagnostic(t *testing.T) {
@@ -246,13 +266,180 @@ func requirePublishDiagnostics(
 	return params
 }
 
-func diagnosticProjectWithFixture(t *testing.T, name string) (string, string, string) {
+func readDiagnosticFixture(t testing.TB, name string) string {
 	t.Helper()
-	root := writeUBProject(t, nil, nil)
-	source := ubtest.ReadValidFixture(t, "testdata/ub/diagnostics", name)
+	path := filepath.Join("testdata", "ub", "diagnostics", filepath.FromSlash(name)+".ub")
+	return ubtest.ReadFixture(t, path)
+}
+
+func writeDiagnosticProject(
+	t *testing.T,
+	source string,
+	project *deps.Project,
+	lock *deps.ProjectLock,
+) (string, string) {
+	t.Helper()
+	root := writeUBProject(t, project, lock)
 	sourcePath := filepath.Join(root, "factory.ub")
 	require.NoError(t, os.WriteFile(sourcePath, []byte(source), 0o644))
+	return root, sourcePath
+}
+
+func diagnosticsForFixture(t *testing.T, name string, source string) []protocol.Diagnostic {
+	t.Helper()
+	switch name {
+	case "invalid/go-field-typo":
+		return diagnosticsForDefinitionFixture(t, source)
+	case "invalid/missing-remote":
+		return diagnosticsForMissingRemoteFixture(t, source)
+	case "invalid/go-config-field-type":
+		return diagnosticsForConfigFieldTypeFixture(t, source)
+	case "invalid/literal-constraint":
+		return diagnosticsForLiteralConstraintFixture(t, source)
+	case "invalid/nested-for-each":
+		return diagnosticsForNestedForEachFixture(t, source)
+	case "invalid/library-file-semantic-error":
+		return diagnosticsForLibraryFixture(t, source)
+	default:
+		if strings.HasPrefix(name, "support/valid/") {
+			return diagnosticsForSupportFixture(t, name, source)
+		}
+		return DiagnosticsForText(diagnosticFixturePath(name), source)
+	}
+}
+
+func diagnosticsForDefinitionFixture(t *testing.T, source string) []protocol.Diagnostic {
+	t.Helper()
+	goDir, err := filepath.Abs(filepath.Join("..", "goschema", "testdata", "definition"))
+	require.NoError(t, err)
+	root, sourcePath := writeDiagnosticProject(t, source, &deps.Project{
+		Requires: map[deps.Dependency]deps.Requirement{},
+		Replace: map[deps.Dependency]string{
+			{URL: "example.com/definition"}: goDir,
+		},
+	}, nil)
+	return DiagnosticsForTextWithProjects(sourcePath, source, NewProjectCache(root))
+}
+
+func diagnosticsForMissingRemoteFixture(t *testing.T, source string) []protocol.Diagnostic {
+	t.Helper()
+	lock := deps.NewProjectLock()
+	lock.ToolchainVersion = "dev"
+	lock.Deps["example.com/missing"] = &deps.ProjectLockDep{
+		Kind: deps.ProjectLockKindGo, Version: "v1.0.0", Commit: "missing",
+	}
+	root, sourcePath := writeDiagnosticProject(t, source, nil, lock)
+	cache := newProjectCacheWithRemote(root, func() (cachedRemoteSource, error) {
+		return &resolve.RemoteResolver{CacheRoot: t.TempDir()}, nil
+	})
+	return DiagnosticsForTextWithProjects(sourcePath, source, cache)
+}
+
+func diagnosticsForConfigFieldTypeFixture(t *testing.T, source string) []protocol.Diagnostic {
+	t.Helper()
+	libraryDir, err := filepath.Abs(filepath.Join("..", "goschema", "testdata", "extroot", "library"))
+	require.NoError(t, err)
+	sharedDir, err := filepath.Abs(filepath.Join("..", "goschema", "testdata", "extroot", "shared"))
+	require.NoError(t, err)
+	root, sourcePath := writeDiagnosticProject(t, source, &deps.Project{
+		Requires: map[deps.Dependency]deps.Requirement{},
+		Replace: map[deps.Dependency]string{
+			{URL: "example.com/extlib"}: libraryDir,
+		},
+	}, nil)
+	cache := newProjectCacheWithSchemaRoots(root, []goschema.ModuleRoot{
+		{Path: "example.com/shared", Dir: sharedDir},
+	})
+	return DiagnosticsForTextWithProjects(sourcePath, source, cache)
+}
+
+func diagnosticsForLiteralConstraintFixture(
+	t *testing.T,
+	source string,
+) []protocol.Diagnostic {
+	t.Helper()
+	constraintsDir, err := filepath.Abs(
+		filepath.Join("..", "goschema", "testdata", "constraints"))
+	require.NoError(t, err)
+	root := writeUBProject(t, &deps.Project{
+		Requires: map[deps.Dependency]deps.Requirement{},
+		Replace: map[deps.Dependency]string{
+			{URL: "example.com/constraints"}: constraintsDir,
+		},
+	}, nil)
+	sourcePath := filepath.Join(root, "factory.ub")
+	require.NoError(t, os.WriteFile(sourcePath, []byte(source), 0o644))
+	return DiagnosticsForTextWithProjects(sourcePath, source, NewProjectCache(root))
+}
+
+func diagnosticsForNestedForEachFixture(
+	t testing.TB,
+	source string,
+) []protocol.Diagnostic {
+	t.Helper()
+	invalidDir := absDiagnosticFixturePath(t, "testdata/ub/diagnostics/invalid")
+	path := filepath.Join(invalidDir, "factory.ub")
+	workspace := absDiagnosticFixturePath(t, "testdata/ub/diagnostics")
+	return DiagnosticsForTextWithProjects(path, source, NewProjectCache(workspace))
+}
+
+func diagnosticsForLibraryFixture(
+	t testing.TB,
+	source string,
+) []protocol.Diagnostic {
+	t.Helper()
+	path := absDiagnosticFixturePath(t,
+		"testdata/ub/diagnostics/invalid/library-file-semantic-error.ub")
+	workspace := absDiagnosticFixturePath(t, "testdata/ub/diagnostics")
+	return DiagnosticsForTextWithProjects(path, source, NewProjectCache(workspace))
+}
+
+func diagnosticsForSupportFixture(
+	t testing.TB,
+	name string,
+	source string,
+) []protocol.Diagnostic {
+	t.Helper()
+	path := absDiagnosticFixturePath(t,
+		filepath.Join("testdata", "ub", "diagnostics", filepath.FromSlash(name)+".ub"))
+	workspace := absDiagnosticFixturePath(t, "testdata/ub/diagnostics")
+	return DiagnosticsForTextWithProjects(path, source, NewProjectCache(workspace))
+}
+
+func largeDiagnosticProject(b *testing.B, nodes int) (string, string, string) {
+	b.Helper()
+	definitionDir, err := filepath.Abs(
+		filepath.Join("..", "goschema", "testdata", "definition"))
+	require.NoError(b, err)
+	root := b.TempDir()
+	require.NoError(b, deps.WriteProject(filepath.Join(root, deps.ProjectFileName), &deps.Project{
+		Requires: map[deps.Dependency]deps.Requirement{},
+		Replace: map[deps.Dependency]string{
+			{URL: "example.com/definition"}: definitionDir,
+		},
+	}))
+	source := largeDiagnosticFactory(b, nodes)
+	sourcePath := filepath.Join(root, "factory.ub")
+	require.NoError(b, os.WriteFile(sourcePath, []byte(source), 0o644))
 	return root, sourcePath, source
+}
+
+func largeDiagnosticFactory(b *testing.B, nodes int) string {
+	b.Helper()
+	template, err := os.ReadFile(filepath.Join("testdata", "large-diagnostic-factory.ub.tmpl"))
+	require.NoError(b, err)
+	var nodeText strings.Builder
+	for i := range nodes {
+		fmt.Fprintf(&nodeText, "    item-%03d: def.lookup { query: 'item-%03d' }\n", i, i)
+	}
+	return strings.ReplaceAll(string(template), "{{nodes}}", nodeText.String())
+}
+
+func absDiagnosticFixturePath(t testing.TB, path string) string {
+	t.Helper()
+	abs, err := filepath.Abs(path)
+	require.NoError(t, err)
+	return abs
 }
 
 func diagnosticFixturePath(name string) string {

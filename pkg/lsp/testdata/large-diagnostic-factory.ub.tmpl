@@ -1,0 +1,8 @@
+factory: {
+  imports: { def: 'example.com/definition' }
+  library-configs: {
+    def: { region: 'us-east-1' retry: { count: 3 } }
+  }
+  data-sources: {
+{{nodes}}  }
+}
