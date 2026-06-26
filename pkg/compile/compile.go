@@ -27,6 +27,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/projectmarker"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	ubruntime "github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/sourcecheck"
 	"github.com/cloudboss/unobin/pkg/toolchain"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
@@ -273,45 +274,38 @@ func Run(opts Options) error {
 	}
 	repoVersions = withReplacedVersions(
 		repoVersions, replaceUnobinAbs != "", replaceMap, opts.ReplaceGoModules)
-	v := newCompileVisitor(name, opts.stderr(), schemas)
-	top, err := resolve.WalkUBFrom(refs, resolver, v, repoVersions, &resolve.Source{
-		FS:   os.DirFS(sourceDir),
-		Path: sourceDir,
+	analysis, err := sourcecheck.AnalyzeImports(refs, sourcecheck.ImportAnalysisOptions{
+		Resolver:                resolver,
+		Versions:                repoVersions,
+		SchemaCache:             schemas,
+		WarnOut:                 opts.stderr(),
+		StackName:               name,
+		GeneratePackages:        true,
+		ValidateCompositeBodies: true,
+		Source: &resolve.Source{
+			FS:   os.DirFS(sourceDir),
+			Path: sourceDir,
+		},
 	})
 	if err != nil {
 		return err
 	}
 
-	goImports := make(map[string]string, len(top))
-	ubImports := make(map[string]string, len(top))
-	goConstraints := make(map[string]map[string][]lang.ConstraintSpec, len(top))
-	goDefaults := make(map[string]map[string][]lang.DefaultSpec, len(top))
-	goSchemas := make(map[string]*ubruntime.LibrarySchema, len(top))
-	libs := make(map[string]*ubruntime.Library, len(top))
-	for _, res := range top {
-		switch res.Kind {
-		case resolve.ResolutionGo:
-			goImports[res.LocalAlias] = res.Path
-			schema, warnings, err := schemas.Read(res.SourcePath)
-			if err != nil {
-				return fmt.Errorf("import %q: %w", res.LocalAlias, err)
-			}
-			PrintSchemaWarnings(opts.stderr(), res.LocalAlias, warnings)
-			libs[res.LocalAlias] = &ubruntime.Library{Schema: schema}
-			goSchemas[res.LocalAlias] = schema
-			if c := constraintsFromSchema(schema); len(c) > 0 {
-				goConstraints[res.LocalAlias] = c
-			}
-			if d := defaultsFromSchema(schema); len(d) > 0 {
-				goDefaults[res.LocalAlias] = d
-			}
-		case resolve.ResolutionUB:
-			importPath, err := v.ubImportPath(res.CanonicalKey)
-			if err != nil {
-				return err
-			}
-			ubImports[res.LocalAlias] = importPath
-			libs[res.LocalAlias] = v.runtimeLibraries[res.CanonicalKey]
+	goConstraints := make(map[string]map[string][]lang.ConstraintSpec, len(analysis.Top))
+	goDefaults := make(map[string]map[string][]lang.DefaultSpec, len(analysis.Top))
+	goSchemas := make(map[string]*ubruntime.LibrarySchema, len(analysis.Top))
+	libs := analysis.Libraries
+	for _, res := range analysis.Top {
+		if res.Kind != resolve.ResolutionGo {
+			continue
+		}
+		schema := libs[res.LocalAlias].Schema
+		goSchemas[res.LocalAlias] = schema
+		if c := constraintsFromSchema(schema); len(c) > 0 {
+			goConstraints[res.LocalAlias] = c
+		}
+		if d := defaultsFromSchema(schema); len(d) > 0 {
+			goDefaults[res.LocalAlias] = d
 		}
 	}
 	// Embed only the specs for types the factory declares; a node hits
@@ -336,16 +330,16 @@ func Run(opts Options) error {
 		Body:          factoryBody,
 		LibraryPath:   opts.LibraryPath,
 		FactoryName:   name,
-		GoImports:     goImports,
-		GoModules:     v.goModules,
-		UBImports:     ubImports,
+		GoImports:     analysis.GoImports,
+		GoModules:     analysis.GoModules,
+		UBImports:     analysis.UBImports,
 		GoConstraints: goConstraints,
 		GoDefaults:    goDefaults,
 		GoSchemas:     goSchemas,
 	}
 
 	if opts.OutDir == "-" {
-		if len(v.packages) > 0 {
+		if len(analysis.UBPackages) > 0 {
 			return errors.New("compile: cannot stream to stdout when UB libraries are imported")
 		}
 		out, err := codegen.Generate(in)
@@ -361,20 +355,16 @@ func Run(opts Options) error {
 		replaces[toolchain.UnobinModulePath] = replaceUnobinAbs
 	}
 	maps.Copy(replaces, opts.ReplaceGoModules)
-	if err := addProjectReplaces(replaces, projectDir, replaceMap, v.goModules); err != nil {
+	if err := addProjectReplaces(replaces, projectDir, replaceMap, analysis.GoModules); err != nil {
 		return err
 	}
 
 	err = codegen.WriteSource(opts.OutDir, in,
-		opts.GoVersion, unobinVersion, v.goModules, replaces)
+		opts.GoVersion, unobinVersion, analysis.GoModules, replaces)
 	if err != nil {
 		return err
 	}
-	for key, pkgBytes := range v.packages {
-		packageID, ok := v.packageIDByKey[key]
-		if !ok {
-			return fmt.Errorf("compile: missing generated package ID for %s", key)
-		}
+	for packageID, pkgBytes := range analysis.UBPackages {
 		pkgDir := filepath.Join(opts.OutDir, "internal", packageID)
 		if err := os.MkdirAll(pkgDir, 0o755); err != nil {
 			return err
@@ -387,145 +377,6 @@ func Run(opts Options) error {
 		return runGoBuild(opts.stdout(), opts.stderr(),
 			opts.OutDir, name, opts.Version, unobinVersion)
 	}
-	return nil
-}
-
-// compileVisitor accumulates the per-import state compile needs as the
-// walker descends the import graph. packageIDByKey maps each UB library's
-// dedup key to the generated Go package ID used under internal/. packages holds
-// the generated Go source per key. goModules pins each Go-library module path
-// to its version for the stack's go.mod; project-lock already gives every site
-// of a module the same version.
-type compileVisitor struct {
-	stackName        string
-	packageIDs       *ubPackageIDs
-	packageIDByKey   map[string]string
-	packages         map[string][]byte
-	goModules        map[string]string
-	runtimeLibraries map[string]*ubruntime.Library
-	warnOut          io.Writer
-	schemas          *SchemaCache
-}
-
-func newCompileVisitor(
-	stackName string, warnOut io.Writer, schemas *SchemaCache,
-) *compileVisitor {
-	packageIDs := newUBPackageIDs()
-	return &compileVisitor{
-		stackName:        stackName,
-		packageIDs:       packageIDs,
-		packageIDByKey:   packageIDs.byKey,
-		packages:         map[string][]byte{},
-		goModules:        map[string]string{},
-		runtimeLibraries: map[string]*ubruntime.Library{},
-		warnOut:          warnOut,
-		schemas:          schemas,
-	}
-}
-
-func (c *compileVisitor) OnGoImport(_, _, modulePath, version string) error {
-	if deps.IsReplacementSentinel(version) {
-		goVersion, err := deps.GoReplacementSentinel(modulePath)
-		if err != nil {
-			return err
-		}
-		version = goVersion
-	}
-	c.goModules[modulePath] = version
-	return nil
-}
-
-func (c *compileVisitor) ubImportPath(canonicalKey string) (string, error) {
-	packageID, ok := c.packageIDByKey[canonicalKey]
-	if !ok {
-		return "", fmt.Errorf("compile: missing generated package ID for %s", canonicalKey)
-	}
-	return c.stackName + "/internal/" + packageID, nil
-}
-
-func (c *compileVisitor) OnUBLibrary(
-	alias, canonicalKey string, _ resolve.ImportRef, lib *resolve.UBLibrary,
-) error {
-	packageID := c.packageIDs.ID(alias, canonicalKey)
-	entries := lib.CompositeEntries()
-	var violations []error
-	for _, entry := range entries {
-		violations = append(violations,
-			resolve.ValidateSyntaxCompositeBody(entry.Kind, entry.Name, entry.SyntaxBody)...)
-	}
-	if len(violations) > 0 {
-		return errors.Join(violations...)
-	}
-	composites := make(map[string]map[string]map[string]string, len(lib.BodyImports))
-	goSpecs := map[string]codegen.GoLibrarySpecs{}
-	runtimeLib := &ubruntime.Library{Name: alias}
-	for _, entry := range entries {
-		resols := lib.BodyImports[entry.Kind][entry.Name]
-		bodyLibs := make(map[string]*ubruntime.Library, len(resols))
-		bodyUsed := usedSyntaxLibraryTypes(entry.SyntaxBody)
-		for _, res := range resols {
-			switch res.Kind {
-			case resolve.ResolutionGo:
-				schema, warnings, err := c.schemas.Read(res.SourcePath)
-				if err != nil {
-					return fmt.Errorf(
-						"%s composite %q import %q: %w",
-						entry.Kind, entry.Name, res.LocalAlias, err)
-				}
-				PrintSchemaWarnings(c.warnOut, res.LocalAlias, warnings)
-				bodyLibs[res.LocalAlias] = &ubruntime.Library{Schema: schema}
-				used := bodyUsed[res.LocalAlias]
-				specs := codegen.GoLibrarySpecs{
-					Constraints: keepUsedTypes(constraintsFromSchema(schema), used),
-					Defaults:    keepUsedTypes(defaultsFromSchema(schema), used),
-					Schema:      keepUsedSchema(schema, used),
-				}
-				if !specs.Empty() {
-					goSpecs[res.Path] = specs
-				}
-			case resolve.ResolutionUB:
-				bodyLibs[res.LocalAlias] = c.runtimeLibraries[res.CanonicalKey]
-			}
-		}
-		syntaxBody := entry.SyntaxBody
-		composite := &ubruntime.CompositeType{
-			Name:       entry.Name,
-			Kind:       ubruntime.NodeKind(entry.Kind),
-			SyntaxBody: &syntaxBody,
-			Libraries:  bodyLibs,
-		}
-		runtimeLib.AddComposite(composite)
-	}
-	for kind, byName := range lib.BodyImports {
-		for name, resols := range byName {
-			composite := make(map[string]string, len(resols))
-			for _, res := range resols {
-				switch res.Kind {
-				case resolve.ResolutionGo:
-					composite[res.LocalAlias] = res.Path
-				case resolve.ResolutionUB:
-					importPath, err := c.ubImportPath(res.CanonicalKey)
-					if err != nil {
-						return err
-					}
-					composite[res.LocalAlias] = importPath
-				}
-			}
-			if len(composite) > 0 {
-				if composites[kind] == nil {
-					composites[kind] = map[string]map[string]string{}
-				}
-				composites[kind][name] = composite
-			}
-		}
-	}
-	src, err := codegen.GenerateUBLibraryPackage(
-		packageID, alias, lib.SyntaxBodies, composites, goSpecs)
-	if err != nil {
-		return err
-	}
-	c.packages[canonicalKey] = src
-	c.runtimeLibraries[canonicalKey] = runtimeLib
 	return nil
 }
 

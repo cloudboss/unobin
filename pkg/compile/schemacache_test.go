@@ -11,13 +11,12 @@ import (
 
 func TestSchemaCacheReadsEachPathOnce(t *testing.T) {
 	var calls []string
-	c := &SchemaCache{
-		read: func(sourcePath string) (*ubruntime.LibrarySchema, []string, error) {
+	c := NewSchemaCacheWithReader(
+		func(sourcePath string) (*ubruntime.LibrarySchema, []string, error) {
 			calls = append(calls, sourcePath)
 			return &ubruntime.LibrarySchema{}, []string{"warning for " + sourcePath}, nil
 		},
-		entries: map[string]schemaCacheEntry{},
-	}
+	)
 
 	first, warnings, err := c.Read("lib/disk")
 	require.NoError(t, err)
@@ -37,13 +36,12 @@ func TestSchemaCacheReadsEachPathOnce(t *testing.T) {
 func TestSchemaCacheDoesNotStoreFailures(t *testing.T) {
 	readFailed := errors.New("read failed")
 	calls := 0
-	c := &SchemaCache{
-		read: func(string) (*ubruntime.LibrarySchema, []string, error) {
+	c := NewSchemaCacheWithReader(
+		func(string) (*ubruntime.LibrarySchema, []string, error) {
 			calls++
 			return nil, nil, readFailed
 		},
-		entries: map[string]schemaCacheEntry{},
-	}
+	)
 
 	_, _, err := c.Read("lib/disk")
 	require.ErrorIs(t, err, readFailed)
