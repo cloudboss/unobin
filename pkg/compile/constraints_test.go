@@ -40,24 +40,6 @@ func TestConstraintsFromSchemaEmpty(t *testing.T) {
 	require.Nil(t, constraintsFromSchema(&ubruntime.LibrarySchema{}))
 }
 
-func TestUsedLibraryTypes(t *testing.T) {
-	src := ubtest.ReadValidFixture(t, "testdata/ub/used-library-types", "generic")
-	f, err := lang.ParseSource("factory.ub", []byte(src))
-	require.NoError(t, err)
-	require.Equal(t, map[string]map[string]bool{
-		"aws":  {"resource.vpc": true, "resource.subnet": true, "data-source.ami": true},
-		"core": {"action.command": true},
-	}, usedLibraryTypes(f))
-}
-
-func TestUsedLibraryTypesNoDeclarations(t *testing.T) {
-	require.Equal(t, map[string]map[string]bool{}, usedLibraryTypes(nil))
-	src := ubtest.ReadValidFixture(t, "testdata/ub/used-library-types", "inputs-only")
-	f, err := lang.ParseSource("factory.ub", []byte(src))
-	require.NoError(t, err)
-	require.Equal(t, map[string]map[string]bool{}, usedLibraryTypes(f))
-}
-
 func TestUsedSyntaxLibraryTypes(t *testing.T) {
 	src := ubtest.ReadValidFixture(t, "testdata/ub/used-library-types", "syntax")
 	f, err := syntax.ParseSource("factory.ub", []byte(src))

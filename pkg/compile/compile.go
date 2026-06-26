@@ -1097,38 +1097,6 @@ func typeSpecsFromSchema[T any](
 	return out
 }
 
-// usedLibraryTypes returns, per import alias, the set of "<kind>.<type>"
-// keys the factory body declares in its resources, data-sources, and
-// actions blocks. The keys match the form typeSpecsFromSchema produces, so the
-// compiler can omit specs for types the factory never declares.
-func usedLibraryTypes(f *lang.File) map[string]map[string]bool {
-	used := map[string]map[string]bool{}
-	if f == nil || f.Body == nil {
-		return used
-	}
-	for _, fld := range f.Body.Fields {
-		if fld.Key.Kind != lang.FieldIdent {
-			continue
-		}
-		kind := blockKind(fld.Key.Name)
-		if kind == "" {
-			continue
-		}
-		obj, ok := fld.Value.(*lang.ObjectLit)
-		if !ok {
-			continue
-		}
-		for _, entry := range obj.Fields {
-			alias, export, ok := usedEntrySelector(entry)
-			if !ok {
-				continue
-			}
-			addUsedLibraryType(used, alias, kind, export)
-		}
-	}
-	return used
-}
-
 func usedSyntaxLibraryTypes(body syntax.FactoryBody) map[string]map[string]bool {
 	used := map[string]map[string]bool{}
 	add := func(kind string, decls []syntax.NodeDecl) {
@@ -1152,33 +1120,6 @@ func addUsedLibraryType(used map[string]map[string]bool, alias, kind, export str
 		used[alias] = map[string]bool{}
 	}
 	used[alias][kind+"."+export] = true
-}
-
-func usedEntrySelector(entry *lang.Field) (alias, export string, ok bool) {
-	if entry.Decl != nil {
-		if len(entry.Decl.Selector.Parts) != 2 {
-			return "", "", false
-		}
-		return entry.Decl.Selector.Parts[0].Name, entry.Decl.Selector.Parts[1].Name, true
-	}
-	if entry.Key.Kind != lang.FieldPath || len(entry.Key.Path) != 3 {
-		return "", "", false
-	}
-	return entry.Key.Path[0], entry.Key.Path[1], true
-}
-
-// blockKind maps a factory declaration block name to the node kind it
-// holds, or "" for any other top-level key.
-func blockKind(block string) string {
-	switch block {
-	case "resources":
-		return "resource"
-	case "data-sources":
-		return string(ubruntime.NodeDataSource)
-	case "actions":
-		return "action"
-	}
-	return ""
 }
 
 // pruneUnusedSpecs removes, per alias, the spec entries whose
