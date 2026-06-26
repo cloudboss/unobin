@@ -29,9 +29,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// EnvVarPrefix is the prefix unobin reads input overrides from. An env
-// var like `UB_INPUT_cluster_name=web-prod` overrides the `cluster-name`
-// input, with snake case converted to kebab case.
+// EnvVarPrefix is the prefix unobin reads fallback input values from. An env
+// var like `UB_INPUT_cluster_name=web-prod` sets the `cluster-name` input only
+// when the stack file omits it, with snake case converted to kebab case.
 const EnvVarPrefix = "UB_INPUT_"
 
 // Info bundles everything a generated factory binary passes into Run.
@@ -763,7 +763,7 @@ func buildInputs(
 	if err != nil {
 		return nil, err
 	}
-	applyEnvOverrides(inputs, decl)
+	fillMissingEnvInputs(inputs, decl)
 	validated, errs := lang.ValidateInputsWithLibraryConfigs(
 		decl, inputs, defaultEval, libraryConfigInputResolver(parsed.syntaxBody, libs))
 	if errs.Len() > 0 {
@@ -851,18 +851,18 @@ func loadStackInputs(config *parsedStack, path string) (map[string]any, error) {
 	return out, nil
 }
 
-// applyEnvOverrides reads UB_INPUT_<name> environment variables and writes
-// them into inputs. Underscores in the env name become hyphens to match
-// kebab case input names. The declared input type directs the parse: a
-// string input takes the raw text exactly as given, so a value that
-// happens to look like another literal (true, 42) arrives unmangled,
-// while every other type reads its value as a UB literal and, failing
-// that, as JSON, so `UB_INPUT_size=5` arrives as int64,
+// fillMissingEnvInputs reads UB_INPUT_<name> environment variables and writes
+// them into inputs only when the stack file omitted the matching name.
+// Underscores in the env name become hyphens to match kebab case input names.
+// The declared input type directs the parse: a string input takes the raw text
+// exactly as given, so a value that happens to look like another literal (true,
+// 42) arrives unmangled, while every other type reads its value as a UB literal
+// and, failing that, as JSON, so `UB_INPUT_size=5` arrives as int64,
 // `UB_INPUT_subnets=['a', 'b']` as a list, and a value written as JSON --
-// double-quoted, which UB does not accept -- as a map or list. A value
-// that parses as neither falls through to the raw string and input
-// validation reports it against the declaration.
-func applyEnvOverrides(inputs map[string]any, decl *lang.ObjectLit) {
+// double-quoted, which UB does not accept -- as a map or list. A value that
+// parses as neither falls through to the raw string and input validation reports
+// it against the declaration.
+func fillMissingEnvInputs(inputs map[string]any, decl *lang.ObjectLit) {
 	declared := typecheck.InputsFromBlock(decl)
 	for _, env := range os.Environ() {
 		if !strings.HasPrefix(env, EnvVarPrefix) {
@@ -874,6 +874,9 @@ func applyEnvOverrides(inputs map[string]any, decl *lang.ObjectLit) {
 		}
 		name := strings.ReplaceAll(env[len(EnvVarPrefix):eq], "_", "-")
 		if name == "" {
+			continue
+		}
+		if _, ok := inputs[name]; ok {
 			continue
 		}
 		if stringDeclared(declared, name) {
