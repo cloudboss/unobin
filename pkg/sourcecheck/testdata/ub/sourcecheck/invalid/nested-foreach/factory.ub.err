@@ -1,0 +1,1 @@
+library.ub:9:23: schema: data-source.app/data-source.inner: @for-each inside a @for-each composite is not supported

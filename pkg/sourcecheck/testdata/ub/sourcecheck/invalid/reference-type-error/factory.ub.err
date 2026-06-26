@@ -1,0 +1,1 @@
+testdata/ub/sourcecheck/invalid/reference-type-error/factory.ub:25:40: type: unknown field "missing" on object({ url: string  port: integer })

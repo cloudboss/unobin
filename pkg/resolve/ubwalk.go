@@ -622,6 +622,12 @@ func (w *ubWalker) handleUBImport(
 	}, nil
 }
 
+// ParseUBLibrarySource reads a UB library's composite bodies from
+// source-declared composite export files.
+func ParseUBLibrarySource(source *Source) (*UBLibrary, error) {
+	return (&ubWalker{}).parseLibrary(source)
+}
+
 // parseLibrary reads a UB library's composite bodies from source-declared
 // composite export files.
 func libraryBodyImports(entry CompositeEntry) (map[string]ImportRef, []error) {
