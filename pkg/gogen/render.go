@@ -21,7 +21,8 @@ func ResourceFile(rs ResourceSchema, from string) ([]byte, error) {
 	writeGeneratedComment(&b, from)
 	b.WriteString("package resources\n\n")
 	b.WriteString("import (\n")
-	b.WriteString(`	"context"` + "\n\n")
+	b.WriteString(`	"context"` + "\n")
+	b.WriteString(`	"fmt"` + "\n\n")
 	b.WriteString(`	"github.com/cloudboss/unobin/pkg/runtime"` + "\n")
 	b.WriteString(")\n\n")
 
@@ -117,6 +118,7 @@ func DataSourceFile(ds DataSourceSchema, from string) ([]byte, error) {
 	b.WriteString("package data\n\n")
 	b.WriteString("import (\n")
 	b.WriteString(`	"context"` + "\n")
+	b.WriteString(`	"fmt"` + "\n")
 	b.WriteString(")\n\n")
 
 	if ds.Description != "" {
@@ -159,7 +161,7 @@ func DataSourceFile(ds DataSourceSchema, from string) ([]byte, error) {
 
 	fmt.Fprintf(&b, "func (d *%s) Read(ctx context.Context, cfg any) (*%s, error) {\n",
 		ds.GoName, outName)
-	b.WriteString("\tpanic(\"not implemented\")\n")
+	b.WriteString("\treturn nil, fmt.Errorf(\"read not implemented\")\n")
 	b.WriteString("}\n")
 
 	raw := b.Bytes()
@@ -357,9 +359,14 @@ func writeGeneratedComment(b *bytes.Buffer, from string) {
 
 func writeStub(goName, method, params, returns string) string {
 	var b bytes.Buffer
+	message := strings.ToLower(method) + " not implemented"
 
 	fmt.Fprintf(&b, "func (r *%s) %s(%s) %s {\n", goName, method, params, returns)
-	b.WriteString("\tpanic(\"not implemented\")\n")
+	if returns == "error" {
+		fmt.Fprintf(&b, "\treturn fmt.Errorf(%q)\n", message)
+	} else {
+		fmt.Fprintf(&b, "\treturn nil, fmt.Errorf(%q)\n", message)
+	}
 	b.WriteString("}\n\n")
 	return b.String()
 }

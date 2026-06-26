@@ -2,7 +2,6 @@ package generate
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -28,6 +27,9 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGenerate(cmd, golibraryCfg)
 		},
+	}
+	newGoLibraryAdapter = func(cfg *golibraryConfig) gogen.SchemaAdapter {
+		return tf.NewAdapter(&tf.CLIFetcher{}, cfg.provider, cfg.providerVersion)
 	}
 )
 
@@ -75,7 +77,7 @@ func runGenerate(cmd *cobra.Command, cfg *golibraryConfig) error {
 	}
 
 	ctx := cmd.Context()
-	adapter := tf.NewAdapter(&tf.CLIFetcher{}, cfg.provider, cfg.providerVersion)
+	adapter := newGoLibraryAdapter(cfg)
 
 	out, err := gogen.Generate(ctx, adapter, gogen.Input{
 		OutDir:        cfg.output,
@@ -88,8 +90,11 @@ func runGenerate(cmd *cobra.Command, cfg *golibraryConfig) error {
 		return err
 	}
 
-	fmt.Fprintf(os.Stderr, "Generated %s Go library at %s (%d resources).\n",
-		adapter.Name(), out.ModulePath, out.Resources)
+	fmt.Fprintf(
+		cmd.ErrOrStderr(),
+		"Generated %s Go library for module %s (%d resources, %d data sources).\n",
+		adapter.Name(), out.ModulePath, out.Resources, out.DataSources,
+	)
 
 	return nil
 }

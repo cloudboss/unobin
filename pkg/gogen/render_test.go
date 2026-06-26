@@ -50,15 +50,40 @@ func TestResourceFileProducesParseableGo(t *testing.T) {
 		"func (r *S3Bucket) Create(ctx context.Context, cfg any) (*S3BucketOutput, error)",
 		"func (r *S3Bucket) Read(ctx context.Context, cfg any, priorOutputs *S3BucketOutput) (*S3BucketOutput, error)",
 		"func (r *S3Bucket) Update(ctx context.Context, cfg any, prior runtime.Prior[S3Bucket, *S3BucketOutput]) (*S3BucketOutput, error)",
+		`"fmt"`,
 		`"github.com/cloudboss/unobin/pkg/runtime"`,
 		"func (r *S3Bucket) Delete(ctx context.Context, cfg any, priorOutputs *S3BucketOutput) error",
 		"return []string{\n\t\t\"bucket-name\",\n\t}",
-		`panic("not implemented")`,
+		`return nil, fmt.Errorf("create not implemented")`,
 	}
 	for _, c := range checks {
 		if !strings.Contains(s, c) {
 			t.Errorf("expected generated source to contain %q", c)
 		}
+	}
+}
+
+func TestResourceFileStubsReturnErrors(t *testing.T) {
+	src, err := ResourceFile(sampleResourceSchema(), "tf")
+	if err != nil {
+		t.Fatalf("ResourceFile: %v", err)
+	}
+
+	s := string(src)
+	checks := []string{
+		`"fmt"`,
+		`return nil, fmt.Errorf("create not implemented")`,
+		`return nil, fmt.Errorf("read not implemented")`,
+		`return nil, fmt.Errorf("update not implemented")`,
+		`return fmt.Errorf("delete not implemented")`,
+	}
+	for _, c := range checks {
+		if !strings.Contains(s, c) {
+			t.Errorf("expected generated source to contain %q", c)
+		}
+	}
+	if strings.Contains(s, `panic("not implemented")`) {
+		t.Error("expected generated source to return errors instead of panicking")
 	}
 }
 
@@ -129,6 +154,32 @@ func TestDataSourceFileProducesParseableGo(t *testing.T) {
 	}
 	if !strings.Contains(s, "func (d *AMI) Read(ctx context.Context, cfg any) (*AMIOutput, error)") {
 		t.Error("expected Read method on data source")
+	}
+}
+
+func TestDataSourceFileStubsReturnErrors(t *testing.T) {
+	ds := DataSourceSchema{
+		GoName:    "AMI",
+		CloudType: "AWS::EC2::AMI",
+	}
+
+	src, err := DataSourceFile(ds, "tf")
+	if err != nil {
+		t.Fatalf("DataSourceFile: %v", err)
+	}
+
+	s := string(src)
+	checks := []string{
+		`"fmt"`,
+		`return nil, fmt.Errorf("read not implemented")`,
+	}
+	for _, c := range checks {
+		if !strings.Contains(s, c) {
+			t.Errorf("expected generated source to contain %q", c)
+		}
+	}
+	if strings.Contains(s, `panic("not implemented")`) {
+		t.Error("expected generated source to return an error instead of panicking")
 	}
 }
 
