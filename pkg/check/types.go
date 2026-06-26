@@ -40,46 +40,39 @@ func (c *referenceChecker) checkTypes() {
 }
 
 func (c *referenceChecker) checkLibraryConfigDecls() {
-	if c.rootSyntax != nil {
-		c.checkLibraryConfigDeclsForScope("", *c.rootSyntax)
-	}
-	for _, n := range c.dag.Nodes {
-		if !n.IsComposite() || n.CompositeSyntaxBody == nil {
+	for _, scope := range c.bodyScopesInOrder() {
+		if scope.body == nil {
 			continue
 		}
-		c.checkLibraryConfigDeclsForScope(n.Address, *n.CompositeSyntaxBody)
+		c.checkLibraryConfigDeclsForScope(scope.address, *scope.body)
 	}
 }
 
 func (c *referenceChecker) checkRequiredLibraryConfigBindings() {
-	if c.rootSyntax != nil {
-		c.checkRequiredLibraryConfigBindingsForScope("", *c.rootSyntax)
-	}
-	for _, n := range c.dag.Nodes {
-		if !n.IsComposite() || n.CompositeSyntaxBody == nil {
-			continue
-		}
-		c.checkRequiredLibraryConfigBindingsForScope(n.Address, *n.CompositeSyntaxBody)
+	for _, scope := range c.scopesInOrder() {
+		c.checkRequiredLibraryConfigBindingsForScope(scope)
 	}
 }
 
-func (c *referenceChecker) checkRequiredLibraryConfigBindingsForScope(
-	scope string,
-	body syntax.FactoryBody,
-) {
-	_ = body
-	bound := libraryConfigAliases(body.LibraryConfigs)
-	for _, n := range c.dag.Nodes {
-		if n.Composite != scope || n.IsComposite() {
+func (c *referenceChecker) checkRequiredLibraryConfigBindingsForScope(scope checkerScope) {
+	if scope.body == nil {
+		return
+	}
+	bound := libraryConfigAliases(scope.body.LibraryConfigs)
+	libs := scope.libs
+	if libs == nil {
+		libs = c.libraries[scope.address]
+	}
+	if libs == nil {
+		return
+	}
+	for _, n := range scope.nodes {
+		if n.IsComposite() {
 			continue
 		}
 		switch n.Kind {
 		case runtime.NodeResource, runtime.NodeDataSource, runtime.NodeAction:
 		default:
-			continue
-		}
-		libs := c.libraries[scope]
-		if libs == nil {
 			continue
 		}
 		lib := libs[n.Alias]
@@ -196,12 +189,8 @@ func (c *referenceChecker) importPathForAlias(scope string, alias string) (strin
 // list, so a mistake inside a local is reported here, once, at its
 // declaration.
 func (c *referenceChecker) checkLocalsBodyTypes() {
-	c.checkLocalsBlockTypes("")
-	for _, n := range c.dag.Nodes {
-		if !n.IsComposite() {
-			continue
-		}
-		c.checkLocalsBlockTypes(n.Address)
+	for _, scope := range c.bodyScopesInOrder() {
+		c.checkLocalsBlockTypes(scope.address)
 	}
 }
 
@@ -867,14 +856,11 @@ func eachBindingFromType(t typecheck.Type) *typecheck.EachBinding {
 // type, so the inferrer runs with TUnknown; the point is to let
 // nested field references go through traverseSegments.
 func (c *referenceChecker) checkOutputBodyTypes() {
-	if c.rootSyntax != nil {
-		c.checkSyntaxOutputsBlock(c.rootSyntax.Outputs, "")
-	}
-	for _, n := range c.dag.Nodes {
-		if !n.IsComposite() {
+	for _, scope := range c.bodyScopesInOrder() {
+		if scope.body == nil {
 			continue
 		}
-		c.checkSyntaxOutputsBlock(n.CompositeSyntaxBody.Outputs, n.Address)
+		c.checkSyntaxOutputsBlock(scope.body.Outputs, scope.address)
 	}
 }
 
@@ -900,14 +886,11 @@ func (c *referenceChecker) outputScope(scope string) *typecheck.Scope {
 // `when:` and `require:` expressions with TBoolean as the target so
 // non-boolean predicates report a clear mismatch.
 func (c *referenceChecker) checkConstraintTypes() {
-	if c.rootSyntax != nil {
-		c.checkSyntaxConstraintTypesBlock(c.rootSyntax.Constraints, "")
-	}
-	for _, n := range c.dag.Nodes {
-		if !n.IsComposite() {
+	for _, scope := range c.bodyScopesInOrder() {
+		if scope.body == nil {
 			continue
 		}
-		c.checkSyntaxConstraintTypesBlock(n.CompositeSyntaxBody.Constraints, n.Address)
+		c.checkSyntaxConstraintTypesBlock(scope.body.Constraints, scope.address)
 	}
 }
 
