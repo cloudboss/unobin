@@ -314,17 +314,14 @@ func (s *sensitivityAnalyzer) exprSensitive(e lang.Expr, sc *sensScope) bool {
 		return false
 	}
 	sensitive := false
-	lang.Walk(e, func(node lang.Expr) {
-		if sensitive {
-			return
-		}
-		dp, ok := node.(*lang.DotPath)
-		if !ok {
-			return
-		}
-		if s.dotPathSensitive(dp, sc) {
-			sensitive = true
-		}
+	lang.ScanExpr(e, lang.ScanCallbacks{
+		DotPath: func(dp *lang.DotPath, _ lang.ScanContext) lang.ScanDecision {
+			if s.dotPathSensitive(dp, sc) {
+				sensitive = true
+				return lang.ScanStop
+			}
+			return lang.ScanContinue
+		},
 	})
 	return sensitive
 }

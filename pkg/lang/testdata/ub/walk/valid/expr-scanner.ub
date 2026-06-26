@@ -1,0 +1,11 @@
+resources: {
+  demo.item: {
+    value: [
+      format('%s', input.prefix),
+      input.items['zero'].id,
+      if input.enabled then input.label else input.fallback,
+      [ for item in input.items : format('%s', item.id) when input.enabled ],
+      $'prefix {{ input.prefix }} label {{ format('%s', input.label) }}'
+    ]
+  }
+}
