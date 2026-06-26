@@ -1,0 +1,6 @@
+factory: {
+  imports: { core: 'example.com/core' }
+  actions: {
+    deploy: core.thing { @lock: true }
+  }
+}

@@ -1,0 +1,6 @@
+factory: {
+  imports: { core: 'example.com/core' }
+  resources: {
+    app: core.thing { @depends-on: resource.db }
+  }
+}
