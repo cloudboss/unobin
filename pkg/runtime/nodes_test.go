@@ -23,7 +23,7 @@ func nodeInvalidFixture(t testing.TB, name string) string {
 	return ubtest.ReadFixture(t, "testdata/ub/nodes/invalid/"+name+".ub")
 }
 
-func parseSyntaxFactoryFixture(t *testing.T, src string) syntaxRuntimeFixture {
+func parseSyntaxFactoryFixture(t testing.TB, src string) syntaxRuntimeFixture {
 	t.Helper()
 	f, err := syntax.ParseSource("factory.ub", []byte(src))
 	require.NoError(t, err)
@@ -32,7 +32,7 @@ func parseSyntaxFactoryFixture(t *testing.T, src string) syntaxRuntimeFixture {
 	return syntaxRuntimeFixture{body: f.Factory.Body}
 }
 
-func parseSyntaxCompositeFixture(t *testing.T, src string) syntaxRuntimeFixture {
+func parseSyntaxCompositeFixture(t testing.TB, src string) syntaxRuntimeFixture {
 	t.Helper()
 	f, err := syntax.ParseSource("library.ub", []byte(src))
 	require.NoError(t, err)

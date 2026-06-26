@@ -7,7 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
@@ -630,6 +632,42 @@ func TestRootIsCobraTree(t *testing.T) {
 	require.True(t, subs["output"])
 	require.True(t, subs["schema"])
 	require.True(t, subs["state"])
+}
+
+func TestValidateStillReportsFactorySourceErrors(t *testing.T) {
+	type requiredConfig struct {
+		Region cfg.String
+	}
+	factory := ubtest.ReadFixture(t,
+		"testdata/ub/runtime-split/invalid/missing-library-config-factory.ub")
+	info := testInfo(t, factory)
+	info.Libraries["core"].Configuration = &cfg.ConfigurationType[any]{
+		Description: "Required test configuration.",
+		New:         func() any { return &requiredConfig{} },
+	}
+	cmd := &cobra.Command{}
+	cmd.SetOut(&bytes.Buffer{})
+
+	err := doValidate(cmd, info, nil, "")
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `requires library-configs.core`)
+}
+
+func TestPlanStillValidatesStackInputs(t *testing.T) {
+	factory := ubtest.ReadValidFixture(t, "testdata/ub/runtime-split", "stack-input-factory")
+	stack := ubtest.ReadFixture(t, "testdata/ub/runtime-split/invalid/wrong-stack-input.ub")
+	info := testInfo(t, factory)
+	config, err := parseStackSource("dev.ub", []byte(stack))
+	require.NoError(t, err)
+	cmd := &cobra.Command{}
+	cmd.SetOut(&bytes.Buffer{})
+
+	err = doPlan(cmd, info, config, "dev.ub", "", 0, false, false)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "message")
+	require.Contains(t, err.Error(), "string")
 }
 
 func TestLoadEncrypterRejectsBadKey(t *testing.T) {
