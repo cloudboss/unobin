@@ -1,0 +1,4 @@
+factory: {
+  imports: { bundle: './bundle' }
+  resources: { app: bundle.app {} }
+}

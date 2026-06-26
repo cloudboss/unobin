@@ -1,0 +1,4 @@
+app: resource {
+  imports: { e2e: 'example.com/unobin/e2elib' }
+  resources: { one: e2e.file { path: 'out.txt', content: 'x' } }
+}

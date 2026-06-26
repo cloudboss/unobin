@@ -49,75 +49,14 @@ func (c *referenceChecker) checkLibraryConfigDecls() {
 }
 
 func (c *referenceChecker) checkRequiredLibraryConfigBindings() {
-	for _, scope := range c.scopesInOrder() {
-		c.checkRequiredLibraryConfigBindingsForScope(scope)
-	}
-}
-
-func (c *referenceChecker) checkRequiredLibraryConfigBindingsForScope(scope checkerScope) {
-	if scope.body == nil {
-		return
-	}
-	bound := libraryConfigAliases(scope.body.LibraryConfigs)
-	libs := scope.libs
-	if libs == nil {
-		libs = c.libraries[scope.address]
-	}
-	if libs == nil {
-		return
-	}
-	for _, n := range scope.nodes {
-		if n.IsComposite() {
-			continue
-		}
-		switch n.Kind {
-		case runtime.NodeResource, runtime.NodeDataSource, runtime.NodeAction:
-		default:
-			continue
-		}
-		lib := libs[n.Alias]
-		has, empty, known := libraryConfigRequirement(lib)
-		if !known || !has || empty || bound[n.Alias] {
+	for _, missing := range runtime.MissingLibraryConfigs(c.dag, c.libraries[""]) {
+		n := c.dag.Nodes[missing.Address]
+		if n == nil || n.Body == nil {
 			continue
 		}
 		c.addf(n.Body.Span().Start,
-			"library %q requires library-configs.%s", n.Alias, n.Alias)
+			"library %q requires library-configs.%s", missing.Alias, missing.Alias)
 	}
-}
-
-func libraryConfigAliases(decls []syntax.LibraryConfigDecl) map[string]bool {
-	out := make(map[string]bool, len(decls))
-	for _, decl := range decls {
-		out[decl.Alias.Name] = true
-	}
-	return out
-}
-
-func libraryConfigRequirement(lib *runtime.Library) (has, empty, known bool) {
-	if lib == nil {
-		return false, false, false
-	}
-	if lib.Schema != nil && lib.Schema.HasConfiguration {
-		fields := lib.Schema.ConfigurationFields
-		if fields == nil && lib.Schema.Configuration != nil {
-			fields = configurationFieldsFromMap(lib.Schema.Configuration)
-		}
-		if fields == nil {
-			return true, false, false
-		}
-		return true, len(fields) == 0, true
-	}
-	if lib.Configuration != nil {
-		view, err := cfg.View(lib.Configuration)
-		if err != nil {
-			return true, false, false
-		}
-		return true, view.Empty, true
-	}
-	if !libraryKnown(lib) {
-		return false, false, false
-	}
-	return false, false, true
 }
 
 func (c *referenceChecker) checkLibraryConfigDeclsForScope(

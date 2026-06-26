@@ -1,0 +1,4 @@
+factory: {
+  imports: { bundle: './libraries/bundle' }
+  resources: { demo: bundle.app {} }
+}

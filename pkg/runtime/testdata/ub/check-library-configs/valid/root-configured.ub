@@ -1,0 +1,5 @@
+factory: {
+  imports: { aws: 'example.com/aws' }
+  library-configs: { aws: { region: 'us-east-1' } }
+  resources: { main: aws.bucket { name: 'main' } }
+}
