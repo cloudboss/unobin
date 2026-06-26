@@ -1,0 +1,9 @@
+box: data-source {
+  imports: { a: '../b' }
+  data-sources: {
+    inner: a.second {}
+  }
+  outputs: {
+    value: { value: data-source.inner.value }
+  }
+}

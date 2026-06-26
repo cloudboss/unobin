@@ -306,7 +306,11 @@ func Run(opts Options) error {
 				goDefaults[res.LocalAlias] = d
 			}
 		case resolve.ResolutionUB:
-			ubImports[res.LocalAlias] = name + "/internal/" + v.canonicalAlias[res.CanonicalKey]
+			importPath, err := v.ubImportPath(res.CanonicalKey)
+			if err != nil {
+				return err
+			}
+			ubImports[res.LocalAlias] = importPath
 			libs[res.LocalAlias] = v.runtimeLibraries[res.CanonicalKey]
 		}
 	}
@@ -367,12 +371,15 @@ func Run(opts Options) error {
 		return err
 	}
 	for key, pkgBytes := range v.packages {
-		canonical := v.canonicalAlias[key]
-		pkgDir := filepath.Join(opts.OutDir, "internal", canonical)
+		packageID, ok := v.packageIDByKey[key]
+		if !ok {
+			return fmt.Errorf("compile: missing generated package ID for %s", key)
+		}
+		pkgDir := filepath.Join(opts.OutDir, "internal", packageID)
 		if err := os.MkdirAll(pkgDir, 0o755); err != nil {
 			return err
 		}
-		if err := os.WriteFile(filepath.Join(pkgDir, canonical+".go"), pkgBytes, 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(pkgDir, packageID+".go"), pkgBytes, 0o644); err != nil {
 			return err
 		}
 	}
@@ -384,15 +391,15 @@ func Run(opts Options) error {
 }
 
 // compileVisitor accumulates the per-import state compile needs as the
-// walker descends the import graph. canonicalAlias maps each UB
-// library's dedup key to the local alias of the first site that
-// reached it (used as the `internal/<dir>/` package name). packages
-// holds the generated Go source per key. goModules pins each Go-library
-// module path to its version for the stack's go.mod; project-lock already gives
-// every site of a module the same version.
+// walker descends the import graph. packageIDByKey maps each UB library's
+// dedup key to the generated Go package ID used under internal/. packages holds
+// the generated Go source per key. goModules pins each Go-library module path
+// to its version for the stack's go.mod; project-lock already gives every site
+// of a module the same version.
 type compileVisitor struct {
 	stackName        string
-	canonicalAlias   map[string]string
+	packageIDs       *ubPackageIDs
+	packageIDByKey   map[string]string
 	packages         map[string][]byte
 	goModules        map[string]string
 	runtimeLibraries map[string]*ubruntime.Library
@@ -403,9 +410,11 @@ type compileVisitor struct {
 func newCompileVisitor(
 	stackName string, warnOut io.Writer, schemas *SchemaCache,
 ) *compileVisitor {
+	packageIDs := newUBPackageIDs()
 	return &compileVisitor{
 		stackName:        stackName,
-		canonicalAlias:   map[string]string{},
+		packageIDs:       packageIDs,
+		packageIDByKey:   packageIDs.byKey,
 		packages:         map[string][]byte{},
 		goModules:        map[string]string{},
 		runtimeLibraries: map[string]*ubruntime.Library{},
@@ -426,9 +435,18 @@ func (c *compileVisitor) OnGoImport(_, _, modulePath, version string) error {
 	return nil
 }
 
+func (c *compileVisitor) ubImportPath(canonicalKey string) (string, error) {
+	packageID, ok := c.packageIDByKey[canonicalKey]
+	if !ok {
+		return "", fmt.Errorf("compile: missing generated package ID for %s", canonicalKey)
+	}
+	return c.stackName + "/internal/" + packageID, nil
+}
+
 func (c *compileVisitor) OnUBLibrary(
 	alias, canonicalKey string, _ resolve.ImportRef, lib *resolve.UBLibrary,
 ) error {
+	packageID := c.packageIDs.ID(alias, canonicalKey)
 	entries := lib.CompositeEntries()
 	var violations []error
 	for _, entry := range entries {
@@ -486,8 +504,11 @@ func (c *compileVisitor) OnUBLibrary(
 				case resolve.ResolutionGo:
 					composite[res.LocalAlias] = res.Path
 				case resolve.ResolutionUB:
-					composite[res.LocalAlias] = c.stackName +
-						"/internal/" + c.canonicalAlias[res.CanonicalKey]
+					importPath, err := c.ubImportPath(res.CanonicalKey)
+					if err != nil {
+						return err
+					}
+					composite[res.LocalAlias] = importPath
 				}
 			}
 			if len(composite) > 0 {
@@ -498,12 +519,11 @@ func (c *compileVisitor) OnUBLibrary(
 			}
 		}
 	}
-	canonical := alias
-	src, err := codegen.GenerateUBLibrary(canonical, lib.SyntaxBodies, composites, goSpecs)
+	src, err := codegen.GenerateUBLibraryPackage(
+		packageID, alias, lib.SyntaxBodies, composites, goSpecs)
 	if err != nil {
 		return err
 	}
-	c.canonicalAlias[canonicalKey] = canonical
 	c.packages[canonicalKey] = src
 	c.runtimeLibraries[canonicalKey] = runtimeLib
 	return nil
