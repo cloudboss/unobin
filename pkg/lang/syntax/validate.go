@@ -71,7 +71,7 @@ func validateFactoryBody(body FactoryBody, errs *parse.ErrorList) {
 	validateLibraryConfigDecls(body.LibraryConfigs, errs)
 	validateStateMoves(body.StateMoves, errs)
 	validateNodeDecls(body.Resources, "resource", resourceBodyMeta, errs)
-	validateNodeDecls(body.Data, string(NodeDataSource), dataBodyMeta, errs)
+	validateNodeDecls(body.Data, "data source", dataBodyMeta, errs)
 	validateNodeDecls(body.Actions, "action", actionBodyMeta, errs)
 	mergeErrors(errs, lang.ValidateOutputs(outputDeclsObject(body.Outputs)))
 	mergeErrors(errs, lang.ValidateComprehensionBindings(parseFactoryBody(body)))
@@ -430,9 +430,68 @@ func validateNodeBody(
 				"%s %s: meta key %q is not allowed", what, name, fld.Key.Name)
 			continue
 		}
-		if fld.Key.Name == "@timeout" {
+		switch fld.Key.Name {
+		case "@timeout":
 			validateTimeout(fld, what, name, errs)
+		case "@lock":
+			validateLock(fld, what, name, errs)
+		case "@depends-on":
+			validateDependsOn(fld, what, name, errs)
 		}
+	}
+}
+
+func validateLock(
+	fld *parse.Field,
+	what string,
+	name string,
+	errs *parse.ErrorList,
+) {
+	if _, ok := fld.Value.(*parse.StringLit); ok {
+		return
+	}
+	errs.Addf(parse.ErrSchema, fld.Value.Span().Start,
+		"%s %s: @lock must be a string literal", what, name)
+}
+
+func validateDependsOn(
+	fld *parse.Field,
+	what string,
+	name string,
+	errs *parse.ErrorList,
+) {
+	arr, ok := fld.Value.(*parse.ArrayLit)
+	if !ok {
+		errs.Addf(parse.ErrSchema, fld.Value.Span().Start,
+			"%s %s: @depends-on must be an array of resource, data-source, or action refs",
+			what, name)
+		return
+	}
+	for i, elem := range arr.Elements {
+		path, ok := elem.(*parse.DotPath)
+		if !ok {
+			errs.Addf(parse.ErrSchema, elem.Span().Start,
+				"%s %s: @depends-on[%d] must be an unquoted resource, data-source, or action ref",
+				what, name, i)
+			continue
+		}
+		if !isNodeRefRoot(path.Root) || len(path.Segments) == 0 || path.Segments[0].Name == "" {
+			errs.Addf(parse.ErrSchema, path.Span().Start,
+				"%s %s: @depends-on[%d] must name a resource, data-source, or action",
+				what, name, i)
+		}
+	}
+}
+
+func isNodeRefRoot(root *parse.Ident) bool {
+	if root == nil {
+		return false
+	}
+	switch root.Name {
+	case "resource", "data-source", "action":
+		return true
+	default:
+		return false
 	}
 }
 

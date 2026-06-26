@@ -1,0 +1,18 @@
+factory: {
+  imports: { e2e: 'example.com/unobin/e2elib' }
+  inputs: { lock-name: { type: string } }
+  library-configs: {
+    e2e: {
+      base-dir: '.'
+      event-log-path: 'events.ndjson'
+      nested: { label: 'nested' }
+    }
+  }
+  resources: {
+    doc: e2e.file {
+      path: 'files/doc.txt'
+      content: 'hello'
+      @lock: input.lock-name
+    }
+  }
+}

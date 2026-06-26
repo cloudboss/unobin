@@ -1,0 +1,16 @@
+factory: {
+  imports: { core: 'example.com/core' }
+  resources: {
+    db: core.thing {}
+    app: core.thing {
+      @depends-on: [resource.db, data-source.image, action.notify]
+      @lock: 'deploy'
+    }
+  }
+  data-sources: {
+    image: core.thing {}
+  }
+  actions: {
+    notify: core.thing {}
+  }
+}

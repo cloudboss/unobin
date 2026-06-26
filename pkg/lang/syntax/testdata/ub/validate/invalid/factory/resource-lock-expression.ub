@@ -1,0 +1,7 @@
+factory: {
+  imports: { core: 'example.com/core' }
+  inputs: { name: { type: string } }
+  resources: {
+    app: core.thing { @lock: input.name }
+  }
+}

@@ -1,0 +1,1 @@
+Error: factory.ub:15:21: schema: resource second: @depends-on[0] must be an unquoted resource, data-source, or action ref

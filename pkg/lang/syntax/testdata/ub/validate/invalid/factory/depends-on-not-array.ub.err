@@ -1,0 +1,1 @@
+resource app: @depends-on must be an array of resource, data-source, or action refs
