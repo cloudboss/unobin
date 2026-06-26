@@ -1,0 +1,9 @@
+factory: {
+  inputs: {
+    message: { type: string }
+  }
+
+  actions: {
+    hi: core.echo { echo: input.message }
+  }
+}

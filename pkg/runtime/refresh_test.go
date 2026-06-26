@@ -245,6 +245,23 @@ func TestRefreshNoPriorState(t *testing.T) {
 	require.Empty(t, res.WrittenRev)
 }
 
+func TestRefreshTrustsCompiledLibraryConfigBindings(t *testing.T) {
+	var c resourceCounters
+	libs := planConfiguredLibrary(&c)
+	store := newStateStore(t)
+	factory := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	configured := ubtest.ReadValidFixture(t,
+		"testdata/ub/plan", "trusts-compiled-library-config-bindings-configured")
+	applyOnce(t, refreshTestExecutor(t, configured, libs, store, factory))
+
+	missing := ubtest.ReadFixture(t,
+		"testdata/ub/plan/invalid/trusts-compiled-library-config-bindings-missing.ub")
+	exec := refreshTestExecutor(t, missing, libs, store, factory)
+	res, err := exec.Refresh(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 1, res.Refreshed)
+}
+
 func TestRefreshMigratesPriorEntry(t *testing.T) {
 	// A v1 entry is refreshed under a v2 resource whose Migrate renames
 	// the input `label` to `name` and the output `id` to `name-id`. The

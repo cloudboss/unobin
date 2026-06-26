@@ -12,13 +12,14 @@ import (
 
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/cloudboss/unobin/pkg/state/local"
 	"github.com/stretchr/testify/require"
 )
 
 func planTestExecutor(
-	t *testing.T,
+	t testing.TB,
 	src string,
 	libs map[string]*Library,
 	store state.Backend,
@@ -34,6 +35,19 @@ func planTestExecutor(
 func planFixture(t testing.TB, name string) string {
 	t.Helper()
 	return ubtest.ReadValidFixture(t, "testdata/ub/plan", name)
+}
+
+type planRequiredConfig struct {
+	Region cfg.String
+}
+
+func planConfiguredLibrary(c *resourceCounters) map[string]*Library {
+	libs := resourceModules(c)
+	libs["core"].Configuration = &cfg.ConfigurationType[any]{
+		Description: "Required test configuration.",
+		New:         func() any { return &planRequiredConfig{} },
+	}
+	return libs
 }
 
 // planThingConstraintErr plans a stack with one core.thing resource whose
@@ -1554,6 +1568,26 @@ func TestPlanRecordsStateRev(t *testing.T) {
 	require.NotEmpty(t, plan.StateRev)
 }
 
+func TestPlanTrustsCompiledLibraryConfigBindings(t *testing.T) {
+	var c resourceCounters
+	libs := planConfiguredLibrary(&c)
+	store := newStateStore(t)
+	factory := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+
+	configured := planTestExecutor(t,
+		planFixture(t, "trusts-compiled-library-config-bindings-configured"),
+		libs, store, factory)
+	_, err := configured.Plan(context.Background())
+	require.NoError(t, err)
+
+	missingSrc := ubtest.ReadFixture(t,
+		"testdata/ub/plan/invalid/trusts-compiled-library-config-bindings-missing.ub")
+	missing := planTestExecutor(t, missingSrc, libs, store, factory)
+	plan, err := missing.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DecisionCreate, decisionFor(plan, "resource.main"))
+}
+
 // planResourcesSrc builds a stack with n core.thing resources named
 // r0..r(n-1) so the parallel-read tests can dial the fan-out.
 func planResourcesSrc(n int) string {
@@ -1564,6 +1598,59 @@ func planResourcesSrc(n int) string {
 	}
 	src.WriteString("}\n")
 	return src.String()
+}
+
+func planLargeAlreadyCheckedFactorySrc(n int) string {
+	return "library-configs: { core: { region: 'us-east-1' } }\n\n" + planResourcesSrc(n)
+}
+
+type noOpPlanStore struct {
+	stack string
+}
+
+func (s noOpPlanStore) Stack() string { return s.stack }
+
+func (noOpPlanStore) Current() (*state.Snapshot, error) { return nil, state.ErrNoCurrent }
+
+func (noOpPlanStore) CurrentRev() (string, error) { return "", state.ErrNoCurrent }
+
+func (noOpPlanStore) Get(string) (*state.Snapshot, error) { return nil, state.ErrNoCurrent }
+
+func (noOpPlanStore) Write(*state.Snapshot) (string, error) { return "", nil }
+
+func (noOpPlanStore) SetCurrent(string) error { return nil }
+
+func (noOpPlanStore) List() ([]string, error) { return nil, nil }
+
+func (noOpPlanStore) Delete(string) error { return nil }
+
+func (noOpPlanStore) Lock(context.Context) (state.Lock, error) { return noOpPlanLock{}, nil }
+
+func (noOpPlanStore) ForceUnlock() error { return nil }
+
+type noOpPlanLock struct{}
+
+func (noOpPlanLock) Unlock() error { return nil }
+
+func BenchmarkPlanLargeAlreadyCheckedFactory(b *testing.B) {
+	const nodeCount = 300
+	var c resourceCounters
+	libs := planConfiguredLibrary(&c)
+	dag, syntaxSource := syntaxDAGAndBody(b, planLargeAlreadyCheckedFactorySrc(nodeCount), libs)
+	store := noOpPlanStore{stack: "bench"}
+	factory := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		exec := &Executor{
+			DAG: dag, SyntaxSource: syntaxSource, Libraries: libs,
+			Store: store, Factory: factory,
+		}
+		if _, err := exec.Plan(context.Background()); err != nil {
+			b.Fatal(err)
+		}
+	}
 }
 
 func TestPlanReadsResourcesInParallel(t *testing.T) {

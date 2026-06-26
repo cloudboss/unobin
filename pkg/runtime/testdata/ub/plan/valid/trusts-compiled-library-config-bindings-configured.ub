@@ -1,0 +1,7 @@
+library-configs: {
+  core: { region: 'us-east-1' }
+}
+
+resources: {
+  main: core.thing { name: 'main', size: 1 }
+}

@@ -17,20 +17,20 @@ func dagFactorySource(src string) string {
 	return "factory" + ": {\n" + src + "\n}"
 }
 
-func syntaxFactoryBody(t *testing.T, src string) syntax.FactoryBody {
+func syntaxFactoryBody(t testing.TB, src string) syntax.FactoryBody {
 	t.Helper()
 	fixture := parseSyntaxFactoryFixture(t, dagFactorySource(src))
 	return fixture.body
 }
 
-func syntaxDAG(t *testing.T, src string, libs map[string]*Library) *DAG {
+func syntaxDAG(t testing.TB, src string, libs map[string]*Library) *DAG {
 	t.Helper()
 	body := syntaxFactoryBody(t, src)
 	return BuildSyntaxDAG(body, libs)
 }
 
 func syntaxDAGAndBody(
-	t *testing.T,
+	t testing.TB,
 	src string,
 	libs map[string]*Library,
 ) (*DAG, *syntax.FactoryBody) {
@@ -39,13 +39,13 @@ func syntaxDAGAndBody(
 	return BuildSyntaxDAG(body, libs), &body
 }
 
-func syntaxComposite(t *testing.T, name string, kind NodeKind, src string) *CompositeType {
+func syntaxComposite(t testing.TB, name string, kind NodeKind, src string) *CompositeType {
 	t.Helper()
 	body := parseSyntaxCompositeFixture(t, name+": "+string(kind)+" {\n"+src+"\n}").body
 	return &CompositeType{Name: name, Kind: kind, SyntaxBody: &body}
 }
 
-func syntaxResourceComposite(t *testing.T, name, src string) *CompositeType {
+func syntaxResourceComposite(t testing.TB, name, src string) *CompositeType {
 	t.Helper()
 	return syntaxComposite(t, name, NodeResource, src)
 }
