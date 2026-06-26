@@ -7,7 +7,7 @@
       "port": 8080
     },
     "endpoint": "https://example.com/health",
-    "greeting": "from-env",
+    "greeting": "from-config",
     "note": "42",
     "quoted": "'hello world'",
     "ratio": 1.5,
@@ -22,5 +22,5 @@
     ],
     "use-spot": true
   },
-  "said": "from-env"
+  "said": "from-config"
 }

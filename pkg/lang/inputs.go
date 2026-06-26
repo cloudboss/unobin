@@ -22,14 +22,13 @@ type LibraryConfigSchema struct {
 // LibraryConfigResolver resolves a library-config path literal to its schema.
 type LibraryConfigResolver func(path string) (LibraryConfigSchema, bool)
 
-// ValidateInputs validates an operator-supplied values map against a
-// stack's `inputs:` declaration. Returns the validated values with
-// declaration defaults applied. Errors cover missing
-// required inputs, unknown keys, type mismatches, and modifier
-// violations. The decl is the parsed `inputs:` block; values is the
-// map produced by loadConfigInputs + applyEnvOverrides. evalDefault
-// reduces default expressions to Go values; pass nil to refuse any
-// default that requires evaluation.
+// ValidateInputs validates a user-provided values map against a stack's
+// `inputs:` declaration. Returns the validated values with declaration defaults
+// applied. Errors cover missing required inputs, unknown keys, type
+// mismatches, and modifier violations. The decl is the parsed `inputs:`
+// block; values is the input map after stack-file values and env fallbacks
+// are combined. evalDefault reduces default expressions to Go values;
+// pass nil to refuse any default that requires evaluation.
 func ValidateInputs(
 	decl *ObjectLit, values map[string]any, evalDefault EvalFunc,
 ) (map[string]any, *ErrorList) {
