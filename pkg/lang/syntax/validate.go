@@ -1,6 +1,8 @@
 package syntax
 
 import (
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -60,6 +62,10 @@ func ValidateFile(f *File) *parse.ErrorList {
 }
 
 func validateFactoryBody(body FactoryBody, errs *parse.ErrorList) {
+	validateFactoryBodyTyped(body, errs)
+}
+
+func validateFactoryBodyTyped(body FactoryBody, errs *parse.ErrorList) {
 	inputs := inputDeclsObject(body.Inputs)
 	mergeErrors(errs, lang.ValidateInputDeclarations(inputs))
 	mergeErrors(errs, lang.ValidateLocals(localDeclsObject(body.Locals)))
@@ -74,8 +80,8 @@ func validateFactoryBody(body FactoryBody, errs *parse.ErrorList) {
 	validateNodeDecls(body.Data, "data source", dataBodyMeta, errs)
 	validateNodeDecls(body.Actions, "action", actionBodyMeta, errs)
 	mergeErrors(errs, lang.ValidateOutputs(outputDeclsObject(body.Outputs)))
-	mergeErrors(errs, lang.ValidateComprehensionBindings(parseFactoryBody(body)))
-	mergeErrors(errs, lang.ValidateCalls(parseFactoryBody(body)))
+	validateFactoryComprehensionBindings(body, errs)
+	validateFactoryCalls(body, errs)
 }
 
 func validateStackFile(stack *StackFile, pos parse.Position, errs *parse.ErrorList) {
@@ -513,61 +519,143 @@ func validateTimeout(
 	}
 }
 
-func parseFactoryBody(body FactoryBody) *parse.File {
-	return &parse.File{
-		S:    body.S,
-		Kind: parse.FileFactory,
-		Body: factoryBodyObject(body, nodeDeclsObject),
+func validateFactoryComprehensionBindings(body FactoryBody, errs *parse.ErrorList) {
+	factoryBodyExprs(body, func(e parse.Expr) {
+		checkFactoryComprehensionBindings(e, map[string]parse.Position{}, errs)
+	})
+}
+
+func checkFactoryComprehensionBindings(
+	e parse.Expr,
+	bound map[string]parse.Position,
+	errs *parse.ErrorList,
+) {
+	switch v := e.(type) {
+	case nil:
+		return
+	case *parse.ObjectLit:
+		for _, fld := range v.Fields {
+			checkFactoryComprehensionBindings(fld.Value, bound, errs)
+		}
+	case *parse.ArrayLit:
+		for _, el := range v.Elements {
+			checkFactoryComprehensionBindings(el, bound, errs)
+		}
+	case *parse.Call:
+		for _, a := range v.Args {
+			checkFactoryComprehensionBindings(a, bound, errs)
+		}
+	case *parse.Infix:
+		checkFactoryComprehensionBindings(v.Left, bound, errs)
+		checkFactoryComprehensionBindings(v.Right, bound, errs)
+	case *parse.Prefix:
+		checkFactoryComprehensionBindings(v.Expr, bound, errs)
+	case *parse.DotPath:
+		for _, seg := range v.Segments {
+			checkFactoryComprehensionBindings(seg.Index, bound, errs)
+		}
+	case *parse.Conditional:
+		checkFactoryComprehensionBindings(v.Cond, bound, errs)
+		checkFactoryComprehensionBindings(v.Then, bound, errs)
+		checkFactoryComprehensionBindings(v.Else, bound, errs)
+	case *parse.Comprehension:
+		checkFactoryComprehensionBindings(v.Source, bound, errs)
+		inner := make(map[string]parse.Position, len(bound)+len(v.Names))
+		maps.Copy(inner, bound)
+		for i, n := range v.Names {
+			if slices.Contains(v.Names[:i], n) {
+				errs.Addf(parse.ErrSchema, v.S.Start, "comprehension binds %s twice", n)
+				continue
+			}
+			if prev, dup := bound[n]; dup {
+				errs.Addf(parse.ErrSchema, v.S.Start,
+					"binding %s shadows an enclosing comprehension binding"+
+						" (bound at %s); rename it", n, prev)
+			}
+			inner[n] = v.S.Start
+		}
+		checkFactoryComprehensionBindings(v.Key, inner, errs)
+		checkFactoryComprehensionBindings(v.Value, inner, errs)
+		checkFactoryComprehensionBindings(v.Filter, inner, errs)
+	case *parse.InterpolatedString:
+		for _, part := range v.Parts {
+			checkFactoryComprehensionBindings(part.Expr, bound, errs)
+		}
 	}
 }
 
-func factoryBodyObject(
-	body FactoryBody,
-	nodes func([]NodeDecl) *parse.ObjectLit,
-) *parse.ObjectLit {
-	obj := &parse.ObjectLit{S: body.S}
-	if body.Description != nil {
-		obj.Fields = append(obj.Fields,
-			identField("description", body.Description.S, body.Description))
+func validateFactoryCalls(body FactoryBody, errs *parse.ErrorList) {
+	imports := factoryImportAliases(body.Imports)
+	factoryBodyExprs(body, func(root parse.Expr) {
+		lang.Walk(root, func(e parse.Expr) {
+			c, ok := e.(*parse.Call)
+			if !ok {
+				return
+			}
+			if c.Library == nil {
+				pos := c.S.Start
+				name := ""
+				if c.Callee != nil {
+					pos = c.Callee.S.Start
+					name = c.Callee.Name
+				}
+				errs.Addf(parse.ErrResolve, pos,
+					"function %q must be qualified with %s or an imported library,"+
+						" e.g. %s.%s(...)",
+					name, lang.CoreNamespace, lang.CoreNamespace, name)
+				return
+			}
+			if c.Library.Name == lang.CoreNamespace {
+				return
+			}
+			if strings.HasPrefix(c.Library.Name, "@") {
+				errs.Addf(parse.ErrResolve, c.Library.S.Start,
+					"%q is not a namespace; the language provides only %s",
+					c.Library.Name, lang.CoreNamespace)
+				return
+			}
+			if !imports[c.Library.Name] {
+				errs.Addf(parse.ErrResolve, c.Library.S.Start,
+					"library %q is not imported (called as %s.%s)",
+					c.Library.Name, c.Library.Name, c.Func.Name)
+			}
+		})
+	})
+}
+
+func factoryImportAliases(decls []ImportDecl) map[string]bool {
+	out := make(map[string]bool, len(decls))
+	for _, decl := range decls {
+		out[decl.Alias.Name] = true
 	}
-	if len(body.Inputs) > 0 {
-		inputs := inputDeclsObject(body.Inputs)
-		obj.Fields = append(obj.Fields, identField("inputs", inputs.S, inputs))
+	return out
+}
+
+func factoryBodyExprs(body FactoryBody, visit func(parse.Expr)) {
+	for _, input := range body.Inputs {
+		visit(input.Body)
 	}
-	if len(body.Locals) > 0 {
-		locals := localDeclsObject(body.Locals)
-		obj.Fields = append(obj.Fields, identField("locals", locals.S, locals))
+	for _, local := range body.Locals {
+		visit(local.Value)
 	}
-	if len(body.Constraints) > 0 {
-		constraints := constraintDeclsArray(body.Constraints)
-		obj.Fields = append(obj.Fields,
-			identField("constraints", constraints.S, constraints))
+	for _, constraint := range body.Constraints {
+		visit(constraint.Value)
 	}
-	if len(body.Imports) > 0 {
-		imports := importDeclsObject(body.Imports)
-		obj.Fields = append(obj.Fields, identField("imports", imports.S, imports))
+	for _, cfg := range body.LibraryConfigs {
+		visit(cfg.Value)
 	}
-	if len(body.LibraryConfigs) > 0 {
-		cfgs := libraryConfigDeclsObject(body.LibraryConfigs)
-		obj.Fields = append(obj.Fields, identField("library-configs", cfgs.S, cfgs))
+	for _, node := range body.Resources {
+		visit(node.Body)
 	}
-	if len(body.Resources) > 0 {
-		resources := nodes(body.Resources)
-		obj.Fields = append(obj.Fields, identField("resources", resources.S, resources))
+	for _, node := range body.Data {
+		visit(node.Body)
 	}
-	if len(body.Data) > 0 {
-		data := nodes(body.Data)
-		obj.Fields = append(obj.Fields, identField("data-sources", data.S, data))
+	for _, node := range body.Actions {
+		visit(node.Body)
 	}
-	if len(body.Actions) > 0 {
-		actions := nodes(body.Actions)
-		obj.Fields = append(obj.Fields, identField("actions", actions.S, actions))
+	for _, output := range body.Outputs {
+		visit(output.Body)
 	}
-	if len(body.Outputs) > 0 {
-		outputs := outputDeclsObject(body.Outputs)
-		obj.Fields = append(obj.Fields, identField("outputs", outputs.S, outputs))
-	}
-	return obj
 }
 
 func inputDeclsObject(decls []InputDecl) *parse.ObjectLit {
@@ -636,21 +724,6 @@ func libraryConfigDeclsObject(decls []LibraryConfigDecl) *parse.ObjectLit {
 	return obj
 }
 
-func nodeDeclsObject(decls []NodeDecl) *parse.ObjectLit {
-	obj := &parse.ObjectLit{}
-	if len(decls) > 0 {
-		obj.S = decls[0].S
-	}
-	for _, decl := range decls {
-		obj.Fields = append(obj.Fields, pathField([]string{
-			decl.Selector.Alias.Name,
-			decl.Selector.Export.Name,
-			decl.Name.Name,
-		}, decl.S, decl.Body))
-	}
-	return obj
-}
-
 func projectRequiresObject(decls []ProjectRequire) *parse.ObjectLit {
 	obj := &parse.ObjectLit{}
 	if len(decls) > 0 {
@@ -711,18 +784,6 @@ func stringField(value string, span parse.Span, expr parse.Expr) *parse.Field {
 			String: value,
 		},
 		Value: expr,
-	}
-}
-
-func pathField(path []string, span parse.Span, value parse.Expr) *parse.Field {
-	return &parse.Field{
-		S: span,
-		Key: parse.FieldKey{
-			S:    span,
-			Kind: parse.FieldPath,
-			Path: path,
-		},
-		Value: value,
 	}
 }
 
