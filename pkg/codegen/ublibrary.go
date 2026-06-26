@@ -57,8 +57,23 @@ func GenerateUBLibrary(
 	imports map[string]map[string]map[string]string,
 	goSpecs map[string]GoLibrarySpecs,
 ) ([]byte, error) {
-	if alias == "" {
-		return nil, fmt.Errorf("ublibrary: alias is required")
+	return GenerateUBLibraryPackage(alias, alias, syntaxBodies, imports, goSpecs)
+}
+
+// GenerateUBLibraryPackage produces a UB library package whose Go package
+// identifier can differ from the runtime library name.
+func GenerateUBLibraryPackage(
+	packageID string,
+	libraryName string,
+	syntaxBodies map[string]map[string]syntax.FactoryBody,
+	imports map[string]map[string]map[string]string,
+	goSpecs map[string]GoLibrarySpecs,
+) ([]byte, error) {
+	if packageID == "" {
+		return nil, fmt.Errorf("ublibrary: package name is required")
+	}
+	if libraryName == "" {
+		return nil, fmt.Errorf("ublibrary: library name is required")
 	}
 
 	idents := newIdentTable()
@@ -69,14 +84,14 @@ func GenerateUBLibrary(
 	for _, kind := range compositeKindNames(syntaxBodies) {
 		group, ok := groups[kind]
 		if !ok {
-			return nil, fmt.Errorf("ublibrary %q: unknown kind %q", alias, kind)
+			return nil, fmt.Errorf("ublibrary %q: unknown kind %q", libraryName, kind)
 		}
 		for _, name := range compositeNames(syntaxBodies[kind]) {
 			entry := compositeEntry{Name: name, Symbol: group.Symbol}
 			encoded, err := EncodeSyntaxFactoryBody(syntaxBodies[kind][name])
 			if err != nil {
 				return nil, fmt.Errorf("ublibrary %q: encode %s %q syntax body: %w",
-					alias, kind, name, err)
+					libraryName, kind, name, err)
 			}
 			entry.SyntaxBody = "&" + encoded
 			for _, localAlias := range sortedAliases(imports[kind][name]) {
@@ -121,8 +136,8 @@ func GenerateUBLibrary(
 		HasLang         bool
 		HasSyntaxBodies bool
 	}{
-		PackageName:     sanitizeIdent(alias),
-		LibraryName:     alias,
+		PackageName:     sanitizeIdent(packageID),
+		LibraryName:     libraryName,
 		SpecVars:        specVars,
 		Groups:          orderedGroups,
 		GoImports:       idents.imports(),
