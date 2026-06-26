@@ -231,6 +231,10 @@ type PlanStep struct {
 	// target waits for apply while this is set, even with settled
 	// inputs. Plan-walk state only; not part of the plan file.
 	mayChangeOutputs bool
+
+	// unknownOutputs names outputs a planned operation will recompute.
+	// Plan-time readers of these fields wait for apply.
+	unknownOutputs map[string]bool
 }
 
 // Drift reports whether the resource's observed outputs differ from
@@ -680,8 +684,11 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 	}
 	if step.regeneratesOutputs {
 		outputs = nil
-	} else if step.mayChangeOutputs {
-		outputs = withoutDeclared(outputs, step.Inputs)
+	} else {
+		outputs = withoutFields(outputs, step.unknownOutputs)
+		if step.mayChangeOutputs {
+			outputs = withoutDeclared(outputs, step.Inputs)
+		}
 	}
 	attrs := mergeAttrs(knownFields(step, step.Inputs), outputs)
 	if instKey == "" {
@@ -739,6 +746,20 @@ func withoutDeclared(outputs, declared map[string]any) map[string]any {
 	out := make(map[string]any, len(outputs))
 	for name, value := range outputs {
 		if _, ok := declared[name]; ok {
+			continue
+		}
+		out[name] = value
+	}
+	return out
+}
+
+func withoutFields(outputs map[string]any, fields map[string]bool) map[string]any {
+	if len(outputs) == 0 || len(fields) == 0 {
+		return outputs
+	}
+	out := make(map[string]any, len(outputs))
+	for name, value := range outputs {
+		if fields[name] {
 			continue
 		}
 		out[name] = value
@@ -1199,18 +1220,19 @@ func (e *Executor) planOneResource(
 	}
 	step.PriorOutputs = migrated.Outputs
 	step.PriorInputs = priorInputs
-	step.mayChangeOutputs = !sameInputs(priorInputs, inputs)
+	probe := rt.NewReceiver()
+	if err := Decode(probe, inputs); err != nil {
+		return nil, err
+	}
+	step.mayChangeOutputs = !sameResourceInputs(rt, probe, priorInputs, inputs)
 	// Whether changed inputs force a replace is decided here, mid-walk,
 	// from inputs alone: downstream nodes plan next and need to know
 	// whether this node's outputs survive. A replace-marked field still
 	// waiting on an upstream compares as changed, since the value it
 	// settles to cannot be assumed equal to the prior one.
 	if step.mayChangeOutputs {
-		probe := rt.NewReceiver()
-		if err := Decode(probe, inputs); err != nil {
-			return nil, err
-		}
-		step.ReplaceTriggers = changedReplaceFields(rt.ReplaceFields(probe), priorInputs, inputs)
+		step.ReplaceTriggers = changedReplaceFieldsForResource(
+			rt, probe, rt.ReplaceFields(probe), priorInputs, inputs)
 		step.regeneratesOutputs = len(step.ReplaceTriggers) > 0
 	}
 	// A pending internal configuration means the read cannot run: there
@@ -1228,6 +1250,15 @@ func (e *Executor) planOneResource(
 			step.Decision = DecisionNoOp
 		}
 		return step, nil
+	}
+	planResp, err := rt.ModifyResourcePlan(probe, e.configFor(n), priorInputs, migrated.Outputs, true)
+	if err != nil {
+		blameLibrary(err, n.Alias)
+		return nil, err
+	}
+	if len(planResp.UnknownOutputs) > 0 {
+		step.unknownOutputs = maps.Clone(planResp.UnknownOutputs)
+		step.mayChangeOutputs = true
 	}
 	var priorReadBinding *state.Binding
 	if bindingChanged {

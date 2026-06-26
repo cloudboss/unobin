@@ -1,0 +1,4 @@
+inputs: {
+  n: { type: string }
+}
+resources: { one: core.equivalent { name: input.n, size: 1 } }

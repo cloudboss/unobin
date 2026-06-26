@@ -256,25 +256,24 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	if err != nil {
 		return err
 	}
+	rt, err := e.resourceRegistration(prep.node)
+	if err != nil {
+		return err
+	}
+	receiver := rt.NewReceiver()
+	if err := Decode(receiver, prep.inputs); err != nil {
+		return err
+	}
 	// The plan diffed these inputs and showed the result; apply holds
 	// the live evaluation to them. A concrete field that re-evaluates
 	// differently means the decision was computed from a premise that
 	// no longer holds, and the answer is a fresh plan.
 	planned := knownFields(step, step.Inputs)
 	applied := knownFields(step, prep.inputs)
-	if !sameInputs(planned, applied) {
+	if !sameResourceInputs(rt, receiver, planned, applied) {
 		return fmt.Errorf(
 			"resource %s inputs changed since the plan was computed; plan again\n%s",
 			step.Address, diffFields(planned, applied, step.SensitiveInputs))
-	}
-	rt, err := e.resourceRegistration(prep.node)
-	if err != nil {
-		return err
-	}
-
-	receiver := rt.NewReceiver()
-	if err := Decode(receiver, prep.inputs); err != nil {
-		return err
 	}
 	cfg := e.configFor(prep.node)
 	switch step.Decision {

@@ -1,0 +1,7 @@
+inputs: {
+  value: { type: string }
+}
+resources: {
+  upstream: core.versioned { value: input.value }
+  downstream: core.consumer { ref: resource.upstream.version }
+}
