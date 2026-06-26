@@ -1,0 +1,15 @@
+box: data-source {
+  inputs: {
+    items: { type: map(string) }
+  }
+
+  imports: { leaf: '../foreach-leaf' }
+
+  data-sources: {
+    inner: leaf.value { @for-each: input.items }
+  }
+
+  outputs: {
+    value: { value: data-source.inner.value }
+  }
+}
