@@ -18,44 +18,71 @@ import (
 // diagnostics. The graph is exposed so callers executing the factory share the
 // structure the checks ran against.
 type Checker struct {
-	rootSyntax *syntax.FactoryBody
-	dag        *runtime.DAG
-	inputs     map[string]map[string]bool
-	locals     map[string]map[string]bool
-	libraries  map[string]map[string]*runtime.Library
+	rootSyntax   *syntax.FactoryBody
+	dag          *runtime.DAG
+	inputs       map[string]map[string]bool
+	locals       map[string]map[string]bool
+	libraries    map[string]map[string]*runtime.Library
+	scopes       []checkerScope
+	bodyScopes   []checkerScope
+	nodesByScope map[string][]*runtime.Node
+}
+
+type checkerScope struct {
+	address string
+	body    *syntax.FactoryBody
+	libs    map[string]*runtime.Library
+	nodes   []*runtime.Node
 }
 
 // NewSyntax builds the check state from a typed factory or composite body.
 func NewSyntax(body syntax.FactoryBody, libs map[string]*runtime.Library) *Checker {
-	c := newChecker(
+	return newChecker(
+		&body,
 		runtime.BuildSyntaxDAG(body, libs),
 		syntaxInputNames(body.Inputs),
 		syntaxLocalNames(body.Locals),
 		libs,
 	)
-	c.rootSyntax = &body
-	return c
 }
 
 func newChecker(
+	root *syntax.FactoryBody,
 	dag *runtime.DAG,
 	inputs map[string]bool,
 	locals map[string]bool,
 	libs map[string]*runtime.Library,
 ) *Checker {
 	c := &Checker{
-		dag:       dag,
-		inputs:    map[string]map[string]bool{"": inputs},
-		locals:    map[string]map[string]bool{"": locals},
-		libraries: map[string]map[string]*runtime.Library{"": libs},
+		rootSyntax: root,
+		dag:        dag,
+		inputs:     map[string]map[string]bool{"": inputs},
+		locals:     map[string]map[string]bool{"": locals},
+		libraries:  map[string]map[string]*runtime.Library{"": libs},
 	}
-	c.collectCompositeScopes()
+	c.buildScopeIndexes()
 	return c
 }
 
 // DAG returns the stack's dependency graph.
 func (c *Checker) DAG() *runtime.DAG {
 	return c.dag
+}
+
+func (c *Checker) scopesInOrder() []checkerScope {
+	return cloneCheckerScopes(c.scopes)
+}
+
+func (c *Checker) bodyScopesInOrder() []checkerScope {
+	return cloneCheckerScopes(c.bodyScopes)
+}
+
+func cloneCheckerScopes(scopes []checkerScope) []checkerScope {
+	out := slices.Clone(scopes)
+	for i := range out {
+		out[i].nodes = slices.Clone(out[i].nodes)
+	}
+	return out
 }
 
 // References reports references that cannot resolve to an input
@@ -96,14 +123,45 @@ type referenceChecker struct {
 	observe func(e lang.Expr, t typecheck.Type)
 }
 
-func (c *Checker) collectCompositeScopes() {
-	for _, n := range c.dag.Nodes {
-		if !n.IsComposite() {
+func (c *Checker) buildScopeIndexes() {
+	c.nodesByScope = map[string][]*runtime.Node{}
+	for _, address := range slices.Sorted(maps.Keys(c.dag.Nodes)) {
+		node := c.dag.Nodes[address]
+		c.nodesByScope[node.Composite] = append(c.nodesByScope[node.Composite], node)
+	}
+
+	root := checkerScope{
+		address: "",
+		body:    c.rootSyntax,
+		libs:    c.libraries[""],
+		nodes:   c.nodesByScope[""],
+	}
+	c.scopes = append(c.scopes, root)
+	seenBodies := map[*syntax.FactoryBody]bool{}
+	if root.body != nil {
+		c.bodyScopes = append(c.bodyScopes, root)
+		seenBodies[root.body] = true
+	}
+
+	for _, address := range slices.Sorted(maps.Keys(c.dag.Nodes)) {
+		node := c.dag.Nodes[address]
+		if !node.IsComposite() || node.CompositeSyntaxBody == nil {
 			continue
 		}
-		c.inputs[n.Address] = syntaxInputNames(n.CompositeSyntaxBody.Inputs)
-		c.locals[n.Address] = syntaxLocalNames(n.CompositeSyntaxBody.Locals)
-		c.libraries[n.Address] = n.Libraries
+		c.inputs[node.Address] = syntaxInputNames(node.CompositeSyntaxBody.Inputs)
+		c.locals[node.Address] = syntaxLocalNames(node.CompositeSyntaxBody.Locals)
+		c.libraries[node.Address] = node.Libraries
+		scope := checkerScope{
+			address: node.Address,
+			body:    node.CompositeSyntaxBody,
+			libs:    node.Libraries,
+			nodes:   c.nodesByScope[node.Address],
+		}
+		c.scopes = append(c.scopes, scope)
+		if !seenBodies[scope.body] {
+			c.bodyScopes = append(c.bodyScopes, scope)
+			seenBodies[scope.body] = true
+		}
 	}
 }
 
@@ -183,14 +241,11 @@ func (c *referenceChecker) checkNodes() {
 }
 
 func (c *referenceChecker) checkConstraints() {
-	if c.rootSyntax != nil {
-		c.checkSyntaxConstraints(c.rootSyntax.Constraints, "")
-	}
-	for _, n := range c.dag.Nodes {
-		if !n.IsComposite() {
+	for _, scope := range c.bodyScopesInOrder() {
+		if scope.body == nil {
 			continue
 		}
-		c.checkSyntaxConstraints(n.CompositeSyntaxBody.Constraints, n.Address)
+		c.checkSyntaxConstraints(scope.body.Constraints, scope.address)
 	}
 }
 
@@ -510,14 +565,11 @@ func subtrahendText(root, rest string) string {
 // inside a `locals:` block (to inputs, nodes, or other locals) are
 // validated even though locals are not nodes in the graph.
 func (c *referenceChecker) checkLocals() {
-	if c.rootSyntax != nil {
-		c.checkSyntaxLocals(c.rootSyntax.Locals, "")
-	}
-	for _, n := range c.dag.Nodes {
-		if !n.IsComposite() {
+	for _, scope := range c.bodyScopesInOrder() {
+		if scope.body == nil {
 			continue
 		}
-		c.checkSyntaxLocals(n.CompositeSyntaxBody.Locals, n.Address)
+		c.checkSyntaxLocals(scope.body.Locals, scope.address)
 	}
 }
 
@@ -531,14 +583,11 @@ func (c *referenceChecker) checkSyntaxLocals(decls []syntax.LocalDecl, scope str
 // another in a loop. Declaration order does not matter, so the cycle is
 // found structurally rather than by evaluation.
 func (c *referenceChecker) checkLocalCycles() {
-	if c.rootSyntax != nil {
-		c.checkSyntaxLocalCycles(c.rootSyntax.Locals)
-	}
-	for _, n := range c.dag.Nodes {
-		if !n.IsComposite() {
+	for _, scope := range c.bodyScopesInOrder() {
+		if scope.body == nil {
 			continue
 		}
-		c.checkSyntaxLocalCycles(n.CompositeSyntaxBody.Locals)
+		c.checkSyntaxLocalCycles(scope.body.Locals)
 	}
 }
 

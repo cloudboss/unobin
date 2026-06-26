@@ -1,0 +1,6 @@
+factory: {
+  resources: {
+    app: outer.greeting { path: '/tmp/app' }
+    api: outer.greeting { path: '/tmp/api' }
+  }
+}
