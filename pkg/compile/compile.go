@@ -88,7 +88,15 @@ func (o Options) stderr() io.Writer {
 // ParseFactorySyntaxSource parses source and returns typed source plus
 // the canonical source body embedded in generated factories.
 func ParseFactorySyntaxSource(path string, src []byte) (*syntax.File, string, error) {
-	sf, err := syntax.ParseSource(path, src)
+	raw, err := lang.ParseSource(path, src)
+	if err != nil {
+		return nil, "", err
+	}
+	body, err := lang.FormatWith(raw, lang.FormatOptions{WrapStrings: true})
+	if err != nil {
+		return nil, "", err
+	}
+	sf, err := syntax.LowerParsedSource(path, src, raw)
 	if err != nil {
 		return nil, "", err
 	}
@@ -97,10 +105,6 @@ func ParseFactorySyntaxSource(path string, src []byte) (*syntax.File, string, er
 	}
 	if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
 		return nil, "", verrs.Err()
-	}
-	body, err := lang.Canonicalize(path, src)
-	if err != nil {
-		return nil, "", err
 	}
 	return sf, string(body), nil
 }
