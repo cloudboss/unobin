@@ -1,0 +1,30 @@
+{
+  "name": "compile-ub-alias-collision",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "dev",
+  "commands": [
+    {
+      "name": "compile",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build",
+        "--replace-unobin",
+        "$REPO_ROOT"
+      ],
+      "stderr": "want/compile.stderr"
+    }
+  ],
+  "files": [
+    { "path": "demo-factory/build/main.go", "want": "want/main.go" },
+    { "path": "demo-factory/build/internal/a/a.go", "want": "want/a.go" },
+    {
+      "path": "demo-factory/build/internal/a_a6595328/a_a6595328.go",
+      "want": "want/a_a6595328.go"
+    },
+    { "path": "demo-factory/build/internal/wrap/wrap.go", "want": "want/wrap.go" }
+  ]
+}
