@@ -320,22 +320,24 @@ func (w *ubWalker) walkOne(
 		}
 	}
 	_, local := ref.(*LocalImport)
-	hasFactory := ContainsFactorySource(source)
-	hasExports := HasCompositeExports(source)
-	if hasFactory && !local {
-		return Resolution{}, fmt.Errorf("import %q: a factory cannot be imported", alias)
-	}
-	if hasFactory && !hasExports {
-		return Resolution{}, fmt.Errorf("import %q: %s is not a UB library", alias, localPath(ref))
-	}
-	if !hasExports {
-		if !IsGoLibrary(source) {
-			return Resolution{}, fmt.Errorf(
-				"import %q: %s is not a UB library or Go library", alias, importPath(ref))
+	classification := ClassifySource(source)
+	switch classification.Kind {
+	case SourceFactory:
+		if !local {
+			return Resolution{}, fmt.Errorf("import %q: a factory cannot be imported", alias)
 		}
+		if !classification.HasCompositeExports {
+			return Resolution{}, fmt.Errorf("import %q: %s is not a UB library", alias, localPath(ref))
+		}
+		return w.handleUBImport(alias, ref, source, repo, fromKey)
+	case SourceUBLibrary:
+		return w.handleUBImport(alias, ref, source, repo, fromKey)
+	case SourceGoLibrary:
 		return w.handleGoImport(alias, ref, source)
+	default:
+		return Resolution{}, fmt.Errorf(
+			"import %q: %s is not a UB library or Go library", alias, importPath(ref))
 	}
-	return w.handleUBImport(alias, ref, source, repo, fromKey)
 }
 
 func (w *ubWalker) resolveImport(ref ImportRef, parent *Source) (*Source, error) {
