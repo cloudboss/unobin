@@ -1,0 +1,4 @@
+app: resource {
+  imports: { e2e: 'example.com/e2e' }
+  resources: { file: e2e.file { path: 'out.txt', content: 'x' } }
+}

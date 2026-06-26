@@ -1,0 +1,4 @@
+factory: {
+  imports: { aws: 'example.com/aws' }
+  resources: { main: aws.bucket { name: 'main' } }
+}

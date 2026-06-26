@@ -69,6 +69,19 @@
       "exitCode": 1
     },
     {
+      "name": "composite-binding-required",
+      "dir": "composite-binding-required",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build"
+      ],
+      "stderr": "want/composite-binding-required.stderr",
+      "exitCode": 1
+    },
+    {
       "name": "composite-config-field-type",
       "dir": "composite-config-field-type",
       "args": [
