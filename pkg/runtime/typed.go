@@ -56,6 +56,11 @@ type TypedResource[In, Out, Config any] interface {
 	ReplaceFields() []string
 }
 
+// InputValidator is an optional resource interface for pre-CRUD input checks.
+type InputValidator[Config any] interface {
+	ValidateInputs(ctx context.Context, config Config) error
+}
+
 // TypedAction is the typed contract for actions. Out names the
 // action's output struct.
 type TypedAction[Out, Config any] interface {
@@ -99,6 +104,7 @@ type ResourceRegistration interface {
 	Create(ctx context.Context, receiver, cfg any) (any, error)
 	Read(ctx context.Context, receiver, cfg, prior any) (any, error)
 	Update(ctx context.Context, receiver, cfg, priorInputs, priorOutputs, observed any) (any, error)
+	ValidateInputs(ctx context.Context, receiver, cfg any) error
 	Delete(ctx context.Context, receiver, cfg, prior any) error
 	ReplaceFields(receiver any) []string
 	OutputType() reflect.Type
@@ -261,6 +267,22 @@ func (typedResourceReg[T, Out, Config, PT]) Update(
 	}
 	return guard("updating this resource", false, func() (Out, error) {
 		return PT(receiver.(*T)).Update(ctx, config, prior)
+	})
+}
+
+func (typedResourceReg[T, Out, Config, PT]) ValidateInputs(
+	ctx context.Context, receiver, cfg any,
+) error {
+	validator, ok := any(PT(receiver.(*T))).(InputValidator[Config])
+	if !ok {
+		return nil
+	}
+	config, err := coerceConfig[Config](cfg)
+	if err != nil {
+		return err
+	}
+	return guardErr("validating this resource's inputs", false, func() error {
+		return validator.ValidateInputs(ctx, config)
 	})
 }
 
