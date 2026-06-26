@@ -276,10 +276,17 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	if err := Decode(receiver, prep.inputs); err != nil {
 		return err
 	}
+	cfg := e.configFor(prep.node)
+	switch step.Decision {
+	case DecisionCreate, DecisionUpdate, DecisionReplace:
+		if err := rt.ValidateInputs(ctx, receiver, cfg); err != nil {
+			return err
+		}
+	}
 	var outputs map[string]any
 	switch step.Decision {
 	case DecisionCreate:
-		result, err := rt.Create(ctx, receiver, e.configFor(prep.node))
+		result, err := rt.Create(ctx, receiver, cfg)
 		if err != nil {
 			return err
 		}
@@ -287,14 +294,13 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	case DecisionNoOp:
 		outputs = step.PriorOutputs
 	case DecisionUpdate:
-		result, err := rt.Update(ctx, receiver, e.configFor(prep.node),
+		result, err := rt.Update(ctx, receiver, cfg,
 			step.PriorInputs, step.PriorOutputs, step.ObservedOutputs)
 		if err != nil {
 			return err
 		}
 		outputs = mapify(result)
 	case DecisionReplace:
-		cfg := e.configFor(prep.node)
 		deleteRT := rt
 		deleteReceiver := receiver
 		deleteCfg := cfg
