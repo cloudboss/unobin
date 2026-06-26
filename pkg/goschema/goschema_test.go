@@ -21,6 +21,14 @@ import (
 const nestedSelfWarning = `resource "db" output: field self: Go type *DBOutput does not ` +
 	`fully map to language types, so reads of it are unchecked`
 
+func testIndexedPackage(fset *token.FileSet, files ...*ast.File) *indexedPackage {
+	return &indexedPackage{
+		fset:    fset,
+		files:   files,
+		imports: buildImportMap(files),
+	}
+}
+
 func TestReadExtractsConfigurationSchema(t *testing.T) {
 	schema, warnings, err := Read("testdata/configuration")
 	require.NoError(t, err)
@@ -217,10 +225,12 @@ func (v T) Constraints() []constraint.Constraint {
 	}
 }
 `
-	f, err := parser.ParseFile(token.NewFileSet(), "x.go", src, 0)
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "x.go", src, 0)
 	require.NoError(t, err)
 	errs := &[]error{}
-	w := newWalker([]ModuleRoot{{}}, []*ast.File{f}, map[string][]*ast.File{}, errs, nil)
+	rootPkg := testIndexedPackage(fset, f)
+	w := newWalker([]ModuleRoot{{}}, rootPkg, map[string]*indexedPackage{}, errs, nil)
 	specs := w.constraintsFromType("T")
 	require.Empty(t, specs)
 	require.NotEmpty(t, *errs)
@@ -284,10 +294,12 @@ type Item struct {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			src := prologue + "\n" + tt.method + "\n"
-			f, err := parser.ParseFile(token.NewFileSet(), "x.go", src, 0)
+			fset := token.NewFileSet()
+			f, err := parser.ParseFile(fset, "x.go", src, 0)
 			require.NoError(t, err)
 			errs := &[]error{}
-			w := newWalker([]ModuleRoot{{}}, []*ast.File{f}, map[string][]*ast.File{}, errs, nil)
+			rootPkg := testIndexedPackage(fset, f)
+			w := newWalker([]ModuleRoot{{}}, rootPkg, map[string]*indexedPackage{}, errs, nil)
 			specs := w.constraintsFromType("T")
 			require.Empty(t, specs)
 			require.NotEmpty(t, *errs)
@@ -419,10 +431,16 @@ func TestFlattenSelector(t *testing.T) {
 }
 
 func TestFieldPath(t *testing.T) {
-	files, err := parsePackageDir("testdata/nested")
+	rootPkg, err := parseIndexedPackageDir("testdata/nested", "")
 	require.NoError(t, err)
 	errs := &[]error{}
-	w := newWalker([]ModuleRoot{{Dir: "testdata/nested"}}, files, map[string][]*ast.File{}, errs, nil)
+	w := newWalker(
+		[]ModuleRoot{{Dir: "testdata/nested"}},
+		rootPkg,
+		map[string]*indexedPackage{},
+		errs,
+		nil,
+	)
 
 	tests := []struct {
 		name string

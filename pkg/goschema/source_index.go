@@ -41,15 +41,14 @@ func ReadWithIndex(dir string, extra ...ModuleRoot) (
 	warnings []string,
 	err error,
 ) {
-	schema, warnings, err = readSchema(dir, extra...)
+	analysis, err := Analyze(dir, extra...)
 	if err != nil {
-		return schema, nil, warnings, err
+		if analysis == nil {
+			return nil, nil, nil, err
+		}
+		return analysis.Schema, nil, analysis.Warnings, err
 	}
-	index, err = buildSourceIndex(dir, extra...)
-	if err != nil {
-		return schema, nil, warnings, err
-	}
-	return schema, index, warnings, nil
+	return analysis.Schema, analysis.Index, analysis.Warnings, nil
 }
 
 // SourceIndexCache caches schema and source-index reads by directory.
@@ -106,20 +105,8 @@ func (c *SourceIndexCache) Invalidate(dir string) {
 	delete(c.entries, filepath.Clean(dir))
 }
 
-func buildSourceIndex(dir string, extra ...ModuleRoot) (*SourceIndex, error) {
-	roots := append([]ModuleRoot{{Path: readGoModPath(dir), Dir: dir}}, extra...)
-	indexer := &sourceIndexer{
-		roots:    roots,
-		packages: map[string]*indexedPackage{},
-	}
-	rootPkg, err := indexer.parseRoot(dir, roots[0].Path)
-	if err != nil {
-		return nil, err
-	}
-	libraryFunc := findModuleFunc(rootPkg.files)
-	if libraryFunc == nil {
-		return nil, fmt.Errorf("no Library() function in %s", dir)
-	}
+func (i *sourceIndexer) build(libraryFunc *ast.FuncDecl) (*SourceIndex, error) {
+	rootPkg := i.root
 	index := newSourceIndex()
 	index.LibraryFunc = rootPkg.location(libraryFunc.Name.Pos())
 	for _, site := range extractRegistrationSites(libraryFunc) {
@@ -128,19 +115,19 @@ func buildSourceIndex(dir string, extra ...ModuleRoot) (*SourceIndex, error) {
 			continue
 		}
 		index.Registrations[kind][site.Name] = rootPkg.location(site.NamePos)
-		if typePkg, spec, ok := indexer.resolveType(rootPkg, site.InputRef); ok {
+		if typePkg, spec, ok := i.resolveType(rootPkg, site.InputRef); ok {
 			index.InputTypes[kind][site.Name] = typePkg.location(spec.Name.Pos())
-			index.InputFields[kind][site.Name] = indexer.fieldLocations(typePkg, spec.Name.Name)
+			index.InputFields[kind][site.Name] = i.fieldLocations(typePkg, spec.Name.Name)
 		}
-		if typePkg, spec, ok := indexer.resolveType(rootPkg, site.OutputRef); ok {
+		if typePkg, spec, ok := i.resolveType(rootPkg, site.OutputRef); ok {
 			index.OutputTypes[kind][site.Name] = typePkg.location(spec.Name.Pos())
-			index.OutputFields[kind][site.Name] = indexer.fieldLocations(typePkg, spec.Name.Name)
+			index.OutputFields[kind][site.Name] = i.fieldLocations(typePkg, spec.Name.Name)
 		}
 	}
 	if ref, _, found, ok := extractConfigurationRef(libraryFunc); found && ok {
-		if typePkg, spec, ok := indexer.resolveType(rootPkg, ref); ok {
+		if typePkg, spec, ok := i.resolveType(rootPkg, ref); ok {
 			index.ConfigType = typePkg.location(spec.Name.Pos())
-			index.ConfigFields = indexer.fieldLocations(typePkg, spec.Name.Name)
+			index.ConfigFields = i.fieldLocations(typePkg, spec.Name.Name)
 		}
 	}
 	index.Functions = extractFunctionLocations(rootPkg, libraryFunc)
@@ -200,18 +187,6 @@ type sourceIndexer struct {
 	roots    []ModuleRoot
 	packages map[string]*indexedPackage
 	root     *indexedPackage
-}
-
-func (i *sourceIndexer) parseRoot(dir string, importPath string) (*indexedPackage, error) {
-	pkg, err := parseIndexedPackageDir(dir, importPath)
-	if err != nil {
-		return nil, err
-	}
-	i.root = pkg
-	if importPath != "" {
-		i.packages[importPath] = pkg
-	}
-	return pkg, nil
 }
 
 func (i *sourceIndexer) loadPackage(importPath string) (*indexedPackage, bool) {
