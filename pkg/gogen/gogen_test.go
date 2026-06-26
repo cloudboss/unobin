@@ -30,6 +30,30 @@ func (m *mockAdapter) FetchConfiguration(_ context.Context) (*ConfigurationSchem
 	return m.configuration, nil
 }
 
+func TestGenerateReturnsModulePath(t *testing.T) {
+	dir := t.TempDir()
+	adapter := &mockAdapter{
+		name:      "testmod",
+		resources: []ResourceSchema{sampleResourceSchema()},
+	}
+
+	out, err := Generate(context.Background(), adapter, Input{
+		OutDir:     dir,
+		ModulePath: "example.com/testmod",
+		From:       "tf",
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+
+	if out.ModulePath != "example.com/testmod" {
+		t.Errorf("expected ModulePath example.com/testmod, got %q", out.ModulePath)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "library.go")); err != nil {
+		t.Errorf("expected generated file under OutDir: %v", err)
+	}
+}
+
 func TestGenerateWritesFiles(t *testing.T) {
 	dir := t.TempDir()
 	adapter := &mockAdapter{
@@ -51,8 +75,8 @@ func TestGenerateWritesFiles(t *testing.T) {
 	if out.Resources != 1 {
 		t.Errorf("expected 1 resource, got %d", out.Resources)
 	}
-	if out.ModulePath != dir {
-		t.Errorf("expected ModulePath %q, got %q", dir, out.ModulePath)
+	if out.ModulePath != "example.com/testmod" {
+		t.Errorf("expected ModulePath example.com/testmod, got %q", out.ModulePath)
 	}
 
 	files := []string{
@@ -113,8 +137,8 @@ func TestGenerateDefaultOutDir(t *testing.T) {
 		t.Fatalf("Generate: %v", err)
 	}
 
-	if out.ModulePath != "./testmod-library" {
-		t.Errorf("expected default outDir ./testmod-library, got %q", out.ModulePath)
+	if out.ModulePath != "example.com/testmod" {
+		t.Errorf("expected ModulePath example.com/testmod, got %q", out.ModulePath)
 	}
 
 	_ = os.RemoveAll("./testmod-library")

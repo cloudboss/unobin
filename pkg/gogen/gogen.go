@@ -170,7 +170,7 @@ func Generate(ctx context.Context, adapter SchemaAdapter, in Input) (*Output, er
 	}
 
 	return &Output{
-		ModulePath:  outDir,
+		ModulePath:  in.ModulePath,
 		Resources:   len(resources),
 		DataSources: len(dataSources),
 	}, nil
