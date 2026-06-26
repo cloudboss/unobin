@@ -10,27 +10,21 @@ import (
 )
 
 func (c *referenceChecker) checkStateMoves() {
-	if c.rootSyntax == nil {
-		return
-	}
-	c.checkStateMoveBlock(*c.rootSyntax, c.dag)
-	seen := map[*syntax.FactoryBody]bool{}
-	for _, n := range c.dag.Nodes {
-		if !n.IsComposite() || n.CompositeSyntaxBody == nil {
+	for _, scope := range c.bodyScopesInOrder() {
+		if scope.body == nil {
 			continue
 		}
-		if seen[n.CompositeSyntaxBody] {
-			continue
+		dag := c.dag
+		if scope.address != "" {
+			libs := scope.libs
+			if libs == nil {
+				if node := c.dag.Nodes[scope.address]; node != nil {
+					libs = c.libraries[node.Composite]
+				}
+			}
+			dag = runtime.BuildSyntaxDAG(*scope.body, libs)
 		}
-		seen[n.CompositeSyntaxBody] = true
-		libs := n.Libraries
-		if libs == nil {
-			libs = c.libraries[n.Composite]
-		}
-		c.checkStateMoveBlock(
-			*n.CompositeSyntaxBody,
-			runtime.BuildSyntaxDAG(*n.CompositeSyntaxBody, libs),
-		)
+		c.checkStateMoveBlock(*scope.body, dag)
 	}
 }
 
