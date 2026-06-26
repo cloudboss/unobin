@@ -1,0 +1,5 @@
+thing: data-source {
+  outputs: {
+    value: { value: 'ok' }
+  }
+}

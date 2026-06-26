@@ -1,0 +1,7 @@
+factory: {
+  imports: { ext: 'example.com/missing' }
+
+  data-sources: {
+    x: ext.lookup {}
+  }
+}

@@ -1,0 +1,3 @@
+2 errors:
+  testdata/ub/sourcecheck/invalid/literal-constraint/factory.ub:5:20: schema: resource.cert: constraints[0] (exactly-one-of [self-signed, acm-arn, pem-bundle]): expected exactly one to be set, got 3 (self-signed, acm-arn, pem-bundle)
+  testdata/ub/sourcecheck/invalid/literal-constraint/factory.ub:5:20: schema: resource.cert: constraints[2] (at-most-one-of [acm-arn, pem-bundle]): expected at most one to be set, got 2 (acm-arn, pem-bundle)

@@ -1,0 +1,10 @@
+factory: {
+  imports: { outer: '../../support/valid/foreach-outer' }
+
+  data-sources: {
+    app: outer.box {
+      @for-each: { a: { one: '1' } }
+      items:     @each.value
+    }
+  }
+}

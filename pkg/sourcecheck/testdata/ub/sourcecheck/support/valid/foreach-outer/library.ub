@@ -1,0 +1,15 @@
+box: data-source {
+  inputs: {
+    items: { type: map(string) }
+  }
+
+  imports: { ext: 'example.com/opaque' }
+
+  data-sources: {
+    inner: ext.lookup { @for-each: input.items }
+  }
+
+  outputs: {
+    value: { value: 'ok' }
+  }
+}
