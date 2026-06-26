@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"container/heap"
 	"context"
 	"errors"
 	"maps"
@@ -22,6 +23,31 @@ type stepResult struct {
 	err  error
 }
 
+type applyReadyItem struct {
+	step  *PlanStep
+	index int
+}
+
+type applyReadyQueue []applyReadyItem
+
+func (q applyReadyQueue) Len() int { return len(q) }
+
+func (q applyReadyQueue) Less(i, j int) bool { return q[i].index < q[j].index }
+
+func (q applyReadyQueue) Swap(i, j int) { q[i], q[j] = q[j], q[i] }
+
+func (q *applyReadyQueue) Push(x any) {
+	*q = append(*q, x.(applyReadyItem))
+}
+
+func (q *applyReadyQueue) Pop() any {
+	old := *q
+	n := len(old)
+	item := old[n-1]
+	*q = old[:n-1]
+	return item
+}
+
 // runApplySchedule executes pf.Steps against rs. Independent branches
 // of the step graph run concurrently up to Executor.Parallelism (or
 // DefaultParallelism). On the first step error, no new steps are
@@ -36,13 +62,25 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 	rs.dependsOn = persistedDependsOn(graph, pf.Steps)
 	parallelism := min(e.effectiveParallelism(), len(pf.Steps))
 
-	pending := make([]*PlanStep, len(pf.Steps))
+	steps := make([]*PlanStep, len(pf.Steps))
+	stepByAddress := make(map[string]*PlanStep, len(pf.Steps))
+	stepIndex := make(map[string]int, len(pf.Steps))
 	for i := range pf.Steps {
-		pending[i] = &pf.Steps[i]
+		step := &pf.Steps[i]
+		steps[i] = step
+		stepByAddress[step.Address] = step
+		stepIndex[step.Address] = i
 	}
 	indegree := make(map[string]int, len(graph.indegree))
 	maps.Copy(indegree, graph.indegree)
 	dispatched := make(map[string]bool, len(pf.Steps))
+
+	var readySteps applyReadyQueue
+	for _, step := range steps {
+		if indegree[step.Address] == 0 {
+			heap.Push(&readySteps, applyReadyItem{step: step, index: stepIndex[step.Address]})
+		}
+	}
 
 	ready := make(chan *PlanStep)
 	results := make(chan stepResult)
@@ -68,6 +106,7 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 	drained := false
 	inFlight := 0
 	heldLocks := map[string]bool{}
+	waitingByLock := map[string]*applyReadyQueue{}
 	startedAt := make(map[string]time.Time, len(pf.Steps))
 	failedAddrs := map[string]bool{}
 
@@ -79,10 +118,55 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 		e.Events <- ev
 	}
 
+	enqueueReady := func(addr string) {
+		step := stepByAddress[addr]
+		if step == nil {
+			return
+		}
+		heap.Push(&readySteps, applyReadyItem{step: step, index: stepIndex[addr]})
+	}
+
+	blockOnLock := func(lock string, item applyReadyItem) {
+		waiting := waitingByLock[lock]
+		if waiting == nil {
+			waiting = &applyReadyQueue{}
+			waitingByLock[lock] = waiting
+		}
+		heap.Push(waiting, item)
+	}
+
+	releaseLock := func(lock string) {
+		delete(heldLocks, lock)
+		waiting := waitingByLock[lock]
+		if waiting == nil {
+			return
+		}
+		for waiting.Len() > 0 {
+			heap.Push(&readySteps, heap.Pop(waiting).(applyReadyItem))
+		}
+		delete(waitingByLock, lock)
+	}
+
+	nextReady := func() (applyReadyItem, bool) {
+		for readySteps.Len() > 0 {
+			item := heap.Pop(&readySteps).(applyReadyItem)
+			step := item.step
+			if dispatched[step.Address] {
+				continue
+			}
+			if lock := graph.locks[step.Address]; lock != "" && heldLocks[lock] {
+				blockOnLock(lock, item)
+				continue
+			}
+			return item, true
+		}
+		return applyReadyItem{}, false
+	}
+
 	handleResult := func(r stepResult) {
 		inFlight--
 		if lock := graph.locks[r.step.Address]; lock != "" {
-			delete(heldLocks, lock)
+			releaseLock(lock)
 		}
 		elapsed := time.Since(startedAt[r.step.Address])
 		if r.err != nil {
@@ -120,23 +204,10 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 		})
 		for _, dep := range graph.dependents[r.step.Address] {
 			indegree[dep]--
+			if indegree[dep] == 0 {
+				enqueueReady(dep)
+			}
 		}
-	}
-
-	pickReady := func() *PlanStep {
-		for _, step := range pending {
-			if dispatched[step.Address] {
-				continue
-			}
-			if indegree[step.Address] != 0 {
-				continue
-			}
-			if lock := graph.locks[step.Address]; lock != "" && heldLocks[lock] {
-				continue
-			}
-			return step
-		}
-		return nil
 	}
 
 	for {
@@ -148,26 +219,30 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 			default:
 			}
 		}
-		var next *PlanStep
+		var next applyReadyItem
+		hasNext := false
 		if !halted {
-			next = pickReady()
+			next, hasNext = nextReady()
 		}
-		if next != nil {
+		if hasNext {
 			select {
-			case ready <- next:
-				dispatched[next.Address] = true
+			case ready <- next.step:
+				dispatched[next.step.Address] = true
 				inFlight++
-				if lock := graph.locks[next.Address]; lock != "" {
+				if lock := graph.locks[next.step.Address]; lock != "" {
 					heldLocks[lock] = true
 				}
-				startedAt[next.Address] = time.Now()
+				startedAt[next.step.Address] = time.Now()
 				emit(ApplyEvent{
-					Address: next.Address, Kind: next.Kind, Composite: next.Composite,
-					Decision: next.Decision, Stage: StageStart,
+					Address: next.step.Address, Kind: next.step.Kind,
+					Composite: next.step.Composite, Decision: next.step.Decision,
+					Stage: StageStart,
 				})
 			case r := <-results:
+				heap.Push(&readySteps, next)
 				handleResult(r)
 			case <-e.Drain:
+				heap.Push(&readySteps, next)
 				halted = true
 				drained = true
 			}
@@ -193,14 +268,14 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 			firstFail.SkippedCount = countTransitiveSkipped(
 				graph, firstFail.Address, dispatched, failedAddrs)
 			firstFail.SucceededCount = countSucceeded(
-				pending, dispatched, failedAddrs)
+				steps, dispatched, failedAddrs)
 		}
 		return firstErr
 	}
 	if drained {
 		return ErrInterrupted
 	}
-	if !allDispatched(pending, dispatched) {
+	if !allDispatched(steps, dispatched) {
 		return errors.New("apply: scheduler exited with steps left unread")
 	}
 	return nil

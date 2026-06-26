@@ -1,0 +1,5 @@
+resources: {
+  alpha: slow.r { name: 'alpha', delay-ms: 0 }
+  beta: slow.r { name: 'beta', delay-ms: 0 }
+  gamma: slow.r { name: 'gamma', delay-ms: 0 }
+}
