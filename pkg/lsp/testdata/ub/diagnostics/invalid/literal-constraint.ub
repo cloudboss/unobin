@@ -1,0 +1,13 @@
+factory: {
+  imports: { tls: 'example.com/constraints' }
+
+  resources: {
+    cert: tls.cert {
+      self-signed: true
+      acm-arn:     'arn:aws:acm:us-east-1:123456789012:certificate/demo'
+      pem-bundle:  'pem'
+      private-key: 'key'
+      region:      'us-east-1'
+    }
+  }
+}

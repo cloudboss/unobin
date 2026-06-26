@@ -3,13 +3,17 @@ package lsp
 import (
 	"errors"
 	"io/fs"
+	"os"
+	"path/filepath"
 
 	"github.com/cloudboss/unobin/pkg/check"
+	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/lsp/protocol"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/sourcecheck"
 )
 
 // DiagnosticsForText parses and validates UB source text into LSP diagnostics.
@@ -30,18 +34,164 @@ func DiagnosticsForTextWithProjects(
 	if errs := syntax.ValidateFile(file); errs.Len() > 0 {
 		return DiagnosticsForError(text, errs)
 	}
-	if file.Factory == nil {
+	switch file.Kind {
+	case syntax.FileFactory:
+		if file.Factory == nil {
+			return nil
+		}
+		return diagnosticsForFactoryBody(path, text, file.Factory.Body, projects)
+	case syntax.FileLibrary:
+		return diagnosticsForLibraryFile(path, text, file.Library, projects)
+	default:
 		return nil
 	}
-	libs, err := diagnosticLibraries(path, file.Factory.Body, projects)
+}
+
+func diagnosticsForFactoryBody(
+	path string,
+	text string,
+	body syntax.FactoryBody,
+	projects *ProjectCache,
+) []protocol.Diagnostic {
+	opts, ok, err := diagnosticSourceCheckOptions(path, projects)
 	if err != nil {
 		return DiagnosticsForError(text, err)
 	}
-	checker := check.NewSyntax(file.Factory.Body, libs)
+	if !ok {
+		return diagnosticsForOpaqueReferences(text, body)
+	}
+	_, err = sourcecheck.CheckFactoryBody(body, opts)
+	if err != nil {
+		return DiagnosticsForError(text, err)
+	}
+	return nil
+}
+
+func diagnosticsForLibraryFile(
+	path string,
+	text string,
+	library *syntax.LibraryFile,
+	projects *ProjectCache,
+) []protocol.Diagnostic {
+	if library == nil {
+		return nil
+	}
+	opts, ok, err := diagnosticSourceCheckOptions(path, projects)
+	if err != nil {
+		return DiagnosticsForError(text, err)
+	}
+	if !ok {
+		opts = diagnosticLooseLibraryOptions(path, library)
+	}
+	if err := sourcecheck.CheckLibraryFile(library, opts); err != nil {
+		return DiagnosticsForError(text, err)
+	}
+	return nil
+}
+
+func diagnosticsForOpaqueReferences(
+	text string,
+	body syntax.FactoryBody,
+) []protocol.Diagnostic {
+	checker := check.NewSyntax(body, opaqueImportedLibraries(body))
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return DiagnosticsForError(text, errs)
 	}
 	return nil
+}
+
+func diagnosticSourceCheckOptions(
+	path string,
+	projects *ProjectCache,
+) (sourcecheck.Options, bool, error) {
+	if projects == nil {
+		return sourcecheck.Options{}, false, nil
+	}
+	project, err := projects.ProjectForPath(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return sourcecheck.Options{}, false, nil
+		}
+		return sourcecheck.Options{}, false, err
+	}
+	versions, err := diagnosticProjectVersions(project)
+	if err != nil {
+		return sourcecheck.Options{}, false, err
+	}
+	return sourcecheck.Options{
+		ProjectDir:  project.Root,
+		Source:      diagnosticSource(path),
+		Resolver:    project.Resolver,
+		Versions:    versions,
+		SchemaCache: diagnosticSchemaCache(project),
+		Mode:        sourcecheck.ModeNoFetch,
+	}, true, nil
+}
+
+func diagnosticProjectVersions(project *Project) (map[string]string, error) {
+	versions := map[string]string{}
+	if project.ProjectLock != nil {
+		lockVersions, err := project.ProjectLock.RepoVersions()
+		if err != nil {
+			return nil, err
+		}
+		versions = lockVersions
+	}
+	if project.DepsProject != nil {
+		for dep := range project.DepsProject.Replace {
+			versions[dep.String()] = deps.ReplacementSentinel
+		}
+	}
+	return versions, nil
+}
+
+func diagnosticSchemaCache(project *Project) *sourcecheck.SchemaCache {
+	return sourcecheck.NewSchemaCacheWithReader(
+		func(sourcePath string) (*runtime.LibrarySchema, []string, error) {
+			schema, _, warnings, err := project.GoIndex.Read(sourcePath)
+			return schema, warnings, err
+		})
+}
+
+func diagnosticLooseLibraryOptions(
+	path string,
+	library *syntax.LibraryFile,
+) sourcecheck.Options {
+	dir := filepath.Dir(path)
+	return sourcecheck.Options{
+		ProjectDir: dir,
+		Source:     diagnosticSource(path),
+		Resolver:   NewImportResolver(dir, nil, nil, nil),
+		Versions:   diagnosticLibraryVersions(library),
+		Mode:       sourcecheck.ModeNoFetch,
+	}
+}
+
+func diagnosticLibraryVersions(library *syntax.LibraryFile) map[string]string {
+	versions := map[string]string{}
+	for _, export := range library.Exports {
+		refs, _ := resolve.ExtractSyntaxBodyImports(export.Body)
+		for _, ref := range refs {
+			remote, ok := ref.(*resolve.RemoteImport)
+			if !ok {
+				continue
+			}
+			versions[remoteImportVersionKey(remote)] = deps.ReplacementSentinel
+		}
+	}
+	return versions
+}
+
+func remoteImportVersionKey(remote *resolve.RemoteImport) string {
+	if remote.Subdir == "" {
+		return remote.URL
+	}
+	return remote.URL + "//" + remote.Subdir
+}
+
+func diagnosticSource(path string) *resolve.Source {
+	dir := filepath.Dir(path)
+	return &resolve.Source{FS: os.DirFS(dir), Path: dir}
 }
 
 func diagnosticLibraries(
