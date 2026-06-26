@@ -192,15 +192,16 @@ func (w *projectLockWalker) walkRemote(r *resolve.RemoteImport) error {
 	if err := CheckPackageBoundary(src, owner, pkg); err != nil {
 		return err
 	}
-	if resolve.ContainsFactorySource(src) {
+	classification := resolve.ClassifySource(src)
+	kind := ProjectLockKindGo
+	switch classification.Kind {
+	case resolve.SourceFactory:
 		return fmt.Errorf("a factory cannot be imported")
-	}
-	ubLibrary := resolve.IsUBLibrary(src)
-	goLibrary := resolve.IsGoLibrary(src)
-	if !ubLibrary && !goLibrary {
+	case resolve.SourceInvalid:
 		return missingPackageProjectError(pkg, owner.Project)
-	}
-	if goLibrary {
+	case resolve.SourceUBLibrary:
+		kind = ProjectLockKindUB
+	case resolve.SourceGoLibrary:
 		if src.ModulePath != "" {
 			if err := resolve.ValidateGoModulePath(
 				remotePackageRef(pkg, owner, version), src.ModulePath,
@@ -211,10 +212,6 @@ func (w *projectLockWalker) walkRemote(r *resolve.RemoteImport) error {
 		if err := validateGoLibrarySource(src); err != nil {
 			return err
 		}
-	}
-	kind := ProjectLockKindGo
-	if ubLibrary {
-		kind = ProjectLockKindUB
 	}
 	projectID := owner.Project.String()
 	if _, done := w.projectLock.Deps[projectID]; !done {
@@ -320,15 +317,18 @@ func (w *projectLockWalker) checkLocalImport(
 	if err != nil {
 		return fmt.Errorf("import %q: %w", alias, err)
 	}
-	hasFactory := resolve.ContainsFactorySource(src)
-	hasExports := resolve.HasCompositeExports(src)
-	if hasFactory && !hasExports {
-		return fmt.Errorf("import %q: %s is not a UB library", alias, r.Path)
-	}
-	if !hasExports {
+	classification := resolve.ClassifySource(src)
+	switch classification.Kind {
+	case resolve.SourceFactory:
+		if !classification.HasCompositeExports {
+			return fmt.Errorf("import %q: %s is not a UB library", alias, r.Path)
+		}
+		return nil
+	case resolve.SourceUBLibrary:
+		return nil
+	default:
 		return resolve.LocalGoImportError(alias, r.Path, src)
 	}
-	return nil
 }
 
 func rebaseLocalPath(baseDir, importPath string) string {
@@ -373,16 +373,16 @@ func (w *projectLockWalker) walkReplaced(r *resolve.RemoteImport) error {
 	if err := CheckPackageBoundary(src, owner, pkg); err != nil {
 		return err
 	}
-	if resolve.ContainsFactorySource(src) {
+	switch resolve.ClassifySource(src).Kind {
+	case resolve.SourceFactory:
 		return fmt.Errorf("a factory cannot be imported")
-	}
-	if resolve.IsUBLibrary(src) {
+	case resolve.SourceUBLibrary:
 		return w.walkBodies(src)
-	}
-	if resolve.IsGoLibrary(src) {
+	case resolve.SourceGoLibrary:
 		return validateGoLibrarySource(src)
+	default:
+		return nil
 	}
-	return nil
 }
 
 func (w *projectLockWalker) walkBodies(src *resolve.Source) error {

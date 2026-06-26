@@ -38,6 +38,37 @@ type ContextResolver interface {
 	ResolveFrom(ref ImportRef, parent *Source) (*Source, error)
 }
 
+// SourceKind classifies a resolved import source.
+type SourceKind int
+
+const (
+	SourceInvalid SourceKind = iota
+	SourceUBLibrary
+	SourceGoLibrary
+	SourceFactory
+)
+
+// SourceClassification is the import-source category and related facts.
+type SourceClassification struct {
+	Kind                SourceKind
+	HasCompositeExports bool
+}
+
+// ClassifySource classifies a resolved source for import walkers.
+func ClassifySource(source *Source) SourceClassification {
+	hasExports := HasCompositeExports(source)
+	if ContainsFactorySource(source) {
+		return SourceClassification{Kind: SourceFactory, HasCompositeExports: hasExports}
+	}
+	if hasExports {
+		return SourceClassification{Kind: SourceUBLibrary, HasCompositeExports: true}
+	}
+	if IsGoLibrary(source) {
+		return SourceClassification{Kind: SourceGoLibrary}
+	}
+	return SourceClassification{Kind: SourceInvalid}
+}
+
 // IsUBLibrary reports whether s is a UB-implemented library: a directory
 // with at least one source-declared composite export and no factory source.
 // Project and project-lock files do not make a package importable by themselves.
