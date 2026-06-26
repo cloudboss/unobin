@@ -330,6 +330,7 @@ func runRootCommand(ctx context.Context, workspace string, cmd Command) (Command
 
 func newSourceRootCommand() *cobra.Command {
 	resetSourceCommand(cmdroot.VersionCmd)
+	resetSourceCommand(cmdroot.CheckCmd)
 	resetSourceCommand(cmdroot.CompileCmd)
 	resetSourceCommand(cmdroot.GenerateCmd)
 	resetSourceCommand(cmdroot.FmtCmd)
@@ -341,6 +342,7 @@ func newSourceRootCommand() *cobra.Command {
 	}
 	root.AddCommand(
 		cmdroot.VersionCmd,
+		cmdroot.CheckCmd,
 		cmdroot.CompileCmd,
 		cmdroot.GenerateCmd,
 		cmdroot.FmtCmd,

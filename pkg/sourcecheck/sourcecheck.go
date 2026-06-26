@@ -69,7 +69,31 @@ func CheckUBLibrary(source *resolve.Source, opts Options) error {
 	if err != nil {
 		return err
 	}
-	entries := lib.CompositeEntries()
+	checkOpts := opts
+	checkOpts.Source = source
+	if checkOpts.ProjectDir == "" && source != nil {
+		checkOpts.ProjectDir = source.Path
+	}
+	return checkCompositeEntries(lib.CompositeEntries(), checkOpts)
+}
+
+// CheckLibraryFile checks every exported composite body in file.
+func CheckLibraryFile(file *syntax.LibraryFile, opts Options) error {
+	if file == nil {
+		return errors.New("sourcecheck: library file is nil")
+	}
+	entries := make([]resolve.CompositeEntry, 0, len(file.Exports))
+	for _, export := range file.Exports {
+		entries = append(entries, resolve.CompositeEntry{
+			Kind:       string(export.Kind),
+			Name:       export.Name.Name,
+			SyntaxBody: export.Body,
+		})
+	}
+	return checkCompositeEntries(entries, opts)
+}
+
+func checkCompositeEntries(entries []resolve.CompositeEntry, opts Options) error {
 	var violations []error
 	for _, entry := range entries {
 		violations = append(violations,
@@ -79,14 +103,9 @@ func CheckUBLibrary(source *resolve.Source, opts Options) error {
 		return errors.Join(violations...)
 	}
 
-	checkOpts := opts
-	checkOpts.Source = source
-	if checkOpts.ProjectDir == "" && source != nil {
-		checkOpts.ProjectDir = source.Path
-	}
 	var bodyErrs []error
 	for _, entry := range entries {
-		_, err := CheckFactoryBody(entry.SyntaxBody, checkOpts)
+		_, err := CheckFactoryBody(entry.SyntaxBody, opts)
 		if err != nil {
 			bodyErrs = append(bodyErrs,
 				fmt.Errorf("%s composite %q: %w", entry.Kind, entry.Name, err))

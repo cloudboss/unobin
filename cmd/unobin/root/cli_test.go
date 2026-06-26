@@ -60,6 +60,7 @@ func runCommandWithRemotes(t *testing.T, remotes map[string]*resolve.Source,
 	args ...string) (string, error) {
 	t.Helper()
 	stubCompileResolver(t, mergedCommandRemotes(remotes))
+	resetFlags(CheckCmd)
 	resetFlags(CompileCmd)
 	resetFlags(PrintGraphCmd)
 	resetFlags(depsSyncCmd)
@@ -72,6 +73,7 @@ func runCommandWithRemotes(t *testing.T, remotes map[string]*resolve.Source,
 		SilenceUsage: true,
 	}
 	root.AddCommand(VersionCmd)
+	root.AddCommand(CheckCmd)
 	root.AddCommand(CompileCmd)
 	root.AddCommand(PrintGraphCmd)
 	root.AddCommand(DepsCmd)
