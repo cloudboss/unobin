@@ -61,6 +61,40 @@ type InputValidator[Config any] interface {
 	ValidateInputs(ctx context.Context, config Config) error
 }
 
+// InputEquivalencer is an optional resource interface for field equality.
+type InputEquivalencer[In any] interface {
+	EquivalentInput(field string, prior, current In) bool
+}
+
+// ResourcePlanModifier is an optional resource interface for plan-time changes.
+type ResourcePlanModifier[In, Out, Config any] interface {
+	ModifyResourcePlan(req ResourcePlanRequest[In, Out, Config], resp *ResourcePlanResponse) error
+}
+
+// ResourcePlanRequest is the typed input to a resource plan modifier.
+type ResourcePlanRequest[In, Out, Config any] struct {
+	Config        Config
+	PriorInputs   In
+	CurrentInputs In
+	PriorOutputs  Out
+	HasPriorState bool
+}
+
+// ResourcePlanResponse records plan-time changes requested by a resource.
+type ResourcePlanResponse struct {
+	UnknownOutputs map[string]bool
+}
+
+// MarkOutputUnknown records output fields that apply will compute.
+func (r *ResourcePlanResponse) MarkOutputUnknown(fields ...string) {
+	if r.UnknownOutputs == nil {
+		r.UnknownOutputs = map[string]bool{}
+	}
+	for _, field := range fields {
+		r.UnknownOutputs[field] = true
+	}
+}
+
 // TypedAction is the typed contract for actions. Out names the
 // action's output struct.
 type TypedAction[Out, Config any] interface {
@@ -107,6 +141,12 @@ type ResourceRegistration interface {
 	ValidateInputs(ctx context.Context, receiver, cfg any) error
 	Delete(ctx context.Context, receiver, cfg, prior any) error
 	ReplaceFields(receiver any) []string
+	EquivalentInput(receiver any, field string, priorInputs map[string]any) bool
+	ModifyResourcePlan(
+		receiver, cfg any,
+		priorInputs, priorOutputs map[string]any,
+		hasPriorState bool,
+	) (ResourcePlanResponse, error)
 	OutputType() reflect.Type
 }
 
@@ -304,6 +344,48 @@ func (typedResourceReg[T, Out, Config, PT]) Delete(
 
 func (typedResourceReg[T, Out, Config, PT]) ReplaceFields(receiver any) []string {
 	return PT(receiver.(*T)).ReplaceFields()
+}
+
+func (typedResourceReg[T, Out, Config, PT]) EquivalentInput(
+	receiver any, field string, priorInputs map[string]any,
+) bool {
+	equivalencer, ok := any(PT(receiver.(*T))).(InputEquivalencer[T])
+	if !ok {
+		return false
+	}
+	return equivalencer.EquivalentInput(field, coercePriorInputs[T](priorInputs), *receiver.(*T))
+}
+
+func (typedResourceReg[T, Out, Config, PT]) ModifyResourcePlan(
+	receiver, cfg any,
+	priorInputs, priorOutputs map[string]any,
+	hasPriorState bool,
+) (ResourcePlanResponse, error) {
+	modifier, ok := any(PT(receiver.(*T))).(ResourcePlanModifier[T, Out, Config])
+	if !ok {
+		return ResourcePlanResponse{}, nil
+	}
+	config, err := coerceConfig[Config](cfg)
+	if err != nil {
+		return ResourcePlanResponse{}, err
+	}
+	out, err := coercePrior[Out](priorOutputs)
+	if err != nil {
+		return ResourcePlanResponse{}, err
+	}
+	current := *receiver.(*T)
+	return guard("modifying this resource's plan", false,
+		func() (ResourcePlanResponse, error) {
+			resp := ResourcePlanResponse{}
+			err := modifier.ModifyResourcePlan(ResourcePlanRequest[T, Out, Config]{
+				Config:        config,
+				PriorInputs:   coercePriorInputs[T](priorInputs),
+				CurrentInputs: current,
+				PriorOutputs:  out,
+				HasPriorState: hasPriorState,
+			}, &resp)
+			return resp, err
+		})
 }
 
 func (typedResourceReg[T, Out, Config, PT]) OutputType() reflect.Type {

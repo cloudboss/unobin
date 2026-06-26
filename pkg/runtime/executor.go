@@ -746,7 +746,7 @@ func sortedKeys(m map[string]any) []string {
 func sameInputs(a, b map[string]any) bool {
 	// A nil map and an empty map are the same input set, but they
 	// marshal differently (null vs {}), so the byte compare below
-	// would call an empty body changed after a plan-file round trip.
+	// would call an empty body changed after a plan-file cycle.
 	if len(a) == 0 && len(b) == 0 {
 		return true
 	}
@@ -761,15 +761,55 @@ func sameInputs(a, b map[string]any) bool {
 	return bytes.Equal(aj, bj)
 }
 
-// changedReplaceFields returns the replace-forcing fields whose canonical
-// JSON value differs between prior and current inputs. A non-empty result
-// means the resource must be replaced and names the fields that forced it.
-func changedReplaceFields(replaceFields []string, prior, current map[string]any) []string {
+func sameResourceInputs(
+	rt ResourceRegistration, receiver any, prior, current map[string]any,
+) bool {
+	if sameInputs(prior, current) {
+		return true
+	}
+	for _, field := range inputFieldNames(prior, current) {
+		if sameValue(prior[field], current[field]) {
+			continue
+		}
+		if rt.EquivalentInput(receiver, field, prior) {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func inputFieldNames(a, b map[string]any) []string {
+	seen := map[string]bool{}
+	for name := range a {
+		seen[name] = true
+	}
+	for name := range b {
+		seen[name] = true
+	}
+	fields := make([]string, 0, len(seen))
+	for name := range seen {
+		fields = append(fields, name)
+	}
+	slices.Sort(fields)
+	return fields
+}
+
+func changedReplaceFieldsForResource(
+	rt ResourceRegistration,
+	receiver any,
+	replaceFields []string,
+	prior, current map[string]any,
+) []string {
 	var changed []string
 	for _, field := range replaceFields {
-		if !sameValue(prior[field], current[field]) {
-			changed = append(changed, field)
+		if sameValue(prior[field], current[field]) {
+			continue
 		}
+		if rt.EquivalentInput(receiver, field, prior) {
+			continue
+		}
+		changed = append(changed, field)
 	}
 	return changed
 }
