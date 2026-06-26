@@ -1,0 +1,12 @@
+output.path
+  -> resource.bundle
+
+resource.bundle
+  -> resource.bundle/resource.file
+
+resource.bundle/resource.file
+  -> resource.bundle/resource.file/resource.leaf
+
+resource.bundle/resource.file/resource.leaf
+  -> input.body
+  -> input.path

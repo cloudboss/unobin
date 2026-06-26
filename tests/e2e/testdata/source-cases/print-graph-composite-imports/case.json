@@ -1,0 +1,32 @@
+{
+  "name": "print-graph-composite-imports",
+  "rootPath": "demo-factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "remotes": [
+    {
+      "key": "example.com/std@v1.0.0",
+      "path": "remotes/std",
+      "commit": "std-commit"
+    }
+  ],
+  "commands": [
+    {
+      "name": "print-graph",
+      "args": ["print-graph", "-p", "factory.ub", "--replace-unobin", "$REPO_ROOT"],
+      "stdout": "want/print-graph.stdout"
+    },
+    {
+      "name": "compile",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build",
+        "--replace-unobin",
+        "$REPO_ROOT"
+      ]
+    }
+  ]
+}

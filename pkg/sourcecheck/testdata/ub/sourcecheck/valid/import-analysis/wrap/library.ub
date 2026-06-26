@@ -1,0 +1,20 @@
+wrapper: resource {
+  inputs: { path: { type: string } }
+
+  imports: {
+    leaf: '../inner'
+    std:  'example.com/schema'
+  }
+
+  resources: {
+    child: leaf.leaf {
+      path: input.path
+    }
+    note: std.file {
+      path:    'note.txt'
+      content: input.path
+    }
+  }
+
+  outputs: { path: { value: resource.child.path } }
+}

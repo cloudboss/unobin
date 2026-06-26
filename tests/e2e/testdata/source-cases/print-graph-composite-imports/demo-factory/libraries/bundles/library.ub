@@ -1,0 +1,17 @@
+bundle: resource {
+  inputs: {
+    path: { type: string }
+    body: { type: string }
+  }
+
+  imports: { writer: '../writer' }
+
+  resources: {
+    file: writer.write-file {
+      path: input.path
+      body: input.body
+    }
+  }
+
+  outputs: { path: { value: resource.file.path } }
+}

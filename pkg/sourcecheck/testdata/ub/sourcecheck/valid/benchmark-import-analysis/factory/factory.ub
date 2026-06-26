@@ -1,0 +1,17 @@
+factory: {
+  imports: {
+    outer-a: '../outer'
+    outer-b: '../outer'
+    leaf:    '../inner'
+    std:     'example.com/schema'
+  }
+  resources: {
+    a: outer-a.wrapper {}
+    b: outer-b.wrapper {}
+    c: leaf.leaf {}
+    d: std.file {
+      path:    'top.txt'
+      content: 'top'
+    }
+  }
+}

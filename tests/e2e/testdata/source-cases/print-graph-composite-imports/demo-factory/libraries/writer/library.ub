@@ -1,0 +1,17 @@
+write-file: resource {
+  inputs: {
+    path: { type: string }
+    body: { type: string }
+  }
+
+  imports: { std: 'example.com/std' }
+
+  resources: {
+    leaf: std.file {
+      path:    input.path
+      content: input.body
+    }
+  }
+
+  outputs: { path: { value: resource.leaf.path } }
+}

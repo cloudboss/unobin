@@ -3,7 +3,6 @@ package root
 import (
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -11,10 +10,9 @@ import (
 	"github.com/cloudboss/unobin/pkg/check"
 	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/deps"
-	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/graphprint"
 	"github.com/cloudboss/unobin/pkg/resolve"
-	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/sourcecheck"
 	"github.com/cloudboss/unobin/pkg/toolchain"
 	"github.com/spf13/cobra"
 )
@@ -118,17 +116,20 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	}
 	schemaRoots := compile.UnobinSchemaRoots(
 		cmd.ErrOrStderr(), replaceUnobin, cliVersion())
-	libs, err := buildLibraryMap(
-		refs,
-		resolver,
-		repoVersions,
-		cmd.ErrOrStderr(),
-		schemaRoots,
-		&resolve.Source{FS: os.DirFS(filepath.Dir(stackPath)), Path: filepath.Dir(stackPath)},
-	)
+	analysis, err := sourcecheck.AnalyzeImports(refs, sourcecheck.ImportAnalysisOptions{
+		Resolver:    resolver,
+		Versions:    repoVersions,
+		WarnOut:     cmd.ErrOrStderr(),
+		SchemaCache: compile.NewSchemaCache(schemaRoots...),
+		Source: &resolve.Source{
+			FS:   os.DirFS(filepath.Dir(stackPath)),
+			Path: filepath.Dir(stackPath),
+		},
+	})
 	if err != nil {
 		return err
 	}
+	libs := analysis.Libraries
 	checker := check.NewSyntax(sf.Factory.Body, libs)
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return errs.Err()
@@ -224,94 +225,4 @@ func printGraphAbsReplacePath(root, path string) (string, error) {
 		path = filepath.Join(root, path)
 	}
 	return filepath.Abs(path)
-}
-
-// buildLibraryMap turns each top-level import alias into a *runtime.Library.
-// UB-library Composites are populated from the library's source-declared
-// body files; Go libraries become empty Library values so the runtime can
-// tell "imported but not a composite" apart from "not imported at all". Each
-// composite carries its own Libraries map so composite-internal lookups stay
-// self-contained.
-func buildLibraryMap(
-	refs map[string]resolve.ImportRef,
-	resolver resolve.Resolver,
-	versions map[string]string,
-	warnOut io.Writer,
-	schemaRoots []goschema.ModuleRoot,
-	source *resolve.Source,
-) (map[string]*runtime.Library, error) {
-	schemas := compile.NewSchemaCache(schemaRoots...)
-	v := &graphVisitor{
-		byKey:   map[string]*runtime.Library{},
-		warnOut: warnOut,
-		schemas: schemas,
-	}
-	top, err := resolve.WalkUBFrom(refs, resolver, v, versions, source)
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[string]*runtime.Library, len(top))
-	for _, res := range top {
-		switch res.Kind {
-		case resolve.ResolutionGo:
-			schema, warnings, err := schemas.Read(res.SourcePath)
-			if err != nil {
-				return nil, fmt.Errorf("import %q: %w", res.LocalAlias, err)
-			}
-			compile.PrintSchemaWarnings(warnOut, res.LocalAlias, warnings)
-			out[res.LocalAlias] = &runtime.Library{Schema: schema}
-		case resolve.ResolutionUB:
-			out[res.LocalAlias] = v.byKey[res.CanonicalKey]
-		}
-	}
-	return out, nil
-}
-
-// graphVisitor builds a *runtime.Library per unique UB-library key.
-// Go imports contribute nothing to its state because print-graph
-// doesn't model their types; the consumer fills in an empty
-// *runtime.Library per top-level Go alias.
-type graphVisitor struct {
-	byKey   map[string]*runtime.Library
-	warnOut io.Writer
-	schemas *compile.SchemaCache
-}
-
-func (g *graphVisitor) OnGoImport(_, _, _, _ string) error {
-	return nil
-}
-
-func (g *graphVisitor) OnUBLibrary(
-	_, canonicalKey string, _ resolve.ImportRef, lib *resolve.UBLibrary,
-) error {
-	runtimeLib := &runtime.Library{}
-	for _, entry := range lib.CompositeEntries() {
-		resols := lib.BodyImports[entry.Kind][entry.Name]
-		bodyLibs := make(map[string]*runtime.Library, len(resols))
-		for _, res := range resols {
-			switch res.Kind {
-			case resolve.ResolutionGo:
-				schema, warnings, err := g.schemas.Read(res.SourcePath)
-				if err != nil {
-					return fmt.Errorf(
-						"%s composite %q import %q: %w",
-						entry.Kind, entry.Name, res.LocalAlias, err)
-				}
-				compile.PrintSchemaWarnings(g.warnOut, res.LocalAlias, warnings)
-				bodyLibs[res.LocalAlias] = &runtime.Library{Schema: schema}
-			case resolve.ResolutionUB:
-				bodyLibs[res.LocalAlias] = g.byKey[res.CanonicalKey]
-			}
-		}
-		syntaxBody := entry.SyntaxBody
-		composite := &runtime.CompositeType{
-			Name:       entry.Name,
-			Kind:       runtime.NodeKind(entry.Kind),
-			SyntaxBody: &syntaxBody,
-			Libraries:  bodyLibs,
-		}
-		runtimeLib.AddComposite(composite)
-	}
-	g.byKey[canonicalKey] = runtimeLib
-	return nil
 }
