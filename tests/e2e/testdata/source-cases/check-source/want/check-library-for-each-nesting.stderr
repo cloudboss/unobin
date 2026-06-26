@@ -1,0 +1,1 @@
+Error: data-source composite "outer": library.ub:9:22: schema: data-source.item/data-source.item: @for-each inside a @for-each composite is not supported

@@ -1,0 +1,18 @@
+outer: data-source {
+  inputs: {
+    items: { type: map(string) }
+  }
+
+  imports: { inner: '../lib-nested-inner' }
+
+  data-sources: {
+    item: inner.inner {
+      @for-each: input.items
+      items:     { one: '1' }
+    }
+  }
+
+  outputs: {
+    value: { value: 'ok' }
+  }
+}

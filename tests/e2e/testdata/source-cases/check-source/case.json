@@ -1,0 +1,46 @@
+{
+  "name": "check-source",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "dev",
+  "commands": [
+    {
+      "name": "check-valid-factory",
+      "dir": "valid-factory",
+      "args": ["check", "-p", "factory.ub"],
+      "stdout": "want/check-valid-factory.stdout",
+      "stderr": "want/empty.stderr"
+    },
+    {
+      "name": "check-valid-library-dir",
+      "args": ["check", "-p", "valid-library-dir/lib"],
+      "stdout": "want/check-valid-library-dir.stdout",
+      "stderr": "want/empty.stderr"
+    },
+    {
+      "name": "check-library-missing-import",
+      "args": ["check", "-p", "lib-missing-import"],
+      "stderr": "want/check-library-missing-import.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "check-library-for-each-nesting",
+      "args": ["check", "-p", "lib-nested-foreach"],
+      "stderr": "want/check-library-for-each-nesting.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "check-factory-go-type-error",
+      "dir": "factory-go-type-error",
+      "args": [
+        "check",
+        "-p",
+        "factory.ub",
+        "--replace-unobin",
+        "$REPO_ROOT"
+      ],
+      "stderr": "want/check-factory-go-type-error.stderr",
+      "exitCode": 1
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+testdata/ub/check-command/invalid/unknown-role/loose.ub:1:1: schema: cannot determine UB file role from unknown; expected source-declared factory, stack, project, project-lock, or exported library file
