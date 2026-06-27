@@ -1,2 +1,2 @@
 notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
-factory.ub:12:5: type: input "scalar-size": expected integer, got string
+example.com/unobin/e2e/input-validation (factory.ub):12:5: type: input "scalar-size": expected integer, got string

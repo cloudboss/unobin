@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/internal/ubtest"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/spf13/cobra"
@@ -51,11 +52,12 @@ func testInfo(t *testing.T, src string) Info {
 				}),
 		},
 	}
+	body := testFactoryBody(t, sourceFactory(src))
 	return Info{
 		FactoryName:     "test-stack",
 		FactoryVersion:  "v0.1.0",
 		ContentRevision: "abcdef",
-		FactoryBody:     sourceFactory(src),
+		FactoryBody:     &body,
 		Libraries:       map[string]*runtime.Library{"core": coreMod},
 	}
 }
@@ -67,10 +69,12 @@ func sourceFactory(body string) string {
 	return "factory" + ": {\n" + body + "\n}\n"
 }
 
-func TestParseFactoryRequiresFactoryDeclaration(t *testing.T) {
-	_, err := parseFactory(Info{FactoryBody: `description: 'x'`})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "factory.ub must declare factory")
+func testFactoryBody(t testing.TB, src string) syntax.FactoryBody {
+	t.Helper()
+	sf, err := syntax.ParseSource("factory.ub", []byte(src))
+	require.NoError(t, err)
+	require.NotNil(t, sf.Factory)
+	return sf.Factory.Body
 }
 
 func TestDeploymentID(t *testing.T) {

@@ -4,12 +4,25 @@ package main
 import (
 	lib_a "demo-factory/internal/a"
 	lib_wrap "demo-factory/internal/wrap"
+	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
+var factorySource = parse.NewSourceFile(
+	"factory.ub",
+	[]int{0, 11, 24, 37, 56, 60, 61, 79, 100, 124, 128, 130},
+)
+
+func sp(start, end int) parse.Span {
+	return factorySource.Span(start, end)
+}
+
+var factoryBody = syntax.FactoryBody{S: sp(9, 129), Imports: []syntax.ImportDecl{{S: sp(28, 0), Alias: syntax.Ident{S: sp(28, 0), Name: "a"}, Ref: &lang.StringLit{S: sp(31, 0), Value: "./a"}}, {S: sp(41, 0), Alias: syntax.Ident{S: sp(41, 0), Name: "wrap"}, Ref: &lang.StringLit{S: sp(47, 0), Value: "./wrap"}}}, Data: []syntax.NodeDecl{{S: sp(83, 99), Kind: syntax.NodeKind("data-source"), Name: syntax.Ident{S: sp(83, 0), Name: "root"}, Selector: syntax.NodeSelector{S: sp(89, 96), Alias: syntax.Ident{S: sp(89, 90), Name: "a"}, Export: syntax.Ident{S: sp(91, 96), Name: "first"}}, Body: &lang.ObjectLit{S: sp(97, 99), Fields: []*lang.Field{}}}, {S: sp(104, 123), Kind: syntax.NodeKind("data-source"), Name: syntax.Ident{S: sp(104, 0), Name: "nested"}, Selector: syntax.NodeSelector{S: sp(112, 120), Alias: syntax.Ident{S: sp(112, 116), Name: "wrap"}, Export: syntax.Ident{S: sp(117, 120), Name: "box"}}, Body: &lang.ObjectLit{S: sp(121, 123), Fields: []*lang.Field{}}}}}
+
 const (
-	factoryBody        = "factory: {\n  imports: {\n    a:    './a'\n    wrap: './wrap'\n  }\n\n  data-sources: {\n    root: a.first {}\n    nested: wrap.box {}\n  }\n}\n"
 	factoryLibraryPath = ""
 	factoryName        = "demo-factory"
 )
@@ -26,7 +39,7 @@ func main() {
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
-		FactoryBody:     factoryBody,
+		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
 			"a": runtime.LibraryWithPath(

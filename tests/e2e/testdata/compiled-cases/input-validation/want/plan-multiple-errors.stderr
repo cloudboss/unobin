@@ -1,6 +1,6 @@
 notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
 3 errors:
   schema: unknown input "extra": not declared in the stack's `inputs:` block
-  factory.ub:11:5: schema: input "required-name": required but not provided
-  factory.ub:12:5: schema: input "scalar-size": value 0 is below minimum 1
+  example.com/unobin/e2e/input-validation (factory.ub):11:5: schema: input "required-name": required but not provided
+  example.com/unobin/e2e/input-validation (factory.ub):12:5: schema: input "scalar-size": value 0 is below minimum 1
 

@@ -203,18 +203,11 @@ func TestVerifyFactoryEnvelopeNoLibraryPathFieldChecksOnlyVersions(t *testing.T)
 	require.NoError(t, verifyFactoryEnvelope(info, parseTestStack(t, path), path, false))
 }
 
-// TestVerifyFactoryEnvelopeComparesAgainstLibraryPathNotBody guards against
-// the regression where the identity check compared the config's
-// library-path against the embedded source bytes (which are a multi-line
-// .ub file, never a URL). It mirrors real use: FactoryBody holds
-// multi-line source, LibraryPath holds a clean URL, the config's
-// library-path matches the URL.
-func TestVerifyFactoryEnvelopeComparesAgainstLibraryPathNotBody(t *testing.T) {
+func TestVerifyFactoryEnvelopeComparesAgainstLibraryPath(t *testing.T) {
 	info := Info{
 		FactoryVersion:  "v0.1.0",
 		ContentRevision: "abcdef",
 		LibraryPath:     "github.com/cloudboss/cluster-deploy",
-		FactoryBody:     readStackEnvelopeFixture(t, "valid/factory-body"),
 	}
 	path := stackEnvelopeFixture(t, "valid/with-pin")
 	require.NoError(t, verifyFactoryEnvelope(info, parseTestStack(t, path), path, false))

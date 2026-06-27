@@ -1,2 +1,2 @@
 notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
-factory.ub:37:5: schema: input "subnets": list has 4 items, above max-items 3
+example.com/unobin/e2e/input-validation (factory.ub):35:5: schema: input "subnets": list has 4 items, above max-items 3

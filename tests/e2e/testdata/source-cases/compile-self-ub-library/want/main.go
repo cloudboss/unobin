@@ -3,12 +3,25 @@ package main
 
 import (
 	lib_self "demo-factory/internal/self"
+	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
+var factorySource = parse.NewSourceFile(
+	"factory.ub",
+	[]int{0, 11, 36, 81, 138, 140},
+)
+
+func sp(start, end int) parse.Span {
+	return factorySource.Span(start, end)
+}
+
+var factoryBody = syntax.FactoryBody{S: sp(9, 139), Imports: []syntax.ImportDecl{{S: sp(24, 0), Alias: syntax.Ident{S: sp(24, 0), Name: "self"}, Ref: &lang.StringLit{S: sp(30, 0), Value: "."}}}, Data: []syntax.NodeDecl{{S: sp(54, 78), Kind: syntax.NodeKind("data-source"), Name: syntax.Ident{S: sp(54, 0), Name: "message"}, Selector: syntax.NodeSelector{S: sp(63, 75), Alias: syntax.Ident{S: sp(63, 67), Name: "self"}, Export: syntax.Ident{S: sp(68, 75), Name: "message"}}, Body: &lang.ObjectLit{S: sp(76, 78), Fields: []*lang.Field{}}}}, Outputs: []syntax.OutputDecl{{S: sp(94, 0), Name: syntax.Ident{S: sp(94, 0), Name: "text"}, Body: &lang.ObjectLit{S: sp(100, 135), Fields: []*lang.Field{{S: sp(102, 0), Key: lang.FieldKey{S: sp(102, 0), Kind: lang.FieldIdent, Name: "value"}, Value: &lang.DotPath{S: sp(109, 0), Root: &lang.Ident{S: sp(109, 0), Name: "data-source"}, Segments: []lang.DotSegment{{S: sp(120, 0), Name: "message"}, {S: sp(128, 0), Name: "text"}}}}}}}}}
+
 const (
-	factoryBody        = "factory: {\n  imports: { self: '.' }\n  data-sources: {\n    message: self.message {}\n  }\n  outputs: { text: { value: data-source.message.text } }\n}\n"
 	factoryLibraryPath = ""
 	factoryName        = "demo-factory"
 )
@@ -25,7 +38,7 @@ func main() {
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
-		FactoryBody:     factoryBody,
+		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
 			"self": runtime.LibraryWithPath(
