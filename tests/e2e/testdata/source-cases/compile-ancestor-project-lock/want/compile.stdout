@@ -2,13 +2,26 @@
 package main
 
 import (
+	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	lib_core "github.com/cloudboss/unobin/pkg/libraries/core"
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
+var factorySource = parse.NewSourceFile(
+	"factory.ub",
+	[]int{0, 11, 81, 138, 140},
+)
+
+func sp(start, end int) parse.Span {
+	return factorySource.Span(start, end)
+}
+
+var factoryBody = syntax.FactoryBody{S: sp(9, 139), Imports: []syntax.ImportDecl{{S: sp(24, 0), Alias: syntax.Ident{S: sp(24, 0), Name: "core"}, Ref: &lang.StringLit{S: sp(30, 0), Value: "github.com/cloudboss/unobin/pkg/libraries/core"}}}, Actions: []syntax.NodeDecl{{S: sp(94, 135), Kind: syntax.NodeKind("action"), Name: syntax.Ident{S: sp(94, 0), Name: "hi"}, Selector: syntax.NodeSelector{S: sp(98, 110), Alias: syntax.Ident{S: sp(98, 102), Name: "core"}, Export: syntax.Ident{S: sp(103, 110), Name: "command"}}, Body: &lang.ObjectLit{S: sp(111, 135), Fields: []*lang.Field{{S: sp(113, 0), Key: lang.FieldKey{S: sp(113, 0), Kind: lang.FieldIdent, Name: "argv"}, Value: &lang.ArrayLit{S: sp(119, 133), Elements: []lang.Expr{&lang.StringLit{S: sp(120, 0), Value: "echo"}, &lang.StringLit{S: sp(128, 0), Value: "hi"}}}}}}}}}
+
 const (
-	factoryBody        = "factory: {\n  imports: { core: 'github.com/cloudboss/unobin/pkg/libraries/core' }\n  actions: {\n    hi: core.command {\n      argv: ['echo', 'hi']\n    }\n  }\n}\n"
 	factoryLibraryPath = ""
 	factoryName        = "app"
 )
@@ -25,7 +38,7 @@ func main() {
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
-		FactoryBody:     factoryBody,
+		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
 			"core": runtime.LibraryWithPath(

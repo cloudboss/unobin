@@ -7,12 +7,9 @@ import (
 )
 
 func BenchmarkGenerateMainLargeFactory(b *testing.B) {
-	in := Input{
-		Body:        largeMainFactorySource(1000),
-		FactoryName: "benchmark-stack",
-		GoImports: map[string]string{
-			"core": "example.com/core",
-		},
+	in := testMainInput(b, largeMainFactorySource(1000), "benchmark-stack")
+	in.GoImports = map[string]string{
+		"core": "example.com/core",
 	}
 
 	var out []byte

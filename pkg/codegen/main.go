@@ -10,18 +10,20 @@ import (
 	"text/template"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
 // Input bundles everything codegen needs to produce a factory binary's
-// `main.go`. Body is the literal factory source the binary embeds and
-// parses on each invocation. LibraryPath is the binary's library-path
-// identity, the same form Go libraries use; the operator's stack file
-// asserts the same value under `factory.pin.library-path` and plan,
-// refresh, and validate refuse on mismatch. An empty LibraryPath disables that
-// identity check. The version and content-revision are not generated
-// here; compile stamps them into the built binary with -ldflags so the
-// generated source stays a pure function of the factory content.
+// `main.go`. FactoryBody is the typed factory source the binary executes.
+// LibraryPath is the binary's library-path identity, the same form Go libraries
+// use; the operator's stack file asserts the same value under
+// `factory.pin.library-path` and plan, refresh, and validate refuse on
+// mismatch. An empty LibraryPath disables that identity check. The version and
+// content-revision are not generated here; compile stamps them into the built
+// binary with -ldflags so the generated source stays a pure function of the
+// factory content.
 // GoImports maps each Go-library alias the source uses to the Go import
 // path that supplies it (e.g.,
 // `"std" -> "github.com/cloudboss/unobin-library-std"`).
@@ -31,12 +33,14 @@ import (
 // the package that compile generated for it (typically
 // `<factory-name>/internal/<alias>`).
 type Input struct {
-	Body        string
-	LibraryPath string
-	FactoryName string
-	GoImports   map[string]string
-	GoModules   map[string]string
-	UBImports   map[string]string
+	FactoryBody   syntax.FactoryBody
+	FactorySource syntax.SourceFileSpec
+	Body          string
+	LibraryPath   string
+	FactoryName   string
+	GoImports     map[string]string
+	GoModules     map[string]string
+	UBImports     map[string]string
 	// GoConstraints maps a Go-library alias to its types' cross-field
 	// constraints (kebab type name -> specs), gathered by the dev CLI
 	// from the library's source. codegen attaches them to the library in
@@ -63,8 +67,20 @@ func Generate(in Input) ([]byte, error) {
 	constraintAliases := injectedAliases(in.GoConstraints)
 	defaultAliases := injectedAliases(in.GoDefaults)
 	schemaInjectAliases := schemaAliases(in.GoSchemas)
+	body, source, err := factoryBodyInput(in)
+	if err != nil {
+		return nil, err
+	}
+	factoryBody, err := EncodeSyntaxFactoryBodyWithSpans(body, func(s parse.Span) string {
+		return fmt.Sprintf("sp(%d, %d)", s.Start.Offset, s.End.Offset)
+	})
+	if err != nil {
+		return nil, err
+	}
 	data := struct {
-		Body              string
+		FactoryBody       string
+		FactorySourcePath string
+		FactoryLineStarts string
 		LibraryPath       string
 		FactoryName       string
 		GoImports         []aliasImport
@@ -78,7 +94,9 @@ func Generate(in Input) ([]byte, error) {
 		HasLang           bool
 		Inject            bool
 	}{
-		Body:              in.Body,
+		FactoryBody:       factoryBody,
+		FactorySourcePath: factorySourceDisplayPath(source),
+		FactoryLineStarts: intSliceLiteral(source.LineStarts),
 		LibraryPath:       in.LibraryPath,
 		FactoryName:       in.FactoryName,
 		GoImports:         goImports,
@@ -89,8 +107,9 @@ func Generate(in Input) ([]byte, error) {
 		GoDefaults:        in.GoDefaults,
 		SchemaAliases:     schemaInjectAliases,
 		GoSchemas:         in.GoSchemas,
-		HasLang:           len(constraintAliases)+len(defaultAliases) > 0,
-		Inject:            len(constraintAliases)+len(defaultAliases)+len(schemaInjectAliases) > 0,
+		HasLang: len(constraintAliases)+len(defaultAliases) > 0 ||
+			strings.Contains(factoryBody, "lang."),
+		Inject: len(constraintAliases)+len(defaultAliases)+len(schemaInjectAliases) > 0,
 	}
 
 	var buf bytes.Buffer
@@ -135,10 +154,61 @@ func sortedKeys(m map[string]string) []string {
 	return keys
 }
 
-// quote renders a string as a Go double quoted literal. Used by the
-// template to embed the factory source verbatim.
 func quote(s string) string {
 	return strconv.Quote(s)
+}
+
+func factoryBodyInput(in Input) (syntax.FactoryBody, syntax.SourceFileSpec, error) {
+	if in.Body == "" {
+		return in.FactoryBody, in.FactorySource, nil
+	}
+	src := []byte(inputFactorySource(in.Body))
+	sf, err := syntax.ParseSource("factory.ub", src)
+	if err != nil {
+		return syntax.FactoryBody{}, syntax.SourceFileSpec{}, err
+	}
+	if sf.Kind != syntax.FileFactory || sf.Factory == nil {
+		return syntax.FactoryBody{}, syntax.SourceFileSpec{},
+			fmt.Errorf("factory.ub must declare factory")
+	}
+	return sf.Factory.Body, syntax.SourceFileSpec{
+		DisplayPath:    "factory.ub",
+		ProjectRelPath: "factory.ub",
+		LineStarts:     parse.LineStarts(src),
+	}, nil
+}
+
+func inputFactorySource(body string) string {
+	if strings.HasPrefix(strings.TrimSpace(body), "factory"+":") {
+		return body
+	}
+	return "factory" + ": {\n" + body + "\n}\n"
+}
+
+func factorySourceDisplayPath(spec syntax.SourceFileSpec) string {
+	if spec.DisplayPath != "" {
+		return spec.DisplayPath
+	}
+	if spec.ProjectRelPath != "" {
+		return spec.ProjectRelPath
+	}
+	return "factory.ub"
+}
+
+func intSliceLiteral(values []int) string {
+	if len(values) == 0 {
+		return "[]int{0}"
+	}
+	var b strings.Builder
+	b.WriteString("[]int{")
+	for i, value := range values {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		fmt.Fprintf(&b, "%d", value)
+	}
+	b.WriteString("}")
+	return b.String()
 }
 
 // injectedAliases returns the Go-library aliases with at least one
@@ -355,15 +425,27 @@ package main
 
 import (
 {{if .HasLang}}	"github.com/cloudboss/unobin/pkg/lang"
-{{end}}	"github.com/cloudboss/unobin/pkg/runner"
+{{end}}	"github.com/cloudboss/unobin/pkg/lang/parse"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
 {{range .GoImports}}	{{.GoIdent}} {{quote .Path}}
 {{end}}{{range .UBImports}}	{{.GoIdent}} {{quote .Path}}
 {{end -}}
 )
 
+var factorySource = parse.NewSourceFile(
+	{{quote .FactorySourcePath}},
+	{{.FactoryLineStarts}},
+)
+
+func sp(start, end int) parse.Span {
+	return factorySource.Span(start, end)
+}
+
+var factoryBody = {{.FactoryBody}}
+
 const (
-	factoryBody        = {{quote .Body}}
 	factoryLibraryPath = {{quote .LibraryPath}}
 	factoryName        = {{quote .FactoryName}}
 )
@@ -394,7 +476,7 @@ func main() {
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
-		FactoryBody:     factoryBody,
+		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries:       libraries,
 		UnobinVersion:   unobinVersion,
@@ -404,7 +486,7 @@ func main() {
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
-		FactoryBody:     factoryBody,
+		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
 {{range .GoImports}}			{{quote .LocalAlias}}: runtime.LibraryWithPath(

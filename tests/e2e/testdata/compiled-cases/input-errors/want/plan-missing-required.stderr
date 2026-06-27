@@ -1,2 +1,2 @@
 notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
-factory.ub:3:5: schema: input "region": required but not provided
+example.com/unobin/e2e/input-errors (factory.ub):3:5: schema: input "region": required but not provided

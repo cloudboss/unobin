@@ -1,2 +1,2 @@
 notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
-factory.ub:4:5: schema: input "size": value 0 is below minimum 1
+example.com/unobin/e2e/input-errors (factory.ub):4:5: schema: input "size": value 0 is below minimum 1

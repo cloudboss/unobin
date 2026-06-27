@@ -589,6 +589,10 @@ func encodeTypeObject(b *strings.Builder, n *lang.TypeObject, spanName SyntaxSpa
 	b.WriteString("&lang.TypeObject{")
 	fields := syntaxFieldWriter{}
 	writeSpanField(b, &fields, n.S, spanName)
+	if n.Open {
+		fields.next(b, "Open")
+		b.WriteString("true")
+	}
 	fields.next(b, "Fields")
 	b.WriteString("[]*lang.TypeObjectField{")
 	for i, f := range n.Fields {

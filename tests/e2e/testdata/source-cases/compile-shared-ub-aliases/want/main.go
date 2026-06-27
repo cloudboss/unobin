@@ -4,12 +4,25 @@ package main
 import (
 	lib_shared "demo-factory/internal/shared"
 	lib_wrap "demo-factory/internal/wrap"
+	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
+var factorySource = parse.NewSourceFile(
+	"factory.ub",
+	[]int{0, 11, 24, 75, 120, 124, 126},
+)
+
+func sp(start, end int) parse.Span {
+	return factorySource.Span(start, end)
+}
+
+var factoryBody = syntax.FactoryBody{S: sp(9, 125), Imports: []syntax.ImportDecl{{S: sp(28, 0), Alias: syntax.Ident{S: sp(28, 0), Name: "shared"}, Ref: &lang.StringLit{S: sp(36, 0), Value: "github.com/example/shared//ub/shared"}}, {S: sp(79, 0), Alias: syntax.Ident{S: sp(79, 0), Name: "wrap"}, Ref: &lang.StringLit{S: sp(85, 0), Value: "github.com/example/wrap//ub/wrap"}}}}
+
 const (
-	factoryBody        = "factory: {\n  imports: {\n    shared: 'github.com/example/shared//ub/shared'\n    wrap:   'github.com/example/wrap//ub/wrap'\n  }\n}\n"
 	factoryLibraryPath = ""
 	factoryName        = "demo-factory"
 )
@@ -26,7 +39,7 @@ func main() {
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
-		FactoryBody:     factoryBody,
+		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
 			"shared": runtime.LibraryWithPath(

@@ -34,16 +34,15 @@ import (
 const EnvVarPrefix = "UB_INPUT_"
 
 // Info bundles everything a generated factory binary passes into Run.
-// FactoryBody is the embedded factory source the binary parses on each
-// invocation. LibraryPath is the binary's library-path identity (the
-// same form Go libraries use); the operator's stack file asserts the
-// same value under `factory.pin.library-path`. An empty LibraryPath
-// disables that identity check.
+// FactoryBody is the generated factory syntax body. LibraryPath is the
+// binary's library-path identity (the same form Go libraries use); the
+// operator's stack file asserts the same value under `factory.pin.library-path`.
+// An empty LibraryPath disables that identity check.
 type Info struct {
 	FactoryName     string
 	FactoryVersion  string
 	ContentRevision string
-	FactoryBody     string
+	FactoryBody     *syntax.FactoryBody
 	LibraryPath     string
 	Libraries       map[string]*runtime.Library
 
@@ -621,20 +620,12 @@ type parsedFactory struct {
 }
 
 func parseFactory(info Info) (*parsedFactory, error) {
-	sf, err := syntax.ParseSource("factory.ub", []byte(info.FactoryBody))
-	if err != nil {
-		return nil, err
+	if info.FactoryBody == nil {
+		return nil, errors.New("factory body is required")
 	}
-	if sf.Kind != syntax.FileFactory || sf.Factory == nil {
-		return nil, errors.New("factory.ub must declare factory")
-	}
-	if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
-		return nil, verrs.Err()
-	}
-	body := sf.Factory.Body
 	return &parsedFactory{
-		syntaxBody: &body,
-		dag:        runtime.BuildSyntaxDAG(body, info.Libraries),
+		syntaxBody: info.FactoryBody,
+		dag:        runtime.BuildSyntaxDAG(*info.FactoryBody, info.Libraries),
 		libraries:  info.Libraries,
 	}, nil
 }

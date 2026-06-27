@@ -3,12 +3,25 @@ package main
 
 import (
 	lib_lib "example.com/lib/v2"
+	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
+var factorySource = parse.NewSourceFile(
+	"factory.ub",
+	[]int{0, 11, 52, 54},
+)
+
+func sp(start, end int) parse.Span {
+	return factorySource.Span(start, end)
+}
+
+var factoryBody = syntax.FactoryBody{S: sp(9, 53), Imports: []syntax.ImportDecl{{S: sp(24, 0), Alias: syntax.Ident{S: sp(24, 0), Name: "lib"}, Ref: &lang.StringLit{S: sp(29, 0), Value: "example.com/lib/v2"}}}}
+
 const (
-	factoryBody        = "factory: {\n  imports: { lib: 'example.com/lib/v2' }\n}\n"
 	factoryLibraryPath = ""
 	factoryName        = "demo-factory"
 )
@@ -25,7 +38,7 @@ func main() {
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
-		FactoryBody:     factoryBody,
+		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
 			"lib": runtime.LibraryWithPath(

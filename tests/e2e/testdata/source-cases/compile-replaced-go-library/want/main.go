@@ -3,12 +3,25 @@ package main
 
 import (
 	lib_aws "github.com/cloudboss/unobin-library-aws"
+	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
+var factorySource = parse.NewSourceFile(
+	"factory.ub",
+	[]int{0, 11, 73, 75},
+)
+
+func sp(start, end int) parse.Span {
+	return factorySource.Span(start, end)
+}
+
+var factoryBody = syntax.FactoryBody{S: sp(9, 74), Imports: []syntax.ImportDecl{{S: sp(24, 0), Alias: syntax.Ident{S: sp(24, 0), Name: "aws"}, Ref: &lang.StringLit{S: sp(29, 0), Value: "github.com/cloudboss/unobin-library-aws"}}}}
+
 const (
-	factoryBody        = "factory: {\n  imports: { aws: 'github.com/cloudboss/unobin-library-aws' }\n}\n"
 	factoryLibraryPath = ""
 	factoryName        = "demo-factory"
 )
@@ -25,7 +38,7 @@ func main() {
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
-		FactoryBody:     factoryBody,
+		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
 			"aws": runtime.LibraryWithPath(

@@ -9,7 +9,7 @@ import (
 )
 
 func BenchmarkPrepareFactoryLarge(b *testing.B) {
-	info := benchmarkInfo(largeFactorySource(1000))
+	info := benchmarkInfo(b, largeFactorySource(1000))
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -24,7 +24,9 @@ func BenchmarkPrepareFactoryLarge(b *testing.B) {
 	}
 }
 
-func benchmarkInfo(src string) Info {
+func benchmarkInfo(b testing.TB, src string) Info {
+	b.Helper()
+	body := testFactoryBody(b, src)
 	coreMod := &runtime.Library{
 		Name: "core",
 		Actions: map[string]runtime.ActionRegistration{
@@ -35,7 +37,7 @@ func benchmarkInfo(src string) Info {
 		FactoryName:     "benchmark-stack",
 		FactoryVersion:  "v0.1.0",
 		ContentRevision: "abcdef",
-		FactoryBody:     src,
+		FactoryBody:     &body,
 		Libraries:       map[string]*runtime.Library{"core": coreMod},
 	}
 }

@@ -34,6 +34,14 @@ type StringKey struct {
 	Value string
 }
 
+type SourceFileSpec struct {
+	DisplayPath    string
+	LibraryPath    string
+	ProjectRelPath string
+	PackageRelPath string
+	LineStarts     []int
+}
+
 type File struct {
 	S           parse.Span
 	Kind        FileKind

@@ -5,12 +5,24 @@ import (
 	lib_files "demo-factory/internal/files"
 	lib_e2e "example.com/unobin/e2elib"
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
+var factorySource = parse.NewSourceFile(
+	"factory.ub",
+	[]int{0, 11, 23, 50, 77, 95, 151, 168, 196, 236, 280, 288, 294, 298, 299, 312, 351, 382, 386, 387, 432, 433, 448, 509, 538, 567, 596, 631, 637, 641, 643},
+)
+
+func sp(start, end int) parse.Span {
+	return factorySource.Span(start, end)
+}
+
+var factoryBody = syntax.FactoryBody{S: sp(9, 642), Inputs: []syntax.InputDecl{{S: sp(27, 0), Name: syntax.Ident{S: sp(27, 0), Name: "path"}, Body: &lang.ObjectLit{S: sp(33, 49), Fields: []*lang.Field{{S: sp(35, 0), Key: lang.FieldKey{S: sp(35, 0), Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeAtomic{S: sp(41, 0), Name: "string"}}}}, Type: &lang.TypeAtomic{S: sp(41, 0), Name: "string"}}, {S: sp(54, 0), Name: syntax.Ident{S: sp(54, 0), Name: "body"}, Body: &lang.ObjectLit{S: sp(60, 76), Fields: []*lang.Field{{S: sp(62, 0), Key: lang.FieldKey{S: sp(62, 0), Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeAtomic{S: sp(68, 0), Name: "string"}}}}, Type: &lang.TypeAtomic{S: sp(68, 0), Name: "string"}}, {S: sp(81, 0), Name: syntax.Ident{S: sp(81, 0), Name: "e2e-config"}, Body: &lang.ObjectLit{S: sp(93, 293), Fields: []*lang.Field{{S: sp(101, 0), Key: lang.FieldKey{S: sp(101, 0), Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeLibraryConfig{S: sp(107, 0), Path: &lang.StringLit{S: sp(122, 0), Value: "example.com/unobin/e2elib"}}}, {S: sp(157, 0), Key: lang.FieldKey{S: sp(157, 0), Kind: lang.FieldIdent, Name: "default"}, Value: &lang.ObjectLit{S: sp(166, 287), Fields: []*lang.Field{{S: sp(176, 0), Key: lang.FieldKey{S: sp(176, 0), Kind: lang.FieldIdent, Name: "base-dir"}, Value: &lang.StringLit{S: sp(192, 0), Value: "."}}, {S: sp(204, 0), Key: lang.FieldKey{S: sp(204, 0), Kind: lang.FieldIdent, Name: "event-log-path"}, Value: &lang.StringLit{S: sp(220, 0), Value: "events.ndjson"}}, {S: sp(244, 0), Key: lang.FieldKey{S: sp(244, 0), Kind: lang.FieldIdent, Name: "nested"}, Value: &lang.ObjectLit{S: sp(260, 279), Fields: []*lang.Field{{S: sp(262, 0), Key: lang.FieldKey{S: sp(262, 0), Kind: lang.FieldIdent, Name: "label"}, Value: &lang.StringLit{S: sp(269, 0), Value: "nested"}}}}}}}}}}, Type: &lang.TypeLibraryConfig{S: sp(107, 0), Path: &lang.StringLit{S: sp(122, 0), Value: "example.com/unobin/e2elib"}}}}, Imports: []syntax.ImportDecl{{S: sp(316, 0), Alias: syntax.Ident{S: sp(316, 0), Name: "e2e"}, Ref: &lang.StringLit{S: sp(323, 0), Value: "example.com/unobin/e2elib"}}, {S: sp(355, 0), Alias: syntax.Ident{S: sp(355, 0), Name: "files"}, Ref: &lang.StringLit{S: sp(362, 0), Value: "./libraries/files"}}}, LibraryConfigs: []syntax.LibraryConfigDecl{{S: sp(408, 0), Alias: syntax.Ident{S: sp(408, 0), Name: "e2e"}, Value: &lang.DotPath{S: sp(413, 0), Root: &lang.Ident{S: sp(413, 0), Name: "input"}, Segments: []lang.DotSegment{{S: sp(418, 0), Name: "e2e-config"}}}}}, Resources: []syntax.NodeDecl{{S: sp(452, 508), Kind: syntax.NodeKind("resource"), Name: syntax.Ident{S: sp(452, 0), Name: "direct"}, Selector: syntax.NodeSelector{S: sp(460, 468), Alias: syntax.Ident{S: sp(460, 463), Name: "e2e"}, Export: syntax.Ident{S: sp(464, 468), Name: "file"}}, Body: &lang.ObjectLit{S: sp(469, 508), Fields: []*lang.Field{{S: sp(471, 0), Key: lang.FieldKey{S: sp(471, 0), Kind: lang.FieldIdent, Name: "path"}, Value: &lang.DotPath{S: sp(477, 0), Root: &lang.Ident{S: sp(477, 0), Name: "input"}, Segments: []lang.DotSegment{{S: sp(482, 0), Name: "path"}}}}, {S: sp(489, 0), Key: lang.FieldKey{S: sp(489, 0), Kind: lang.FieldIdent, Name: "content"}, Value: &lang.StringLit{S: sp(498, 0), Value: "direct"}}}}}, {S: sp(513, 636), Kind: syntax.NodeKind("resource"), Name: syntax.Ident{S: sp(513, 0), Name: "archive"}, Selector: syntax.NodeSelector{S: sp(522, 535), Alias: syntax.Ident{S: sp(522, 527), Name: "files"}, Export: syntax.Ident{S: sp(528, 535), Name: "archive"}}, Body: &lang.ObjectLit{S: sp(536, 636), Fields: []*lang.Field{{S: sp(544, 0), Key: lang.FieldKey{S: sp(544, 0), Kind: lang.FieldIdent, Name: "path"}, Value: &lang.DotPath{S: sp(556, 0), Root: &lang.Ident{S: sp(556, 0), Name: "input"}, Segments: []lang.DotSegment{{S: sp(561, 0), Name: "path"}}}}, {S: sp(573, 0), Key: lang.FieldKey{S: sp(573, 0), Kind: lang.FieldIdent, Name: "body"}, Value: &lang.DotPath{S: sp(585, 0), Root: &lang.Ident{S: sp(585, 0), Name: "input"}, Segments: []lang.DotSegment{{S: sp(590, 0), Name: "body"}}}}, {S: sp(602, 0), Key: lang.FieldKey{S: sp(602, 0), Kind: lang.FieldIdent, Name: "e2e-config"}, Value: &lang.DotPath{S: sp(614, 0), Root: &lang.Ident{S: sp(614, 0), Name: "input"}, Segments: []lang.DotSegment{{S: sp(619, 0), Name: "e2e-config"}}}}}}}}}
+
 const (
-	factoryBody        = "factory: {\n  inputs: {\n    path: { type: string }\n    body: { type: string }\n    e2e-config: {\n      type: library-config('example.com/unobin/e2elib')\n      default: {\n        base-dir:       '.'\n        event-log-path: 'events.ndjson'\n        nested:         { label: 'nested' }\n      }\n    }\n  }\n\n  imports: {\n    e2e:   'example.com/unobin/e2elib'\n    files: './libraries/files'\n  }\n\n  library-configs: { e2e: input.e2e-config }\n\n  resources: {\n    direct: e2e.file {\n      path:    input.path\n      content: 'direct'\n    }\n    archive: files.archive {\n      path:       input.path\n      body:       input.body\n      e2e-config: input.e2e-config\n    }\n  }\n}\n"
 	factoryLibraryPath = ""
 	factoryName        = "demo-factory"
 )
@@ -50,7 +62,7 @@ func main() {
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
-		FactoryBody:     factoryBody,
+		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries:       libraries,
 		UnobinVersion:   unobinVersion,
