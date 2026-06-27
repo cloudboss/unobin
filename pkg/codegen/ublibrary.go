@@ -12,6 +12,7 @@ import (
 	"text/template"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
@@ -57,7 +58,7 @@ func GenerateUBLibrary(
 	imports map[string]map[string]map[string]string,
 	goSpecs map[string]GoLibrarySpecs,
 ) ([]byte, error) {
-	return GenerateUBLibraryPackage(alias, alias, syntaxBodies, imports, goSpecs)
+	return GenerateUBLibraryPackage(alias, alias, syntaxBodies, imports, goSpecs, nil)
 }
 
 // GenerateUBLibraryPackage produces a UB library package whose Go package
@@ -68,6 +69,7 @@ func GenerateUBLibraryPackage(
 	syntaxBodies map[string]map[string]syntax.FactoryBody,
 	imports map[string]map[string]map[string]string,
 	goSpecs map[string]GoLibrarySpecs,
+	sourceFiles map[string]syntax.SourceFileSpec,
 ) ([]byte, error) {
 	if packageID == "" {
 		return nil, fmt.Errorf("ublibrary: package name is required")
@@ -77,6 +79,7 @@ func GenerateUBLibraryPackage(
 	}
 
 	idents := newIdentTable()
+	sourceHelpers, sourceHelperByFile := sourceHelpersFor(sourceFiles)
 	groups := map[string]*compositeGroup{}
 	for _, c := range compositeKinds {
 		groups[c.kind] = &compositeGroup{MapField: c.mapField, Symbol: c.symbol}
@@ -88,7 +91,8 @@ func GenerateUBLibraryPackage(
 		}
 		for _, name := range compositeNames(syntaxBodies[kind]) {
 			entry := compositeEntry{Name: name, Symbol: group.Symbol}
-			encoded, err := EncodeSyntaxFactoryBody(syntaxBodies[kind][name])
+			encoded, err := encodeSyntaxBodyWithSourceHelpers(
+				syntaxBodies[kind][name], sourceHelperByFile)
 			if err != nil {
 				return nil, fmt.Errorf("ublibrary %q: encode %s %q syntax body: %w",
 					libraryName, kind, name, err)
@@ -128,21 +132,25 @@ func GenerateUBLibraryPackage(
 
 	var buf bytes.Buffer
 	data := struct {
-		PackageName     string
-		LibraryName     string
-		SpecVars        []specVar
-		Groups          []*compositeGroup
-		GoImports       []goImport
-		HasLang         bool
-		HasSyntaxBodies bool
+		PackageName      string
+		LibraryName      string
+		SpecVars         []specVar
+		Groups           []*compositeGroup
+		GoImports        []goImport
+		SourceHelpers    []sourceHelper
+		HasLang          bool
+		HasSyntaxBodies  bool
+		HasSourceHelpers bool
 	}{
-		PackageName:     sanitizeIdent(packageID),
-		LibraryName:     libraryName,
-		SpecVars:        specVars,
-		Groups:          orderedGroups,
-		GoImports:       idents.imports(),
-		HasLang:         len(specVars) > 0 || hasSyntaxBodies(orderedGroups),
-		HasSyntaxBodies: hasSyntaxBodies(orderedGroups),
+		PackageName:      sanitizeIdent(packageID),
+		LibraryName:      libraryName,
+		SpecVars:         specVars,
+		Groups:           orderedGroups,
+		GoImports:        idents.imports(),
+		SourceHelpers:    sourceHelpers,
+		HasLang:          len(specVars) > 0 || hasSyntaxBodies(orderedGroups),
+		HasSyntaxBodies:  hasSyntaxBodies(orderedGroups),
+		HasSourceHelpers: len(sourceHelpers) > 0,
 	}
 	if err := ubLibraryTemplate.Execute(&buf, data); err != nil {
 		return nil, fmt.Errorf("ublibrary: %w", err)
@@ -178,6 +186,70 @@ type compositeEntry struct {
 	Symbol     string
 	SyntaxBody string
 	Libraries  []libraryBinding
+}
+
+type sourceHelper struct {
+	VarName     string
+	FuncName    string
+	DisplayPath string
+	LineStarts  string
+}
+
+func sourceHelpersFor(
+	sourceFiles map[string]syntax.SourceFileSpec,
+) ([]sourceHelper, map[string]sourceHelper) {
+	if len(sourceFiles) == 0 {
+		return nil, nil
+	}
+	files := make([]string, 0, len(sourceFiles))
+	for file := range sourceFiles {
+		files = append(files, file)
+	}
+	slices.Sort(files)
+	helpers := make([]sourceHelper, 0, len(files))
+	byFile := make(map[string]sourceHelper, len(files))
+	for i, file := range files {
+		spec := sourceFiles[file]
+		helper := sourceHelper{
+			VarName:     fmt.Sprintf("source%d", i),
+			FuncName:    fmt.Sprintf("sp%d", i),
+			DisplayPath: factorySourceDisplayPath(spec),
+			LineStarts:  intSliceLiteral(spec.LineStarts),
+		}
+		helpers = append(helpers, helper)
+		byFile[file] = helper
+	}
+	return helpers, byFile
+}
+
+func encodeSyntaxBodyWithSourceHelpers(
+	body syntax.FactoryBody,
+	helpers map[string]sourceHelper,
+) (string, error) {
+	if len(helpers) == 0 {
+		return EncodeSyntaxFactoryBody(body)
+	}
+	missing := map[string]bool{}
+	encoded, err := EncodeSyntaxFactoryBodyWithSpans(body, func(s parse.Span) string {
+		helper, ok := helpers[s.Start.File]
+		if !ok {
+			missing[s.Start.File] = true
+			return "parse.Span{}"
+		}
+		return fmt.Sprintf("%s(%d, %d)", helper.FuncName, s.Start.Offset, s.End.Offset)
+	})
+	if err != nil {
+		return "", err
+	}
+	if len(missing) > 0 {
+		files := make([]string, 0, len(missing))
+		for file := range missing {
+			files = append(files, file)
+		}
+		slices.Sort(files)
+		return "", fmt.Errorf("missing source metadata for %s", strings.Join(files, ", "))
+	}
+	return encoded, nil
 }
 
 func compositeKindNames(syntaxBodies map[string]map[string]syntax.FactoryBody) []string {
@@ -358,12 +430,22 @@ package {{.PackageName}}
 
 import (
 {{if .HasLang}}	"github.com/cloudboss/unobin/pkg/lang"
+{{end}}{{if .HasSourceHelpers}}	"github.com/cloudboss/unobin/pkg/lang/parse"
 {{end}}{{if .HasSyntaxBodies}}	"github.com/cloudboss/unobin/pkg/lang/syntax"
 {{end}}	"github.com/cloudboss/unobin/pkg/runtime"
 {{range .GoImports}}	{{.GoIdent}} {{quote .Path}}
 {{end}})
 
-func Library() *runtime.Library {
+{{range .SourceHelpers}}var {{.VarName}} = parse.NewSourceFile(
+	{{quote .DisplayPath}},
+	{{.LineStarts}},
+)
+
+func {{.FuncName}}(start, end int) parse.Span {
+	return {{.VarName}}.Span(start, end)
+}
+
+{{end}}func Library() *runtime.Library {
 {{range .SpecVars}}	{{.Name}} := runtime.LibraryWithPath(
 		{{.GoIdent}}.Library(),
 		{{quote .Path}},

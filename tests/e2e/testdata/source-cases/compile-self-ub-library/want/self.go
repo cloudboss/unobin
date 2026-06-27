@@ -3,9 +3,19 @@ package self
 
 import (
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
+
+var source0 = parse.NewSourceFile(
+	"local:. (library.ub)",
+	[]int{0, 23, 60, 62},
+)
+
+func sp0(start, end int) parse.Span {
+	return source0.Span(start, end)
+}
 
 func Library() *runtime.Library {
 	return &runtime.Library{
@@ -14,7 +24,7 @@ func Library() *runtime.Library {
 			"message": {
 				Name:       "message",
 				Kind:       runtime.NodeDataSource,
-				SyntaxBody: &syntax.FactoryBody{Outputs: []syntax.OutputDecl{{Name: syntax.Ident{Name: "text"}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "value"}, Value: &lang.StringLit{Value: "hi"}}}}}}},
+				SyntaxBody: &syntax.FactoryBody{S: sp0(21, 61), Outputs: []syntax.OutputDecl{{S: sp0(36, 0), Name: syntax.Ident{S: sp0(36, 0), Name: "text"}, Body: &lang.ObjectLit{S: sp0(42, 57), Fields: []*lang.Field{{S: sp0(44, 0), Key: lang.FieldKey{S: sp0(44, 0), Kind: lang.FieldIdent, Name: "value"}, Value: &lang.StringLit{S: sp0(51, 0), Value: "hi"}}}}}}},
 			},
 		},
 	}

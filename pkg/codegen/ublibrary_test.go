@@ -14,18 +14,31 @@ import (
 
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
 func parseSyntaxUB(t *testing.T, kind, name, src string) syntax.FactoryBody {
 	t.Helper()
+	body, _ := parseSyntaxUBFile(t, "library.ub", kind, name, src)
+	return body
+}
+
+func parseSyntaxUBFile(
+	t testing.TB,
+	filename string,
+	kind string,
+	name string,
+	src string,
+) (syntax.FactoryBody, []byte) {
+	t.Helper()
 	body := fmt.Appendf(nil, "%s: %s {\n%s\n}\n", name, kind, src)
-	f, err := syntax.ParseSource("library.ub", body)
+	f, err := syntax.ParseSource(filename, body)
 	require.NoError(t, err)
 	require.NotNil(t, f.Library)
 	require.Len(t, f.Library.Exports, 1)
-	return f.Library.Exports[0].Body
+	return f.Library.Exports[0].Body, body
 }
 
 func readUBLibraryBody(t testing.TB, name string) string {
@@ -127,6 +140,78 @@ func TestGenerateUBLibraryEmitsSyntaxBody(t *testing.T) {
 	require.Contains(t, s, `LibraryConfigs: []syntax.LibraryConfigDecl{`)
 	require.Contains(t, s, `Resources: []syntax.NodeDecl{`)
 	require.NotContains(t, s, `Body: &lang.File{`)
+}
+
+func TestGenerateUBLibraryEmitsSyntaxBodyWithSpans(t *testing.T) {
+	body, src := parseSyntaxUBFile(t, "library.ub", "resource", "cluster", "description: 'a'")
+	sourceFiles := map[string]syntax.SourceFileSpec{
+		"library.ub": {
+			DisplayPath:    "github.com/example/repo//libraries/network (libraries/network/library.ub)",
+			LibraryPath:    "github.com/example/repo//libraries/network",
+			ProjectRelPath: "libraries/network/library.ub",
+			PackageRelPath: "library.ub",
+			LineStarts:     parse.LineStarts(src),
+		},
+	}
+
+	out, err := GenerateUBLibraryPackage(
+		"net",
+		"net",
+		resourceSyntaxBodies(map[string]syntax.FactoryBody{"cluster": body}),
+		nil,
+		nil,
+		sourceFiles,
+	)
+	require.NoError(t, err)
+
+	s := string(out)
+	require.Contains(t, s, `"github.com/cloudboss/unobin/pkg/lang/parse"`)
+	require.Contains(t, s, `parse.NewSourceFile(`)
+	require.Contains(t, s, `func sp0(start, end int) parse.Span`)
+	require.Contains(t, s,
+		`"github.com/example/repo//libraries/network (libraries/network/library.ub)"`)
+	require.Contains(t, s, `SyntaxBody: &syntax.FactoryBody{S: sp0(`)
+	require.NotContains(t, s, `parse.Position{`)
+
+	fset := token.NewFileSet()
+	_, err = parser.ParseFile(fset, "net.go", out, parser.AllErrors)
+	require.NoError(t, err, "generated source should parse:\n%s", out)
+}
+
+func TestGenerateUBLibraryUsesMultipleSourceHelpers(t *testing.T) {
+	first, firstSrc := parseSyntaxUBFile(t, "library.ub", "resource", "cluster", "description: 'a'")
+	second, secondSrc := parseSyntaxUBFile(t, "extra.ub", "resource", "node", "description: 'b'")
+	sourceFiles := map[string]syntax.SourceFileSpec{
+		"library.ub": {
+			DisplayPath:    "github.com/example/repo//libraries/network (libraries/network/library.ub)",
+			ProjectRelPath: "libraries/network/library.ub",
+			LineStarts:     parse.LineStarts(firstSrc),
+		},
+		"extra.ub": {
+			DisplayPath:    "github.com/example/repo//libraries/network (libraries/network/extra.ub)",
+			ProjectRelPath: "libraries/network/extra.ub",
+			LineStarts:     parse.LineStarts(secondSrc),
+		},
+	}
+
+	out, err := GenerateUBLibraryPackage(
+		"net",
+		"net",
+		resourceSyntaxBodies(map[string]syntax.FactoryBody{
+			"cluster": first,
+			"node":    second,
+		}),
+		nil,
+		nil,
+		sourceFiles,
+	)
+	require.NoError(t, err)
+
+	s := string(out)
+	require.Contains(t, s, `func sp0(start, end int) parse.Span`)
+	require.Contains(t, s, `func sp1(start, end int) parse.Span`)
+	require.Contains(t, s, `libraries/network/library.ub`)
+	require.Contains(t, s, `libraries/network/extra.ub`)
 }
 
 func TestGenerateUBLibraryOmitsGenericBody(t *testing.T) {
@@ -401,13 +486,25 @@ func TestGenerateUBLibraryCompilesWithCaller(t *testing.T) {
 		t.Skip("skipped: spawns `go run` and is slow")
 	}
 
-	body := parseSyntaxUB(t, "resource", "cluster", readUBLibraryBody(t, "cluster"))
+	body, src := parseSyntaxUBFile(t, "library.ub", "resource", "cluster",
+		readUBLibraryBody(t, "cluster"))
+	sourceFiles := map[string]syntax.SourceFileSpec{
+		"library.ub": {
+			DisplayPath:    "github.com/example/repo//libraries/network (libraries/network/library.ub)",
+			LibraryPath:    "github.com/example/repo//libraries/network",
+			ProjectRelPath: "libraries/network/library.ub",
+			PackageRelPath: "library.ub",
+			LineStarts:     parse.LineStarts(src),
+		},
+	}
 
-	out, err := GenerateUBLibrary(
+	out, err := GenerateUBLibraryPackage(
+		"net",
 		"net",
 		resourceSyntaxBodies(map[string]syntax.FactoryBody{"cluster": body}),
 		nil,
 		nil,
+		sourceFiles,
 	)
 	require.NoError(t, err)
 
@@ -436,8 +533,12 @@ func main() {
 		if ct.SyntaxBody != nil {
 			resourceCount = len(ct.SyntaxBody.Resources)
 		}
-		fmt.Printf("composite=%s kind=%s resources=%d\n",
-			name, ct.Kind, resourceCount)
+		spanFile := ""
+		if ct.SyntaxBody != nil {
+			spanFile = ct.SyntaxBody.S.Start.File
+		}
+		fmt.Printf("composite=%s kind=%s resources=%d span=%s\n",
+			name, ct.Kind, resourceCount, spanFile)
 	}
 	if lib.ResourceComposites["cluster"] == nil {
 		fmt.Fprintln(os.Stderr, "missing cluster composite")
@@ -471,7 +572,9 @@ replace github.com/cloudboss/unobin => %s
 	got := string(runOut)
 	require.Contains(t, got, "name=net")
 	require.Contains(t, got, "resource-composites=1")
-	require.Contains(t, got, "composite=cluster kind=resource resources=1")
+	require.Contains(t, got,
+		"composite=cluster kind=resource resources=1 span="+
+			"github.com/example/repo//libraries/network (libraries/network/library.ub)")
 }
 
 func findUnobinRoot(t *testing.T) string {

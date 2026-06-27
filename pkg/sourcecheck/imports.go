@@ -194,6 +194,7 @@ func (v *importVisitor) OnUBLibrary(
 			syntaxBodiesForCompiledComposites(composites),
 			codegenImportsForCompiledComposites(composites),
 			goSpecsForCompiledComposites(composites),
+			lib.SourceFiles,
 		)
 		if err != nil {
 			return err
