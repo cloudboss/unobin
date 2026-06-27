@@ -23,6 +23,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/golibrary"
 	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/projectmarker"
 	"github.com/cloudboss/unobin/pkg/resolve"
@@ -86,28 +87,59 @@ func (o Options) stderr() io.Writer {
 	return os.Stderr
 }
 
-// ParseFactorySyntaxSource parses source and returns typed source plus
-// the canonical source body embedded in generated factories.
-func ParseFactorySyntaxSource(path string, src []byte) (*syntax.File, string, error) {
+// ParseFactorySyntaxSource parses source and returns typed source plus source metadata.
+func ParseFactorySyntaxSource(
+	path string,
+	src []byte,
+) (*syntax.File, syntax.SourceFileSpec, error) {
 	raw, err := lang.ParseSource(path, src)
 	if err != nil {
-		return nil, "", err
-	}
-	body, err := lang.FormatWith(raw, lang.FormatOptions{WrapStrings: true})
-	if err != nil {
-		return nil, "", err
+		return nil, syntax.SourceFileSpec{}, err
 	}
 	sf, err := syntax.LowerParsedSource(path, src, raw)
 	if err != nil {
-		return nil, "", err
+		return nil, syntax.SourceFileSpec{}, err
 	}
 	if sf.Kind != syntax.FileFactory || sf.Factory == nil {
-		return nil, "", fmt.Errorf("%s: expected factory declaration", path)
+		return nil, syntax.SourceFileSpec{}, fmt.Errorf("%s: expected factory declaration", path)
 	}
 	if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
-		return nil, "", verrs.Err()
+		return nil, syntax.SourceFileSpec{}, verrs.Err()
 	}
-	return sf, string(body), nil
+	return sf, syntax.SourceFileSpec{
+		DisplayPath:    path,
+		ProjectRelPath: path,
+		LineStarts:     parse.LineStarts(src),
+	}, nil
+}
+
+func rootFactorySourceSpec(
+	factoryPath string,
+	projectDir string,
+	libraryPath string,
+	src []byte,
+) syntax.SourceFileSpec {
+	projectRelPath := projectRelativePath(projectDir, factoryPath)
+	displayPath := projectRelPath
+	if libraryPath != "" {
+		displayPath = fmt.Sprintf("%s (%s)", libraryPath, projectRelPath)
+	}
+	return syntax.SourceFileSpec{
+		DisplayPath:    displayPath,
+		LibraryPath:    libraryPath,
+		ProjectRelPath: projectRelPath,
+		LineStarts:     parse.LineStarts(src),
+	}
+}
+
+func projectRelativePath(projectDir, path string) string {
+	if projectDir != "" {
+		if rel, err := filepath.Rel(projectDir, path); err == nil && rel != ".." &&
+			!strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return filepath.ToSlash(rel)
+		}
+	}
+	return filepath.ToSlash(filepath.Clean(path))
 }
 
 // FactorySourcePath returns the factory source file named by path.
@@ -143,7 +175,7 @@ func Run(opts Options) error {
 	if err != nil {
 		return err
 	}
-	sf, factoryBody, err := ParseFactorySyntaxSource(factoryPath, src)
+	sf, factorySource, err := ParseFactorySyntaxSource(factoryPath, src)
 	if err != nil {
 		return err
 	}
@@ -172,6 +204,7 @@ func Run(opts Options) error {
 	if err != nil {
 		return err
 	}
+	factorySource = rootFactorySourceSpec(factoryPath, projectDir, opts.LibraryPath, src)
 	project, err := readProject(projectDir)
 	if err != nil {
 		return err
@@ -327,7 +360,8 @@ func Run(opts Options) error {
 	}
 
 	in := codegen.Input{
-		Body:          factoryBody,
+		FactoryBody:   sf.Factory.Body,
+		FactorySource: factorySource,
 		LibraryPath:   opts.LibraryPath,
 		FactoryName:   name,
 		GoImports:     analysis.GoImports,

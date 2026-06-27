@@ -2,13 +2,26 @@
 package main
 
 import (
+	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	lib_core "github.com/cloudboss/unobin/pkg/libraries/core"
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
+var factorySource = parse.NewSourceFile(
+	"factory.ub",
+	[]int{0, 11, 81, 138, 189, 191},
+)
+
+func sp(start, end int) parse.Span {
+	return factorySource.Span(start, end)
+}
+
+var factoryBody = syntax.FactoryBody{S: sp(9, 190), Imports: []syntax.ImportDecl{{S: sp(24, 0), Alias: syntax.Ident{S: sp(24, 0), Name: "core"}, Ref: &lang.StringLit{S: sp(30, 0), Value: "github.com/cloudboss/unobin/pkg/libraries/core"}}}, Actions: []syntax.NodeDecl{{S: sp(94, 135), Kind: syntax.NodeKind("action"), Name: syntax.Ident{S: sp(94, 0), Name: "hi"}, Selector: syntax.NodeSelector{S: sp(98, 110), Alias: syntax.Ident{S: sp(98, 102), Name: "core"}, Export: syntax.Ident{S: sp(103, 110), Name: "command"}}, Body: &lang.ObjectLit{S: sp(111, 135), Fields: []*lang.Field{{S: sp(113, 0), Key: lang.FieldKey{S: sp(113, 0), Kind: lang.FieldIdent, Name: "argv"}, Value: &lang.ArrayLit{S: sp(119, 133), Elements: []lang.Expr{&lang.StringLit{S: sp(120, 0), Value: "echo"}, &lang.StringLit{S: sp(128, 0), Value: "hi"}}}}}}}}, Outputs: []syntax.OutputDecl{{S: sp(151, 0), Name: syntax.Ident{S: sp(151, 0), Name: "stdout"}, Body: &lang.ObjectLit{S: sp(159, 186), Fields: []*lang.Field{{S: sp(161, 0), Key: lang.FieldKey{S: sp(161, 0), Kind: lang.FieldIdent, Name: "value"}, Value: &lang.DotPath{S: sp(168, 0), Root: &lang.Ident{S: sp(168, 0), Name: "action"}, Segments: []lang.DotSegment{{S: sp(174, 0), Name: "hi"}, {S: sp(177, 0), Name: "stdout"}}}}}}}}}
+
 const (
-	factoryBody        = "factory: {\n  imports: { core: 'github.com/cloudboss/unobin/pkg/libraries/core' }\n  actions: {\n    hi: core.command {\n      argv: ['echo', 'hi']\n    }\n  }\n  outputs: { stdout: { value: action.hi.stdout } }\n}\n"
 	factoryLibraryPath = ""
 	factoryName        = "demo-factory"
 )
@@ -25,7 +38,7 @@ func main() {
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
-		FactoryBody:     factoryBody,
+		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
 			"core": runtime.LibraryWithPath(

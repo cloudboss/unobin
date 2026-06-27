@@ -3,12 +3,25 @@ package main
 
 import (
 	lib_local "app/internal/local"
+	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
+var factorySource = parse.NewSourceFile(
+	"factory.ub",
+	[]int{0, 11, 41, 87, 89},
+)
+
+func sp(start, end int) parse.Span {
+	return factorySource.Span(start, end)
+}
+
+var factoryBody = syntax.FactoryBody{S: sp(9, 88), Imports: []syntax.ImportDecl{{S: sp(24, 0), Alias: syntax.Ident{S: sp(24, 0), Name: "local"}, Ref: &lang.StringLit{S: sp(31, 0), Value: "./lib"}}}, Data: []syntax.NodeDecl{{S: sp(59, 84), Kind: syntax.NodeKind("data-source"), Name: syntax.Ident{S: sp(59, 0), Name: "message"}, Selector: syntax.NodeSelector{S: sp(68, 81), Alias: syntax.Ident{S: sp(68, 73), Name: "local"}, Export: syntax.Ident{S: sp(74, 81), Name: "message"}}, Body: &lang.ObjectLit{S: sp(82, 84), Fields: []*lang.Field{}}}}}
+
 const (
-	factoryBody        = "factory: {\n  imports: { local: './lib' }\n  data-sources: {\n    message: local.message {}\n  }\n}\n"
 	factoryLibraryPath = ""
 	factoryName        = "app"
 )
@@ -25,7 +38,7 @@ func main() {
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
-		FactoryBody:     factoryBody,
+		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
 			"local": runtime.LibraryWithPath(

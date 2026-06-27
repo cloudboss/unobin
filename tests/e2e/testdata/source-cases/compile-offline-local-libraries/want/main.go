@@ -4,12 +4,25 @@ package main
 import (
 	lib_net "demo-factory/internal/net"
 	lib_e2e "example.com/unobin/e2elib"
+	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
+var factorySource = parse.NewSourceFile(
+	"factory.ub",
+	[]int{0, 11, 24, 51, 88, 92, 94},
+)
+
+func sp(start, end int) parse.Span {
+	return factorySource.Span(start, end)
+}
+
+var factoryBody = syntax.FactoryBody{S: sp(9, 93), Imports: []syntax.ImportDecl{{S: sp(28, 0), Alias: syntax.Ident{S: sp(28, 0), Name: "net"}, Ref: &lang.StringLit{S: sp(33, 0), Value: "./libraries/net"}}, {S: sp(55, 0), Alias: syntax.Ident{S: sp(55, 0), Name: "e2e"}, Ref: &lang.StringLit{S: sp(60, 0), Value: "example.com/unobin/e2elib"}}}}
+
 const (
-	factoryBody        = "factory: {\n  imports: {\n    net: './libraries/net'\n    e2e: 'example.com/unobin/e2elib'\n  }\n}\n"
 	factoryLibraryPath = ""
 	factoryName        = "demo-factory"
 )
@@ -26,7 +39,7 @@ func main() {
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
-		FactoryBody:     factoryBody,
+		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
 			"e2e": runtime.LibraryWithPath(

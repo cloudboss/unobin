@@ -9,6 +9,7 @@ import (
 
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/deps"
+	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/stretchr/testify/require"
 )
@@ -16,11 +17,19 @@ import (
 func TestParseFactorySyntaxSourceFixtures(t *testing.T) {
 	ubtest.Run(t, "testdata/ub/parse-factory",
 		func(name string, src []byte) (string, []string) {
-			_, body, err := ParseFactorySyntaxSource(name+".ub", src)
+			path := name + ".ub"
+			if _, _, err := ParseFactorySyntaxSource(path, src); err != nil {
+				return "", []string{err.Error()}
+			}
+			raw, err := lang.ParseSource(path, src)
 			if err != nil {
 				return "", []string{err.Error()}
 			}
-			return body, nil
+			body, err := lang.FormatWith(raw, lang.FormatOptions{WrapStrings: true})
+			if err != nil {
+				return "", []string{err.Error()}
+			}
+			return string(body), nil
 		},
 		ubtest.Idempotent(),
 		ubtest.Repeat(5),

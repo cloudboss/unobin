@@ -233,6 +233,13 @@ func TestEncodeMetaKey(t *testing.T) {
 	parsesAsGoExpr(t, out)
 }
 
+func TestEncodeOpenTypeObject(t *testing.T) {
+	got, err := EncodeNode(&lang.TypeObject{Open: true})
+	require.NoError(t, err)
+	require.Contains(t, got, "Open: true")
+	parsesAsGoExpr(t, got)
+}
+
 func TestEncodeEmptyObject(t *testing.T) {
 	got, err := EncodeNode(&lang.ObjectLit{})
 	require.NoError(t, err)

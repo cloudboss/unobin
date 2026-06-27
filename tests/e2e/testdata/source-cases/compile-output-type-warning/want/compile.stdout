@@ -3,12 +3,25 @@ package main
 
 import (
 	lib_partial "example.com/partial"
+	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
+var factorySource = parse.NewSourceFile(
+	"factory.ub",
+	[]int{0, 11, 59, 96, 98},
+)
+
+func sp(start, end int) parse.Span {
+	return factorySource.Span(start, end)
+}
+
+var factoryBody = syntax.FactoryBody{S: sp(9, 97), Imports: []syntax.ImportDecl{{S: sp(26, 0), Alias: syntax.Ident{S: sp(26, 0), Name: "partial"}, Ref: &lang.StringLit{S: sp(35, 0), Value: "example.com/partial"}}}, Resources: []syntax.NodeDecl{{S: sp(74, 93), Kind: syntax.NodeKind("resource"), Name: syntax.Ident{S: sp(74, 0), Name: "x"}, Selector: syntax.NodeSelector{S: sp(77, 90), Alias: syntax.Ident{S: sp(77, 84), Name: "partial"}, Export: syntax.Ident{S: sp(85, 90), Name: "thing"}}, Body: &lang.ObjectLit{S: sp(91, 93), Fields: []*lang.Field{}}}}}
+
 const (
-	factoryBody        = "factory: {\n  imports: { partial: 'example.com/partial' }\n  resources: {\n    x: partial.thing {}\n  }\n}\n"
 	factoryLibraryPath = ""
 	factoryName        = "demo-factory"
 )
@@ -25,7 +38,7 @@ func main() {
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
-		FactoryBody:     factoryBody,
+		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
 			"partial": runtime.LibraryWithPath(

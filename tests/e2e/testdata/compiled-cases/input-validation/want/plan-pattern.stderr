@@ -1,2 +1,2 @@
 notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
-factory.ub:54:5: schema: input "cluster-name": value "Web-Prod" does not match pattern "^[a-z][a-z0-9-]{0,30}$"
+example.com/unobin/e2e/input-validation (factory.ub):46:5: schema: input "cluster-name": value "Web-Prod" does not match pattern "^[a-z][a-z0-9-]{0,30}$"
