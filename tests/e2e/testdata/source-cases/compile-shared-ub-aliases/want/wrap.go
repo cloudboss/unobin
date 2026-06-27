@@ -4,9 +4,19 @@ package wrap
 import (
 	lib_shared "demo-factory/internal/shared"
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
+
+var source0 = parse.NewSourceFile(
+	"github.com/example/wrap//ub/wrap (ub/wrap/library.ub)",
+	[]int{0, 21, 52, 89, 151, 205, 253, 255},
+)
+
+func sp0(start, end int) parse.Span {
+	return source0.Span(start, end)
+}
 
 func Library() *runtime.Library {
 	return &runtime.Library{
@@ -15,7 +25,7 @@ func Library() *runtime.Library {
 			"greeting": {
 				Name:       "greeting",
 				Kind:       runtime.NodeResource,
-				SyntaxBody: &syntax.FactoryBody{Description: &lang.StringLit{Value: "wrap greeting"}, Inputs: []syntax.InputDecl{{Name: syntax.Ident{Name: "path"}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeAtomic{Name: "string"}}}}, Type: &lang.TypeAtomic{Name: "string"}}}, Imports: []syntax.ImportDecl{{Alias: syntax.Ident{Name: "inside"}, Ref: &lang.StringLit{Value: "github.com/example/shared//ub/shared"}}}, Resources: []syntax.NodeDecl{{Kind: syntax.NodeKind("resource"), Name: syntax.Ident{Name: "x"}, Selector: syntax.NodeSelector{Alias: syntax.Ident{Name: "inside"}, Export: syntax.Ident{Name: "hello"}}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "path"}, Value: &lang.DotPath{Root: &lang.Ident{Name: "input"}, Segments: []lang.DotSegment{{Name: "path"}}}}}}}}, Outputs: []syntax.OutputDecl{{Name: syntax.Ident{Name: "path"}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "value"}, Value: &lang.DotPath{Root: &lang.Ident{Name: "resource"}, Segments: []lang.DotSegment{{Name: "x"}, {Name: "path"}}}}}}}}},
+				SyntaxBody: &syntax.FactoryBody{S: sp0(19, 254), Description: &lang.StringLit{S: sp0(36, 0), Value: "wrap greeting"}, Inputs: []syntax.InputDecl{{S: sp0(64, 0), Name: syntax.Ident{S: sp0(64, 0), Name: "path"}, Body: &lang.ObjectLit{S: sp0(70, 86), Fields: []*lang.Field{{S: sp0(72, 0), Key: lang.FieldKey{S: sp0(72, 0), Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeAtomic{S: sp0(78, 0), Name: "string"}}}}, Type: &lang.TypeAtomic{S: sp0(78, 0), Name: "string"}}}, Imports: []syntax.ImportDecl{{S: sp0(102, 0), Alias: syntax.Ident{S: sp0(102, 0), Name: "inside"}, Ref: &lang.StringLit{S: sp0(110, 0), Value: "github.com/example/shared//ub/shared"}}}, Resources: []syntax.NodeDecl{{S: sp0(166, 202), Kind: syntax.NodeKind("resource"), Name: syntax.Ident{S: sp0(166, 0), Name: "x"}, Selector: syntax.NodeSelector{S: sp0(169, 181), Alias: syntax.Ident{S: sp0(169, 175), Name: "inside"}, Export: syntax.Ident{S: sp0(176, 181), Name: "hello"}}, Body: &lang.ObjectLit{S: sp0(182, 202), Fields: []*lang.Field{{S: sp0(184, 0), Key: lang.FieldKey{S: sp0(184, 0), Kind: lang.FieldIdent, Name: "path"}, Value: &lang.DotPath{S: sp0(190, 0), Root: &lang.Ident{S: sp0(190, 0), Name: "input"}, Segments: []lang.DotSegment{{S: sp0(195, 0), Name: "path"}}}}}}}}, Outputs: []syntax.OutputDecl{{S: sp0(218, 0), Name: syntax.Ident{S: sp0(218, 0), Name: "path"}, Body: &lang.ObjectLit{S: sp0(224, 250), Fields: []*lang.Field{{S: sp0(226, 0), Key: lang.FieldKey{S: sp0(226, 0), Kind: lang.FieldIdent, Name: "value"}, Value: &lang.DotPath{S: sp0(233, 0), Root: &lang.Ident{S: sp0(233, 0), Name: "resource"}, Segments: []lang.DotSegment{{S: sp0(241, 0), Name: "x"}, {S: sp0(243, 0), Name: "path"}}}}}}}}},
 				Libraries: map[string]*runtime.Library{
 					"inside": runtime.LibraryWithPath(
 						lib_shared.Library(),

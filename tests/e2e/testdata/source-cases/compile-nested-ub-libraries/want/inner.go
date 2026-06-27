@@ -4,9 +4,19 @@ package inner
 import (
 	lib_unobin_library_std "github.com/cloudboss/unobin-library-std"
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
+
+var source0 = parse.NewSourceFile(
+	"github.com/example/inner//ub/inner (ub/inner/library.ub)",
+	[]int{0, 18, 47, 84, 146, 214, 265, 267},
+)
+
+func sp0(start, end int) parse.Span {
+	return source0.Span(start, end)
+}
 
 func Library() *runtime.Library {
 	return &runtime.Library{
@@ -15,7 +25,7 @@ func Library() *runtime.Library {
 			"hello": {
 				Name:       "hello",
 				Kind:       runtime.NodeResource,
-				SyntaxBody: &syntax.FactoryBody{Description: &lang.StringLit{Value: "inner hello"}, Inputs: []syntax.InputDecl{{Name: syntax.Ident{Name: "path"}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeAtomic{Name: "string"}}}}, Type: &lang.TypeAtomic{Name: "string"}}}, Imports: []syntax.ImportDecl{{Alias: syntax.Ident{Name: "std"}, Ref: &lang.StringLit{Value: "github.com/cloudboss/unobin-library-std"}}}, Resources: []syntax.NodeDecl{{Kind: syntax.NodeKind("resource"), Name: syntax.Ident{Name: "this"}, Selector: syntax.NodeSelector{Alias: syntax.Ident{Name: "std"}, Export: syntax.Ident{Name: "file"}}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "path"}, Value: &lang.DotPath{Root: &lang.Ident{Name: "input"}, Segments: []lang.DotSegment{{Name: "path"}}}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "content"}, Value: &lang.StringLit{Value: "hi"}}}}}}, Outputs: []syntax.OutputDecl{{Name: syntax.Ident{Name: "path"}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "value"}, Value: &lang.DotPath{Root: &lang.Ident{Name: "resource"}, Segments: []lang.DotSegment{{Name: "this"}, {Name: "path"}}}}}}}}},
+				SyntaxBody: &syntax.FactoryBody{S: sp0(16, 266), Description: &lang.StringLit{S: sp0(33, 0), Value: "inner hello"}, Inputs: []syntax.InputDecl{{S: sp0(59, 0), Name: syntax.Ident{S: sp0(59, 0), Name: "path"}, Body: &lang.ObjectLit{S: sp0(65, 81), Fields: []*lang.Field{{S: sp0(67, 0), Key: lang.FieldKey{S: sp0(67, 0), Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeAtomic{S: sp0(73, 0), Name: "string"}}}}, Type: &lang.TypeAtomic{S: sp0(73, 0), Name: "string"}}}, Imports: []syntax.ImportDecl{{S: sp0(97, 0), Alias: syntax.Ident{S: sp0(97, 0), Name: "std"}, Ref: &lang.StringLit{S: sp0(102, 0), Value: "github.com/cloudboss/unobin-library-std"}}}, Resources: []syntax.NodeDecl{{S: sp0(161, 211), Kind: syntax.NodeKind("resource"), Name: syntax.Ident{S: sp0(161, 0), Name: "this"}, Selector: syntax.NodeSelector{S: sp0(167, 175), Alias: syntax.Ident{S: sp0(167, 170), Name: "std"}, Export: syntax.Ident{S: sp0(171, 175), Name: "file"}}, Body: &lang.ObjectLit{S: sp0(176, 211), Fields: []*lang.Field{{S: sp0(178, 0), Key: lang.FieldKey{S: sp0(178, 0), Kind: lang.FieldIdent, Name: "path"}, Value: &lang.DotPath{S: sp0(184, 0), Root: &lang.Ident{S: sp0(184, 0), Name: "input"}, Segments: []lang.DotSegment{{S: sp0(189, 0), Name: "path"}}}}, {S: sp0(196, 0), Key: lang.FieldKey{S: sp0(196, 0), Kind: lang.FieldIdent, Name: "content"}, Value: &lang.StringLit{S: sp0(205, 0), Value: "hi"}}}}}}, Outputs: []syntax.OutputDecl{{S: sp0(227, 0), Name: syntax.Ident{S: sp0(227, 0), Name: "path"}, Body: &lang.ObjectLit{S: sp0(233, 262), Fields: []*lang.Field{{S: sp0(235, 0), Key: lang.FieldKey{S: sp0(235, 0), Kind: lang.FieldIdent, Name: "value"}, Value: &lang.DotPath{S: sp0(242, 0), Root: &lang.Ident{S: sp0(242, 0), Name: "resource"}, Segments: []lang.DotSegment{{S: sp0(250, 0), Name: "this"}, {S: sp0(255, 0), Name: "path"}}}}}}}}},
 				Libraries: map[string]*runtime.Library{
 					"std": runtime.LibraryWithPath(
 						lib_unobin_library_std.Library(),

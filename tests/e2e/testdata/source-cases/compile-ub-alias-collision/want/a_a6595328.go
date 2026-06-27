@@ -3,9 +3,19 @@ package a_a6595328
 
 import (
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
+
+var source0 = parse.NewSourceFile(
+	"local:b (../b/library.ub)",
+	[]int{0, 22, 35, 66, 70, 72},
+)
+
+func sp0(start, end int) parse.Span {
+	return source0.Span(start, end)
+}
 
 func Library() *runtime.Library {
 	return &runtime.Library{
@@ -14,7 +24,7 @@ func Library() *runtime.Library {
 			"second": {
 				Name:       "second",
 				Kind:       runtime.NodeDataSource,
-				SyntaxBody: &syntax.FactoryBody{Outputs: []syntax.OutputDecl{{Name: syntax.Ident{Name: "value"}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "value"}, Value: &lang.StringLit{Value: "second"}}}}}}},
+				SyntaxBody: &syntax.FactoryBody{S: sp0(20, 71), Outputs: []syntax.OutputDecl{{S: sp0(39, 0), Name: syntax.Ident{S: sp0(39, 0), Name: "value"}, Body: &lang.ObjectLit{S: sp0(46, 65), Fields: []*lang.Field{{S: sp0(48, 0), Key: lang.FieldKey{S: sp0(48, 0), Kind: lang.FieldIdent, Name: "value"}, Value: &lang.StringLit{S: sp0(55, 0), Value: "second"}}}}}}},
 			},
 		},
 	}

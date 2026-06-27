@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/projectmarker"
 	"golang.org/x/mod/modfile"
@@ -72,11 +73,13 @@ type Resolution struct {
 
 // UBLibrary has everything the visitor needs about a UB library the
 // first time the walker reaches it. SyntaxBodies maps node kind and
-// composite name to typed source declarations. BodyImports maps the same
-// kind and name to the resolved imports declared by that body, in
-// alias-sorted order so callers see a stable view across runs.
+// composite name to typed source declarations. SourceFiles maps parser
+// filenames to source metadata for syntax-body spans. BodyImports maps
+// the same kind and name to the resolved imports declared by that body,
+// in alias-sorted order so callers see a stable view across runs.
 type UBLibrary struct {
 	SyntaxBodies map[string]map[string]syntax.FactoryBody
+	SourceFiles  map[string]syntax.SourceFileSpec
 	BodyImports  map[string]map[string][]Resolution
 }
 
@@ -594,6 +597,7 @@ func (w *ubWalker) handleUBImport(
 	if err != nil {
 		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
 	}
+	applyUBLibrarySourceDisplayPaths(lib, ref, resolvedUBLibraryPath(ref, source))
 	lib.BodyImports = map[string]map[string][]Resolution{}
 	for _, entry := range lib.CompositeEntries() {
 		bodyRefs, errs := libraryBodyImports(entry)
@@ -641,50 +645,165 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 	}
 	slices.Sort(matches)
 	syntaxBodies := make(map[string]map[string]syntax.FactoryBody, len(matches))
+	sourceFiles := make(map[string]syntax.SourceFileSpec, len(matches))
 	for _, filename := range matches {
 		b, err := readSourceFile(source, filename)
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", filename, err)
 		}
-		if err := addSourceDeclaredLibraryFile(filename, b, syntaxBodies); err != nil {
+		added, err := addSourceDeclaredLibraryFile(filename, b, syntaxBodies)
+		if err != nil {
 			return nil, err
 		}
+		if added {
+			sourceFiles[filename] = librarySourceFileSpec(source, filename, b)
+		}
 	}
-	return &UBLibrary{SyntaxBodies: syntaxBodies}, nil
+	return &UBLibrary{SyntaxBodies: syntaxBodies, SourceFiles: sourceFiles}, nil
+}
+
+func librarySourceFileSpec(source *Source, filename string, src []byte) syntax.SourceFileSpec {
+	packageRelPath := filepath.ToSlash(filename)
+	return syntax.SourceFileSpec{
+		ProjectRelPath: libraryProjectRelPath(source, filename),
+		PackageRelPath: packageRelPath,
+		LineStarts:     parse.LineStarts(src),
+	}
+}
+
+func libraryProjectRelPath(source *Source, filename string) string {
+	filename = filepath.ToSlash(filename)
+	if source == nil {
+		return filename
+	}
+	if source.ProjectPath != "" && source.Path != "" {
+		fullPath := filepath.Join(source.Path, filepath.FromSlash(filename))
+		if rel, err := filepath.Rel(source.ProjectPath, fullPath); err == nil {
+			return filepath.ToSlash(rel)
+		}
+	}
+	if source.Path != "" {
+		if projectDir, ok, err := nearestProjectDir(source.Path); err == nil && ok {
+			fullPath := filepath.Join(source.Path, filepath.FromSlash(filename))
+			if rel, err := filepath.Rel(projectDir, fullPath); err == nil {
+				return filepath.ToSlash(rel)
+			}
+		}
+	}
+	if source.PackageSubdir != "" {
+		return pathpkg.Join(source.PackageSubdir, filename)
+	}
+	return filename
+}
+
+func applyUBLibrarySourceDisplayPaths(lib *UBLibrary, ref ImportRef, libraryPath string) {
+	if lib == nil || len(lib.SourceFiles) == 0 {
+		return
+	}
+	for file, spec := range lib.SourceFiles {
+		if spec.ProjectRelPath == spec.PackageRelPath {
+			spec.ProjectRelPath = libraryProjectRelPathFromRef(ref, spec.PackageRelPath)
+		}
+		spec.LibraryPath = libraryPath
+		spec.DisplayPath = librarySourceDisplayPath(spec)
+		lib.SourceFiles[file] = spec
+	}
+}
+
+func libraryProjectRelPathFromRef(ref ImportRef, packageRelPath string) string {
+	switch r := ref.(type) {
+	case *LocalImport:
+		if r.Path == "" || filepath.IsAbs(r.Path) {
+			return packageRelPath
+		}
+		clean := filepath.ToSlash(filepath.Clean(r.Path))
+		if clean == "." {
+			return packageRelPath
+		}
+		return pathpkg.Join(clean, packageRelPath)
+	case *RemoteImport:
+		packageSubdir := remotePackageSubdir(r)
+		if packageSubdir == "" {
+			return packageRelPath
+		}
+		return pathpkg.Join(packageSubdir, packageRelPath)
+	default:
+		return packageRelPath
+	}
+}
+
+func librarySourceDisplayPath(spec syntax.SourceFileSpec) string {
+	rel := spec.ProjectRelPath
+	if rel == "" {
+		rel = spec.PackageRelPath
+	}
+	if spec.LibraryPath == "" {
+		return filepath.ToSlash(rel)
+	}
+	if rel == "" {
+		return spec.LibraryPath
+	}
+	return spec.LibraryPath + " (" + filepath.ToSlash(rel) + ")"
+}
+
+func resolvedUBLibraryPath(ref ImportRef, source *Source) string {
+	switch r := ref.(type) {
+	case *RemoteImport:
+		packagePath := r.URL
+		packageSubdir := remotePackageSubdir(r)
+		if packageSubdir == "" && source != nil {
+			packageSubdir = source.PackageSubdir
+		}
+		if packageSubdir != "" {
+			packagePath += "//" + packageSubdir
+		}
+		return packagePath
+	case *LocalImport:
+		if source != nil && source.Path != "" {
+			return "local:" + filepath.Clean(source.Path)
+		}
+		if r.Path != "" {
+			return "local:" + filepath.Clean(r.Path)
+		}
+	}
+	if source != nil && source.Path != "" {
+		return "local:" + filepath.Clean(source.Path)
+	}
+	return ""
 }
 
 func addSourceDeclaredLibraryFile(
 	filename string,
 	src []byte,
 	syntaxBodies map[string]map[string]syntax.FactoryBody,
-) error {
+) (bool, error) {
 	f, err := lang.ParseSource(filename, src)
 	if err != nil {
-		return err
+		return false, err
 	}
 	sf, serrs := syntax.LowerFile(f)
 	if serrs.Len() > 0 {
 		if isReservedSourceFileName(filename) {
-			return serrs.Err()
+			return false, serrs.Err()
 		}
-		return fmt.Errorf("library file %q must contain composite declarations", filename)
+		return false, fmt.Errorf("library file %q must contain composite declarations", filename)
 	}
 	if sf.Kind != syntax.FileLibrary || sf.Library == nil {
 		if skippableLibraryPackageFile(sf.Kind) {
-			return nil
+			return false, nil
 		}
-		return fmt.Errorf("library file %q must contain composite declarations", filename)
+		return false, fmt.Errorf("library file %q must contain composite declarations", filename)
 	}
 	if verrs := syntax.ValidateFile(sf); verrs.Len() > 0 {
-		return verrs.Err()
+		return false, verrs.Err()
 	}
 	for _, export := range sf.Library.Exports {
 		kind := string(export.Kind)
 		if err := addSyntaxLibraryBody(export.Name.Name, kind, export.Body, syntaxBodies); err != nil {
-			return err
+			return false, err
 		}
 	}
-	return nil
+	return len(sf.Library.Exports) > 0, nil
 }
 
 func skippableLibraryPackageFile(kind syntax.FileKind) bool {

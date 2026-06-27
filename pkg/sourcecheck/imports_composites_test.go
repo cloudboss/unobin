@@ -97,6 +97,7 @@ func TestImportVisitorBuildsCompositeArtifactsTogether(t *testing.T) {
 		syntaxBodiesForCompiledComposites(composites),
 		imports,
 		goSpecs,
+		nil,
 	)
 	require.NoError(t, err)
 	_, err = parser.ParseFile(token.NewFileSet(), "bundle.go", generated, parser.AllErrors)
