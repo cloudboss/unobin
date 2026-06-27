@@ -85,6 +85,57 @@ func TestImportAnalysisBuildsSameLibrariesForCompileAndGraph(t *testing.T) {
 	}, analysis.UBImports)
 }
 
+func TestImportAnalysisPassesSourceMetadataToGeneratedPackages(t *testing.T) {
+	root := t.TempDir()
+	factoryDir := filepath.Join(root, "factory")
+	projectDir := filepath.Join(root, "repo")
+	packageDir := filepath.Join(projectDir, "libraries", "network")
+	require.NoError(t, os.MkdirAll(factoryDir, 0o755))
+	require.NoError(t, os.MkdirAll(packageDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "library.ub"),
+		[]byte("cluster: resource { description: 'a' }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(packageDir, "extra.ub"),
+		[]byte("node: resource { description: 'b' }\n"), 0o644))
+	factorySource := sourcecheckFactoryHeader("factory") + " {\n  " +
+		sourcecheckFactoryHeader("imports") +
+		" { net: 'github.com/example/repo//libraries/network' }\n}\n"
+	factoryPath := filepath.Join(factoryDir, "factory.ub")
+	require.NoError(t, os.WriteFile(factoryPath, []byte(factorySource), 0o644))
+
+	body := parseFactoryAtPath(t, factoryPath)
+	refs, errs := resolve.ExtractSyntaxBodyImports(body)
+	require.Empty(t, errs)
+	resolver := newTestResolver(t, factoryDir)
+	resolver.remotes["github.com/example/repo"] = &resolve.Source{
+		FS:            os.DirFS(packageDir),
+		Path:          packageDir,
+		ProjectFS:     os.DirFS(projectDir),
+		ProjectPath:   projectDir,
+		PackageSubdir: "libraries/network",
+	}
+
+	analysis, err := AnalyzeImports(refs, ImportAnalysisOptions{
+		Resolver: resolver,
+		Versions: map[string]string{
+			"github.com/example/repo": "v1.0.0",
+		},
+		StackName:        "factory",
+		GeneratePackages: true,
+	})
+	require.NoError(t, err)
+	require.Len(t, analysis.UBPackages, 1)
+	for _, src := range analysis.UBPackages {
+		generated := string(src)
+		require.Contains(t, generated,
+			`"github.com/example/repo//libraries/network (libraries/network/library.ub)"`)
+		require.Contains(t, generated,
+			`"github.com/example/repo//libraries/network (libraries/network/extra.ub)"`)
+		require.Contains(t, generated, "parse.NewSourceFile")
+		require.Contains(t, generated, "func sp0(start, end int) parse.Span")
+		require.Contains(t, generated, "func sp1(start, end int) parse.Span")
+	}
+}
+
 func BenchmarkImportAnalysisNestedUBLibraries(b *testing.B) {
 	root := b.TempDir()
 	factoryDir := filepath.Join(root, "factory")
@@ -140,6 +191,10 @@ func BenchmarkImportAnalysisNestedUBLibraries(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func sourcecheckFactoryHeader(name string) string {
+	return name + ":"
 }
 
 func parseFactoryAtPath(t testing.TB, path string) syntax.FactoryBody {

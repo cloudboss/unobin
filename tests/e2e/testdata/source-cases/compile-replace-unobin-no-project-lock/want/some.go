@@ -3,9 +3,19 @@ package some
 
 import (
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
+
+var source0 = parse.NewSourceFile(
+	"github.com/cloudboss/unobin//some-lib (some-lib/library.ub)",
+	[]int{0, 16, 39, 115, 117},
+)
+
+func sp0(start, end int) parse.Span {
+	return source0.Span(start, end)
+}
 
 func Library() *runtime.Library {
 	return &runtime.Library{
@@ -14,7 +24,7 @@ func Library() *runtime.Library {
 			"foo": {
 				Name:       "foo",
 				Kind:       runtime.NodeResource,
-				SyntaxBody: &syntax.FactoryBody{Description: &lang.StringLit{Value: "a foo"}, Resources: []syntax.NodeDecl{{Kind: syntax.NodeKind("resource"), Name: syntax.Ident{Name: "x"}, Selector: syntax.NodeSelector{Alias: syntax.Ident{Name: "local"}, Export: syntax.Ident{Name: "file"}}, Body: &lang.ObjectLit{Fields: []*lang.Field{{Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "path"}, Value: &lang.StringLit{Value: "/tmp/x"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "content"}, Value: &lang.StringLit{Value: "hi"}}, {Key: lang.FieldKey{Kind: lang.FieldIdent, Name: "mode"}, Value: &lang.NumberLit{Value: "420", ParsedInt: 420}}}}}}},
+				SyntaxBody: &syntax.FactoryBody{S: sp0(14, 116), Description: &lang.StringLit{S: sp0(31, 0), Value: "a foo"}, Resources: []syntax.NodeDecl{{S: sp0(54, 112), Kind: syntax.NodeKind("resource"), Name: syntax.Ident{S: sp0(54, 0), Name: "x"}, Selector: syntax.NodeSelector{S: sp0(57, 67), Alias: syntax.Ident{S: sp0(57, 62), Name: "local"}, Export: syntax.Ident{S: sp0(63, 67), Name: "file"}}, Body: &lang.ObjectLit{S: sp0(68, 112), Fields: []*lang.Field{{S: sp0(70, 0), Key: lang.FieldKey{S: sp0(70, 0), Kind: lang.FieldIdent, Name: "path"}, Value: &lang.StringLit{S: sp0(76, 0), Value: "/tmp/x"}}, {S: sp0(86, 0), Key: lang.FieldKey{S: sp0(86, 0), Kind: lang.FieldIdent, Name: "content"}, Value: &lang.StringLit{S: sp0(95, 0), Value: "hi"}}, {S: sp0(101, 0), Key: lang.FieldKey{S: sp0(101, 0), Kind: lang.FieldIdent, Name: "mode"}, Value: &lang.NumberLit{S: sp0(107, 0), Value: "420", ParsedInt: 420}}}}}}},
 			},
 		},
 	}
