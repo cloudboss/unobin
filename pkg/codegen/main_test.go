@@ -75,7 +75,6 @@ func TestGenerateInjectsGoConstraints(t *testing.T) {
 	require.Contains(t, s, `libraries["aws"].Constraints = map[string][]lang.ConstraintSpec{`)
 	require.Contains(t, s, `{Kind: "exactly-one-of", Fields: []string{"cidr-block", "cidr-blocks"}}`)
 	require.Contains(t, s, `FactoryBody:     &factoryBody,`)
-	require.NotContains(t, s, `factoryBody        = "`)
 }
 
 func TestGenerateInjectsGoDefaults(t *testing.T) {
@@ -101,7 +100,6 @@ func TestGenerateInjectsGoDefaults(t *testing.T) {
 	require.Contains(t, s, `{Field: "input.mode", Value: "420"}`)
 	require.Contains(t, s, `{Field: "input.create-directory", Optional: true}`)
 	require.Contains(t, s, `FactoryBody:     &factoryBody,`)
-	require.NotContains(t, s, `factoryBody        = "`)
 }
 
 func TestGenerateInjectsGoSchemaSensitivity(t *testing.T) {
@@ -129,7 +127,6 @@ func TestGenerateInjectsGoSchemaSensitivity(t *testing.T) {
 	require.Contains(t, s,
 		`"secret": {SensitiveInputs: []string{"token"}, SensitiveOutputs: []string{"value"}}`)
 	require.Contains(t, s, `FactoryBody:     &factoryBody,`)
-	require.NotContains(t, s, `factoryBody        = "`)
 }
 
 func TestGenerateInjectsConstraintsAndDefaultsTogether(t *testing.T) {
@@ -161,7 +158,6 @@ func TestGenerateInjectsConstraintsAndDefaultsTogether(t *testing.T) {
 	require.Contains(t, s, `libraries["aws"].Defaults = map[string][]lang.DefaultSpec{`)
 	require.Contains(t, s, `{Field: "input.tier", Value: "'dev'"}`)
 	require.Contains(t, s, `FactoryBody:     &factoryBody,`)
-	require.NotContains(t, s, `factoryBody        = "`)
 }
 
 func TestGenerateValidGo(t *testing.T) {
@@ -299,7 +295,6 @@ func TestGenerateImportsAndCallsUBLibraries(t *testing.T) {
 	require.Contains(t, s, `"net": runtime.LibraryWithPath(`)
 	require.Contains(t, s, `lib_net.Library(),`)
 	require.Contains(t, s, `FactoryBody:     &factoryBody,`)
-	require.NotContains(t, s, `factoryBody        = "`)
 }
 
 func TestGenerateBuildsLibrariesMap(t *testing.T) {

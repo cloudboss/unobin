@@ -16,7 +16,7 @@ import (
 )
 
 // Input bundles everything codegen needs to produce a factory binary's
-// `main.go`. FactoryBody is the typed factory source the binary executes.
+// `main.go`. FactoryBody is the typed factory body the binary executes.
 // LibraryPath is the binary's library-path identity, the same form Go libraries
 // use; the operator's stack file asserts the same value under
 // `factory.pin.library-path` and plan, refresh, and validate refuse on
@@ -35,12 +35,13 @@ import (
 type Input struct {
 	FactoryBody   syntax.FactoryBody
 	FactorySource syntax.SourceFileSpec
-	Body          string
-	LibraryPath   string
-	FactoryName   string
-	GoImports     map[string]string
-	GoModules     map[string]string
-	UBImports     map[string]string
+	// Body is a test convenience for callers that have a small source fragment.
+	Body        string
+	LibraryPath string
+	FactoryName string
+	GoImports   map[string]string
+	GoModules   map[string]string
+	UBImports   map[string]string
 	// GoConstraints maps a Go-library alias to its types' cross-field
 	// constraints (kebab type name -> specs), gathered by the dev CLI
 	// from the library's source. codegen attaches them to the library in
@@ -78,35 +79,35 @@ func Generate(in Input) ([]byte, error) {
 		return nil, err
 	}
 	data := struct {
-		FactoryBody       string
-		FactorySourcePath string
-		FactoryLineStarts string
-		LibraryPath       string
-		FactoryName       string
-		GoImports         []aliasImport
-		UBImports         []aliasImport
-		ConstraintAliases []string
-		GoConstraints     map[string]map[string][]lang.ConstraintSpec
-		DefaultAliases    []string
-		GoDefaults        map[string]map[string][]lang.DefaultSpec
-		SchemaAliases     []string
-		GoSchemas         map[string]*runtime.LibrarySchema
-		HasLang           bool
-		Inject            bool
+		FactoryBodyLiteral string
+		FactorySourcePath  string
+		FactoryLineStarts  string
+		LibraryPath        string
+		FactoryName        string
+		GoImports          []aliasImport
+		UBImports          []aliasImport
+		ConstraintAliases  []string
+		GoConstraints      map[string]map[string][]lang.ConstraintSpec
+		DefaultAliases     []string
+		GoDefaults         map[string]map[string][]lang.DefaultSpec
+		SchemaAliases      []string
+		GoSchemas          map[string]*runtime.LibrarySchema
+		HasLang            bool
+		Inject             bool
 	}{
-		FactoryBody:       factoryBody,
-		FactorySourcePath: factorySourceDisplayPath(source),
-		FactoryLineStarts: intSliceLiteral(source.LineStarts),
-		LibraryPath:       in.LibraryPath,
-		FactoryName:       in.FactoryName,
-		GoImports:         goImports,
-		UBImports:         ubImports,
-		ConstraintAliases: constraintAliases,
-		GoConstraints:     in.GoConstraints,
-		DefaultAliases:    defaultAliases,
-		GoDefaults:        in.GoDefaults,
-		SchemaAliases:     schemaInjectAliases,
-		GoSchemas:         in.GoSchemas,
+		FactoryBodyLiteral: factoryBody,
+		FactorySourcePath:  factorySourceDisplayPath(source),
+		FactoryLineStarts:  intSliceLiteral(source.LineStarts),
+		LibraryPath:        in.LibraryPath,
+		FactoryName:        in.FactoryName,
+		GoImports:          goImports,
+		UBImports:          ubImports,
+		ConstraintAliases:  constraintAliases,
+		GoConstraints:      in.GoConstraints,
+		DefaultAliases:     defaultAliases,
+		GoDefaults:         in.GoDefaults,
+		SchemaAliases:      schemaInjectAliases,
+		GoSchemas:          in.GoSchemas,
 		HasLang: len(constraintAliases)+len(defaultAliases) > 0 ||
 			strings.Contains(factoryBody, "lang."),
 		Inject: len(constraintAliases)+len(defaultAliases)+len(schemaInjectAliases) > 0,
@@ -443,7 +444,7 @@ func sp(start, end int) parse.Span {
 	return factorySource.Span(start, end)
 }
 
-var factoryBody = {{.FactoryBody}}
+var factoryBody = {{.FactoryBodyLiteral}}
 
 const (
 	factoryLibraryPath = {{quote .LibraryPath}}
