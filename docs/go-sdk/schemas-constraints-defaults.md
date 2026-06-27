@@ -56,3 +56,5 @@ Set constraints include `ExactlyOneOf`, `AtLeastOneOf`, `AtMostOneOf`, `Required
 ## Check timing
 
 Deep schema and constraint checks happen at compile time when the source and selected libraries are known. The compiled factory trusts those checks and decodes runtime values into the registered Go types.
+
+For checks that need live configuration or external state, a resource can also implement `runtime.InputValidator`; see [Resources](resources.md#apply-time-input-validation).

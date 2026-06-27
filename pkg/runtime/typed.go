@@ -56,36 +56,55 @@ type TypedResource[In, Out, Config any] interface {
 	ReplaceFields() []string
 }
 
-// InputValidator is an optional resource interface for pre-CRUD input checks.
+// InputValidator is an optional resource interface for checks that run
+// after desired inputs are decoded and before create, update, or replacement
+// work starts. It is not called for no-op or destroy steps.
 type InputValidator[Config any] interface {
 	ValidateInputs(ctx context.Context, config Config) error
 }
 
-// InputEquivalencer is an optional resource interface for field equality.
+// InputEquivalencer is an optional resource interface for treating a
+// changed input field as equivalent to its prior value. field is the UB
+// field name from the resource body. An equivalent field does not count
+// as an input change or a replace trigger.
 type InputEquivalencer[In any] interface {
 	EquivalentInput(field string, prior, current In) bool
 }
 
-// ResourcePlanModifier is an optional resource interface for plan-time changes.
+// ResourcePlanModifier is an optional resource interface for adjusting
+// a resource's plan after inputs decode and before its read result is
+// finalized. The runtime calls it for resources with prior state when
+// their library config is available.
 type ResourcePlanModifier[In, Out, Config any] interface {
 	ModifyResourcePlan(req ResourcePlanRequest[In, Out, Config], resp *ResourcePlanResponse) error
 }
 
 // ResourcePlanRequest is the typed input to a resource plan modifier.
 type ResourcePlanRequest[In, Out, Config any] struct {
-	Config        Config
-	PriorInputs   In
+	// Config is the decoded library config.
+	Config Config
+
+	// PriorInputs is the migrated and defaulted input stored in state.
+	PriorInputs In
+
+	// CurrentInputs is the desired input decoded from the resource body.
 	CurrentInputs In
-	PriorOutputs  Out
+
+	// PriorOutputs is the output stored in state.
+	PriorOutputs Out
+
+	// HasPriorState reports whether the resource has a state entry.
 	HasPriorState bool
 }
 
-// ResourcePlanResponse records plan-time changes requested by a resource.
+// ResourcePlanResponse records plan-time requests made by a resource.
 type ResourcePlanResponse struct {
+	// UnknownOutputs names output fields whose apply result should be
+	// treated as unknown during the rest of planning.
 	UnknownOutputs map[string]bool
 }
 
-// MarkOutputUnknown records output fields that apply will compute.
+// MarkOutputUnknown records output fields that apply will recompute.
 func (r *ResourcePlanResponse) MarkOutputUnknown(fields ...string) {
 	if r.UnknownOutputs == nil {
 		r.UnknownOutputs = map[string]bool{}
