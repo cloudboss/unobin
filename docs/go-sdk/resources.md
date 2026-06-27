@@ -78,3 +78,82 @@ Use `runtime.Changed(prior.Inputs.Field, current.Field)` to compare decoded valu
 ## Replace fields
 
 `ReplaceFields` names input fields that require replacement when changed. Other changes call `Update`.
+
+## Apply-time input validation
+
+For checks that need the decoded library config or an external lookup, implement
+`runtime.InputValidator[Config]` on the resource receiver:
+
+```go
+func (f *File) ValidateInputs(ctx context.Context, cfg runtime.NoConfig) error {
+    if f.Path == "" {
+        return errors.New("path is required")
+    }
+    return nil
+}
+```
+
+The runtime calls `ValidateInputs` after decoding the desired inputs and before `Create`,
+`Update`, or the create side of a replacement. For a replacement, validation runs before the
+prior object is deleted. It is not called for no-op or destroy steps.
+
+Prefer schemas, defaults, and constraints for checks that are known from source. Use
+`ValidateInputs` for runtime checks that cannot be expressed in the compile-time input schema.
+
+## Equivalent inputs
+
+Implement `runtime.InputEquivalencer[In]` when two different input values represent the same
+value for a resource field. For example, an AWS Lambda function where both its name and ARN
+are equivalent:
+
+```go
+func (r *Alias) EquivalentInput(field string, prior, current Alias) bool {
+	if field != "function-name" {
+		return false
+	}
+	return equivalentFunctionNameOrARN(prior.FunctionName, current.FunctionName)
+}
+
+func equivalentFunctionNameOrARN(prior, current string) bool {
+	if prior == current {
+		return true
+	}
+	if name, ok := lambdaFunctionNameFromIdentifier(prior); ok && name == current {
+		return true
+	}
+	if name, ok := lambdaFunctionNameFromIdentifier(current); ok && name == prior {
+		return true
+	}
+	return false
+}
+```
+
+`field` is the Unobin field name from the resource body. If the method returns true, the
+field does not count as an input change for update planning, replacement triggers, or the
+apply-time plan premise check. Return true only when the resource implementation treats
+the two values the same.
+
+## Resource plan modifiers
+
+Implement `runtime.ResourcePlanModifier[In, Out, Config]` when a resource can tell the planner
+that an output will be recomputed at apply:
+
+```go
+func (f *File) ModifyResourcePlan(
+    req runtime.ResourcePlanRequest[File, *FileOutput, runtime.NoConfig],
+    resp *runtime.ResourcePlanResponse,
+) error {
+    if req.HasPriorState && runtime.Changed(req.PriorInputs.Content, req.CurrentInputs.Content) {
+        resp.MarkOutputUnknown("size")
+    }
+    return nil
+}
+```
+
+The request contains the decoded config, prior inputs, current inputs, prior outputs, and whether
+prior state exists. The runtime calls the method during planning for a resource with prior state,
+after current inputs decode.
+
+`MarkOutputUnknown` names output fields that apply will recompute. A later node that reads one
+of those fields waits for apply instead of using the prior value in the plan. Marking an output
+unknown also makes the resource a possible update unless replacement already applies.
