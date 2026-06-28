@@ -17,6 +17,11 @@ func typeFixture(t testing.TB, name string) string {
 	return ubtest.ReadValidFixture(t, "testdata/ub/types", name)
 }
 
+func invalidTypeFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadInvalidFixture(t, "testdata/ub/types", name)
+}
+
 // localFileModule mirrors the input and output fields of the real
 // `local.file` resource, declared defaults included, so the tests
 // don't pull the libraries package as a dependency.
@@ -56,6 +61,33 @@ func libraryConfigSchemaLibrary(digest string) *runtime.Library {
 		ConfigurationFields: fields,
 		ConfigurationDigest: digest,
 		Configuration:       map[string]typecheck.Type{"region": typecheck.TString()},
+	}}
+}
+
+func regularConfigResourceLibrary() *runtime.Library {
+	fields := []typecheck.ObjectField{
+		{Name: "region", Type: typecheck.TString()},
+		{Name: "retries", Type: typecheck.TInteger(), Defaulted: true},
+	}
+	return &runtime.Library{Schema: &runtime.LibrarySchema{
+		HasConfiguration:    true,
+		ConfigurationFields: fields,
+		ConfigurationDefaults: []lang.DefaultSpec{
+			{Field: "input.retries", Value: "3"},
+		},
+		ConfigurationDigest: cfg.DigestView(fields, []lang.DefaultSpec{
+			{Field: "input.retries", Value: "3"},
+		}, nil),
+		Configuration: map[string]typecheck.Type{
+			"region":  typecheck.TString(),
+			"retries": typecheck.TInteger(),
+		},
+		Resources: map[string]*runtime.TypeSchema{
+			"bucket": {Inputs: map[string]typecheck.Type{
+				"name":    typecheck.TString(),
+				"retries": typecheck.TInteger(),
+			}},
+		},
 	}}
 }
 
@@ -137,6 +169,36 @@ func TestCheckTypesAllowsEmptyConfigWithoutBinding(t *testing.T) {
 		map[string]*runtime.Library{"aws": emptyConfigResourceLibrary()})
 
 	require.Empty(t, errs.Messages())
+}
+
+func TestCheckTypesReadsRegularLibraryConfigFields(t *testing.T) {
+	errs := checkSyntaxReferences(t, typeFixture(t, "regular-library-config-fields"),
+		map[string]*runtime.Library{"aws": regularConfigResourceLibrary()})
+
+	require.Empty(t, errs.Messages())
+}
+
+func TestCheckTypesAllowsDefaultedLibraryConfigBindingFields(t *testing.T) {
+	errs := checkSyntaxReferences(t, typeFixture(t, "defaulted-library-config-binding"),
+		map[string]*runtime.Library{"aws": regularConfigResourceLibrary()})
+
+	require.Empty(t, errs.Messages())
+}
+
+func TestCheckTypesRejectsWrongLibraryConfigBindingType(t *testing.T) {
+	errs := checkSyntaxReferences(t, invalidTypeFixture(t, "wrong-library-config-binding-type"),
+		map[string]*runtime.Library{"aws": regularConfigResourceLibrary()})
+
+	require.Equal(t, []string{"type mismatch: expected string, got integer"}, errs.Messages())
+}
+
+func TestCheckTypesRejectsMissingLibraryConfigBindingField(t *testing.T) {
+	errs := checkSyntaxReferences(t, invalidTypeFixture(t, "missing-library-config-binding-field"),
+		map[string]*runtime.Library{"aws": regularConfigResourceLibrary()})
+
+	require.Equal(t,
+		[]string{`missing required field "region" on library-config('github.com/acme/aws')`},
+		errs.Messages())
 }
 
 func TestCheckTypesUsesCompositeSyntaxBody(t *testing.T) {

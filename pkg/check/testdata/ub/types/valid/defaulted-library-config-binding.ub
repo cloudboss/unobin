@@ -1,0 +1,15 @@
+imports: {
+  aws: 'github.com/acme/aws'
+}
+inputs: {
+  aws-config: { type: library-config('github.com/acme/aws') }
+}
+library-configs: {
+  aws: { region: input.aws-config.region }
+}
+resources: {
+  bucket: aws.bucket {
+    name:    input.aws-config.region
+    retries: 3
+  }
+}

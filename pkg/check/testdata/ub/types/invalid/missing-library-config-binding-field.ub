@@ -1,0 +1,12 @@
+imports: {
+  aws: 'github.com/acme/aws'
+}
+library-configs: {
+  aws: { retries: 3 }
+}
+resources: {
+  bucket: aws.bucket {
+    name:    'bucket'
+    retries: 3
+  }
+}

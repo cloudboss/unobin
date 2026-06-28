@@ -643,7 +643,7 @@ func inferObjectAgainstObject(
 		fields = append(fields, ObjectField{Name: name, Type: got})
 	}
 	for _, f := range target.Fields {
-		if f.Optional || seen[f.Name] {
+		if f.Optional || f.Defaulted || seen[f.Name] {
 			continue
 		}
 		errs.Addf(lang.ErrType, o.S.Start,
