@@ -258,17 +258,14 @@ func LibraryFile(
 }
 
 // ConfigurationFile renders a configuration.go that declares the
-// library-level provider config struct. Each field is wrapped in the
-// cfg.* type matching its primitive Go type; non-required fields use
-// a pointer so the decoder treats them as optional.
+// library-level provider config struct. It uses ordinary Go field
+// types; non-required fields use pointers so absence can decode as
+// null distinct from a zero value.
 func ConfigurationFile(cs ConfigurationSchema, packageName, from string) ([]byte, error) {
 	var b bytes.Buffer
 
 	writeGeneratedComment(&b, from)
 	fmt.Fprintf(&b, "package %s\n\n", packageName)
-	b.WriteString("import (\n")
-	b.WriteString(`	"github.com/cloudboss/unobin/pkg/sdk/cfg"` + "\n")
-	b.WriteString(")\n\n")
 
 	if cs.Description != "" {
 		for _, line := range wordWrap(sanitizeComment(cs.Description), 80) {
@@ -285,11 +282,11 @@ func ConfigurationFile(cs ConfigurationSchema, packageName, from string) ([]byte
 		if f.Description != "" {
 			fmt.Fprintf(&b, "\t// %s\n", sanitizeComment(f.Description))
 		}
-		wrapper := cfgWrapperType(f.GoType)
+		goType := configGoType(f.GoType)
 		if !f.Required {
-			wrapper = "*" + wrapper
+			goType = "*" + goType
 		}
-		fmt.Fprintf(&b, "\t%s %s\n", f.Name, wrapper)
+		fmt.Fprintf(&b, "\t%s %s\n", f.Name, goType)
 	}
 	if len(cs.Fields) == 0 {
 		b.WriteString("\t// No configuration fields\n")
@@ -304,28 +301,21 @@ func ConfigurationFile(cs ConfigurationSchema, packageName, from string) ([]byte
 	return out, nil
 }
 
-// cfgWrapperType maps a primitive Go type produced by a SchemaAdapter to
-// the corresponding cfg.* wrapper. Unknown types fall back to cfg.Any so
-// the generated file still compiles; the library author can refine the
-// type by hand.
-func cfgWrapperType(goType string) string {
+// configGoType maps a SchemaAdapter Go type to the supported plain
+// config field model. Unknown types fall back to any so the generated
+// file still compiles; the library author can refine the type by hand.
+func configGoType(goType string) string {
 	switch goType {
-	case "string":
-		return "cfg.String"
-	case "int64":
-		return "cfg.Integer"
-	case "float64":
-		return "cfg.Number"
-	case "bool":
-		return "cfg.Boolean"
+	case "string", "int64", "float64", "bool", "any":
+		return goType
 	}
 	if strings.HasPrefix(goType, "[]") {
-		return "cfg.List[" + cfgWrapperType(goType[2:]) + "]"
+		return "[]" + configGoType(goType[2:])
 	}
 	if strings.HasPrefix(goType, "map[string]") {
-		return "cfg.Map[" + cfgWrapperType(goType[len("map[string]"):]) + "]"
+		return "map[string]" + configGoType(goType[len("map[string]"):])
 	}
-	return "cfg.Any"
+	return "any"
 }
 
 // GoMod renders a go.mod file for a generated library. unobinVersion

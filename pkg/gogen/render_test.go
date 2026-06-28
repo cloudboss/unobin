@@ -302,45 +302,47 @@ func TestConfigurationFile(t *testing.T) {
 	s := string(src)
 	checks := []string{
 		"package aws",
-		`"github.com/cloudboss/unobin/pkg/sdk/cfg"`,
 		"aws { ... } or name: aws { ... }",
 		"type ProviderConfig struct {",
-		"Region cfg.String",
-		"Profile *cfg.String",
-		"MaxRetries        *cfg.Integer",
-		"AllowedAccountIds *cfg.List[cfg.String]",
-		"Tags              *cfg.Map[cfg.String]",
+		"Region string",
+		"Profile *string",
+		"MaxRetries        *int64",
+		"AllowedAccountIds *[]string",
+		"Tags              *map[string]string",
 	}
 	for _, c := range checks {
 		if !strings.Contains(s, c) {
 			t.Errorf("expected generated source to contain %q\n\nSource:\n%s", c, s)
 		}
 	}
+	if strings.Contains(s, `"github.com/cloudboss/unobin/pkg/sdk/cfg"`) {
+		t.Errorf("generated configuration should not import cfg:\n%s", s)
+	}
 	if strings.Contains(s, "aws.default") {
 		t.Errorf("generated source should use selector-body configuration examples:\n%s", s)
 	}
 }
 
-func TestCfgWrapperType(t *testing.T) {
+func TestConfigGoType(t *testing.T) {
 	tests := []struct {
 		in, want string
 	}{
-		{"string", "cfg.String"},
-		{"int64", "cfg.Integer"},
-		{"float64", "cfg.Number"},
-		{"bool", "cfg.Boolean"},
-		{"[]string", "cfg.List[cfg.String]"},
-		{"[]bool", "cfg.List[cfg.Boolean]"},
-		{"map[string]string", "cfg.Map[cfg.String]"},
-		{"map[string][]string", "cfg.Map[cfg.List[cfg.String]]"},
-		{"map[string]any", "cfg.Map[cfg.Any]"},
-		{"any", "cfg.Any"},
-		{"some_weird_type", "cfg.Any"},
+		{"string", "string"},
+		{"int64", "int64"},
+		{"float64", "float64"},
+		{"bool", "bool"},
+		{"[]string", "[]string"},
+		{"[]bool", "[]bool"},
+		{"map[string]string", "map[string]string"},
+		{"map[string][]string", "map[string][]string"},
+		{"map[string]any", "map[string]any"},
+		{"any", "any"},
+		{"some_weird_type", "any"},
 	}
 	for _, tt := range tests {
-		got := cfgWrapperType(tt.in)
+		got := configGoType(tt.in)
 		if got != tt.want {
-			t.Errorf("cfgWrapperType(%q) = %q, want %q", tt.in, got, tt.want)
+			t.Errorf("configGoType(%q) = %q, want %q", tt.in, got, tt.want)
 		}
 	}
 }
