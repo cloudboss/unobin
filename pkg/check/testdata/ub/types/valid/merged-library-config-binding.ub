@@ -1,0 +1,15 @@
+imports: {
+  aws: 'github.com/acme/aws'
+}
+inputs: {
+  aws-config: { type: library-config('github.com/acme/aws') }
+}
+library-configs: {
+  aws: @core.merge(input.aws-config, { region: 'us-east-1' })
+}
+resources: {
+  bucket: aws.bucket {
+    name:    input.aws-config.region
+    retries: input.aws-config.retries
+  }
+}

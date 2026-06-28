@@ -1,0 +1,16 @@
+imports: {
+  aws: 'github.com/acme/aws'
+}
+library-configs: {
+  aws: {
+    region:  'us-west-2'
+    retries: 3
+    typo:    true
+  }
+}
+resources: {
+  bucket: aws.bucket {
+    name:    'bucket'
+    retries: 3
+  }
+}

@@ -1,0 +1,16 @@
+imports: {
+  aws: 'github.com/acme/aws'
+  gcp: 'github.com/acme/gcp'
+}
+inputs: {
+  gcp-config: { type: library-config('github.com/acme/gcp') }
+}
+library-configs: {
+  aws: input.gcp-config
+}
+resources: {
+  bucket: aws.bucket {
+    name:    'bucket'
+    retries: 3
+  }
+}

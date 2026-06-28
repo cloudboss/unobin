@@ -153,7 +153,7 @@ func TestCheckTypesSkipsUnreadableLibraryConfig(t *testing.T) {
 }
 
 func TestCheckTypesRequiresOneLibraryConfigSchema(t *testing.T) {
-	errs := checkSyntaxReferences(t, typeFixture(t, "one-library-config-schema"),
+	errs := checkSyntaxReferences(t, invalidTypeFixture(t, "one-library-config-schema"),
 		map[string]*runtime.Library{
 			"primary": libraryConfigSchemaLibrary("one"),
 			"backup":  libraryConfigSchemaLibrary("two"),
@@ -201,9 +201,38 @@ func TestCheckTypesRejectsMissingLibraryConfigBindingField(t *testing.T) {
 		errs.Messages())
 }
 
+func TestCheckTypesRejectsUnknownLibraryConfigBindingField(t *testing.T) {
+	errs := checkSyntaxReferences(t, invalidTypeFixture(t, "unknown-library-config-binding-field"),
+		map[string]*runtime.Library{"aws": regularConfigResourceLibrary()})
+
+	require.Equal(t,
+		[]string{`unknown field "typo" on library-config('github.com/acme/aws')`},
+		errs.Messages())
+}
+
+func TestCheckTypesRejectsWrongNominalLibraryConfigBinding(t *testing.T) {
+	errs := checkSyntaxReferences(t, invalidTypeFixture(t, "wrong-nominal-library-config-binding"),
+		map[string]*runtime.Library{
+			"aws": regularConfigResourceLibrary(),
+			"gcp": regularConfigResourceLibrary(),
+		})
+
+	require.Equal(t, []string{
+		"type mismatch: expected library-config('github.com/acme/aws'), " +
+			"got library-config('github.com/acme/gcp')",
+	}, errs.Messages())
+}
+
+func TestCheckTypesAcceptsMergedLibraryConfigBinding(t *testing.T) {
+	errs := checkSyntaxReferences(t, typeFixture(t, "merged-library-config-binding"),
+		map[string]*runtime.Library{"aws": regularConfigResourceLibrary()})
+
+	require.Empty(t, errs.Messages())
+}
+
 func TestCheckTypesUsesCompositeSyntaxBody(t *testing.T) {
-	composite := parseSyntaxCompositeFixture(t, typeFixture(t, "composite-syntax-body"))
-	fixture := parseSyntaxFactoryFixture(t, typeFixture(t, "composite-syntax-root"))
+	composite := parseSyntaxCompositeFixture(t, invalidTypeFixture(t, "composite-syntax-body"))
+	fixture := parseSyntaxFactoryFixture(t, invalidTypeFixture(t, "composite-syntax-root"))
 	body := composite.body
 	checker := NewSyntax(fixture.body, map[string]*runtime.Library{
 		"outer": {
@@ -238,7 +267,7 @@ func TestCheckTypesSkipsWhenInputsSchemaAbsent(t *testing.T) {
 }
 
 func TestNewSyntaxUsesRootInputsForTypeChecks(t *testing.T) {
-	fixture := parseSyntaxFactoryFixture(t, typeFixture(t, "root-inputs"))
+	fixture := parseSyntaxFactoryFixture(t, invalidTypeFixture(t, "root-inputs"))
 
 	errs := NewSyntax(fixture.body,
 		map[string]*runtime.Library{"local": localFileLibrary()}).References(nil)
@@ -249,7 +278,7 @@ func TestNewSyntaxUsesRootInputsForTypeChecks(t *testing.T) {
 }
 
 func TestNewSyntaxUsesRootLocalsForTypeChecks(t *testing.T) {
-	fixture := parseSyntaxFactoryFixture(t, typeFixture(t, "root-locals"))
+	fixture := parseSyntaxFactoryFixture(t, invalidTypeFixture(t, "root-locals"))
 
 	errs := NewSyntax(fixture.body,
 		map[string]*runtime.Library{"local": localFileLibrary()}).References(nil)
@@ -260,7 +289,7 @@ func TestNewSyntaxUsesRootLocalsForTypeChecks(t *testing.T) {
 }
 
 func TestNewSyntaxUsesRootConstraints(t *testing.T) {
-	fixture := parseSyntaxFactoryFixture(t, typeFixture(t, "root-constraints"))
+	fixture := parseSyntaxFactoryFixture(t, invalidTypeFixture(t, "root-constraints"))
 
 	errs := NewSyntax(fixture.body, nil).References(nil)
 
@@ -273,7 +302,7 @@ func TestNewSyntaxUsesRootConstraints(t *testing.T) {
 // literals reaches a typed field as the precise merged object through
 // the full compile pipeline, not as an unknown that checks nothing.
 func TestCheckTypesMergeInfersPreciseObject(t *testing.T) {
-	errs := checkSyntaxReferences(t, typeFixture(t, "merge-precise-object"),
+	errs := checkSyntaxReferences(t, invalidTypeFixture(t, "merge-precise-object"),
 		map[string]*runtime.Library{"local": localFileLibrary()})
 	require.Equal(t,
 		[]string{"type mismatch: expected string, got object({ a: integer  b: string })"},
