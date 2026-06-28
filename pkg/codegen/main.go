@@ -13,6 +13,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
 // Input bundles everything codegen needs to produce a factory binary's
@@ -93,6 +94,7 @@ func Generate(in Input) ([]byte, error) {
 		SchemaAliases      []string
 		GoSchemas          map[string]*runtime.LibrarySchema
 		HasLang            bool
+		HasTypecheck       bool
 		Inject             bool
 	}{
 		FactoryBodyLiteral: factoryBody,
@@ -109,8 +111,9 @@ func Generate(in Input) ([]byte, error) {
 		SchemaAliases:      schemaInjectAliases,
 		GoSchemas:          in.GoSchemas,
 		HasLang: len(constraintAliases)+len(defaultAliases) > 0 ||
-			strings.Contains(factoryBody, "lang."),
-		Inject: len(constraintAliases)+len(defaultAliases)+len(schemaInjectAliases) > 0,
+			schemasNeedLang(in.GoSchemas) || strings.Contains(factoryBody, "lang."),
+		HasTypecheck: schemasNeedTypecheck(in.GoSchemas),
+		Inject:       len(constraintAliases)+len(defaultAliases)+len(schemaInjectAliases) > 0,
 	}
 
 	var buf bytes.Buffer
@@ -228,12 +231,50 @@ func injectedAliases[T any](m map[string]map[string][]T) []string {
 func schemaAliases(m map[string]*runtime.LibrarySchema) []string {
 	keys := make([]string, 0, len(m))
 	for k, v := range m {
-		if schemaHasSensitivity(v) {
+		if schemaHasRuntimeData(v) {
 			keys = append(keys, k)
 		}
 	}
 	slices.Sort(keys)
 	return keys
+}
+
+func schemasNeedLang(m map[string]*runtime.LibrarySchema) bool {
+	for _, schema := range m {
+		if schemaNeedsLang(schema) {
+			return true
+		}
+	}
+	return false
+}
+
+func schemasNeedTypecheck(m map[string]*runtime.LibrarySchema) bool {
+	for _, schema := range m {
+		if schemaNeedsTypecheck(schema) {
+			return true
+		}
+	}
+	return false
+}
+
+func schemaHasRuntimeData(schema *runtime.LibrarySchema) bool {
+	return schemaHasSensitivity(schema) || schemaHasConfigurationData(schema)
+}
+
+func schemaHasConfigurationData(schema *runtime.LibrarySchema) bool {
+	return schema != nil && (schema.HasConfiguration || schema.Configuration != nil ||
+		len(schema.ConfigurationFields) > 0 || len(schema.ConfigurationDefaults) > 0 ||
+		len(schema.ConfigurationConstraints) > 0 || schema.ConfigurationDigest != "" ||
+		schema.ConfigurationEmpty)
+}
+
+func schemaNeedsLang(schema *runtime.LibrarySchema) bool {
+	return schema != nil && (len(schema.ConfigurationDefaults) > 0 ||
+		len(schema.ConfigurationConstraints) > 0)
+}
+
+func schemaNeedsTypecheck(schema *runtime.LibrarySchema) bool {
+	return schema != nil && len(schema.ConfigurationFields) > 0
 }
 
 func schemaHasSensitivity(schema *runtime.LibrarySchema) bool {
@@ -311,6 +352,7 @@ func schemaAssign(target string, schema *runtime.LibrarySchema) string {
 	schemaMapLiteral(&b, "Resources", schema.Resources)
 	schemaMapLiteral(&b, "DataSources", schema.DataSources)
 	schemaMapLiteral(&b, "Actions", schema.Actions)
+	schemaConfigurationLiteral(&b, schema)
 	b.WriteString("}")
 	return b.String()
 }
@@ -328,6 +370,119 @@ func schemaMapLiteral(
 		fmt.Fprintf(b, "%q: %s,\n", typ, typeSchemaLiteral(types[typ]))
 	}
 	b.WriteString("},\n")
+}
+
+func schemaConfigurationLiteral(b *strings.Builder, schema *runtime.LibrarySchema) {
+	if !schemaHasConfigurationData(schema) {
+		return
+	}
+	if schema.HasConfiguration {
+		b.WriteString("HasConfiguration: true,\n")
+	}
+	if len(schema.ConfigurationFields) > 0 {
+		fmt.Fprintf(b, "ConfigurationFields: %s,\n", objectFieldsLiteral(schema.ConfigurationFields))
+	}
+	if len(schema.ConfigurationDefaults) > 0 {
+		b.WriteString("ConfigurationDefaults: []lang.DefaultSpec{\n")
+		for _, spec := range schema.ConfigurationDefaults {
+			b.WriteString(defaultLiteral(spec))
+			b.WriteString(",\n")
+		}
+		b.WriteString("},\n")
+	}
+	if len(schema.ConfigurationConstraints) > 0 {
+		b.WriteString("ConfigurationConstraints: []lang.ConstraintSpec{\n")
+		for _, spec := range schema.ConfigurationConstraints {
+			b.WriteString(specLiteral(spec))
+			b.WriteString(",\n")
+		}
+		b.WriteString("},\n")
+	}
+	if schema.ConfigurationDigest != "" {
+		fmt.Fprintf(b, "ConfigurationDigest: %q,\n", schema.ConfigurationDigest)
+	}
+	if schema.ConfigurationEmpty {
+		b.WriteString("ConfigurationEmpty: true,\n")
+	}
+}
+
+func objectFieldsLiteral(fields []typecheck.ObjectField) string {
+	var b strings.Builder
+	b.WriteString("[]typecheck.ObjectField{\n")
+	for _, field := range fields {
+		b.WriteString(objectFieldLiteral(field))
+		b.WriteString(",\n")
+	}
+	b.WriteString("}")
+	return b.String()
+}
+
+func objectFieldLiteral(field typecheck.ObjectField) string {
+	parts := []string{
+		fmt.Sprintf("Name: %q", field.Name),
+		"Type: " + typeLiteral(field.Type),
+	}
+	if field.Optional {
+		parts = append(parts, "Optional: true")
+	}
+	if field.Defaulted {
+		parts = append(parts, "Defaulted: true")
+	}
+	return "{" + strings.Join(parts, ", ") + "}"
+}
+
+func typeLiteral(t typecheck.Type) string {
+	switch t.Kind {
+	case typecheck.Unknown:
+		return "typecheck.TUnknown()"
+	case typecheck.Opaque:
+		return "typecheck.TOpaque()"
+	case typecheck.String:
+		return "typecheck.TString()"
+	case typecheck.Integer:
+		return "typecheck.TInteger()"
+	case typecheck.Number:
+		return "typecheck.TNumber()"
+	case typecheck.Boolean:
+		return "typecheck.TBoolean()"
+	case typecheck.Null:
+		return "typecheck.TNull()"
+	case typecheck.List:
+		return "typecheck.TList(" + typeLiteral(elemType(t)) + ")"
+	case typecheck.Map:
+		return "typecheck.TMap(" + typeLiteral(elemType(t)) + ")"
+	case typecheck.Object:
+		return "typecheck.TObject(" + objectFieldsLiteral(t.Fields) + ")"
+	case typecheck.LibraryConfig:
+		info := t.LibraryConfig
+		if info == nil {
+			return "typecheck.TUnknown()"
+		}
+		return fmt.Sprintf("typecheck.TLibraryConfig(%q, %q, %q, %s)",
+			info.Path, info.Identity, info.SchemaDigest, objectFieldsLiteral(t.Fields))
+	case typecheck.Tuple:
+		parts := make([]string, len(t.Elems))
+		for i, elem := range t.Elems {
+			parts[i] = typeLiteral(elem)
+		}
+		return "typecheck.TTuple([]typecheck.Type{" + strings.Join(parts, ", ") + "})"
+	case typecheck.Optional:
+		return "typecheck.TOptional(" + typeLiteral(elemType(t)) + ")"
+	case typecheck.Union:
+		parts := make([]string, len(t.Elems))
+		for i, elem := range t.Elems {
+			parts[i] = typeLiteral(elem)
+		}
+		return "typecheck.TUnion([]typecheck.Type{" + strings.Join(parts, ", ") + "})"
+	}
+	return "typecheck.TUnknown()"
+}
+
+func elemType(t typecheck.Type) typecheck.Type {
+	if t.Elem == nil {
+		return typecheck.TUnknown()
+	}
+	return *t.Elem
 }
 
 func typeSchemaLiteral(ts *runtime.TypeSchema) string {
@@ -430,7 +585,8 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
-{{range .GoImports}}	{{.GoIdent}} {{quote .Path}}
+{{if .HasTypecheck}}	"github.com/cloudboss/unobin/pkg/typecheck"
+{{end}}{{range .GoImports}}	{{.GoIdent}} {{quote .Path}}
 {{end}}{{range .UBImports}}	{{.GoIdent}} {{quote .Path}}
 {{end -}}
 )

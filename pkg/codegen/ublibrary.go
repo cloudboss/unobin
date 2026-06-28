@@ -29,7 +29,7 @@ type GoLibrarySpecs struct {
 
 // Empty reports whether the specs hold no data at all.
 func (s GoLibrarySpecs) Empty() bool {
-	return len(s.Constraints) == 0 && len(s.Defaults) == 0 && !schemaHasSensitivity(s.Schema)
+	return len(s.Constraints) == 0 && len(s.Defaults) == 0 && !schemaHasRuntimeData(s.Schema)
 }
 
 // GenerateUBLibrary produces the Go source for a UB library's
@@ -139,6 +139,7 @@ func GenerateUBLibraryPackage(
 		GoImports        []goImport
 		SourceHelpers    []sourceHelper
 		HasLang          bool
+		HasTypecheck     bool
 		HasSyntaxBodies  bool
 		HasSourceHelpers bool
 	}{
@@ -148,7 +149,8 @@ func GenerateUBLibraryPackage(
 		Groups:           orderedGroups,
 		GoImports:        idents.imports(),
 		SourceHelpers:    sourceHelpers,
-		HasLang:          len(specVars) > 0 || hasSyntaxBodies(orderedGroups),
+		HasLang:          specVarsNeedLang(specVars) || hasSyntaxBodies(orderedGroups),
+		HasTypecheck:     specVarsNeedTypecheck(specVars),
 		HasSyntaxBodies:  hasSyntaxBodies(orderedGroups),
 		HasSourceHelpers: len(sourceHelpers) > 0,
 	}
@@ -285,12 +287,14 @@ type libraryBinding struct {
 // once, the rendered assignments attach its Constraints and Defaults,
 // and every binding of the path shares the variable.
 type specVar struct {
-	Name        string
-	GoIdent     string
-	Path        string
-	Constraints string
-	Defaults    string
-	Schema      string
+	Name          string
+	GoIdent       string
+	Path          string
+	Constraints   string
+	Defaults      string
+	Schema        string
+	UsesLang      bool
+	UsesTypecheck bool
 }
 
 // specVarsFor returns the spec variables for every bound import path
@@ -319,13 +323,34 @@ func specVarsFor(
 		if len(specs.Defaults) > 0 {
 			v.Defaults = defaultsAssign(name, specs.Defaults)
 		}
-		if schemaHasSensitivity(specs.Schema) {
+		if schemaHasRuntimeData(specs.Schema) {
 			v.Schema = schemaAssign(name, specs.Schema)
 		}
+		v.UsesLang = len(specs.Constraints) > 0 || len(specs.Defaults) > 0 ||
+			schemaNeedsLang(specs.Schema)
+		v.UsesTypecheck = schemaNeedsTypecheck(specs.Schema)
 		vars = append(vars, v)
 		varOf[p] = name
 	}
 	return vars, varOf
+}
+
+func specVarsNeedLang(vars []specVar) bool {
+	for _, v := range vars {
+		if v.UsesLang {
+			return true
+		}
+	}
+	return false
+}
+
+func specVarsNeedTypecheck(vars []specVar) bool {
+	for _, v := range vars {
+		if v.UsesTypecheck {
+			return true
+		}
+	}
+	return false
 }
 
 type goImport struct {
@@ -433,7 +458,8 @@ import (
 {{end}}{{if .HasSourceHelpers}}	"github.com/cloudboss/unobin/pkg/lang/parse"
 {{end}}{{if .HasSyntaxBodies}}	"github.com/cloudboss/unobin/pkg/lang/syntax"
 {{end}}	"github.com/cloudboss/unobin/pkg/runtime"
-{{range .GoImports}}	{{.GoIdent}} {{quote .Path}}
+{{if .HasTypecheck}}	"github.com/cloudboss/unobin/pkg/typecheck"
+{{end}}{{range .GoImports}}	{{.GoIdent}} {{quote .Path}}
 {{end}})
 
 {{range .SourceHelpers}}var {{.VarName}} = parse.NewSourceFile(

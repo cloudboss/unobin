@@ -368,7 +368,11 @@ func libraryConfigType(path string, lib *runtime.Library) (typecheck.Type, bool)
 		}
 		digest := lib.Schema.ConfigurationDigest
 		if digest == "" {
-			digest = cfg.DigestView(fields, lib.Schema.ConfigurationDefaults)
+			digest = cfg.DigestView(
+				fields,
+				lib.Schema.ConfigurationDefaults,
+				lib.Schema.ConfigurationConstraints,
+			)
 		}
 		return typecheck.TLibraryConfig(path, path, digest, fields), true
 	}

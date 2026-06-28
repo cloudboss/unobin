@@ -9,6 +9,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
 var factorySource = parse.NewSourceFile(
@@ -57,6 +58,23 @@ func main() {
 			{Field: "input.create-parents", Value: "true"},
 			{Field: "input.tags", Optional: true},
 		},
+	}
+	libraries["e2e"].Schema = &runtime.LibrarySchema{
+		HasConfiguration: true,
+		ConfigurationFields: []typecheck.ObjectField{
+			{Name: "base-dir", Type: typecheck.TString()},
+			{Name: "event-log-path", Type: typecheck.TString()},
+			{Name: "prefix", Type: typecheck.TString(), Optional: true, Defaulted: true},
+			{Name: "nested", Type: typecheck.TObject([]typecheck.ObjectField{
+				{Name: "label", Type: typecheck.TString()},
+				{Name: "enabled", Type: typecheck.TBoolean(), Optional: true, Defaulted: true},
+			}), Optional: true},
+		},
+		ConfigurationDefaults: []lang.DefaultSpec{
+			{Field: "input.prefix", Value: "''"},
+			{Field: "input.nested.enabled", Value: "true"},
+		},
+		ConfigurationDigest: "f155b1daa60fe78cb8c69a53a394cf7ff416a52536afb3d14cd8a618245a3a7d",
 	}
 	runner.Run(runner.Info{
 		FactoryName:     factoryName,

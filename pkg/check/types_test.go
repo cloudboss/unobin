@@ -49,7 +49,7 @@ func localFileLibrary() *runtime.Library {
 func libraryConfigSchemaLibrary(digest string) *runtime.Library {
 	fields := []typecheck.ObjectField{{Name: "region", Type: typecheck.TString()}}
 	if digest == "" {
-		digest = cfg.DigestView(fields, nil)
+		digest = cfg.DigestView(fields, nil, nil)
 	}
 	return &runtime.Library{Schema: &runtime.LibrarySchema{
 		HasConfiguration:    true,
@@ -63,7 +63,7 @@ func emptyConfigResourceLibrary() *runtime.Library {
 	return &runtime.Library{Schema: &runtime.LibrarySchema{
 		HasConfiguration:    true,
 		ConfigurationFields: []typecheck.ObjectField{},
-		ConfigurationDigest: cfg.DigestView(nil, nil),
+		ConfigurationDigest: cfg.DigestView(nil, nil, nil),
 		ConfigurationEmpty:  true,
 		Configuration:       map[string]typecheck.Type{},
 		Resources: map[string]*runtime.TypeSchema{

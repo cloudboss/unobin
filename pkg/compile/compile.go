@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
+	"slices"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/check"
@@ -1084,10 +1085,25 @@ func keepUsedSchema(
 		DataSources: keepSensitiveTypes(schema.DataSources, used, string(ubruntime.NodeDataSource)),
 		Actions:     keepSensitiveTypes(schema.Actions, used, string(ubruntime.NodeAction)),
 	}
-	if len(out.Resources)+len(out.DataSources)+len(out.Actions) == 0 {
+	copyConfigurationSchema(out, schema)
+	if len(out.Resources)+len(out.DataSources)+len(out.Actions) == 0 &&
+		!out.HasConfiguration {
 		return nil
 	}
 	return out
+}
+
+func copyConfigurationSchema(dst, src *ubruntime.LibrarySchema) {
+	if src == nil || !src.HasConfiguration {
+		return
+	}
+	dst.HasConfiguration = src.HasConfiguration
+	dst.Configuration = maps.Clone(src.Configuration)
+	dst.ConfigurationFields = slices.Clone(src.ConfigurationFields)
+	dst.ConfigurationDefaults = slices.Clone(src.ConfigurationDefaults)
+	dst.ConfigurationConstraints = slices.Clone(src.ConfigurationConstraints)
+	dst.ConfigurationDigest = src.ConfigurationDigest
+	dst.ConfigurationEmpty = src.ConfigurationEmpty
 }
 
 func keepSensitiveTypes(

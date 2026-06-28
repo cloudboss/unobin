@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"github.com/cloudboss/unobin/pkg/constraint"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
@@ -27,6 +28,13 @@ type Endpoint struct {
 type AssumeRole struct {
 	RoleArn  cfg.String
 	External *cfg.String
+}
+
+func (c Configuration) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.Must(constraint.NotEmpty(c.Region)).Message("region is required"),
+		constraint.RequiredWith(c.AssumeRole.RoleArn, c.Region),
+	}
 }
 
 func Library() *runtime.Library {

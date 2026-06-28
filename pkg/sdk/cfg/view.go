@@ -53,7 +53,7 @@ func View(ct Registration) (LibraryConfigView, error) {
 		Defaults: defaults,
 		Empty:    len(fields) == 0,
 	}
-	out.SchemaDigest = DigestView(out.Fields, out.Defaults)
+	out.SchemaDigest = DigestView(out.Fields, out.Defaults, nil)
 	return out, nil
 }
 
@@ -292,11 +292,28 @@ func wrapperValue(v reflect.Value) (any, error) {
 }
 
 // DigestView returns a deterministic digest for a config schema view.
-func DigestView(fields []typecheck.ObjectField, defaults []lang.DefaultSpec) string {
+func DigestView(
+	fields []typecheck.ObjectField,
+	defaults []lang.DefaultSpec,
+	constraints []lang.ConstraintSpec,
+) string {
 	h := sha256.New()
 	writeViewFields(h, fields)
 	for _, def := range defaults {
 		fmt.Fprintf(h, "default:%s=%s:%t\n", def.Field, def.Value, def.Optional)
+	}
+	for _, constraint := range constraints {
+		fmt.Fprintf(h, "constraint-kind:%s\n", constraint.Kind)
+		for _, field := range constraint.Fields {
+			fmt.Fprintf(h, "constraint-field:%s\n", field)
+		}
+		fmt.Fprintf(h, "constraint-when:%s\n", constraint.When)
+		fmt.Fprintf(h, "constraint-require:%s\n", constraint.Require)
+		fmt.Fprintf(h, "constraint-message:%s\n", constraint.Message)
+		fmt.Fprintf(h, "constraint-for-each:%s\n", constraint.ForEach)
+		for _, level := range constraint.ForEachLevels {
+			fmt.Fprintf(h, "constraint-for-each-level:%s=%s\n", level.Name, level.In)
+		}
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }

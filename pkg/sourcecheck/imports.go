@@ -6,6 +6,7 @@ import (
 	"io"
 	"maps"
 	"os"
+	"slices"
 
 	"github.com/cloudboss/unobin/pkg/codegen"
 	"github.com/cloudboss/unobin/pkg/deps"
@@ -407,6 +408,7 @@ func mergeLibrarySchema(
 	dst.Resources = mergeTypeSchemaMap(dst.Resources, src.Resources)
 	dst.DataSources = mergeTypeSchemaMap(dst.DataSources, src.DataSources)
 	dst.Actions = mergeTypeSchemaMap(dst.Actions, src.Actions)
+	copyConfigurationSchema(dst, src)
 	return dst
 }
 
@@ -510,10 +512,25 @@ func keepUsedSchema(
 		DataSources: keepSensitiveTypes(schema.DataSources, used, string(runtime.NodeDataSource)),
 		Actions:     keepSensitiveTypes(schema.Actions, used, string(runtime.NodeAction)),
 	}
-	if len(out.Resources)+len(out.DataSources)+len(out.Actions) == 0 {
+	copyConfigurationSchema(out, schema)
+	if len(out.Resources)+len(out.DataSources)+len(out.Actions) == 0 &&
+		!out.HasConfiguration {
 		return nil
 	}
 	return out
+}
+
+func copyConfigurationSchema(dst, src *runtime.LibrarySchema) {
+	if src == nil || !src.HasConfiguration {
+		return
+	}
+	dst.HasConfiguration = src.HasConfiguration
+	dst.Configuration = maps.Clone(src.Configuration)
+	dst.ConfigurationFields = slices.Clone(src.ConfigurationFields)
+	dst.ConfigurationDefaults = slices.Clone(src.ConfigurationDefaults)
+	dst.ConfigurationConstraints = slices.Clone(src.ConfigurationConstraints)
+	dst.ConfigurationDigest = src.ConfigurationDigest
+	dst.ConfigurationEmpty = src.ConfigurationEmpty
 }
 
 func keepSensitiveTypes(

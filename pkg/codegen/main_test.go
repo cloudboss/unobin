@@ -13,6 +13,8 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
 func testMainInput(t testing.TB, body, factoryName string) Input {
@@ -127,6 +129,85 @@ func TestGenerateInjectsGoSchemaSensitivity(t *testing.T) {
 	require.Contains(t, s,
 		`"secret": {SensitiveInputs: []string{"token"}, SensitiveOutputs: []string{"value"}}`)
 	require.Contains(t, s, `FactoryBody:     &factoryBody,`)
+}
+
+func TestGenerateInjectsGoConfigSchema(t *testing.T) {
+	fields := []typecheck.ObjectField{
+		{Name: "region", Type: typecheck.TString()},
+		{Name: "retries", Type: typecheck.TInteger(), Defaulted: true},
+		{Name: "tags", Type: typecheck.TMap(typecheck.TString()), Optional: true},
+	}
+	defaults := []lang.DefaultSpec{{Field: "input.retries", Value: "3"}}
+	constraints := []lang.ConstraintSpec{
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.region) >= 1)",
+			Message: "region is required",
+		},
+	}
+	digest := cfg.DigestView(fields, defaults, constraints)
+
+	out, err := Generate(Input{
+		Body:        "description: 'x'",
+		FactoryName: "demo",
+		GoImports: map[string]string{
+			"aws": "github.com/example/aws",
+		},
+		GoSchemas: map[string]*runtime.LibrarySchema{
+			"aws": {
+				HasConfiguration:         true,
+				ConfigurationFields:      fields,
+				ConfigurationDefaults:    defaults,
+				ConfigurationConstraints: constraints,
+				ConfigurationDigest:      digest,
+				ConfigurationEmpty:       false,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	s := string(out)
+	require.Contains(t, s, `libraries["aws"].Schema = &runtime.LibrarySchema{`)
+	require.Contains(t, s, `HasConfiguration: true`)
+	require.Contains(t, s, `ConfigurationFields: []typecheck.ObjectField{`)
+	require.Contains(t, s, `{Name: "region", Type: typecheck.TString()}`)
+	require.Contains(t, s, `{Field: "input.retries", Value: "3"}`)
+	require.Contains(t, s, `{Kind: "predicate", When: "true"`)
+	require.Contains(t, s, `ConfigurationDigest: "`+digest+`"`)
+	require.Contains(t, s, `FactoryBody:     &factoryBody,`)
+
+	fset := token.NewFileSet()
+	_, err = parser.ParseFile(fset, "main.go", out, parser.AllErrors)
+	require.NoError(t, err, "generated source should parse:\n%s", string(out))
+}
+
+func TestGenerateInjectsGoConfigSchemaWithoutConstraints(t *testing.T) {
+	fields := []typecheck.ObjectField{{Name: "region", Type: typecheck.TString()}}
+	digest := cfg.DigestView(fields, nil, nil)
+	out, err := Generate(Input{
+		Body:        "description: 'x'",
+		FactoryName: "demo",
+		GoImports: map[string]string{
+			"aws": "github.com/example/aws",
+		},
+		GoSchemas: map[string]*runtime.LibrarySchema{
+			"aws": {
+				HasConfiguration:    true,
+				ConfigurationFields: fields,
+				ConfigurationDigest: digest,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	s := string(out)
+	require.Contains(t, s, `ConfigurationFields: []typecheck.ObjectField{`)
+	require.NotContains(t, s, `ConfigurationConstraints:`)
+
+	fset := token.NewFileSet()
+	_, err = parser.ParseFile(fset, "main.go", out, parser.AllErrors)
+	require.NoError(t, err, "generated source should parse:\n%s", string(out))
 }
 
 func TestGenerateInjectsConstraintsAndDefaultsTogether(t *testing.T) {

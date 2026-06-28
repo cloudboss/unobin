@@ -60,7 +60,11 @@ func libraryConfigInputSchema(
 		}
 		digest := lib.Schema.ConfigurationDigest
 		if digest == "" {
-			digest = cfg.DigestView(fields, lib.Schema.ConfigurationDefaults)
+			digest = cfg.DigestView(
+				fields,
+				lib.Schema.ConfigurationDefaults,
+				lib.Schema.ConfigurationConstraints,
+			)
 		}
 		return lang.LibraryConfigSchema{
 			Type:     langTypeObjectFromFields(fields),

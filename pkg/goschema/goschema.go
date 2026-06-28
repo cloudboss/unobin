@@ -170,11 +170,14 @@ func (c *analysisContext) readSchema(
 					"library configuration: %s not found in reachable source, "+
 						"so configuration fields are unchecked", ref))
 			} else {
+				w = c.newWalker()
+				constraints := w.lookupConstraints(ref)
 				schema.Configuration = objectFieldsToMap(fields)
 				schema.ConfigurationFields = fields
 				schema.ConfigurationDefaults = defaults
+				schema.ConfigurationConstraints = constraints
 				schema.ConfigurationEmpty = len(fields) == 0
-				schema.ConfigurationDigest = cfg.DigestView(fields, defaults)
+				schema.ConfigurationDigest = cfg.DigestView(fields, defaults, constraints)
 			}
 		}
 	}

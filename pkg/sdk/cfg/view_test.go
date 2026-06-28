@@ -106,3 +106,16 @@ func TestViewEmptyConfigHasDigest(t *testing.T) {
 	require.True(t, emptyView.Empty)
 	require.Regexp(t, regexp.MustCompile(`^[0-9a-f]{64}$`), emptyView.SchemaDigest)
 }
+
+func TestDigestViewIncludesConstraints(t *testing.T) {
+	fields := []typecheck.ObjectField{{Name: "region", Type: typecheck.TString()}}
+	defaults := []lang.DefaultSpec{{Field: "input.region", Value: "'us-west-2'"}}
+	constraints := []lang.ConstraintSpec{
+		{Kind: "predicate", When: "true", Require: "(@core.length(input.region) >= 1)"},
+	}
+
+	withoutConstraints := DigestView(fields, defaults, nil)
+	withConstraints := DigestView(fields, defaults, constraints)
+
+	require.NotEqual(t, withoutConstraints, withConstraints)
+}

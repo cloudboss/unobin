@@ -77,8 +77,24 @@ func TestReadExtractsConfigurationSchema(t *testing.T) {
 		{Field: "input.labels", Value: "{ env: 'dev' }"},
 	}
 	require.Equal(t, wantDefaults, schema.ConfigurationDefaults)
+	wantConstraints := []lang.ConstraintSpec{
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.region) >= 1)",
+			Message: "region is required",
+		},
+		{
+			Kind:   "required-with",
+			Fields: []string{"input.assume-role.role-arn", "input.region"},
+		},
+	}
+	require.Equal(t, wantConstraints, schema.ConfigurationConstraints)
 	require.False(t, schema.ConfigurationEmpty)
-	require.Equal(t, cfg.DigestView(wantFields, wantDefaults), schema.ConfigurationDigest)
+	require.Equal(t,
+		cfg.DigestView(wantFields, wantDefaults, wantConstraints),
+		schema.ConfigurationDigest,
+	)
 	require.True(t, schema.HasConfiguration)
 }
 
@@ -892,7 +908,7 @@ func TestReadConfigurationFromExtraRoot(t *testing.T) {
 	}
 	require.Equal(t, want, schema.Configuration)
 	require.Equal(t, wantFields, schema.ConfigurationFields)
-	require.Equal(t, cfg.DigestView(wantFields, nil), schema.ConfigurationDigest)
+	require.Equal(t, cfg.DigestView(wantFields, nil, nil), schema.ConfigurationDigest)
 	require.True(t, schema.HasConfiguration)
 }
 

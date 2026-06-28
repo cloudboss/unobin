@@ -17,6 +17,8 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
 func parseSyntaxUB(t *testing.T, kind, name, src string) syntax.FactoryBody {
@@ -425,6 +427,41 @@ func TestGenerateUBLibraryEmbedsGoLibrarySpecs(t *testing.T) {
 // TestGenerateUBLibrarySharesSpecsAcrossComposites proves two
 // composites importing the same spec-bearing path bind one shared
 // instance, so the specs are emitted once.
+func TestGenerateUBLibraryEmbedsConfigSchema(t *testing.T) {
+	body := parseSyntaxUB(t, "resource", "archive", "description: 'a'")
+	fields := []typecheck.ObjectField{{Name: "region", Type: typecheck.TString()}}
+	digest := cfg.DigestView(fields, nil, nil)
+	goSpecs := map[string]GoLibrarySpecs{
+		"github.com/example/disk": {
+			Schema: &runtime.LibrarySchema{
+				HasConfiguration:    true,
+				ConfigurationFields: fields,
+				ConfigurationDigest: digest,
+			},
+		},
+	}
+
+	out, err := GenerateUBLibrary(
+		"files",
+		resourceSyntaxBodies(map[string]syntax.FactoryBody{"archive": body}),
+		compositeImports("resource", map[string]map[string]string{
+			"archive": {"disk": "github.com/example/disk"},
+		}),
+		goSpecs,
+	)
+	require.NoError(t, err)
+
+	s := string(out)
+	require.Contains(t, s, `diskLib.Schema = &runtime.LibrarySchema{`)
+	require.Contains(t, s, `HasConfiguration: true`)
+	require.Contains(t, s, `ConfigurationFields: []typecheck.ObjectField{`)
+	require.Contains(t, s, `ConfigurationDigest: "`+digest+`"`)
+
+	fset := token.NewFileSet()
+	_, err = parser.ParseFile(fset, "library.go", out, parser.AllErrors)
+	require.NoError(t, err, "generated source should parse:\n%s", string(out))
+}
+
 func TestGenerateUBLibrarySharesSpecsAcrossComposites(t *testing.T) {
 	bodies := map[string]syntax.FactoryBody{
 		"alpha": parseSyntaxUB(t, "resource", "alpha", "description: 'a'"),
