@@ -67,8 +67,9 @@ func libraryConfigInputSchema(
 			)
 		}
 		return lang.LibraryConfigSchema{
-			Type:     langTypeObjectFromFields(fields),
-			Defaults: lib.Schema.ConfigurationDefaults,
+			Type:        langTypeObjectFromFields(fields),
+			Defaults:    lib.Schema.ConfigurationDefaults,
+			Constraints: lib.Schema.ConfigurationConstraints,
 		}, digest, true
 	}
 	view, err := cfg.View(lib.Configuration)

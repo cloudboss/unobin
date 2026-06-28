@@ -1,0 +1,15 @@
+factory: {
+  imports: {
+    core: 'example.com/core'
+  }
+
+  inputs: {
+    core-config: {
+      type: library-config('example.com/core')
+    }
+  }
+
+  library-configs: {
+    core: input.core-config
+  }
+}

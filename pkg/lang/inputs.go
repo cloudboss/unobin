@@ -15,8 +15,9 @@ type EvalFunc func(e Expr) (any, error)
 
 // LibraryConfigSchema is the object view of a library-config input type.
 type LibraryConfigSchema struct {
-	Type     *TypeObject
-	Defaults []DefaultSpec
+	Type        *TypeObject
+	Defaults    []DefaultSpec
+	Constraints []ConstraintSpec
 }
 
 // LibraryConfigResolver resolves a library-config path literal to its schema.

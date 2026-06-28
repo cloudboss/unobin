@@ -8,9 +8,11 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/internal/ubtest"
+	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
@@ -656,6 +658,72 @@ func TestValidateStillReportsFactorySourceErrors(t *testing.T) {
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `requires library-configs.core`)
+}
+
+func TestBuildInputsChecksLibraryConfigConstraints(t *testing.T) {
+	factory := ubtest.ReadValidFixture(t,
+		"testdata/ub/runtime-split", "library-config-constraints-factory")
+	stackSrc := ubtest.ReadValidFixture(t,
+		"testdata/ub/runtime-split", "library-config-constraints-stack")
+	info := testInfo(t, factory)
+	info.Libraries["core"].Schema = libraryConfigSchemaWithConstraint()
+	parsed, err := parseFactory(info)
+	require.NoError(t, err)
+	stack, err := parseStackSource("dev.ub", []byte(stackSrc))
+	require.NoError(t, err)
+
+	_, err = buildInputs(stack, "dev.ub", parsed, info.Libraries)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "core-config")
+	require.Contains(t, err.Error(), "region is required")
+}
+
+func TestBuildInputsAppliesLibraryConfigDefaultsBeforeConstraints(t *testing.T) {
+	factory := ubtest.ReadValidFixture(t,
+		"testdata/ub/runtime-split", "library-config-default-factory")
+	info := testInfo(t, factory)
+	info.Libraries["core"].Schema = libraryConfigSchemaWithConstraint()
+	parsed, err := parseFactory(info)
+	require.NoError(t, err)
+
+	got, err := buildInputs(nil, "", parsed, info.Libraries)
+
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{
+		"core-config": map[string]any{"region": "us-west-2"},
+	}, got)
+}
+
+func libraryConfigSchemaWithConstraint() *runtime.LibrarySchema {
+	fields := []typecheck.ObjectField{
+		{Name: "region", Type: typecheck.TString(), Defaulted: true},
+	}
+	return &runtime.LibrarySchema{
+		HasConfiguration:    true,
+		ConfigurationFields: fields,
+		ConfigurationDefaults: []lang.DefaultSpec{
+			{Field: "input.region", Value: "'us-west-2'"},
+		},
+		ConfigurationConstraints: []lang.ConstraintSpec{
+			{
+				Kind:    "predicate",
+				When:    "true",
+				Require: "(@core.length(input.region) >= 1)",
+				Message: "region is required",
+			},
+		},
+		ConfigurationDigest: cfg.DigestView(fields, []lang.DefaultSpec{
+			{Field: "input.region", Value: "'us-west-2'"},
+		}, []lang.ConstraintSpec{
+			{
+				Kind:    "predicate",
+				When:    "true",
+				Require: "(@core.length(input.region) >= 1)",
+				Message: "region is required",
+			},
+		}),
+	}
 }
 
 func TestPlanStillValidatesStackInputs(t *testing.T) {

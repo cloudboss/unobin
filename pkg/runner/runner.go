@@ -761,12 +761,95 @@ func buildInputs(
 	if errs.Len() > 0 {
 		return nil, errs.Err()
 	}
+	if err := checkLibraryConfigInputConstraints(
+		decl, validated, parsed.syntaxBody, libs,
+	); err != nil {
+		return nil, err
+	}
 	cerrs := lang.CheckConstraints(constraints, validated,
 		predicateEval(validated, libs), lang.DisplayRooted)
 	if cerrs.Len() > 0 {
 		return nil, cerrs.Err()
 	}
 	return validated, nil
+}
+
+func checkLibraryConfigInputConstraints(
+	decl *lang.ObjectLit,
+	values map[string]any,
+	body *syntax.FactoryBody,
+	libs map[string]*runtime.Library,
+) error {
+	resolve := libraryConfigInputResolver(body, libs)
+	for _, field := range libraryConfigInputFields(decl) {
+		schema, ok := resolve(field.path)
+		if !ok || len(schema.Constraints) == 0 {
+			continue
+		}
+		value, ok := values[field.name].(map[string]any)
+		if !ok {
+			continue
+		}
+		entries, perr := lang.ParseSpecs(schema.Constraints)
+		if perr.Len() > 0 {
+			return fmt.Errorf("input %q: %w", field.name, perr.Err())
+		}
+		errs := lang.CheckConstraintEntries(
+			entries,
+			value,
+			predicateEval(value, libs),
+			lang.DisplayRooted,
+		)
+		if errs.Len() > 0 {
+			return fmt.Errorf("input %q: %w", field.name, errs.Err())
+		}
+	}
+	return nil
+}
+
+type libraryConfigInputField struct {
+	name string
+	path string
+}
+
+func libraryConfigInputFields(decl *lang.ObjectLit) []libraryConfigInputField {
+	if decl == nil {
+		return nil
+	}
+	var out []libraryConfigInputField
+	for _, field := range decl.Fields {
+		if field.Key.Kind != lang.FieldIdent || field.Key.IsMeta() {
+			continue
+		}
+		path, ok := libraryConfigInputPath(field.Value)
+		if !ok {
+			continue
+		}
+		out = append(out, libraryConfigInputField{name: field.Key.Name, path: path})
+	}
+	return out
+}
+
+func libraryConfigInputPath(expr lang.Expr) (string, bool) {
+	obj, ok := expr.(*lang.ObjectLit)
+	if !ok {
+		return "", false
+	}
+	for _, field := range obj.Fields {
+		if field.Key.Kind != lang.FieldIdent || field.Key.Name != "type" {
+			continue
+		}
+		typeExpr := field.Value
+		if opt, ok := typeExpr.(*lang.TypeOptional); ok {
+			typeExpr = opt.Elem
+		}
+		lib, ok := typeExpr.(*lang.TypeLibraryConfig)
+		if !ok || lib.Path == nil {
+			return "", false
+		}
+		return lib.Path.Value, true
+	}
+	return "", false
 }
 
 // defaultEval reduces an input declaration default expression to a Go
