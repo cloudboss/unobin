@@ -26,6 +26,23 @@ type viewConfiguration struct {
 	AssumeRole *viewAssumeRole
 }
 
+type viewPlainAssumeRole struct {
+	RoleARN    string `ub:"role-arn"`
+	ExternalID *string
+}
+
+type viewPlainConfiguration struct {
+	Region     string
+	Profile    *string
+	Retries    int64
+	Ratio      float64
+	Enabled    bool
+	Tags       map[string]string
+	Subnets    []string
+	Opaque     any
+	AssumeRole *viewPlainAssumeRole `ub:"assume-role"`
+}
+
 func TestViewBuildsFieldsDefaultsAndDigest(t *testing.T) {
 	ct := &ConfigurationType[*viewConfiguration]{
 		New: func() *viewConfiguration {
@@ -77,6 +94,35 @@ func TestViewBuildsFieldsDefaultsAndDigest(t *testing.T) {
 
 type viewRequiredDefault struct {
 	Profile String
+}
+
+func TestViewBuildsPlainFields(t *testing.T) {
+	ct := &ConfigurationType[*viewPlainConfiguration]{
+		New: func() *viewPlainConfiguration { return &viewPlainConfiguration{} },
+	}
+
+	got, err := View(ct)
+	require.NoError(t, err)
+
+	assumeRole := typecheck.TObject([]typecheck.ObjectField{
+		{Name: "role-arn", Type: typecheck.TString()},
+		{Name: "external-id", Type: typecheck.TString(), Optional: true},
+	})
+	wantFields := []typecheck.ObjectField{
+		{Name: "region", Type: typecheck.TString()},
+		{Name: "profile", Type: typecheck.TString(), Optional: true},
+		{Name: "retries", Type: typecheck.TInteger()},
+		{Name: "ratio", Type: typecheck.TNumber()},
+		{Name: "enabled", Type: typecheck.TBoolean()},
+		{Name: "tags", Type: typecheck.TMap(typecheck.TString())},
+		{Name: "subnets", Type: typecheck.TList(typecheck.TString())},
+		{Name: "opaque", Type: typecheck.TOpaque()},
+		{Name: "assume-role", Type: assumeRole, Optional: true},
+	}
+	require.Equal(t, wantFields, got.Fields)
+	require.Empty(t, got.Defaults)
+	require.False(t, got.Empty)
+	require.Regexp(t, regexp.MustCompile(`^[0-9a-f]{64}$`), got.SchemaDigest)
 }
 
 func TestViewIgnoresDefaultOnRequiredWrapper(t *testing.T) {

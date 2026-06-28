@@ -22,6 +22,21 @@ type describedConfiguration struct {
 	AssumeRole *describedNested
 }
 
+type describedPlainNested struct {
+	RoleARN string `ub:"role-arn"`
+}
+
+type describedPlainConfiguration struct {
+	Region     string
+	Profile    *string
+	Retries    int64
+	Ratio      float64
+	Verbose    bool
+	Tags       map[string]string
+	Subnets    []string
+	AssumeRole *describedPlainNested `ub:"assume-role"`
+}
+
 func TestDescribeListsConfigurationFields(t *testing.T) {
 	ct := &ConfigurationType[any]{
 		New: func() any {
@@ -42,6 +57,28 @@ func TestDescribeListsConfigurationFields(t *testing.T) {
 		{Name: "subnets", Type: "list(string)"},
 		{Name: "endpoint", Type: "object", Fields: nested},
 		{Name: "assume-role", Type: "object", Optional: true, Fields: nested},
+	}
+	require.Equal(t, want, Describe(ct))
+}
+
+func TestDescribeListsPlainConfigurationFields(t *testing.T) {
+	ct := &ConfigurationType[*describedPlainConfiguration]{
+		New: func() *describedPlainConfiguration { return &describedPlainConfiguration{} },
+	}
+	want := []Field{
+		{Name: "region", Type: "string"},
+		{Name: "profile", Type: "string", Optional: true},
+		{Name: "retries", Type: "integer"},
+		{Name: "ratio", Type: "number"},
+		{Name: "verbose", Type: "boolean"},
+		{Name: "tags", Type: "map(string)"},
+		{Name: "subnets", Type: "list(string)"},
+		{
+			Name:     "assume-role",
+			Type:     "object",
+			Optional: true,
+			Fields:   []Field{{Name: "role-arn", Type: "string"}},
+		},
 	}
 	require.Equal(t, want, Describe(ct))
 }

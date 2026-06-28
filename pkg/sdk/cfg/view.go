@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/encoding/ub"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
@@ -83,6 +84,9 @@ func viewStruct(
 				"field %s: anonymous field %s is not supported; use a named field",
 				fieldPath(path, lang.PascalToKebab(f.Name)), f.Type)
 		}
+		if _, ok := inputFieldName(f); !ok {
+			continue
+		}
 		field, fieldDefaults, err := viewField(f, v.FieldByIndex(f.Index), path, visiting)
 		if err != nil {
 			return nil, nil, err
@@ -99,7 +103,10 @@ func viewField(
 	path []string,
 	visiting map[reflect.Type]bool,
 ) (typecheck.ObjectField, []lang.DefaultSpec, error) {
-	name := lang.PascalToKebab(f.Name)
+	name, ok := inputFieldName(f)
+	if !ok {
+		return typecheck.ObjectField{}, nil, nil
+	}
 	fieldPathParts := append(append([]string{}, path...), name)
 	ft := f.Type
 	optional := false
@@ -136,10 +143,45 @@ func viewType(
 	path []string,
 	visiting map[reflect.Type]bool,
 ) (typecheck.Type, []lang.DefaultSpec, error) {
+	if t.Kind() == reflect.Pointer {
+		inner, defaults, err := viewType(t.Elem(), reflect.Value{}, path, visiting)
+		return typecheck.TOptional(inner), defaults, err
+	}
 	if implementsValue(t) {
 		return viewWrapperType(t, v, path, visiting)
 	}
-	if t.Kind() == reflect.Struct {
+	if t == durationType {
+		return typecheck.TInteger(), nil, nil
+	}
+	switch t.Kind() {
+	case reflect.String:
+		return typecheck.TString(), nil, nil
+	case reflect.Bool:
+		return typecheck.TBoolean(), nil, nil
+	case reflect.Int64:
+		return typecheck.TInteger(), nil, nil
+	case reflect.Float64:
+		return typecheck.TNumber(), nil, nil
+	case reflect.Interface:
+		if t.NumMethod() == 0 {
+			return typecheck.TOpaque(), nil, nil
+		}
+	case reflect.Slice:
+		elem, _, err := viewType(t.Elem(), reflect.Value{}, path, visiting)
+		if err != nil {
+			return typecheck.TUnknown(), nil, err
+		}
+		return typecheck.TList(elem), nil, nil
+	case reflect.Map:
+		if t.Key().Kind() != reflect.String {
+			break
+		}
+		elem, _, err := viewType(t.Elem(), reflect.Value{}, path, visiting)
+		if err != nil {
+			return typecheck.TUnknown(), nil, err
+		}
+		return typecheck.TMap(elem), nil, nil
+	case reflect.Struct:
 		if !v.IsValid() {
 			v = reflect.New(t).Elem()
 		}
@@ -326,6 +368,17 @@ func writeViewFields(w io.Writer, fields []typecheck.ObjectField) {
 			writeViewFields(w, field.Type.Fields)
 		}
 	}
+}
+
+func inputFieldName(f reflect.StructField) (string, bool) {
+	tag := ub.ParseTag(f.Tag.Get("ub"))
+	if tag.Skip {
+		return "", false
+	}
+	if tag.Name != "" {
+		return tag.Name, true
+	}
+	return lang.PascalToKebab(f.Name), true
 }
 
 func fieldPath(path []string, name string) string {

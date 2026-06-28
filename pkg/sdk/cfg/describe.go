@@ -1,10 +1,6 @@
 package cfg
 
-import (
-	"reflect"
-
-	"github.com/cloudboss/unobin/pkg/lang"
-)
+import "reflect"
 
 // Field describes one field of a configuration struct, for the
 // factory's own help output.
@@ -62,6 +58,10 @@ func describeFields(v reflect.Value, visiting map[reflect.Type]bool) []Field {
 		if !f.IsExported() || f.Anonymous {
 			continue
 		}
+		name, ok := inputFieldName(f)
+		if !ok {
+			continue
+		}
 		ft, optional := f.Type, false
 		fv := v.FieldByIndex(f.Index)
 		if ft.Kind() == reflect.Pointer {
@@ -74,7 +74,7 @@ func describeFields(v reflect.Value, visiting map[reflect.Type]bool) []Field {
 			}
 		}
 		out = append(out, Field{
-			Name:        lang.PascalToKebab(f.Name),
+			Name:        name,
 			Type:        typeLabel(ft),
 			Optional:    optional,
 			Description: descriptionOf(fv),
@@ -119,6 +119,9 @@ func objectFields(t reflect.Type, v reflect.Value, visiting map[reflect.Type]boo
 // writes it. Containers name their element; a nested struct is an
 // object whose own fields stay unflattened.
 func typeLabel(t reflect.Type) string {
+	if t.Kind() == reflect.Pointer {
+		return typeLabel(t.Elem())
+	}
 	if implementsValue(t) {
 		switch {
 		case t.Implements(objectKindType):
@@ -140,18 +143,43 @@ func typeLabel(t reflect.Type) string {
 		}
 		return "?"
 	}
-	if t.Kind() == reflect.Struct {
+	if t == durationType {
+		return "integer"
+	}
+	switch t.Kind() {
+	case reflect.String:
+		return "string"
+	case reflect.Bool:
+		return "boolean"
+	case reflect.Int64:
+		return "integer"
+	case reflect.Float64:
+		return "number"
+	case reflect.Interface:
+		if t.NumMethod() == 0 {
+			return "opaque"
+		}
+	case reflect.Slice:
+		return "list(" + elementLabel(t.Elem()) + ")"
+	case reflect.Map:
+		if t.Key().Kind() == reflect.String {
+			return "map(" + elementLabel(t.Elem()) + ")"
+		}
+	case reflect.Struct:
 		return "object"
 	}
 	return "?"
 }
 
 func elementLabel(t reflect.Type) string {
-	el, ok := t.FieldByName("Element")
-	if !ok {
-		return "?"
+	if implementsValue(t) {
+		el, ok := t.FieldByName("Element")
+		if !ok {
+			return "?"
+		}
+		return typeLabel(el.Type)
 	}
-	return typeLabel(el.Type)
+	return typeLabel(t)
 }
 
 // descriptionOf reads the Description string a wrapper's zero value
