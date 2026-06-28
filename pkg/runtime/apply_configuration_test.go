@@ -226,7 +226,7 @@ func TestApplyEvaluatesDerivedLibraryConfig(t *testing.T) {
 
 func TestPlanAppliesLibraryConfigDefaultsBeforeDecode(t *testing.T) {
 	libs := plainConfiguredLibraries(plainEndpointSchema(true, false))
-	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "empty-config")
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "default-config")
 	exec := configurationTestExecutor(t, src, libs)
 	exec.Store = newStateStore(t)
 	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
@@ -236,7 +236,7 @@ func TestPlanAppliesLibraryConfigDefaultsBeforeDecode(t *testing.T) {
 
 func TestPlanChecksLibraryConfigConstraints(t *testing.T) {
 	libs := plainConfiguredLibraries(plainEndpointSchema(false, true))
-	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "constraint-config")
+	src := ubtest.ReadInvalidFixture(t, "testdata/ub/apply-configuration", "constraint-config")
 	exec := configurationTestExecutor(t, src, libs)
 	exec.Store = newStateStore(t)
 	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
@@ -248,7 +248,7 @@ func TestPlanChecksLibraryConfigConstraints(t *testing.T) {
 
 func TestPlanRejectsMissingLibraryConfigField(t *testing.T) {
 	libs := plainConfiguredLibraries(plainEndpointSchema(false, false))
-	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "empty-config")
+	src := ubtest.ReadInvalidFixture(t, "testdata/ub/apply-configuration", "empty-config")
 	exec := configurationTestExecutor(t, src, libs)
 	exec.Store = newStateStore(t)
 	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
@@ -261,7 +261,7 @@ func TestPlanRejectsMissingLibraryConfigField(t *testing.T) {
 
 func TestPlanRejectsUnknownLibraryConfigField(t *testing.T) {
 	libs := plainConfiguredLibraries(plainEndpointSchema(false, false))
-	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "unknown-config")
+	src := ubtest.ReadInvalidFixture(t, "testdata/ub/apply-configuration", "unknown-config")
 	exec := configurationTestExecutor(t, src, libs)
 	exec.Store = newStateStore(t)
 	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
@@ -273,7 +273,7 @@ func TestPlanRejectsUnknownLibraryConfigField(t *testing.T) {
 
 func TestPlanRejectsWrongLibraryConfigFieldType(t *testing.T) {
 	libs := plainConfiguredLibraries(plainEndpointSchema(false, false))
-	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "wrong-type-config")
+	src := ubtest.ReadInvalidFixture(t, "testdata/ub/apply-configuration", "wrong-type-config")
 	exec := configurationTestExecutor(t, src, libs)
 	exec.Store = newStateStore(t)
 	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
@@ -285,7 +285,7 @@ func TestPlanRejectsWrongLibraryConfigFieldType(t *testing.T) {
 }
 
 func TestRequiredLibraryConfigReportsDecodeError(t *testing.T) {
-	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "required-config-missing")
+	src := ubtest.ReadInvalidFixture(t, "testdata/ub/apply-configuration", "required-config-missing")
 	libs := requiredConfiguredLibraries()
 	exec := configurationTestExecutor(t, src, libs)
 	exec.Store = newStateStore(t)

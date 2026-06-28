@@ -80,6 +80,12 @@ func ReadValidFixture(t testing.TB, dir, name string) string {
 	return ReadFixture(t, filepath.Join(dir, "valid", name+".ub"))
 }
 
+// ReadInvalidFixture reads <name>.ub from the invalid fixture directory under dir.
+func ReadInvalidFixture(t testing.TB, dir, name string) string {
+	t.Helper()
+	return ReadFixture(t, filepath.Join(dir, "invalid", name+".ub"))
+}
+
 type fixture struct {
 	name    string // path relative to the root, without the .ub extension
 	src     []byte
