@@ -1,10 +1,12 @@
 # Schemas, constraints, defaults
 
-The compiler reads Go library source to derive input schemas, output fields, constraints, and defaults.
+The compiler reads Go library source to derive input schemas, configuration schemas,
+output fields, constraints, and defaults.
 
 ## Struct fields
 
-Input structs become UB object fields. Field names use kebab case by default, and `ub` tags can set the UB name:
+Input and configuration structs become UB object fields. Field names use kebab case by
+default, and `ub` tags can set the UB name:
 
 ```go
 type File struct {
@@ -14,7 +16,9 @@ type File struct {
 }
 ```
 
-Pointer fields are optional. Output structs use the same field naming rules. An output field can be marked sensitive:
+Pointer fields are optional. For non-pointer fields that may be omitted, declare
+`Defaults()` with `defaults.Value` or `defaults.Optional`. Output structs use the same
+field naming rules. An output field can be marked sensitive:
 
 ```go
 type SecretOutput struct {
@@ -36,7 +40,9 @@ func (f File) Defaults() []defaults.Default {
 }
 ```
 
-`defaults.Value` fills a value before the type's runtime method runs. `defaults.Optional` says the field may be omitted and the zero value is acceptable.
+`defaults.Value` fills a value before the type's runtime method runs.
+`defaults.Optional` says the field may be omitted and the zero value is acceptable.
+The same defaults method model applies to library configuration structs.
 
 ## Constraints
 
@@ -51,10 +57,16 @@ func (f File) Constraints() []constraint.Constraint {
 }
 ```
 
-Set constraints include `ExactlyOneOf`, `AtLeastOneOf`, `AtMostOneOf`, `RequiredTogether`, `RequiredWith`, and `ForbiddenWith`. Predicate constraints use `Must` or `When(...).Require(...)`.
+Set constraints include `ExactlyOneOf`, `AtLeastOneOf`, `AtMostOneOf`,
+`RequiredTogether`, `RequiredWith`, and `ForbiddenWith`. Predicate constraints use
+`Must` or `When(...).Require(...)`. Library configuration structs use the same
+constraints method model.
 
 ## Check timing
 
-Deep schema and constraint checks happen at compile time when the source and selected libraries are known. The compiled factory trusts those checks and decodes runtime values into the registered Go types.
+Deep schema and constraint checks happen at compile time when the source and selected
+libraries are known. The compiled factory trusts those checks and decodes runtime
+values into the registered Go types.
 
-For checks that need live configuration or external state, a resource can also implement `runtime.InputValidator`; see [Resources](resources.md#apply-time-input-validation).
+For checks that need live configuration or external state, a resource can also implement
+`runtime.InputValidator`; see [Resources](resources.md#apply-time-input-validation).

@@ -4,8 +4,24 @@ A Go library can declare configuration that applies to every node under an impor
 
 ```go
 type Configuration struct {
-    Region cfg.String
-    Prefix *cfg.String
+    Region      string
+    Prefix      string
+    MaxAttempts int64 `ub:"max-attempts"`
+}
+
+func (c Configuration) Defaults() []defaults.Default {
+    return []defaults.Default{
+        defaults.Value(c.Prefix, ""),
+        defaults.Value(c.MaxAttempts, int64(3)),
+    }
+}
+
+func (c Configuration) Constraints() []constraint.Constraint {
+    return []constraint.Constraint{
+        constraint.Must(constraint.NotEmpty(c.Region)).Message("region is required"),
+        constraint.Must(constraint.AtLeast(c.MaxAttempts, 1)).
+            Message("max-attempts must be positive"),
+    }
 }
 
 func Library() *runtime.Library {
@@ -13,11 +29,7 @@ func Library() *runtime.Library {
         Name: "cloud",
         Configuration: &cfg.ConfigurationType[*Configuration]{
             Description: "Cloud connection settings.",
-            New: func() *Configuration {
-                return &Configuration{
-                    Prefix: &cfg.String{Default: ""},
-                }
-            },
+            New:         func() *Configuration { return &Configuration{} },
         },
     }
 }
@@ -25,31 +37,32 @@ func Library() *runtime.Library {
 
 Use `runtime.NoConfig` as the config type parameter when a library has no configuration.
 
-## Wrapper types
+## Field model
 
-Configuration structs use wrapper types from `pkg/sdk/cfg`:
+Configuration structs use the same ordinary Go field model as resource, data source,
+and action input structs:
 
-- `cfg.String`
-- `cfg.Integer`
-- `cfg.Number`
-- `cfg.Boolean`
-- `cfg.Null`
-- `cfg.Any`
-- `cfg.List[T]`
-- `cfg.Map[T]`
-- `cfg.Object[T]`
+- `string`, `bool`, `int64`, `float64`, and `any` map to UB scalar types.
+- `[]T` maps to `list(T)`.
+- `map[string]T` maps to `map(T)`.
+- Nested structs map to UB objects.
+- `*T` makes a field optional.
+- `ub:"name"` changes the UB field name.
+- `ub:"-"` omits a Go field from the UB schema.
 
-A pointer field makes a nested value optional. Wrapper fields can set descriptions, defaults, and validators.
+Use `Defaults()` for non-pointer fields that may be omitted. Use `Constraints()`
+for config validation. Defaults are applied before constraints and before the
+decoded config reaches resources, data sources, actions, or functions.
 
 ## Source use
 
 A factory input can use the configuration schema:
 
-```
+```ub
 inputs: {
   cloud: {
     type: library-config('github.com/example/cloud')
-    default: {}
+    default: { region: 'us-west-2' }
   }
 }
 
@@ -60,4 +73,5 @@ library-configs: {
 }
 ```
 
-Every resource, data source, action, and function under the `cloud` alias receives that config type at runtime.
+Every resource, data source, action, and function under the `cloud` alias receives
+that config type at runtime.
