@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/cloudboss/unobin/pkg/lang"
-	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
@@ -914,7 +913,7 @@ func (e *Executor) planConfigNode(rs *runState, n *Node) (*PlanStep, error) {
 		return nil, fmt.Errorf("%s: library %q declares no configuration",
 			n.Address, n.Alias)
 	}
-	decoded, err := cfg.Decode(lib.Configuration, inputs)
+	decoded, err := decodeLibraryConfig(lib, inputs)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", n.Address, err)
 	}

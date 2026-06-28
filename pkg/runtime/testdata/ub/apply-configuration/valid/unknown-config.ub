@@ -1,0 +1,15 @@
+imports: {
+  fix: 'github.com/acme/fix'
+}
+library-configs: {
+  fix: {
+    endpoint: 'https://api.example'
+    typo:     true
+  }
+}
+resources: {
+  app: fix.config-echo {}
+}
+outputs: {
+  got: { value: resource.app.endpoint }
+}

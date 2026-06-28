@@ -15,7 +15,6 @@ import (
 	"github.com/cloudboss/unobin/pkg/encoding/ub"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
-	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/cloudboss/unobin/pkg/stateref"
 )
@@ -194,7 +193,7 @@ func (e *Executor) seedPriorInternalConfigurations(
 			return fmt.Errorf("%s: library %q declares no configuration",
 				n.Address, n.Alias)
 		}
-		decoded, err := cfg.Decode(lib.Configuration, raw)
+		decoded, err := decodeLibraryConfig(lib, raw)
 		if err != nil {
 			return fmt.Errorf("%s: %w", n.Address, err)
 		}
@@ -251,7 +250,7 @@ func emptyDecodedConfig(lib *Library) any {
 	if lib == nil || lib.Configuration == nil || !lib.Configuration.Empty() {
 		return nil
 	}
-	decoded, err := cfg.Decode(lib.Configuration, map[string]any{})
+	decoded, err := decodeLibraryConfig(lib, map[string]any{})
 	if err != nil {
 		return nil
 	}

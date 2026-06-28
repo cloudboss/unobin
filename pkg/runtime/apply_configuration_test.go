@@ -7,9 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/internal/ubtest"
+	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
 type endpointConfiguration struct {
@@ -18,6 +20,10 @@ type endpointConfiguration struct {
 
 type requiredEndpointConfiguration struct {
 	Endpoint cfg.String
+}
+
+type runtimePlainConfiguration struct {
+	Endpoint string
 }
 
 type echoResource struct {
@@ -52,6 +58,11 @@ func endpointOf(c any) string {
 			return ""
 		}
 		return conf.Endpoint.Value
+	case *runtimePlainConfiguration:
+		if conf == nil {
+			return ""
+		}
+		return conf.Endpoint
 	default:
 		return ""
 	}
@@ -92,6 +103,38 @@ func configuredLibrariesRecording(readSeen, deleteSeen *[]string) map[string]*Li
 func requiredConfiguredLibraries() map[string]*Library {
 	return configuredLibrariesWithConfig(
 		func() any { return &requiredEndpointConfiguration{} }, nil, nil)
+}
+
+func plainConfiguredLibraries(schema *LibrarySchema) map[string]*Library {
+	libs := configuredLibrariesWithConfig(
+		func() any { return &runtimePlainConfiguration{} }, nil, nil)
+	libs["fix"].Schema = schema
+	return libs
+}
+
+func plainEndpointSchema(defaulted, constrained bool) *LibrarySchema {
+	fields := []typecheck.ObjectField{{Name: "endpoint", Type: typecheck.TString()}}
+	var defaults []lang.DefaultSpec
+	if defaulted {
+		fields[0].Defaulted = true
+		defaults = []lang.DefaultSpec{{Field: "input.endpoint", Value: "'https://default.example'"}}
+	}
+	var constraints []lang.ConstraintSpec
+	if constrained {
+		constraints = []lang.ConstraintSpec{{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.endpoint) >= 1)",
+			Message: "endpoint is required",
+		}}
+	}
+	return &LibrarySchema{
+		HasConfiguration:         true,
+		ConfigurationFields:      fields,
+		ConfigurationDefaults:    defaults,
+		ConfigurationConstraints: constraints,
+		ConfigurationDigest:      cfg.DigestView(fields, defaults, constraints),
+	}
 }
 
 func configuredLibrariesWithConfig(
@@ -179,6 +222,66 @@ func TestApplyEvaluatesDerivedLibraryConfig(t *testing.T) {
 	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
 	res := applyOnce(t, exec)
 	require.Equal(t, "https://cluster.example", res.Outputs["got"])
+}
+
+func TestPlanAppliesLibraryConfigDefaultsBeforeDecode(t *testing.T) {
+	libs := plainConfiguredLibraries(plainEndpointSchema(true, false))
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "empty-config")
+	exec := configurationTestExecutor(t, src, libs)
+	exec.Store = newStateStore(t)
+	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
+	res := applyOnce(t, exec)
+	require.Equal(t, "https://default.example", res.Outputs["got"])
+}
+
+func TestPlanChecksLibraryConfigConstraints(t *testing.T) {
+	libs := plainConfiguredLibraries(plainEndpointSchema(false, true))
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "constraint-config")
+	exec := configurationTestExecutor(t, src, libs)
+	exec.Store = newStateStore(t)
+	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
+	_, err := exec.Plan(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "library-config.fix")
+	require.Contains(t, err.Error(), "endpoint is required")
+}
+
+func TestPlanRejectsMissingLibraryConfigField(t *testing.T) {
+	libs := plainConfiguredLibraries(plainEndpointSchema(false, false))
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "empty-config")
+	exec := configurationTestExecutor(t, src, libs)
+	exec.Store = newStateStore(t)
+	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
+	_, err := exec.Plan(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "library-config.fix")
+	require.Contains(t, err.Error(), "endpoint")
+	require.Contains(t, err.Error(), "required")
+}
+
+func TestPlanRejectsUnknownLibraryConfigField(t *testing.T) {
+	libs := plainConfiguredLibraries(plainEndpointSchema(false, false))
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "unknown-config")
+	exec := configurationTestExecutor(t, src, libs)
+	exec.Store = newStateStore(t)
+	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
+	_, err := exec.Plan(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "library-config.fix")
+	require.Contains(t, err.Error(), "typo")
+}
+
+func TestPlanRejectsWrongLibraryConfigFieldType(t *testing.T) {
+	libs := plainConfiguredLibraries(plainEndpointSchema(false, false))
+	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "wrong-type-config")
+	exec := configurationTestExecutor(t, src, libs)
+	exec.Store = newStateStore(t)
+	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
+	_, err := exec.Plan(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "library-config.fix")
+	require.Contains(t, err.Error(), "endpoint")
+	require.Contains(t, err.Error(), "string")
 }
 
 func TestRequiredLibraryConfigReportsDecodeError(t *testing.T) {

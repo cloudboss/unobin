@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
@@ -185,7 +184,7 @@ func (e *Executor) applyConfigNode(rs *runState, step *PlanStep, node *Node) err
 		return fmt.Errorf("%s: library %q declares no configuration",
 			step.Address, node.Alias)
 	}
-	decoded, err := cfg.Decode(lib.Configuration, raw)
+	decoded, err := decodeLibraryConfig(lib, raw)
 	if err != nil {
 		return fmt.Errorf("%s: %w", step.Address, err)
 	}
