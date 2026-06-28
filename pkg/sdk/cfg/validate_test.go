@@ -2,6 +2,7 @@ package cfg
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -25,47 +26,55 @@ func TestValidateConfigurationTypeAcceptsValidConfig(t *testing.T) {
 	require.NoError(t, ValidateConfigurationType(ct))
 }
 
-func TestValidateConfigurationTypeRejectsBareGoType(t *testing.T) {
-	type Configuration struct {
-		Region string
-	}
-	ct := &ConfigurationType[any]{
-		New: func() any { return &Configuration{} },
-	}
-	err := ValidateConfigurationType(ct)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "Region")
-	require.Contains(t, err.Error(), "string")
-}
-
-func TestValidateConfigurationTypeRejectsBareGoTypeInsideNestedStruct(t *testing.T) {
+func TestValidateConfigurationTypeAcceptsPlainFields(t *testing.T) {
 	type AssumeRole struct {
-		RoleARN  String
-		Duration int
+		RoleARN    string
+		ExternalID *string
 	}
 	type Configuration struct {
+		Region     string
+		Enabled    bool
+		Retries    int64
+		Ratio      float64
+		Opaque     any
+		Timeout    time.Duration
+		Subnets    []string
+		Tags       map[string]string
 		AssumeRole *AssumeRole
 	}
-	ct := &ConfigurationType[any]{
-		New: func() any { return &Configuration{} },
+	ct := &ConfigurationType[*Configuration]{
+		New: func() *Configuration { return &Configuration{} },
 	}
-	err := ValidateConfigurationType(ct)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "AssumeRole.Duration")
+	require.NoError(t, ValidateConfigurationType(ct))
 }
 
-func TestValidateConfigurationTypeRejectsNakedSliceOrMap(t *testing.T) {
+func TestValidateConfigurationTypeRejectsUnsupportedPlainFields(t *testing.T) {
 	type Configuration struct {
-		Hosts []string
-		Tags  map[string]string
+		Channel chan string
+		Lookup  map[int]string
 	}
-	ct := &ConfigurationType[any]{
-		New: func() any { return &Configuration{} },
+	ct := &ConfigurationType[*Configuration]{
+		New: func() *Configuration { return &Configuration{} },
 	}
 	err := ValidateConfigurationType(ct)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "Hosts")
-	require.Contains(t, err.Error(), "Tags")
+	require.Contains(t, err.Error(), "Channel")
+	require.Contains(t, err.Error(), "Lookup")
+}
+
+func TestValidateConfigurationTypeRejectsAnonymousField(t *testing.T) {
+	type Embedded struct {
+		Region string
+	}
+	type Configuration struct {
+		Embedded
+	}
+	ct := &ConfigurationType[*Configuration]{
+		New: func() *Configuration { return &Configuration{} },
+	}
+	err := ValidateConfigurationType(ct)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "anonymous field")
 }
 
 func TestValidateConfigurationTypeSkipsUnexportedFields(t *testing.T) {
