@@ -98,6 +98,105 @@ func TestReadExtractsConfigurationSchema(t *testing.T) {
 	require.True(t, schema.HasConfiguration)
 }
 
+func TestReadExtractsPlainConfigurationSchema(t *testing.T) {
+	schema, warnings, err := Read("testdata/plainconfig")
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+
+	assumeRole := typecheck.TObject([]typecheck.ObjectField{
+		{Name: "role-arn", Type: typecheck.TString()},
+		{Name: "external-id", Type: typecheck.TString(), Optional: true},
+	})
+	wantFields := []typecheck.ObjectField{
+		{Name: "region", Type: typecheck.TString()},
+		{Name: "profile", Type: typecheck.TString(), Optional: true},
+		{Name: "max-attempts", Type: typecheck.TInteger(), Defaulted: true},
+		{Name: "tags", Type: typecheck.TMap(typecheck.TString())},
+		{Name: "assume-role", Type: assumeRole, Optional: true},
+	}
+	wantDefaults := []lang.DefaultSpec{
+		{Field: "input.max-attempts", Value: "3"},
+		{Field: "input.tags", Optional: true},
+	}
+	wantConstraints := []lang.ConstraintSpec{
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.region) >= 1)",
+			Message: "region is required",
+		},
+		{
+			Kind: "required-with",
+			Fields: []string{
+				"input.assume-role.external-id",
+				"input.assume-role.role-arn",
+			},
+		},
+	}
+	require.Equal(t, wantFields, schema.ConfigurationFields)
+	require.Equal(t, objectFieldsToMap(wantFields), schema.Configuration)
+	require.Equal(t, wantDefaults, schema.ConfigurationDefaults)
+	require.Equal(t, wantConstraints, schema.ConfigurationConstraints)
+	require.Equal(t,
+		cfg.DigestView(wantFields, wantDefaults, wantConstraints),
+		schema.ConfigurationDigest,
+	)
+	require.False(t, schema.ConfigurationEmpty)
+	require.True(t, schema.HasConfiguration)
+	require.Contains(t, schema.Resources, "bucket")
+}
+
+func TestReadRejectsMalformedPlainConfigurationDefaults(t *testing.T) {
+	src := plainConfigLibraryWith(`func (c Configuration) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Value(c.Profile, "default"),
+	}
+}`)
+	_, _, err := readConstraintLibrary(t, src)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `pointer field "profile" cannot take a default`)
+}
+
+func TestReadRejectsMalformedPlainConfigurationConstraints(t *testing.T) {
+	src := plainConfigLibraryWith(`func (c Configuration) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.RequiredWith(c.Missing, c.Region),
+	}
+}`)
+	_, _, err := readConstraintLibrary(t, src)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `"Missing"`)
+}
+
+func plainConfigLibraryWith(method string) string {
+	return `package lib
+
+import (
+	"github.com/cloudboss/unobin/pkg/constraint"
+	"github.com/cloudboss/unobin/pkg/defaults"
+	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
+)
+
+func Library() *runtime.Library {
+	return &runtime.Library{
+		Name: "lib",
+		Configuration: &cfg.ConfigurationType[*Configuration]{
+			New: func() *Configuration {
+				return &Configuration{}
+			},
+		},
+	}
+}
+
+type Configuration struct {
+	Region  string
+	Profile *string
+}
+
+` + method + "\n"
+}
+
 func TestReadWarnsWhenConfigurationNewIsNotALiteral(t *testing.T) {
 	schema, warnings, err := Read("testdata/badnew")
 	require.NoError(t, err)

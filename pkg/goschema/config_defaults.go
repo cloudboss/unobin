@@ -18,7 +18,10 @@ func (w *walker) lookupConfigurationFields(
 	if fields == nil {
 		return nil, nil, nil
 	}
-	defaults := w.lookupConfigurationDefaults(ref, init)
+	defaults := w.lookupDefaults(ref)
+	if len(defaults) == 0 {
+		defaults = w.lookupConfigurationDefaults(ref, init)
+	}
 	markDefaultedFields(fields, defaults)
 	return fields, defaults, sensitive
 }

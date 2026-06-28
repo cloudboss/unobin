@@ -218,9 +218,29 @@ func (w *walker) defaultValueString(arg ast.Expr) (string, bool) {
 		if ns, ok := w.foldDuration(arg); ok {
 			return strconv.FormatInt(ns, 10), true
 		}
+	case *ast.CallExpr:
+		if len(v.Args) == 1 && w.defaultConversion(v.Fun) {
+			return w.defaultValueString(v.Args[0])
+		}
 	}
 	w.addWarnf("a default must be a literal, got %s", renderExpr(arg))
 	return "", false
+}
+
+func (w *walker) defaultConversion(fun ast.Expr) bool {
+	switch v := fun.(type) {
+	case *ast.Ident:
+		switch v.Name {
+		case "int", "int8", "int16", "int32", "int64",
+			"uint", "uint8", "uint16", "uint32", "uint64",
+			"byte", "rune", "float32", "float64", "string", "bool":
+			return true
+		}
+	case *ast.SelectorExpr:
+		pkg, ok := identName(v.X)
+		return ok && w.imports[pkg] == "time" && v.Sel.Name == "Duration"
+	}
+	return false
 }
 
 // durationConsts maps the time package's duration constants to their
