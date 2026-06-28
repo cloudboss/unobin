@@ -7,6 +7,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type plainAssumeRole struct {
+	RoleARN    string `ub:"role-arn"`
+	ExternalID *string
+}
+
+type plainConfiguration struct {
+	Region      string
+	Profile     *string
+	MaxAttempts int64
+	Tags        map[string]string
+	Subnets     []string
+	AssumeRole  *plainAssumeRole `ub:"assume-role"`
+}
+
 type stubValidator struct {
 	err  error
 	seen []any
@@ -19,6 +33,40 @@ func (s *stubValidator) Check(v any) error {
 
 func (s *stubValidator) Describe() ValidatorDesc {
 	return ValidatorDesc{Kind: "stub"}
+}
+
+func TestDecodePlainFields(t *testing.T) {
+	ct := &ConfigurationType[*plainConfiguration]{
+		New: func() *plainConfiguration { return &plainConfiguration{} },
+	}
+	raw := map[string]any{
+		"region":       "us-west-2",
+		"max-attempts": int64(3),
+		"tags":         map[string]any{"env": "test"},
+		"subnets":      []any{"subnet-a", "subnet-b"},
+		"assume-role": map[string]any{
+			"role-arn": "arn:aws:iam::1:role/deployer",
+		},
+	}
+	out, err := Decode(ct, raw)
+	require.NoError(t, err)
+
+	config := out.(*plainConfiguration)
+	require.Equal(t, "us-west-2", config.Region)
+	require.Nil(t, config.Profile)
+	require.EqualValues(t, 3, config.MaxAttempts)
+	require.Equal(t, map[string]string{"env": "test"}, config.Tags)
+	require.Equal(t, []string{"subnet-a", "subnet-b"}, config.Subnets)
+	require.Equal(t, "arn:aws:iam::1:role/deployer", config.AssumeRole.RoleARN)
+}
+
+func TestDecodePlainFieldsRejectUnknownKey(t *testing.T) {
+	ct := &ConfigurationType[*plainConfiguration]{
+		New: func() *plainConfiguration { return &plainConfiguration{} },
+	}
+	_, err := Decode(ct, map[string]any{"region": "us-west-2", "bogus": true})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "bogus")
 }
 
 func TestDecodeAtomicFields(t *testing.T) {

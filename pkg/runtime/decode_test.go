@@ -102,3 +102,10 @@ func TestDecodeIgnoresSensitiveOption(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "shh", v.Password)
 }
+
+func TestDecodeRejectsNonStructDestination(t *testing.T) {
+	var v string
+	err := Decode(&v, map[string]any{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "pointer to a struct")
+}

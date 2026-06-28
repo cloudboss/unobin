@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/structdecode"
 )
 
 // Decode populates a fresh instance returned by ct.New() with values
@@ -33,12 +34,38 @@ func Decode(ct Registration, raw map[string]any) (any, error) {
 		return nil, fmt.Errorf(
 			"Decode: New must return a pointer to a struct; got %s", v.Type())
 	}
+	if !usesWrappers(v.Elem().Type(), map[reflect.Type]bool{}) {
+		if err := structdecode.Decode(inst, raw); err != nil {
+			return nil, err
+		}
+		return inst, nil
+	}
 	errs := &errList{}
 	decodeStruct(v.Elem(), raw, "", errs)
 	if !errs.ok() {
 		return nil, errs.err()
 	}
 	return inst, nil
+}
+
+func usesWrappers(t reflect.Type, visited map[reflect.Type]bool) bool {
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if implementsValue(t) {
+		return true
+	}
+	if t.Kind() != reflect.Struct || visited[t] {
+		return false
+	}
+	visited[t] = true
+	defer delete(visited, t)
+	for f := range t.Fields() {
+		if f.IsExported() && usesWrappers(f.Type, visited) {
+			return true
+		}
+	}
+	return false
 }
 
 type errList struct {
