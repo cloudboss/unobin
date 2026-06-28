@@ -19,15 +19,25 @@ import (
 )
 
 type Configuration struct {
-	BaseDir      cfg.String `ub:"base-dir"`
-	EventLogPath cfg.String `ub:"event-log-path"`
-	Prefix       *cfg.String
-	Nested       *NestedConfig
+	BaseDir      string `ub:"base-dir"`
+	EventLogPath string `ub:"event-log-path"`
+	Prefix       string
+	Nested       NestedConfig
 }
 
 type NestedConfig struct {
-	Label   cfg.String
-	Enabled *cfg.Boolean
+	Label   string
+	Enabled bool
+}
+
+func (c Configuration) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Value(c.BaseDir, "."),
+		defaults.Value(c.EventLogPath, "events.ndjson"),
+		defaults.Value(c.Prefix, ""),
+		defaults.Value(c.Nested.Label, "nested"),
+		defaults.Value(c.Nested.Enabled, true),
+	}
 }
 
 func Library() *ubruntime.Library {
@@ -36,17 +46,7 @@ func Library() *ubruntime.Library {
 		Description: "Fixture library for Unobin e2e tests.",
 		Configuration: &cfg.ConfigurationType[*Configuration]{
 			Description: "Filesystem-backed e2e test settings.",
-			New: func() *Configuration {
-				return &Configuration{
-					BaseDir:      cfg.String{Default: "."},
-					EventLogPath: cfg.String{Default: "events.ndjson"},
-					Prefix:       &cfg.String{Default: ""},
-					Nested: &NestedConfig{
-						Label:   cfg.String{Default: "nested"},
-						Enabled: &cfg.Boolean{Default: true},
-					},
-				}
-			},
+			New:         func() *Configuration { return &Configuration{} },
 		},
 		Resources: map[string]ubruntime.ResourceRegistration{
 			"file":   ubruntime.MakeResource[File, *FileOutput, *Configuration](),
@@ -498,23 +498,23 @@ func objectPath(config *Configuration, name string) string {
 }
 
 func configBaseDir(config *Configuration) string {
-	if config == nil || config.BaseDir.Value == "" {
+	if config == nil || config.BaseDir == "" {
 		return "."
 	}
-	return config.BaseDir.Value
+	return config.BaseDir
 }
 
 func configPrefix(config *Configuration) string {
-	if config == nil || config.Prefix == nil {
+	if config == nil {
 		return ""
 	}
-	return config.Prefix.Value
+	return config.Prefix
 }
 
 func eventLogPath(config *Configuration) string {
 	path := "events.ndjson"
-	if config != nil && config.EventLogPath.Value != "" {
-		path = config.EventLogPath.Value
+	if config != nil && config.EventLogPath != "" {
+		path = config.EventLogPath
 	}
 	return resolvePath(config, path)
 }

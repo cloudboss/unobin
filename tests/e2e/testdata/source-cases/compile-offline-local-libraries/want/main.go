@@ -49,19 +49,22 @@ func main() {
 	libraries["e2e"].Schema = &runtime.LibrarySchema{
 		HasConfiguration: true,
 		ConfigurationFields: []typecheck.ObjectField{
-			{Name: "base-dir", Type: typecheck.TString()},
-			{Name: "event-log-path", Type: typecheck.TString()},
-			{Name: "prefix", Type: typecheck.TString(), Optional: true, Defaulted: true},
+			{Name: "base-dir", Type: typecheck.TString(), Defaulted: true},
+			{Name: "event-log-path", Type: typecheck.TString(), Defaulted: true},
+			{Name: "prefix", Type: typecheck.TString(), Defaulted: true},
 			{Name: "nested", Type: typecheck.TObject([]typecheck.ObjectField{
-				{Name: "label", Type: typecheck.TString()},
-				{Name: "enabled", Type: typecheck.TBoolean(), Optional: true, Defaulted: true},
-			}), Optional: true},
+				{Name: "label", Type: typecheck.TString(), Defaulted: true},
+				{Name: "enabled", Type: typecheck.TBoolean(), Defaulted: true},
+			})},
 		},
 		ConfigurationDefaults: []lang.DefaultSpec{
+			{Field: "input.base-dir", Value: "'.'"},
+			{Field: "input.event-log-path", Value: "'events.ndjson'"},
 			{Field: "input.prefix", Value: "''"},
+			{Field: "input.nested.label", Value: "'nested'"},
 			{Field: "input.nested.enabled", Value: "true"},
 		},
-		ConfigurationDigest: "f155b1daa60fe78cb8c69a53a394cf7ff416a52536afb3d14cd8a618245a3a7d",
+		ConfigurationDigest: "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3",
 	}
 	runner.Run(runner.Info{
 		FactoryName:     factoryName,
