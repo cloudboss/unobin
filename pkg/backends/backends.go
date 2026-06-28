@@ -55,7 +55,7 @@ func Backends() map[string]sdkstate.BackendType {
 // LocalBackendConfig is the operator-facing body under
 // `state: local { ... }`.
 type LocalBackendConfig struct {
-	Path cfg.String
+	Path string
 }
 
 func newLocalBackend(
@@ -67,7 +67,10 @@ func newLocalBackend(
 	if !ok {
 		return nil, fmt.Errorf("local backend: missing or wrong configuration (got %T)", config)
 	}
-	return local.NewStore(c.Path.Value, factory, stack, enc)
+	if c.Path == "" {
+		return nil, errors.New("local backend: path is required")
+	}
+	return local.NewStore(c.Path, factory, stack, enc)
 }
 
 // S3BackendConfig is the operator-facing body under `state: s3 { ... }`.
@@ -75,10 +78,10 @@ func newLocalBackend(
 // pkg/awscfg; bucket, prefix, kms-key-id, and use-path-style are the
 // backend's own.
 type S3BackendConfig struct {
-	Bucket       cfg.String
-	Prefix       *cfg.String
-	KMSKeyID     *cfg.String
-	UsePathStyle *cfg.Boolean
+	Bucket       string
+	Prefix       *string
+	KMSKeyID     *string
+	UsePathStyle *bool
 	AWS          *awscfg.Configuration
 }
 
@@ -91,7 +94,7 @@ func newS3Backend(
 	if !ok {
 		return nil, fmt.Errorf("s3 backend: missing or wrong configuration (got %T)", config)
 	}
-	if c.Bucket.Value == "" {
+	if c.Bucket == "" {
 		return nil, errors.New("s3 backend: bucket is required")
 	}
 	awsCfg, err := awscfg.Load(context.Background(), c.AWS)
@@ -99,20 +102,22 @@ func newS3Backend(
 		return nil, fmt.Errorf("s3 backend: %w", err)
 	}
 	client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
-		if ep := c.AWS.S3Endpoint(); ep != "" {
-			o.BaseEndpoint = aws.String(ep)
+		if c.AWS != nil {
+			if ep := c.AWS.S3Endpoint(); ep != "" {
+				o.BaseEndpoint = aws.String(ep)
+			}
 		}
 		if c.UsePathStyle != nil {
-			o.UsePathStyle = c.UsePathStyle.Value
+			o.UsePathStyle = *c.UsePathStyle
 		}
 	})
-	return s3store.NewStore(client, c.Bucket.Value, optString(c.Prefix),
+	return s3store.NewStore(client, c.Bucket, optString(c.Prefix),
 		optString(c.KMSKeyID), factory, stack, enc)
 }
 
-func optString(p *cfg.String) string {
+func optString(p *string) string {
 	if p == nil {
 		return ""
 	}
-	return p.Value
+	return *p
 }

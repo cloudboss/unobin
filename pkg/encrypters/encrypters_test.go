@@ -1,6 +1,7 @@
 package encrypters
 
 import (
+	"encoding/base64"
 	"reflect"
 	"testing"
 
@@ -35,6 +36,15 @@ func TestEncryptersRegistersKMS(t *testing.T) {
 	require.True(t, ok, "expected a kms encrypter")
 	require.NotNil(t, et.Configuration)
 	assert.Equal(t, "kms", et.Name)
+}
+
+func TestNewEnvKeyAcceptsPlainConfig(t *testing.T) {
+	key := base64.StdEncoding.EncodeToString(make([]byte, 32))
+	t.Setenv("UB_STATE_KEY", key)
+
+	enc, err := newEnvKey(&EnvKeyConfig{EnvVar: "UB_STATE_KEY"}, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, enc)
 }
 
 // The decoder maps Go fields to UB keys with PascalToKebab and no tag

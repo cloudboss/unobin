@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cloudboss/unobin/pkg/encrypters"
 	"github.com/cloudboss/unobin/pkg/lang"
 )
 
@@ -34,6 +35,19 @@ func TestS3BackendConfigKebabNames(t *testing.T) {
 		got = append(got, lang.PascalToKebab(f.Name))
 	}
 	assert.Equal(t, expected, got)
+}
+
+func TestNewLocalBackendAcceptsPlainConfig(t *testing.T) {
+	backend, err := newLocalBackend(
+		&LocalBackendConfig{Path: t.TempDir()}, "factory", "stack", encrypters.Noop{})
+	require.NoError(t, err)
+	assert.NotNil(t, backend)
+}
+
+func TestNewLocalBackendRequiresPath(t *testing.T) {
+	_, err := newLocalBackend(&LocalBackendConfig{}, "factory", "stack", encrypters.Noop{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "path is required")
 }
 
 func TestNewS3BackendRequiresBucket(t *testing.T) {

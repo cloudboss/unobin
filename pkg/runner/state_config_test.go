@@ -136,7 +136,7 @@ func TestResolveBackendS3RejectsUnknownKey(t *testing.T) {
 	}}
 	_, err := resolveBackend(ref, "test-factory", "default", encrypters.Noop{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unknown key region")
+	assert.Contains(t, err.Error(), "invalid keys: region")
 }
 
 func TestResolveEncrypterNilNoEnvKey(t *testing.T) {

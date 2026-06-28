@@ -14,8 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/pkg/awscfg"
-	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
+
+func stringPtr(v string) *string {
+	out := v
+	return &out
+}
 
 // testClient builds a real KMS client against the fake server,
 // through awscfg the same way the encrypter constructor builds it.
@@ -31,8 +35,8 @@ func testClient(t *testing.T, url string) *kms.Client {
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
 	t.Setenv("AWS_SESSION_TOKEN", "")
 	awsCfg, err := awscfg.Load(context.Background(), &awscfg.Configuration{
-		Region:      &cfg.String{Value: "us-east-1"},
-		EndpointURL: &cfg.String{Value: url},
+		Region:      stringPtr("us-east-1"),
+		EndpointURL: stringPtr(url),
 	})
 	require.NoError(t, err)
 	return kms.NewFromConfig(awsCfg)

@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"maps"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -19,8 +20,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
 
 // isolateEnv points the SDK's file and env lookups away from the real
@@ -41,7 +40,26 @@ func isolateEnv(t *testing.T) {
 	t.Setenv("NO_PROXY", "")
 }
 
-func str(v string) *cfg.String { return &cfg.String{Value: v} }
+func str(v string) *string {
+	out := v
+	return &out
+}
+
+func integer(v int64) *int64 {
+	out := v
+	return &out
+}
+
+func stringList(v ...string) *[]string {
+	out := append([]string(nil), v...)
+	return &out
+}
+
+func stringMap(v map[string]string) *map[string]string {
+	out := make(map[string]string, len(v))
+	maps.Copy(out, v)
+	return &out
+}
 
 func TestLoadNilUsesChain(t *testing.T) {
 	isolateEnv(t)
@@ -55,7 +73,7 @@ func TestLoadOverrides(t *testing.T) {
 	isolateEnv(t)
 	c := &Configuration{
 		Region:      str("us-east-2"),
-		MaxAttempts: &cfg.Integer{Value: 7},
+		MaxAttempts: integer(7),
 		RetryMode:   str("adaptive"),
 		EndpointURL: str("https://minio.example.test:9000"),
 	}
@@ -127,10 +145,10 @@ func TestLoadRelaxesChecksumsForCustomEndpoint(t *testing.T) {
 func TestLoadRejectsBothAssumeRoleForms(t *testing.T) {
 	isolateEnv(t)
 	c := &Configuration{
-		AssumeRole: &AssumeRole{RoleArn: cfg.String{Value: "arn:aws:iam::1:role/a"}},
+		AssumeRole: &AssumeRole{RoleArn: "arn:aws:iam::1:role/a"},
 		AssumeRoleWithWebIdentity: &AssumeRoleWithWebIdentity{
-			RoleArn:              cfg.String{Value: "arn:aws:iam::1:role/b"},
-			WebIdentityTokenFile: cfg.String{Value: "/tmp/token"},
+			RoleArn:              "arn:aws:iam::1:role/b",
+			WebIdentityTokenFile: "/tmp/token",
 		},
 	}
 	_, err := Load(context.Background(), c)
@@ -143,16 +161,12 @@ func TestLoadAssumeRoleSetsCredentialsCache(t *testing.T) {
 	c := &Configuration{
 		Region: str("us-east-1"),
 		AssumeRole: &AssumeRole{
-			RoleArn:         cfg.String{Value: "arn:aws:iam::123456789012:role/state-rw"},
+			RoleArn:         "arn:aws:iam::123456789012:role/state-rw",
 			RoleSessionName: str("unobin"),
 			ExternalId:      str("xid"),
-			DurationSeconds: &cfg.Integer{Value: 3600},
-			PolicyArns: &cfg.List[cfg.String]{
-				Value: []cfg.String{{Value: "arn:aws:iam::aws:policy/ReadOnlyAccess"}},
-			},
-			Tags: &cfg.Map[cfg.String]{
-				Value: map[string]cfg.String{"team": {Value: "infra"}},
-			},
+			DurationSeconds: integer(3600),
+			PolicyArns:      stringList("arn:aws:iam::aws:policy/ReadOnlyAccess"),
+			Tags:            stringMap(map[string]string{"team": "infra"}),
 		},
 	}
 	awsCfg, err := Load(context.Background(), c)
@@ -173,8 +187,8 @@ func TestLoadWebIdentitySetsCredentialsCache(t *testing.T) {
 	c := &Configuration{
 		Region: str("us-east-1"),
 		AssumeRoleWithWebIdentity: &AssumeRoleWithWebIdentity{
-			RoleArn:              cfg.String{Value: "arn:aws:iam::123456789012:role/irsa"},
-			WebIdentityTokenFile: cfg.String{Value: "/var/run/token"},
+			RoleArn:              "arn:aws:iam::123456789012:role/irsa",
+			WebIdentityTokenFile: "/var/run/token",
 		},
 	}
 	awsCfg, err := Load(context.Background(), c)
@@ -192,12 +206,12 @@ func TestLoadWebIdentityRequiredFields(t *testing.T) {
 	}{
 		{
 			name: "missing role-arn",
-			wi:   &AssumeRoleWithWebIdentity{WebIdentityTokenFile: cfg.String{Value: "/t"}},
+			wi:   &AssumeRoleWithWebIdentity{WebIdentityTokenFile: "/t"},
 			want: "role-arn is required",
 		},
 		{
 			name: "missing token file",
-			wi:   &AssumeRoleWithWebIdentity{RoleArn: cfg.String{Value: "arn:x"}},
+			wi:   &AssumeRoleWithWebIdentity{RoleArn: "arn:x"},
 			want: "web-identity-token-file is required",
 		},
 	}

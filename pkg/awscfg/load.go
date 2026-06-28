@@ -69,8 +69,8 @@ func loadOptions(c *Configuration) ([]func(*sdkconfig.LoadOptions) error, error)
 	if vs := listValues(c.SharedCredentialsFiles); len(vs) > 0 {
 		opts = append(opts, sdkconfig.WithSharedCredentialsFiles(vs))
 	}
-	if c.MaxAttempts != nil && c.MaxAttempts.Value > 0 {
-		opts = append(opts, sdkconfig.WithRetryMaxAttempts(int(c.MaxAttempts.Value)))
+	if c.MaxAttempts != nil && *c.MaxAttempts > 0 {
+		opts = append(opts, sdkconfig.WithRetryMaxAttempts(int(*c.MaxAttempts)))
 	}
 	if v := stringValue(c.RetryMode); v != "" {
 		mode, err := retryMode(v)
@@ -139,10 +139,10 @@ func proxyHTTPClient(c *Configuration) *awshttp.BuildableClient {
 
 func applyAssumeRole(awsCfg *aws.Config, c *Configuration) error {
 	ar := c.AssumeRole
-	if ar.RoleArn.Value == "" {
+	if ar.RoleArn == "" {
 		return errors.New("aws: assume-role: role-arn is required")
 	}
-	provider := stscreds.NewAssumeRoleProvider(stsClient(*awsCfg, c), ar.RoleArn.Value,
+	provider := stscreds.NewAssumeRoleProvider(stsClient(*awsCfg, c), ar.RoleArn,
 		func(o *stscreds.AssumeRoleOptions) {
 			if v := stringValue(ar.RoleSessionName); v != "" {
 				o.RoleSessionName = v
@@ -150,8 +150,8 @@ func applyAssumeRole(awsCfg *aws.Config, c *Configuration) error {
 			if v := stringValue(ar.ExternalId); v != "" {
 				o.ExternalID = aws.String(v)
 			}
-			if ar.DurationSeconds != nil && ar.DurationSeconds.Value > 0 {
-				o.Duration = time.Duration(ar.DurationSeconds.Value) * time.Second
+			if ar.DurationSeconds != nil && *ar.DurationSeconds > 0 {
+				o.Duration = time.Duration(*ar.DurationSeconds) * time.Second
 			}
 			if v := stringValue(ar.Policy); v != "" {
 				o.Policy = aws.String(v)
@@ -177,21 +177,21 @@ func applyAssumeRole(awsCfg *aws.Config, c *Configuration) error {
 
 func applyWebIdentity(awsCfg *aws.Config, c *Configuration) error {
 	wi := c.AssumeRoleWithWebIdentity
-	if wi.RoleArn.Value == "" {
+	if wi.RoleArn == "" {
 		return errors.New("aws: assume-role-with-web-identity: role-arn is required")
 	}
-	if wi.WebIdentityTokenFile.Value == "" {
+	if wi.WebIdentityTokenFile == "" {
 		return errors.New(
 			"aws: assume-role-with-web-identity: web-identity-token-file is required")
 	}
 	provider := stscreds.NewWebIdentityRoleProvider(stsClient(*awsCfg, c),
-		wi.RoleArn.Value, stscreds.IdentityTokenFile(wi.WebIdentityTokenFile.Value),
+		wi.RoleArn, stscreds.IdentityTokenFile(wi.WebIdentityTokenFile),
 		func(o *stscreds.WebIdentityRoleOptions) {
 			if v := stringValue(wi.RoleSessionName); v != "" {
 				o.RoleSessionName = v
 			}
-			if wi.DurationSeconds != nil && wi.DurationSeconds.Value > 0 {
-				o.Duration = time.Duration(wi.DurationSeconds.Value) * time.Second
+			if wi.DurationSeconds != nil && *wi.DurationSeconds > 0 {
+				o.Duration = time.Duration(*wi.DurationSeconds) * time.Second
 			}
 			if v := stringValue(wi.Policy); v != "" {
 				o.Policy = aws.String(v)

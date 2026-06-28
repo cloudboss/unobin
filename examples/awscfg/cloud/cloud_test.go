@@ -6,15 +6,19 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/pkg/awscfg"
-	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
+
+func str(v string) *string {
+	out := v
+	return &out
+}
 
 func TestDescribeReportsAssumeRole(t *testing.T) {
 	a := &DescribeAction{Label: "x"}
 	out, err := a.Run(t.Context(), &awscfg.Configuration{
-		Region: &cfg.String{Value: "us-east-2"},
+		Region: str("us-east-2"),
 		AssumeRole: &awscfg.AssumeRole{
-			RoleArn: cfg.String{Value: "arn:aws:iam::123456789012:role/unobin-example"},
+			RoleArn: "arn:aws:iam::123456789012:role/unobin-example",
 		},
 	})
 	require.NoError(t, err)

@@ -36,10 +36,10 @@ func (a *DescribeAction) Run(
 		return out, nil
 	}
 	if config.Region != nil {
-		out.Region = config.Region.Value
+		out.Region = *config.Region
 	}
 	if config.AssumeRole != nil {
-		out.RoleArn = config.AssumeRole.RoleArn.Value
+		out.RoleArn = config.AssumeRole.RoleArn
 		out.Source = "assume-role"
 	}
 	return out, nil

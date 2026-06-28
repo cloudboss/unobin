@@ -59,7 +59,7 @@ func Encrypters() map[string]sdkencrypt.EncrypterType {
 // EnvKeyConfig is the operator-facing body under
 // `encryption: env-key { ... }`.
 type EnvKeyConfig struct {
-	EnvVar cfg.String
+	EnvVar string
 }
 
 func newEnvKey(config any, _ map[string]any) (sdkencrypt.Encrypter, error) {
@@ -67,13 +67,13 @@ func newEnvKey(config any, _ map[string]any) (sdkencrypt.Encrypter, error) {
 	if !ok {
 		return nil, fmt.Errorf("env-key encrypter: missing or wrong configuration (got %T)", config)
 	}
-	return NewEnvKey(c.EnvVar.Value)
+	return NewEnvKey(c.EnvVar)
 }
 
 // KMSConfig is the operator-facing body under `encryption: kms { ... }`.
 // The aws object holds the shared AWS connection settings from pkg/awscfg.
 type KMSConfig struct {
-	KeyID cfg.String
+	KeyID string
 	AWS   *awscfg.Configuration
 }
 
@@ -82,7 +82,7 @@ func newKMSEncrypter(config any, body map[string]any) (sdkencrypt.Encrypter, err
 	if !ok {
 		return nil, fmt.Errorf("kms encrypter: missing or wrong configuration (got %T)", config)
 	}
-	if c.KeyID.Value == "" {
+	if c.KeyID == "" {
 		return nil, fmt.Errorf("kms encrypter: %s is required", sdkencrypt.ConfigKeyID)
 	}
 	awsCfg, err := awscfg.Load(context.Background(), c.AWS)
@@ -90,11 +90,13 @@ func newKMSEncrypter(config any, body map[string]any) (sdkencrypt.Encrypter, err
 		return nil, fmt.Errorf("kms encrypter: %w", err)
 	}
 	client := kms.NewFromConfig(awsCfg, func(o *kms.Options) {
-		if ep := c.AWS.KMSEndpoint(); ep != "" {
-			o.BaseEndpoint = aws.String(ep)
+		if c.AWS != nil {
+			if ep := c.AWS.KMSEndpoint(); ep != "" {
+				o.BaseEndpoint = aws.String(ep)
+			}
 		}
 	})
-	return NewKMS(client, c.KeyID.Value, body)
+	return NewKMS(client, c.KeyID, body)
 }
 
 // newNoop builds the no-op encrypter, which writes state as

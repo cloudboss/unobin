@@ -16,10 +16,14 @@ import (
 
 	"github.com/cloudboss/unobin/pkg/awscfg"
 	"github.com/cloudboss/unobin/pkg/encrypters"
-	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	sdkstate "github.com/cloudboss/unobin/pkg/sdk/state"
 )
+
+func stringPtr(v string) *string {
+	out := v
+	return &out
+}
 
 const (
 	testBucket  = "test-bucket"
@@ -75,8 +79,8 @@ func testClient(t *testing.T, url string) *s3.Client {
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
 	t.Setenv("AWS_SESSION_TOKEN", "")
 	awsCfg, err := awscfg.Load(context.Background(), &awscfg.Configuration{
-		Region:      &cfg.String{Value: "us-east-1"},
-		EndpointURL: &cfg.String{Value: url},
+		Region:      stringPtr("us-east-1"),
+		EndpointURL: stringPtr(url),
 	})
 	require.NoError(t, err)
 	return s3.NewFromConfig(awsCfg, func(o *s3.Options) {

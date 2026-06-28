@@ -8,7 +8,8 @@
 package awscfg
 
 import (
-	"github.com/cloudboss/unobin/pkg/sdk/cfg"
+	"maps"
+	"slices"
 )
 
 // Configuration selects how a component reaches AWS. Every field is
@@ -18,18 +19,18 @@ import (
 // credential fields are deliberately absent; credentials enter
 // through the chain, a profile, or role assumption.
 type Configuration struct {
-	Region                    *cfg.String
-	Profile                   *cfg.String
-	EndpointURL               *cfg.String
+	Region                    *string
+	Profile                   *string
+	EndpointURL               *string
 	Endpoints                 *Endpoints
-	MaxAttempts               *cfg.Integer
-	RetryMode                 *cfg.String
-	SharedConfigFiles         *cfg.List[cfg.String]
-	SharedCredentialsFiles    *cfg.List[cfg.String]
-	CustomCABundle            *cfg.String
-	HTTPProxy                 *cfg.String
-	HTTPSProxy                *cfg.String
-	NoProxy                   *cfg.String
+	MaxAttempts               *int64
+	RetryMode                 *string
+	SharedConfigFiles         *[]string
+	SharedCredentialsFiles    *[]string
+	CustomCABundle            *string
+	HTTPProxy                 *string
+	HTTPSProxy                *string
+	NoProxy                   *string
 	AssumeRole                *AssumeRole
 	AssumeRoleWithWebIdentity *AssumeRoleWithWebIdentity
 }
@@ -39,35 +40,35 @@ type Configuration struct {
 // service without an entry falls back to endpoint-url, then to the
 // SDK's own resolution, including the AWS_ENDPOINT_URL_* env vars.
 type Endpoints struct {
-	S3  *cfg.String
-	STS *cfg.String
-	KMS *cfg.String
+	S3  *string
+	STS *string
+	KMS *string
 }
 
 // AssumeRole assumes an IAM role using the chain's credentials as the
 // source identity.
 type AssumeRole struct {
-	RoleArn           cfg.String
-	RoleSessionName   *cfg.String
-	ExternalId        *cfg.String
-	DurationSeconds   *cfg.Integer
-	Policy            *cfg.String
-	PolicyArns        *cfg.List[cfg.String]
-	SourceIdentity    *cfg.String
-	Tags              *cfg.Map[cfg.String]
-	TransitiveTagKeys *cfg.List[cfg.String]
+	RoleArn           string
+	RoleSessionName   *string
+	ExternalId        *string
+	DurationSeconds   *int64
+	Policy            *string
+	PolicyArns        *[]string
+	SourceIdentity    *string
+	Tags              *map[string]string
+	TransitiveTagKeys *[]string
 }
 
 // AssumeRoleWithWebIdentity assumes an IAM role with an OIDC token
 // read from a file. The token is always file-sourced; a literal token
 // in static configuration would be expired by definition.
 type AssumeRoleWithWebIdentity struct {
-	RoleArn              cfg.String
-	WebIdentityTokenFile cfg.String
-	RoleSessionName      *cfg.String
-	DurationSeconds      *cfg.Integer
-	Policy               *cfg.String
-	PolicyArns           *cfg.List[cfg.String]
+	RoleArn              string
+	WebIdentityTokenFile string
+	RoleSessionName      *string
+	DurationSeconds      *int64
+	Policy               *string
+	PolicyArns           *[]string
 }
 
 // S3Endpoint returns the endpoint override an S3 client should use:
@@ -112,31 +113,23 @@ func (c *Configuration) KMSEndpoint() string {
 	return stringValue(c.EndpointURL)
 }
 
-func stringValue(p *cfg.String) string {
+func stringValue(p *string) string {
 	if p == nil {
 		return ""
 	}
-	return p.Value
+	return *p
 }
 
-func listValues(p *cfg.List[cfg.String]) []string {
+func listValues(p *[]string) []string {
 	if p == nil {
 		return nil
 	}
-	out := make([]string, 0, len(p.Value))
-	for _, v := range p.Value {
-		out = append(out, v.Value)
-	}
-	return out
+	return slices.Clone(*p)
 }
 
-func mapValues(p *cfg.Map[cfg.String]) map[string]string {
+func mapValues(p *map[string]string) map[string]string {
 	if p == nil {
 		return nil
 	}
-	out := make(map[string]string, len(p.Value))
-	for k, v := range p.Value {
-		out[k] = v.Value
-	}
-	return out
+	return maps.Clone(*p)
 }
