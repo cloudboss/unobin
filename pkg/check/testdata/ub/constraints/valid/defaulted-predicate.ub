@@ -1,0 +1,1 @@
+resources: { x: core.thing { domain: 'example.com' } }

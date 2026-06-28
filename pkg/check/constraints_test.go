@@ -6,6 +6,7 @@ import (
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,6 +26,36 @@ func constrainedLibs() map[string]*runtime.Library {
 					{Kind: "exactly-one-of", Fields: []string{"input.name", "input.size"}},
 				}},
 				"plain": {},
+			},
+		}},
+	}
+}
+
+func defaultedPredicateLib() map[string]*runtime.Library {
+	return map[string]*runtime.Library{
+		"core": {Schema: &runtime.LibrarySchema{
+			Resources: map[string]*runtime.TypeSchema{
+				"thing": {
+					Inputs: map[string]typecheck.Type{
+						"domain": typecheck.TString(),
+						"mode":   typecheck.TInteger(),
+					},
+					Constraints: []lang.ConstraintSpec{
+						{
+							Kind:    "predicate",
+							When:    "true",
+							Require: "(@core.length(input.domain) >= 1)",
+							Message: "domain is required",
+						},
+						{
+							Kind:    "predicate",
+							When:    "true",
+							Require: "(input.mode >= 0)",
+							Message: "mode must be non-negative",
+						},
+					},
+					Defaults: []lang.DefaultSpec{{Field: "input.mode", Value: "420"}},
+				},
 			},
 		}},
 	}
@@ -120,6 +151,24 @@ func TestCheckLiteralConstraints(t *testing.T) {
 			require.Equal(t, tt.want, errs.Messages())
 		})
 	}
+}
+
+func TestCheckLiteralConstraintsAppliesDefaultsBeforePredicates(t *testing.T) {
+	errs := checkSyntaxLiteralConstraints(
+		t,
+		checkConstraintFixture(t, "defaulted-predicate"),
+		defaultedPredicateLib(),
+	)
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Err())
+}
+
+func TestCheckLiteralConstraintsSkipsPredicatesMissingRequiredInputs(t *testing.T) {
+	errs := checkSyntaxLiteralConstraints(
+		t,
+		checkConstraintFixture(t, "missing-required-predicate"),
+		defaultedPredicateLib(),
+	)
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Err())
 }
 
 // TestCheckLiteralConstraintsLengthPredicate proves a lowered length

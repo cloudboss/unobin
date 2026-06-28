@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
 // constraintPkgPath is the import path of the package whose builders a Go
@@ -92,10 +93,12 @@ type constraintScope map[string]scopeRoot
 // A scalar root has no type to select fields from; the identifier
 // renders as its prefix alone, the element itself.
 type scopeRoot struct {
-	w        *walker
-	typeName string
-	prefix   string
-	scalar   bool
+	w         *walker
+	typeName  string
+	prefix    string
+	scalar    bool
+	valueType typecheck.Type
+	nullable  bool
 }
 
 // receiverName returns the name a method binds its receiver to. ok is
@@ -420,10 +423,19 @@ func (w *walker) listField(arg ast.Expr, scope constraintScope) (string, scopeRo
 		w.addErrf("ForEach list %q must be a slice of in-library structs or scalars", path)
 		return "", scopeRoot{}, false
 	}
+	listRef, _ := entry.w.fieldRefFromRoot(entry, hops)
+	elemValueType, elemNullable := listElementType(listRef.valueType)
 	if _, isScalar := primitiveFromName(elemType); isScalar {
-		return path, scopeRoot{w: cw, scalar: true}, true
+		if elemValueType.Kind == typecheck.Unknown {
+			elemValueType, _ = primitiveFromName(elemType)
+		}
+		return path, scopeRoot{
+			w: cw, scalar: true, valueType: elemValueType, nullable: elemNullable,
+		}, true
 	}
-	return path, scopeRoot{w: structWalker, typeName: elemType}, true
+	return path, scopeRoot{
+		w: structWalker, typeName: elemType, valueType: elemValueType, nullable: elemNullable,
+	}, true
 }
 
 // singleParamName returns the name of a function literal's one
@@ -636,7 +648,7 @@ func (w *walker) orderedCond(
 		w.addWarnf("%s takes a field and a value", condName(call))
 		return "", false
 	}
-	field, ok := w.selectorField(call.Args[0], scope)
+	field, ok := w.selectorFieldRef(call.Args[0], scope)
 	if !ok {
 		return "", false
 	}
@@ -644,11 +656,18 @@ func (w *walker) orderedCond(
 	if !ok {
 		return "", false
 	}
-	guards := []string{field + " == null"}
-	if _, isField := call.Args[1].(*ast.SelectorExpr); isField {
+	guards := []string{}
+	if field.nullable {
+		guards = append(guards, field.expr+" == null")
+	}
+	if valRef, isField := w.valueFieldRef(call.Args[1], scope); isField && valRef.nullable {
 		guards = append(guards, val+" == null")
 	}
-	return "(" + strings.Join(guards, " || ") + " || " + field + " " + op + " " + val + ")", true
+	check := field.expr + " " + op + " " + val
+	if len(guards) == 0 {
+		return "(" + check + ")", true
+	}
+	return "(" + strings.Join(guards, " || ") + " || " + check + ")", true
 }
 
 func (w *walker) boolCond(call *ast.CallExpr, lit string, scope constraintScope) (string, bool) {
@@ -668,11 +687,17 @@ func (w *walker) nullCond(call *ast.CallExpr, op string, scope constraintScope) 
 		w.addWarnf("%s takes one field", condName(call))
 		return "", false
 	}
-	field, ok := w.selectorField(call.Args[0], scope)
+	field, ok := w.selectorFieldRef(call.Args[0], scope)
 	if !ok {
 		return "", false
 	}
-	return "(" + field + " " + op + " null)", true
+	if !field.nullable {
+		if op == "!=" {
+			return "true", true
+		}
+		return "false", true
+	}
+	return "(" + field.expr + " " + op + " null)", true
 }
 
 func (w *walker) oneOfCond(call *ast.CallExpr, scope constraintScope) (string, bool) {
@@ -702,11 +727,15 @@ func (w *walker) notEmptyCond(call *ast.CallExpr, scope constraintScope) (string
 		w.addWarnf("NotEmpty takes one field")
 		return "", false
 	}
-	field, ok := w.selectorField(call.Args[0], scope)
+	field, ok := w.selectorFieldRef(call.Args[0], scope)
 	if !ok {
 		return "", false
 	}
-	return "((" + field + " != null) && (@core.length(" + field + ") >= 1))", true
+	check := "(@core.length(" + field.expr + ") >= 1)"
+	if !field.nullable {
+		return check, true
+	}
+	return "((" + field.expr + " != null) && " + check + ")", true
 }
 
 // itemsCond renders MinItems (>=) and MaxItems (<=). A null field
@@ -717,7 +746,7 @@ func (w *walker) itemsCond(call *ast.CallExpr, op string, scope constraintScope)
 		w.addWarnf("%s takes a field and a whole-number literal", condName(call))
 		return "", false
 	}
-	field, ok := w.selectorField(call.Args[0], scope)
+	field, ok := w.selectorFieldRef(call.Args[0], scope)
 	if !ok {
 		return "", false
 	}
@@ -726,8 +755,11 @@ func (w *walker) itemsCond(call *ast.CallExpr, op string, scope constraintScope)
 		w.addWarnf("%s takes a field and a whole-number literal", condName(call))
 		return "", false
 	}
-	return "(" + field + " == null || @core.length(" + field + ") " + op + " " +
-		strconv.Itoa(n) + ")", true
+	check := "@core.length(" + field.expr + ") " + op + " " + strconv.Itoa(n)
+	if !field.nullable {
+		return "(" + check + ")", true
+	}
+	return "(" + field.expr + " == null || " + check + ")", true
 }
 
 func (w *walker) joinCond(call *ast.CallExpr, op string, scope constraintScope) (string, bool) {
@@ -865,32 +897,72 @@ func stringConstant(e ast.Expr) (string, bool) {
 // a chain naming a field that does not exist records an error and
 // returns ok=false.
 func (w *walker) selectorField(arg ast.Expr, scope constraintScope) (string, bool) {
+	field, ok := w.selectorFieldRef(arg, scope)
+	if !ok {
+		return "", false
+	}
+	return field.expr, true
+}
+
+type constraintFieldRef struct {
+	expr      string
+	valueType typecheck.Type
+	nullable  bool
+}
+
+func (w *walker) selectorFieldRef(
+	arg ast.Expr, scope constraintScope,
+) (constraintFieldRef, bool) {
 	if id, ok := arg.(*ast.Ident); ok {
 		if entry, found := scope[id.Name]; found && entry.scalar {
-			return entry.prefix, true
+			valueType, nullable := nullableValueType(entry.valueType)
+			return constraintFieldRef{
+				expr: entry.prefix, valueType: valueType, nullable: entry.nullable || nullable,
+			}, true
 		}
 	}
 	sel, ok := arg.(*ast.SelectorExpr)
 	if !ok {
 		w.addErrf("constraint field must be a struct field selector, got %T", arg)
-		return "", false
+		return constraintFieldRef{}, false
 	}
 	root, hops, ok := flattenSelector(sel)
 	if !ok {
 		w.addErrf("constraint field must be a chain of struct fields, got %T", arg)
-		return "", false
+		return constraintFieldRef{}, false
 	}
 	entry, ok := scope[root]
 	if !ok {
 		w.addErrf("constraint references unknown name %q", root)
-		return "", false
+		return constraintFieldRef{}, false
 	}
-	path, ok := entry.w.fieldPath(entry.typeName, hops)
+	field, ok := entry.w.fieldRefFromRoot(entry, hops)
 	if !ok {
 		w.addErrf("constraint references unknown field %q", hopNames(hops))
-		return "", false
+		return constraintFieldRef{}, false
 	}
-	return entry.prefix + "." + path, true
+	return field, true
+}
+
+func nullableValueType(t typecheck.Type) (typecheck.Type, bool) {
+	if t.Kind == typecheck.Optional {
+		return t.Unwrap(), true
+	}
+	return t, false
+}
+
+func (w *walker) valueFieldRef(
+	arg ast.Expr, scope constraintScope,
+) (constraintFieldRef, bool) {
+	switch v := arg.(type) {
+	case *ast.SelectorExpr:
+		return w.selectorFieldRef(v, scope)
+	case *ast.Ident:
+		if entry, found := scope[v.Name]; found && entry.scalar {
+			return w.selectorFieldRef(v, scope)
+		}
+	}
+	return constraintFieldRef{}, false
 }
 
 // hopNames joins the Go field names of a selector chain for an error
@@ -1000,6 +1072,87 @@ func intLiteral(e ast.Expr) (int, bool) {
 	return n, true
 }
 
+func (w *walker) fieldRefFromRoot(
+	root scopeRoot, hops []selectorHop,
+) (constraintFieldRef, bool) {
+	cw, typeName := root.w, root.typeName
+	parts := make([]string, 0, len(hops))
+	nullable := root.nullable
+	valueType := root.valueType
+	for i, hop := range hops {
+		kebab, ok := cw.fieldKebabByGoName(typeName)[hop.name]
+		if !ok {
+			return constraintFieldRef{}, false
+		}
+		ft := fieldTypeByGoName(fieldStruct(cw.files, typeName), hop.name)
+		if ft == nil {
+			return constraintFieldRef{}, false
+		}
+		valueType, ok = typeAfterSelectorHop(cw.typeFromAST(ft), hop.indexes, &nullable)
+		if !ok {
+			valueType = typecheck.TUnknown()
+		}
+		for _, idx := range hop.indexes {
+			kebab += "[" + strconv.Itoa(idx) + "]"
+		}
+		parts = append(parts, kebab)
+		if i == len(hops)-1 {
+			break
+		}
+		cw, typeName, ok = cw.nestedStruct(typeName, hop)
+		if !ok {
+			return constraintFieldRef{}, false
+		}
+	}
+	return constraintFieldRef{
+		expr: root.prefix + "." + strings.Join(parts, "."), valueType: valueType,
+		nullable: nullable,
+	}, true
+}
+
+func fieldStruct(files []*ast.File, typeName string) *ast.StructType {
+	spec := findTypeSpec(files, typeName)
+	if spec == nil {
+		return nil
+	}
+	st, _ := spec.Type.(*ast.StructType)
+	return st
+}
+
+func typeAfterSelectorHop(
+	t typecheck.Type, indexes []int, nullable *bool,
+) (typecheck.Type, bool) {
+	if t.Kind == typecheck.Optional {
+		*nullable = true
+		t = t.Unwrap()
+	}
+	if len(indexes) > 0 {
+		*nullable = true
+	}
+	for range indexes {
+		if t.Kind == typecheck.Optional {
+			*nullable = true
+			t = t.Unwrap()
+		}
+		if t.Kind != typecheck.List || t.Elem == nil {
+			return typecheck.TUnknown(), false
+		}
+		t = *t.Elem
+		if t.Kind == typecheck.Optional {
+			*nullable = true
+			t = t.Unwrap()
+		}
+	}
+	return t, true
+}
+
+func listElementType(t typecheck.Type) (typecheck.Type, bool) {
+	if t.Kind != typecheck.List || t.Elem == nil {
+		return typecheck.TUnknown(), false
+	}
+	return nullableValueType(*t.Elem)
+}
+
 // fieldPath walks the field hops from a scope root's type, mapping each
 // Go name to its kebab name and descending into the nested struct type
 // for the next hop, and returns the dotted input path (code.inline,
@@ -1079,7 +1232,7 @@ func (w *walker) nestedStruct(typeName string, hop selectorHop) (*walker, string
 // fieldTypeByGoName returns the AST type of the struct field with the
 // given Go name, or nil when no such field is declared.
 func fieldTypeByGoName(st *ast.StructType, goName string) ast.Expr {
-	if st.Fields == nil {
+	if st == nil || st.Fields == nil {
 		return nil
 	}
 	for _, fld := range st.Fields.List {

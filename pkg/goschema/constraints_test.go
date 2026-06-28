@@ -28,11 +28,14 @@ func Library() *runtime.Library {
 }
 
 type Thing struct {
-	Name    *string
-	Kind    *string
-	Port    *int
-	Items   []Item
-	Methods []string
+	Name            *string
+	Kind            *string
+	Port            *int
+	Domain          string
+	Count           int
+	Items           []Item
+	Methods         []string
+	OptionalMethods *[]string
 }
 
 type Item struct {
@@ -294,17 +297,18 @@ func TestReadWarnsOnUnextractableConstraints(t *testing.T) {
 }
 
 // TestReadExtractsLengthConditions proves the three length conditions
-// lower to @core.length with their null guards: a missing list passes
-// MinItems and MaxItems, presence staying Present's job, while
-// NotEmpty requires the field set and non-empty.
+// lower to @core.length with null guards for an optional list.
 func TestReadExtractsLengthConditions(t *testing.T) {
 	src := constraintLibrary + `
 func (v Thing) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{
-		constraint.Must(constraint.NotEmpty(v.Items)).
-			Message("items must list at least one entry"),
-		constraint.When(constraint.Present(v.Items)).
-			Require(constraint.MinItems(v.Items, 1), constraint.MaxItems(v.Items, 5)),
+		constraint.Must(constraint.NotEmpty(v.OptionalMethods)).
+			Message("methods must list at least one entry"),
+		constraint.When(constraint.Present(v.OptionalMethods)).
+			Require(
+				constraint.MinItems(v.OptionalMethods, 1),
+				constraint.MaxItems(v.OptionalMethods, 5),
+			),
 	}
 }
 `
@@ -313,16 +317,19 @@ func (v Thing) Constraints() []constraint.Constraint {
 	require.Empty(t, warnings)
 	require.Equal(t, []lang.ConstraintSpec{
 		{
-			Kind:    "predicate",
-			When:    "true",
-			Require: "((input.items != null) && (@core.length(input.items) >= 1))",
-			Message: "items must list at least one entry",
+			Kind: "predicate",
+			When: "true",
+			Require: "((input.optional-methods != null) && " +
+				"(@core.length(input.optional-methods) >= 1))",
+			Message: "methods must list at least one entry",
 		},
 		{
 			Kind: "predicate",
-			When: "(input.items != null)",
-			Require: "(input.items == null || @core.length(input.items) >= 1)" +
-				" && (input.items == null || @core.length(input.items) <= 5)",
+			When: "(input.optional-methods != null)",
+			Require: "(input.optional-methods == null || " +
+				"@core.length(input.optional-methods) >= 1)" +
+				" && (input.optional-methods == null || " +
+				"@core.length(input.optional-methods) <= 5)",
 		},
 	}, schema.Resources["thing"].Constraints)
 }
@@ -334,9 +341,9 @@ func TestReadLengthConditionsCheckWithoutImports(t *testing.T) {
 	src := constraintLibrary + `
 func (v Thing) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{
-		constraint.Must(constraint.NotEmpty(v.Items)),
-		constraint.When(constraint.Present(v.Items)).
-			Require(constraint.MaxItems(v.Items, 2)),
+		constraint.Must(constraint.NotEmpty(v.OptionalMethods)),
+		constraint.When(constraint.Present(v.OptionalMethods)).
+			Require(constraint.MaxItems(v.OptionalMethods, 2)),
 	}
 }
 `
@@ -360,14 +367,52 @@ func (v Thing) Constraints() []constraint.Constraint {
 		return lang.CheckConstraintEntries(entries, values, eval, lang.DisplayNodeRelative).Len()
 	}
 
-	require.Equal(t, 0, check(map[string]any{"items": []any{"a"}}),
+	require.Equal(t, 0, check(map[string]any{"optional-methods": []any{"a"}}),
 		"one item passes both rules")
-	require.Equal(t, 1, check(map[string]any{"items": []any{}}),
+	require.Equal(t, 1, check(map[string]any{"optional-methods": []any{}}),
 		"an explicitly empty list fails NotEmpty")
 	require.Equal(t, 1, check(map[string]any{}),
 		"an absent list fails NotEmpty but passes MaxItems")
-	require.Equal(t, 1, check(map[string]any{"items": []any{"a", "b", "c"}}),
+	require.Equal(t, 1, check(map[string]any{"optional-methods": []any{"a", "b", "c"}}),
 		"three items fail MaxItems(2)")
+}
+
+func TestReadOmitsNullTestsForRequiredValues(t *testing.T) {
+	src := constraintLibrary + `
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.Must(constraint.NotEmpty(v.Domain)),
+		constraint.Must(constraint.MinItems(v.Methods, 1)),
+		constraint.Must(constraint.MaxItems(v.Methods, 5)),
+		constraint.Must(constraint.AtLeast(v.Count, 1)),
+	}
+}
+`
+	schema, warnings, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	require.Equal(t, []lang.ConstraintSpec{
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.domain) >= 1)",
+		},
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.methods) >= 1)",
+		},
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.methods) <= 5)",
+		},
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(input.count >= 1)",
+		},
+	}, schema.Resources["thing"].Constraints)
 }
 
 // TestReadRejectsNonLiteralLengthCount proves the count argument must
@@ -421,7 +466,7 @@ func (v Thing) Constraints() []constraint.Constraint {
 		{
 			Kind:    "predicate",
 			When:    "true",
-			Require: "((@each.value != null) && (@core.length(@each.value) >= 1))",
+			Require: "(@core.length(@each.value) >= 1)",
 			ForEach: "input.methods",
 		},
 	}, schema.Resources["thing"].Constraints)

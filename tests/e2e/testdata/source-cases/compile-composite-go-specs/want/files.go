@@ -25,8 +25,8 @@ func Library() *runtime.Library {
 	)
 	e2elibLib.Constraints = map[string][]lang.ConstraintSpec{
 		"resource.file": {
-			{Kind: "predicate", When: "true", Require: "((input.path != null) && (@core.length(input.path) >= 1))", Message: "path is required"},
-			{Kind: "predicate", When: "true", Require: "(input.mode == null || input.mode >= 0)", Message: "mode must be non-negative"},
+			{Kind: "predicate", When: "true", Require: "(@core.length(input.path) >= 1)", Message: "path is required"},
+			{Kind: "predicate", When: "true", Require: "(input.mode >= 0)", Message: "mode must be non-negative"},
 		},
 	}
 	e2elibLib.Defaults = map[string][]lang.DefaultSpec{
