@@ -1,0 +1,6 @@
+factory: {
+  inputs: { tags: { type: optional(map(string)) } }
+  constraints: [
+    { kind: predicate, @for-each: input.tags ?? {}, when: true, require: @each.value != '' },
+  ]
+}

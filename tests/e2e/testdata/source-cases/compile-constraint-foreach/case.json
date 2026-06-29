@@ -10,6 +10,25 @@
       "args": ["compile", "-p", "factory.ub", "-o", "build"]
     },
     {
+      "name": "optional-list-bare",
+      "dir": "optional-list-bare",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/optional-list-bare.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "optional-list-field-read",
+      "dir": "optional-list-field-read",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/optional-list-field-read.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "optional-map-fallback",
+      "dir": "optional-map-fallback",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
       "name": "each-outside",
       "dir": "each-outside",
       "args": ["compile", "-p", "factory.ub", "-o", "build"],

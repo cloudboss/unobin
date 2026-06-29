@@ -916,10 +916,9 @@ func bareConstraintIterable(forEach lang.Expr) bool {
 }
 
 // checkConstraintIterable reports a bare constraint @for-each whose
-// iterable is not a list or a map, the kinds the predicate runtime
-// iterates. An optional iterable stays legal: the predicate runtime
-// skips a null iterable, so the entry is vacuously satisfied. An
-// opaque iterable is closed off: iterating would read into a value
+// iterable is not a non-null list or map, the kinds the predicate runtime
+// iterates. Optional iterables must use an explicit fallback expression.
+// An opaque iterable is closed off: iterating would read into a value
 // that passes through unread.
 func checkConstraintIterable(t typecheck.Type, pos lang.Position, errs *lang.ErrorList) {
 	if t.Unwrap().Kind == typecheck.Opaque {
@@ -927,7 +926,17 @@ func checkConstraintIterable(t typecheck.Type, pos lang.Position, errs *lang.Err
 			"@for-each: iterable is opaque; declare its type, like list(...) or map(...)")
 		return
 	}
-	switch t.Unwrap().Kind {
+	if t.Kind == typecheck.Optional {
+		switch t.Unwrap().Kind {
+		case typecheck.Unknown, typecheck.List,
+			typecheck.Map, typecheck.Object, typecheck.Tuple:
+			errs.Addf(lang.ErrType, pos,
+				"@for-each: iterable may be null; write a fallback, like "+
+					"xs ?? [] (got %s)", t)
+			return
+		}
+	}
+	switch t.Kind {
 	case typecheck.Unknown, typecheck.List,
 		typecheck.Map, typecheck.Object, typecheck.Tuple:
 		return
