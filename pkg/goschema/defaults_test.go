@@ -31,11 +31,14 @@ type Thing struct {
 	Method  string
 	On      bool
 	Ratio   float64
-	Timeout time.Duration
-	Dir     string
-	Code    Code
-	Ptr     *string
-	Items   []Item
+	Timeout     time.Duration
+	Dir         string
+	Code        Code
+	Ptr         *string
+	Profile     *string
+	MaxAttempts *int64
+	Delay       *time.Duration
+	Items       []Item
 	Tags    map[string]string
 	Names   []string
 	Ports   []int64
@@ -144,6 +147,66 @@ func TestReadExtractsDefaults(t *testing.T) {
 	}
 }`,
 			wantSpecs: []lang.DefaultSpec{{Field: "input.timeout", Value: "30000000000"}},
+		},
+		{
+			name: "nullable string value",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.NullableValue(f.Profile, "dev"),
+	}
+}`,
+			wantSpecs: []lang.DefaultSpec{{Field: "input.profile", Value: "'dev'"}},
+		},
+		{
+			name: "nullable integer value",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.NullableValue(f.MaxAttempts, int64(3)),
+	}
+}`,
+			wantSpecs: []lang.DefaultSpec{{Field: "input.max-attempts", Value: "3"}},
+		},
+		{
+			name: "nullable duration product folds",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.NullableValue(f.Delay, 30*time.Second),
+	}
+}`,
+			wantSpecs: []lang.DefaultSpec{{Field: "input.delay", Value: "30000000000"}},
+		},
+		{
+			name: "declaration order preserves nullable values",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Value(f.Method, "GET"),
+		defaults.NullableValue(f.Profile, "dev"),
+		defaults.Value(f.Mode, 420),
+	}
+}`,
+			wantSpecs: []lang.DefaultSpec{
+				{Field: "input.method", Value: "'GET'"},
+				{Field: "input.profile", Value: "'dev'"},
+				{Field: "input.mode", Value: "420"},
+			},
+		},
+		{
+			name: "nullable value constructor arity warns for missing default",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.NullableValue(f.Profile),
+	}
+}`,
+			wantWarns: []string{`Thing: NullableValue takes a field and a default`},
+		},
+		{
+			name: "nullable value constructor arity warns for extra default",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.NullableValue(f.Profile, "a", "b"),
+	}
+}`,
+			wantWarns: []string{`Thing: NullableValue takes a field and a default`},
 		},
 		{
 			name: "optional constructor warns",
@@ -346,6 +409,25 @@ func TestReadRejectsMalformedDefaults(t *testing.T) {
 	}
 }`,
 			wantErr: `duplicate default for "mode"`,
+		},
+		{
+			name: "nullable value on a non-pointer field",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.NullableValue(f.Method, "GET"),
+	}
+}`,
+			wantErr: `field "method" is not nullable`,
+		},
+		{
+			name: "duplicate field across default constructors",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.NullableValue(f.Profile, "dev"),
+		defaults.Value(f.Profile, "prod"),
+	}
+}`,
+			wantErr: `duplicate default for "profile"`,
 		},
 		{
 			name: "value on a pointer field",

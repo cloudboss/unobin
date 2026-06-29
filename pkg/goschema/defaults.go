@@ -84,7 +84,21 @@ func (w *walker) defaultFromCall(
 			w.addWarnf("Value takes a field and a default")
 			return lang.DefaultSpec{}, false
 		}
-		field, ok := w.defaultField(call.Args[0], scope, seen)
+		field, ok := w.defaultField(call.Args[0], scope, seen, rejectPointerDefault)
+		if !ok {
+			return lang.DefaultSpec{}, false
+		}
+		val, ok := w.defaultValueString(call.Args[1])
+		if !ok {
+			return lang.DefaultSpec{}, false
+		}
+		return lang.DefaultSpec{Field: field, Value: val}, true
+	case "NullableValue":
+		if len(call.Args) != 2 {
+			w.addWarnf("NullableValue takes a field and a default")
+			return lang.DefaultSpec{}, false
+		}
+		field, ok := w.defaultField(call.Args[0], scope, seen, requirePointerDefault)
 		if !ok {
 			return lang.DefaultSpec{}, false
 		}
@@ -98,11 +112,18 @@ func (w *walker) defaultFromCall(
 	return lang.DefaultSpec{}, false
 }
 
+type defaultPointerPolicy int
+
+const (
+	rejectPointerDefault defaultPointerPolicy = iota
+	requirePointerDefault
+)
+
 // defaultField reads a default's field selector and validates that the
-// field can take a default: not an indexed list element, not a pointer,
-// and not already declared.
+// field can take a default: not an indexed list element, the right pointer
+// category for the constructor, and not already declared.
 func (w *walker) defaultField(
-	arg ast.Expr, scope constraintScope, seen map[string]bool,
+	arg ast.Expr, scope constraintScope, seen map[string]bool, pointerPolicy defaultPointerPolicy,
 ) (string, bool) {
 	field, ok := w.selectorField(arg, scope)
 	if !ok {
@@ -116,15 +137,20 @@ func (w *walker) defaultField(
 		}
 	}
 	name := strings.TrimPrefix(field, "input.")
-	if ft, ok := fieldFinalType(scope[root], hops); ok {
-		if _, isPointer := ft.(*ast.StarExpr); isPointer {
-			w.addErrf("pointer field %q cannot take a default", name)
-			return "", false
-		}
-	}
 	if seen[name] {
 		w.addErrf("duplicate default for %q", name)
 		return "", false
+	}
+	if ft, ok := fieldFinalType(scope[root], hops); ok {
+		_, isPointer := ft.(*ast.StarExpr)
+		switch {
+		case pointerPolicy == rejectPointerDefault && isPointer:
+			w.addErrf("pointer field %q cannot take a default", name)
+			return "", false
+		case pointerPolicy == requirePointerDefault && !isPointer:
+			w.addErrf("field %q is not nullable", name)
+			return "", false
+		}
 	}
 	seen[name] = true
 	return field, true
