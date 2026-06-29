@@ -770,11 +770,27 @@ func (w *walker) notEmptyCond(call *ast.CallExpr, scope constraintScope) (string
 	if !ok {
 		return "", false
 	}
-	check := "(@core.length(" + field.expr + ") >= 1)"
-	if !field.nullable {
+	operand := lengthOperand(field)
+	check := "(@core.length(" + operand + ") >= 1)"
+	if !field.nullable || operand != field.expr {
 		return check, true
 	}
 	return "((" + field.expr + " != null) && " + check + ")", true
+}
+
+func lengthOperand(field constraintFieldRef) string {
+	if !field.nullable {
+		return field.expr
+	}
+	switch field.valueType.Kind {
+	case typecheck.List:
+		return field.expr + " ?? []"
+	case typecheck.Map:
+		return field.expr + " ?? {}"
+	case typecheck.String:
+		return field.expr + " ?? ''"
+	}
+	return field.expr
 }
 
 // itemsCond renders MinItems (>=) and MaxItems (<=). A null field

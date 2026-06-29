@@ -45,6 +45,7 @@ type Thing struct {
 	Methods             []string
 	OptionalMethods     *[]string
 	ScalarPointers      *[]string
+	PointerScalarValues *[]*string
 	Tags                map[string]string
 	OptionalTags        *map[string]string
 }
@@ -356,10 +357,9 @@ func (v Thing) Constraints() []constraint.Constraint {
 		{Kind: "predicate", When: "true", Require: "true"},
 		{Kind: "predicate", When: "true", Require: "false"},
 		{
-			Kind: "predicate",
-			When: "true",
-			Require: "((input.optional-tags != null) && " +
-				"(@core.length(input.optional-tags) >= 1))",
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.optional-tags ?? {}) >= 1)",
 		},
 		{
 			Kind: "predicate",
@@ -391,10 +391,9 @@ func (v Thing) Constraints() []constraint.Constraint {
 	require.Empty(t, warnings)
 	require.Equal(t, []lang.ConstraintSpec{
 		{
-			Kind: "predicate",
-			When: "true",
-			Require: "((input.optional-methods != null) && " +
-				"(@core.length(input.optional-methods) >= 1))",
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.optional-methods ?? []) >= 1)",
 			Message: "methods must list at least one entry",
 		},
 		{
@@ -808,6 +807,61 @@ func TestReadRejectsMalformedForEach(t *testing.T) {
 			require.Contains(t, err.Error(), tt.wantErr)
 		})
 	}
+}
+
+func TestReadExtractsOptionalForEachElements(t *testing.T) {
+	src := constraintLibrary + `
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.OptionalMethods, func(s string) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.NotEmpty(s)),
+			}
+		}),
+		constraint.ForEach(v.PointerScalarValues, func(s *string) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.Present(s)),
+				constraint.Must(constraint.NotEmpty(s)),
+			}
+		}),
+		constraint.ForEach(v.PointerItems, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.ExactlyOneOf(it.A, it.B),
+			}
+		}),
+	}
+}
+`
+	schema, warnings, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	require.Equal(t, []lang.ConstraintSpec{
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(@each.value) >= 1)",
+			ForEach: "input.optional-methods ?? []",
+		},
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@each.value != null)",
+			ForEach: "input.pointer-scalar-values ?? []",
+		},
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(@each.value ?? '') >= 1)",
+			ForEach: "input.pointer-scalar-values ?? []",
+		},
+		{
+			Kind: "exactly-one-of",
+			Fields: []string{
+				"input.pointer-items[*].a",
+				"input.pointer-items[*].b",
+			},
+		},
+	}, schema.Resources["thing"].Constraints)
 }
 
 func TestReadRejectsImportedForEachParameterMismatch(t *testing.T) {
