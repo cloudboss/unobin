@@ -5,13 +5,16 @@ A Go library can declare configuration that applies to every node under an impor
 ```go
 type Configuration struct {
     Region      string
-    Prefix      string
-    MaxAttempts int64 `ub:"max-attempts"`
+    Profile     *string
+    Tags        map[string]string
+    MaybeTags   *map[string]string `ub:"maybe-tags"`
+    DefaultTags map[string]string  `ub:"default-tags"`
+    MaxAttempts int64              `ub:"max-attempts"`
 }
 
 func (c Configuration) Defaults() []defaults.Default {
     return []defaults.Default{
-        defaults.Value(c.Prefix, ""),
+        defaults.Value(c.DefaultTags, map[string]string{"managed-by": "unobin"}),
         defaults.Value(c.MaxAttempts, int64(3)),
     }
 }
@@ -50,9 +53,12 @@ and action input structs:
 - `ub:"name"` changes the UB field name.
 - `ub:"-"` omits a Go field from the UB schema.
 
-Use `Defaults()` for non-pointer fields that may be omitted. Use `Constraints()`
-for config validation. Defaults are applied before constraints and before the
-decoded config reaches resources, data sources, actions, or functions.
+Plain map and slice fields are required like other non-pointer fields. Pointer
+fields such as `*map[string]string` are nullable and may be omitted. Use
+`Defaults()` with `defaults.Value` when a non-pointer field may be omitted
+because the compiler should insert a real value. Use `Constraints()` for config
+validation. Defaults are applied before constraints and before the decoded config
+reaches resources, data sources, actions, or functions.
 
 ## Source use
 
@@ -62,7 +68,10 @@ A factory input can use the configuration schema:
 inputs: {
   cloud: {
     type: library-config('github.com/example/cloud')
-    default: { region: 'us-west-2' }
+    default: {
+      region: 'us-west-2'
+      tags: { owner: 'platform' }
+    }
   }
 }
 

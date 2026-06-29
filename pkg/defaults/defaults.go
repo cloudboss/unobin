@@ -5,6 +5,7 @@
 //	func (f File) Defaults() []defaults.Default {
 //		return []defaults.Default{
 //			defaults.Value(f.Mode, 0o644),
+//			defaults.Value(f.Tags, map[string]string{}),
 //		}
 //	}
 //

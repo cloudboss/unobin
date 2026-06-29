@@ -13,12 +13,14 @@ type File struct {
     Path          string
     CreateParents bool `ub:"create-parents"`
     Tags          map[string]string
+    MaybeTags     *map[string]string `ub:"maybe-tags"`
 }
 ```
 
-Pointer fields are optional. Non-pointer fields are required unless `Defaults()`
-declares a value with `defaults.Value`. Output structs use the same field naming
-rules. An output field can be marked sensitive:
+Pointer fields are optional and accept explicit `null`. Non-pointer fields,
+including maps and slices, are required unless `Defaults()` declares a real value
+with `defaults.Value`. Output structs use the same field naming rules. An output
+field can be marked sensitive:
 
 ```go
 type SecretOutput struct {
@@ -35,13 +37,15 @@ A type can declare defaults with a `Defaults` method:
 func (f File) Defaults() []defaults.Default {
     return []defaults.Default{
         defaults.Value(f.CreateParents, true),
+        defaults.Value(f.Tags, map[string]string{}),
     }
 }
 ```
 
 `defaults.Value` fills a value before the type's runtime method runs. Pointer fields
-express optional input without a default. The same defaults method model applies to
-library configuration structs.
+express optional input without a default. For maps and slices, use composite
+literals such as `map[string]string{}` or `[]string{"a", "b"}`. The same defaults
+method model applies to library configuration structs.
 
 ## Constraints
 
