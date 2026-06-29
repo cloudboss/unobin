@@ -78,6 +78,20 @@ A predicate can iterate over a list or map:
 }
 ```
 
+If the iterable may be null, use an explicit fallback:
+
+```
+{
+  kind:      predicate
+  @for-each: input.replicas ?? []
+  when:      @each.value.tls == true
+  require:   @each.value.cert != null
+}
+```
+
+Use `?? {}` for an optional map. A bare optional list or map is rejected because
+`@each` needs a non-null iterable.
+
 For nested iteration, use a list of binding objects:
 
 ```

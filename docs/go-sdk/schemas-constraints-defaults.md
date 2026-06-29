@@ -5,16 +5,18 @@ output fields, constraints, and defaults.
 
 ## Struct fields
 
-Input and configuration structs become UB object fields. Field names use kebab case by
-default, and `ub` tags can set the UB name:
+Input and configuration structs become Unobin object fields. Field names use kebab
+case by default, and `ub` tags can set the Unobin name:
 
 ```go
 type File struct {
     Path          string
+    Mode          int
     CreateParents bool `ub:"create-parents"`
     Tags          map[string]string
     MaybeTags     *map[string]string `ub:"maybe-tags"`
     Profile       *string
+    Labels        *[]string
 }
 ```
 
@@ -60,13 +62,28 @@ func (f File) Constraints() []constraint.Constraint {
     return []constraint.Constraint{
         constraint.Must(constraint.NotEmpty(f.Path)).Message("path is required"),
         constraint.Must(constraint.AtLeast(f.Mode, 0)).Message("mode must be non-negative"),
+        constraint.ForEach(f.Labels, func(label string) []constraint.Constraint {
+            return []constraint.Constraint{
+                constraint.Must(constraint.NotEmpty(label)).
+                    Message("labels must be non-empty"),
+            }
+        }),
     }
 }
 ```
 
 Set constraints include `ExactlyOneOf`, `AtLeastOneOf`, `AtMostOneOf`,
 `RequiredTogether`, `RequiredWith`, and `ForbiddenWith`. Predicate constraints use
-`Must` or `When(...).Require(...)`. Library configuration structs use the same
+`Must` or `When(...).Require(...)`. `constraint.ForEach` accepts plain slices,
+named slices, pointer slices, and pointers to named slices when the first argument
+is a field selector. `goschema` validates the field is a list and that the body
+parameter matches the element type.
+
+Pointer slices derive `optional(list(T))` in Unobin syntax. Go-derived predicate
+constraints use an explicit empty-list fallback, equivalent to
+`@for-each: input.labels ?? []`. Hand-written `.ub` constraints must write that
+fallback explicitly for optional lists; a bare `@for-each: input.labels` is
+rejected when `labels` may be null. Library configuration structs use the same
 constraints method model.
 
 ## Check timing
