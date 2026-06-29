@@ -608,6 +608,7 @@ func TestExtractedNestedConstraintsCheckAgainstValues(t *testing.T) {
 			"inline":  "echo hi",
 			"signing": map[string]any{"key-arn": "arn"},
 		},
+		"replicas": []any{},
 	}
 	ok := lang.CheckConstraintEntries(entries, good, eval(good), lang.DisplayNodeRelative)
 	require.Equal(t, 0, ok.Len(), "valid nested input should pass: %v", ok.Err())
@@ -619,6 +620,7 @@ func TestExtractedNestedConstraintsCheckAgainstValues(t *testing.T) {
 			"from-file": "build.sh",
 			"signing":   map[string]any{},
 		},
+		"replicas": []any{},
 	}
 	got := lang.CheckConstraintEntries(entries, bad, eval(bad), lang.DisplayNodeRelative)
 	require.Equal(t, 2, got.Len(), "two violations expected: %v", got.Err())

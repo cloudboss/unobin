@@ -677,7 +677,6 @@ func checkPredicateLevels(
 			evalAgainstInputs, display, errs)
 	}
 	switch it := iterable.(type) {
-	case nil:
 	case []any:
 		for i, el := range it {
 			descend(int64(i), el, fmt.Sprintf("%s[%d]", levelText, i))
@@ -772,12 +771,28 @@ func checkPredicateOnce(
 }
 
 // forEachText renders an @for-each iterable for the element a failure
-// names: a dotted path renders as written, anything else as @for-each.
+// names: a dotted path renders as written, as does a coalesced dotted
+// path with an empty collection fallback. Anything else is @for-each.
 func forEachText(e Expr) string {
 	if dp, ok := e.(*DotPath); ok {
 		return dotPathString(dp)
 	}
+	if inf, ok := e.(*Infix); ok && inf.Op == "??" && emptyCollectionLiteral(inf.Right) {
+		if dp, ok := inf.Left.(*DotPath); ok {
+			return dotPathString(dp)
+		}
+	}
 	return "@for-each"
+}
+
+func emptyCollectionLiteral(e Expr) bool {
+	switch v := e.(type) {
+	case *ArrayLit:
+		return len(v.Elements) == 0
+	case *ObjectLit:
+		return len(v.Fields) == 0
+	}
+	return false
 }
 
 // readForEachLevels reads an @for-each value into its levels. The bare
@@ -886,7 +901,7 @@ func parseSpecLevels(s ConstraintSpec, errs *ErrorList) ([]ForEachLevel, bool) {
 		if !ok {
 			return nil, false
 		}
-		return []ForEachLevel{{Name: "@each", In: in, InText: s.ForEach}}, true
+		return []ForEachLevel{{Name: "@each", In: in, InText: forEachText(in)}}, true
 	}
 	if len(s.ForEachLevels) == 0 {
 		return nil, true
@@ -897,7 +912,7 @@ func parseSpecLevels(s ConstraintSpec, errs *ErrorList) ([]ForEachLevel, bool) {
 		if !ok {
 			return nil, false
 		}
-		levels = append(levels, ForEachLevel{Name: lv.Name, In: in, InText: lv.In})
+		levels = append(levels, ForEachLevel{Name: lv.Name, In: in, InText: forEachText(in)})
 	}
 	return levels, true
 }

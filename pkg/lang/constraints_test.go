@@ -20,28 +20,7 @@ func constraintFixture(t testing.TB, name string) string {
 // EvalContext seeded with the validated inputs.
 func boolExprEval(values map[string]any) ConstraintEvalFunc {
 	return func(e Expr, binds []EachBinding) (any, error) {
-		switch v := e.(type) {
-		case *BoolLit:
-			return v.Value, nil
-		case *DotPath:
-			return evalLeaf(v, values, binds)
-		case *Infix:
-			left, err := evalLeaf(v.Left, values, binds)
-			if err != nil {
-				return nil, err
-			}
-			right, err := evalLeaf(v.Right, values, binds)
-			if err != nil {
-				return nil, err
-			}
-			switch v.Op {
-			case "==":
-				return left == right, nil
-			case "!=":
-				return left != right, nil
-			}
-		}
-		return nil, nil
+		return evalValue(e, values, binds)
 	}
 }
 
@@ -55,7 +34,7 @@ func lookupBinding(binds []EachBinding, name string) (EachBinding, bool) {
 	return EachBinding{}, false
 }
 
-func evalLeaf(e Expr, values map[string]any, binds []EachBinding) (any, error) {
+func evalValue(e Expr, values map[string]any, binds []EachBinding) (any, error) {
 	switch v := e.(type) {
 	case *StringLit:
 		return v.Value, nil
@@ -66,6 +45,50 @@ func evalLeaf(e Expr, values map[string]any, binds []EachBinding) (any, error) {
 		return v.ParsedInt, nil
 	case *BoolLit:
 		return v.Value, nil
+	case *ArrayLit:
+		out := make([]any, 0, len(v.Elements))
+		for _, elem := range v.Elements {
+			value, err := evalValue(elem, values, binds)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, value)
+		}
+		return out, nil
+	case *ObjectLit:
+		out := map[string]any{}
+		for _, field := range v.Fields {
+			if field.Key.Kind != FieldIdent || field.Value == nil {
+				continue
+			}
+			value, err := evalValue(field.Value, values, binds)
+			if err != nil {
+				return nil, err
+			}
+			out[field.Key.Name] = value
+		}
+		return out, nil
+	case *Infix:
+		left, err := evalValue(v.Left, values, binds)
+		if err != nil {
+			return nil, err
+		}
+		if v.Op == "??" {
+			if left == nil {
+				return evalValue(v.Right, values, binds)
+			}
+			return left, nil
+		}
+		right, err := evalValue(v.Right, values, binds)
+		if err != nil {
+			return nil, err
+		}
+		switch v.Op {
+		case "==":
+			return left == right, nil
+		case "!=":
+			return left != right, nil
+		}
 	case *DotPath:
 		if bound, ok := lookupBinding(binds, v.Root.Name); ok && len(v.Segments) > 0 {
 			switch v.Segments[0].Name {
@@ -875,7 +898,7 @@ func TestCheckPredicateChainedForEach(t *testing.T) {
 			map[string]any{"n": "b"},
 			map[string]any{"n": "x"},
 		}},
-		map[string]any{"n": "c"},
+		map[string]any{"n": "c", "subs": []any{}},
 	}}
 	errs := CheckConstraints(block, values, boolExprEval(values), DisplayNodeRelative)
 	require.Equal(t, 1, errs.Len(), errs.Err())
@@ -893,7 +916,7 @@ func TestCheckPredicateChainedForEachMapLevel(t *testing.T) {
 			map[string]any{"az": "set"},
 			map[string]any{},
 		}},
-		"dev": map[string]any{},
+		"dev": map[string]any{"subnets": []any{}},
 	}}
 	errs := CheckConstraints(block, values, boolExprEval(values), DisplayNodeRelative)
 	require.Equal(t, 1, errs.Len(), errs.Err())
@@ -1008,11 +1031,86 @@ func TestCheckPredicateForEachMap(t *testing.T) {
 	}
 }
 
-func TestCheckPredicateForEachUnsetIterable(t *testing.T) {
+func TestCheckPredicateForEachFallbackList(t *testing.T) {
+	specs := []ConstraintSpec{{
+		Kind:    "predicate",
+		When:    "true",
+		Require: "@each.value.tls == true",
+		Message: "tls required",
+		ForEach: "input.items ?? []",
+	}}
+	entries, perr := ParseSpecs(specs)
+	require.Equal(t, 0, perr.Len(), "specs should parse: %v", perr.Err())
+
+	passing := []struct {
+		name   string
+		values map[string]any
+	}{
+		{name: "missing", values: map[string]any{}},
+		{name: "null", values: map[string]any{"items": nil}},
+		{name: "empty", values: map[string]any{"items": []any{}}},
+		{name: "valid", values: map[string]any{"items": []any{
+			map[string]any{"tls": true},
+		}}},
+	}
+	for _, tt := range passing {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := CheckConstraintEntries(entries, tt.values,
+				boolExprEval(tt.values), DisplayNodeRelative)
+			require.Equal(t, 0, errs.Len(), errs.Err())
+		})
+	}
+
+	bad := map[string]any{"items": []any{
+		map[string]any{"tls": true},
+		map[string]any{"tls": false},
+	}}
+	errs := CheckConstraintEntries(entries, bad, boolExprEval(bad), DisplayNodeRelative)
+	require.Equal(t, 1, errs.Len(), errs.Err())
+	require.Contains(t, errs.Err().Error(), "tls required (items[1])")
+}
+
+func TestCheckPredicateForEachNilIterableErrors(t *testing.T) {
 	block := parseConstraintsBlock(t, constraintFixture(t, "check-predicate-for-each-unset-iterable"))
+
 	errs := CheckConstraints(block, map[string]any{},
 		boolExprEval(map[string]any{}), DisplayRooted)
+	require.Equal(t, 1, errs.Len(), errs.Err())
+	require.Contains(t, errs.Err().Error(), "@for-each must iterate a list or map, got null")
+
+	errs = CheckConstraints(block, map[string]any{"replicas": nil},
+		boolExprEval(map[string]any{"replicas": nil}), DisplayRooted)
+	require.Equal(t, 1, errs.Len(), errs.Err())
+	require.Contains(t, errs.Err().Error(), "@for-each must iterate a list or map, got null")
+
+	errs = CheckConstraints(block, map[string]any{"replicas": []any{}},
+		boolExprEval(map[string]any{"replicas": []any{}}), DisplayRooted)
 	require.Equal(t, 0, errs.Len(), errs.Err())
+}
+
+func TestCheckPredicateChainedForEachFallbackDisplay(t *testing.T) {
+	specs := []ConstraintSpec{{
+		Kind:    "predicate",
+		When:    "true",
+		Require: "@transition.value.enabled == true",
+		Message: "transition enabled",
+		ForEachLevels: []ForEachSpecLevel{
+			{Name: "@rule", In: "input.rules ?? []"},
+			{Name: "@transition", In: "@rule.value.transitions ?? []"},
+		},
+	}}
+	entries, perr := ParseSpecs(specs)
+	require.Equal(t, 0, perr.Len(), "specs should parse: %v", perr.Err())
+
+	values := map[string]any{"rules": []any{
+		map[string]any{"transitions": []any{
+			map[string]any{"enabled": true},
+			map[string]any{"enabled": false},
+		}},
+	}}
+	errs := CheckConstraintEntries(entries, values, boolExprEval(values), DisplayNodeRelative)
+	require.Equal(t, 1, errs.Len(), errs.Err())
+	require.Contains(t, errs.Err().Error(), "transition enabled (rules[0].transitions[1])")
 }
 
 func TestCheckPredicateForEachNotIterable(t *testing.T) {
