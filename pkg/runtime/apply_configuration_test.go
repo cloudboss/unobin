@@ -26,6 +26,11 @@ type runtimePlainConfiguration struct {
 	Endpoint string
 }
 
+type runtimeReferenceConfiguration struct {
+	Tags  map[string]string
+	Items []string
+}
+
 type echoResource struct {
 	Value string
 }
@@ -110,6 +115,44 @@ func plainConfiguredLibraries(schema *LibrarySchema) map[string]*Library {
 		func() any { return &runtimePlainConfiguration{} }, nil, nil)
 	libs["fix"].Schema = schema
 	return libs
+}
+
+func referenceConfigLibrary(schema *LibrarySchema) *Library {
+	return &Library{
+		Configuration: &cfg.ConfigurationType[*runtimeReferenceConfiguration]{
+			New: func() *runtimeReferenceConfiguration {
+				return &runtimeReferenceConfiguration{}
+			},
+		},
+		Schema: schema,
+	}
+}
+
+func referenceConfigSchema(defaultTags string, constrained bool) *LibrarySchema {
+	fields := []typecheck.ObjectField{
+		{Name: "tags", Type: typecheck.TMap(typecheck.TString()), Defaulted: true},
+		{Name: "items", Type: typecheck.TList(typecheck.TString()), Defaulted: true},
+	}
+	defaults := []lang.DefaultSpec{
+		{Field: "input.tags", Value: defaultTags},
+		{Field: "input.items", Value: "['a', 'b']"},
+	}
+	var constraints []lang.ConstraintSpec
+	if constrained {
+		constraints = []lang.ConstraintSpec{{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.tags) >= 1)",
+			Message: "tags are required",
+		}}
+	}
+	return &LibrarySchema{
+		HasConfiguration:         true,
+		ConfigurationFields:      fields,
+		ConfigurationDefaults:    defaults,
+		ConfigurationConstraints: constraints,
+		ConfigurationDigest:      cfg.DigestView(fields, defaults, constraints),
+	}
 }
 
 func plainEndpointSchema(defaulted, constrained bool) *LibrarySchema {
@@ -232,6 +275,48 @@ func TestPlanAppliesLibraryConfigDefaultsBeforeDecode(t *testing.T) {
 	exec.Factory = state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
 	res := applyOnce(t, exec)
 	require.Equal(t, "https://default.example", res.Outputs["got"])
+}
+
+func TestDecodeLibraryConfigAppliesReferenceDefaults(t *testing.T) {
+	lib := referenceConfigLibrary(referenceConfigSchema("{ env: 'dev' }", false))
+
+	gotAny, err := decodeLibraryConfig(lib, map[string]any{})
+
+	require.NoError(t, err)
+	got := gotAny.(*runtimeReferenceConfiguration)
+	require.Equal(t, map[string]string{"env": "dev"}, got.Tags)
+	require.Equal(t, []string{"a", "b"}, got.Items)
+}
+
+func TestDecodeLibraryConfigKeepsReferenceValues(t *testing.T) {
+	lib := referenceConfigLibrary(referenceConfigSchema("{ env: 'dev' }", false))
+
+	gotAny, err := decodeLibraryConfig(lib, map[string]any{
+		"tags":  map[string]any{"env": "prod"},
+		"items": []any{"x"},
+	})
+
+	require.NoError(t, err)
+	got := gotAny.(*runtimeReferenceConfiguration)
+	require.Equal(t, map[string]string{"env": "prod"}, got.Tags)
+	require.Equal(t, []string{"x"}, got.Items)
+}
+
+func TestDecodeLibraryConfigRejectsNullReferenceValue(t *testing.T) {
+	lib := referenceConfigLibrary(referenceConfigSchema("{ env: 'dev' }", false))
+
+	_, err := decodeLibraryConfig(lib, map[string]any{"tags": nil})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `field "tags": required but is null`)
+}
+
+func TestDecodeLibraryConfigConstraintsSeeReferenceDefaults(t *testing.T) {
+	lib := referenceConfigLibrary(referenceConfigSchema("{ env: 'dev' }", true))
+
+	_, err := decodeLibraryConfig(lib, map[string]any{})
+
+	require.NoError(t, err)
 }
 
 func TestPlanChecksLibraryConfigConstraints(t *testing.T) {

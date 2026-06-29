@@ -1,0 +1,5 @@
+resources: {
+  bucket: ext.bucket {
+    name: 'defaulted references'
+  }
+}

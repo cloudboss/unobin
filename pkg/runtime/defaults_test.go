@@ -65,6 +65,33 @@ func TestOverlayDefaults(t *testing.T) {
 			want: map[string]any{"method": "GET", "follow": true, "ratio": 0.5},
 		},
 		{
+			name:   "fills map and list literals",
+			inputs: map[string]any{},
+			specs: []lang.DefaultSpec{
+				value("input.tags", "{ env: 'dev' }"),
+				value("input.items", "['one', 'two']"),
+			},
+			want: map[string]any{
+				"tags":  map[string]any{"env": "dev"},
+				"items": []any{"one", "two"},
+			},
+		},
+		{
+			name: "keeps set map and list values",
+			inputs: map[string]any{
+				"tags":  map[string]any{"env": "prod"},
+				"items": []any{"explicit"},
+			},
+			specs: []lang.DefaultSpec{
+				value("input.tags", "{ env: 'dev' }"),
+				value("input.items", "['one', 'two']"),
+			},
+			want: map[string]any{
+				"tags":  map[string]any{"env": "prod"},
+				"items": []any{"explicit"},
+			},
+		},
+		{
 			name:   "optional marker fills nothing",
 			inputs: map[string]any{},
 			specs:  []lang.DefaultSpec{{Field: "input.dir", Optional: true}},
@@ -161,6 +188,51 @@ func TestPlanKeepsExplicitValueOverDefault(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, plan.Steps, 1)
 	require.Equal(t, map[string]any{"name": "a", "size": int64(9)}, plan.Steps[0].Inputs)
+}
+
+func referenceDefaultsExecutor(t *testing.T, fixture string) *Executor {
+	t.Helper()
+	libs := resourceModules(&resourceCounters{})
+	libs["core"].Defaults = map[string][]lang.DefaultSpec{
+		"resource.thing": {
+			{Field: "input.tags", Value: "{}"},
+			{Field: "input.items", Value: "[]"},
+		},
+	}
+	src := ubtest.ReadValidFixture(t, "testdata/ub/defaults", fixture)
+	store := newStateStore(t)
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	return &Executor{
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+	}
+}
+
+func TestPlanFillsDefaultedReferenceInputs(t *testing.T) {
+	exec := referenceDefaultsExecutor(t, "default-reference-omitted")
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.Len(t, plan.Steps, 1)
+	require.Equal(t, map[string]any{
+		"name":  "a",
+		"tags":  map[string]any{},
+		"items": []any{},
+	}, plan.Steps[0].Inputs)
+}
+
+func TestPlanKeepsExplicitReferenceInputsOverDefaults(t *testing.T) {
+	exec := referenceDefaultsExecutor(t, "default-reference-explicit")
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.Len(t, plan.Steps, 1)
+	require.Equal(t, map[string]any{
+		"name":  "a",
+		"tags":  map[string]any{"env": "prod"},
+		"items": []any{"one"},
+	}, plan.Steps[0].Inputs)
 }
 
 // TestPlanConstraintSeesDefault proves the overlay runs before the

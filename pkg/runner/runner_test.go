@@ -695,6 +695,54 @@ func TestBuildInputsAppliesLibraryConfigDefaultsBeforeConstraints(t *testing.T) 
 	}, got)
 }
 
+func TestBuildInputsAppliesLibraryConfigReferenceDefaults(t *testing.T) {
+	factory := ubtest.ReadValidFixture(t,
+		"testdata/ub/runtime-split", "library-config-default-factory")
+	info := testInfo(t, factory)
+	info.Libraries["core"].Schema = libraryConfigSchemaWithReferenceDefaults()
+	parsed, err := parseFactory(info)
+	require.NoError(t, err)
+
+	got, err := buildInputs(nil, "", parsed, info.Libraries)
+
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{
+		"core-config": map[string]any{
+			"region": "us-west-2",
+			"tags":   map[string]any{"env": "dev"},
+			"zones":  []any{"a", "b"},
+		},
+	}, got)
+}
+
+func libraryConfigSchemaWithReferenceDefaults() *runtime.LibrarySchema {
+	fields := []typecheck.ObjectField{
+		{Name: "region", Type: typecheck.TString(), Defaulted: true},
+		{Name: "tags", Type: typecheck.TMap(typecheck.TString()), Defaulted: true},
+		{Name: "zones", Type: typecheck.TList(typecheck.TString()), Defaulted: true},
+	}
+	defaults := []lang.DefaultSpec{
+		{Field: "input.region", Value: "'us-west-2'"},
+		{Field: "input.tags", Value: "{ env: 'dev' }"},
+		{Field: "input.zones", Value: "['a', 'b']"},
+	}
+	constraints := []lang.ConstraintSpec{
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.tags) >= 1)",
+			Message: "tags are required",
+		},
+	}
+	return &runtime.LibrarySchema{
+		HasConfiguration:         true,
+		ConfigurationFields:      fields,
+		ConfigurationDefaults:    defaults,
+		ConfigurationConstraints: constraints,
+		ConfigurationDigest:      cfg.DigestView(fields, defaults, constraints),
+	}
+}
+
 func libraryConfigSchemaWithConstraint() *runtime.LibrarySchema {
 	fields := []typecheck.ObjectField{
 		{Name: "region", Type: typecheck.TString(), Defaulted: true},

@@ -105,6 +105,15 @@ func strictPresenceLibrary() *runtime.Library {
 	}}
 }
 
+func strictDefaultedPresenceLibrary() *runtime.Library {
+	lib := strictPresenceLibrary()
+	lib.Schema.Resources["bucket"].Defaults = []lang.DefaultSpec{
+		{Field: "input.tags", Value: "{}"},
+		{Field: "input.items", Value: "[]"},
+	}
+	return lib
+}
+
 func emptyConfigResourceLibrary() *runtime.Library {
 	return &runtime.Library{Schema: &runtime.LibrarySchema{
 		HasConfiguration:    true,
@@ -154,6 +163,34 @@ func TestCheckTypesRejectsMissingRequiredScalarWithReferences(t *testing.T) {
 		map[string]*runtime.Library{"ext": strictPresenceLibrary()})
 
 	require.Equal(t, []string{`missing required input "name" on ext.bucket`}, errs.Messages())
+}
+
+func TestCheckTypesAcceptsDefaultedReferenceInputs(t *testing.T) {
+	errs := checkSyntaxReferences(t, typeFixture(t, "defaulted-reference-inputs"),
+		map[string]*runtime.Library{"ext": strictDefaultedPresenceLibrary()})
+
+	require.Empty(t, errs.Messages())
+}
+
+func TestCheckTypesAcceptsExplicitDefaultedReferenceInputs(t *testing.T) {
+	errs := checkSyntaxReferences(t, typeFixture(t, "strict-reference-fields"),
+		map[string]*runtime.Library{"ext": strictDefaultedPresenceLibrary()})
+
+	require.Empty(t, errs.Messages())
+}
+
+func TestCheckTypesRejectsNullDefaultedMapInput(t *testing.T) {
+	errs := checkSyntaxReferences(t, invalidTypeFixture(t, "null-map-input"),
+		map[string]*runtime.Library{"ext": strictDefaultedPresenceLibrary()})
+
+	require.Equal(t, []string{"type mismatch: expected map(string), got null"}, errs.Messages())
+}
+
+func TestCheckTypesRejectsNullDefaultedListInput(t *testing.T) {
+	errs := checkSyntaxReferences(t, invalidTypeFixture(t, "null-list-input"),
+		map[string]*runtime.Library{"ext": strictDefaultedPresenceLibrary()})
+
+	require.Equal(t, []string{"type mismatch: expected list(string), got null"}, errs.Messages())
 }
 
 // TestCheckTypesSkipsUnknownTypedInput proves an input whose type the

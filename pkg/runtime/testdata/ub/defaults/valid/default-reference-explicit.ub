@@ -1,0 +1,7 @@
+resources: {
+  x: core.thing {
+    name: 'a'
+    tags: { env: 'prod' }
+    items: ['one']
+  }
+}
