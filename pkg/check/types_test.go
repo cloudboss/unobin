@@ -114,6 +114,23 @@ func strictDefaultedPresenceLibrary() *runtime.Library {
 	return lib
 }
 
+func nullableDefaultLibrary() *runtime.Library {
+	return &runtime.Library{Schema: &runtime.LibrarySchema{
+		Resources: map[string]*runtime.TypeSchema{
+			"server": {
+				Inputs: map[string]typecheck.Type{
+					"name":    typecheck.TString(),
+					"profile": typecheck.TOptional(typecheck.TString()),
+				},
+				Outputs: map[string]typecheck.Type{"id": typecheck.TString()},
+				Defaults: []lang.DefaultSpec{
+					{Field: "input.profile", Value: "'dev'"},
+				},
+			},
+		},
+	}}
+}
+
 func emptyConfigResourceLibrary() *runtime.Library {
 	return &runtime.Library{Schema: &runtime.LibrarySchema{
 		HasConfiguration:    true,
@@ -191,6 +208,47 @@ func TestCheckTypesRejectsNullDefaultedListInput(t *testing.T) {
 		map[string]*runtime.Library{"ext": strictDefaultedPresenceLibrary()})
 
 	require.Equal(t, []string{"type mismatch: expected list(string), got null"}, errs.Messages())
+}
+
+func TestCheckTypesAcceptsNullableDefaultInputs(t *testing.T) {
+	for _, name := range []string{
+		"nullable-default-omitted",
+		"nullable-default-null",
+		"nullable-default-value",
+	} {
+		t.Run(name, func(t *testing.T) {
+			errs := checkSyntaxReferences(t, typeFixture(t, name),
+				map[string]*runtime.Library{"ext": nullableDefaultLibrary()})
+
+			require.Empty(t, errs.Messages())
+		})
+	}
+}
+
+func TestCheckTypesRejectsWrongNullableDefaultInputType(t *testing.T) {
+	errs := checkSyntaxReferences(t, invalidTypeFixture(t, "nullable-default-wrong-type"),
+		map[string]*runtime.Library{"ext": nullableDefaultLibrary()})
+
+	require.Equal(t,
+		[]string{"type mismatch: expected optional(string), got integer"},
+		errs.Messages())
+}
+
+func TestCheckTypesRejectsMissingNullableDefaultSibling(t *testing.T) {
+	errs := checkSyntaxReferences(t, invalidTypeFixture(t, "nullable-default-missing-required"),
+		map[string]*runtime.Library{"ext": nullableDefaultLibrary()})
+
+	require.Equal(t, []string{`missing required input "name" on ext.server`}, errs.Messages())
+}
+
+func TestCheckTypesRejectsNullableDefaultAsRequiredRead(t *testing.T) {
+	errs := checkSyntaxReferences(t, invalidTypeFixture(t, "nullable-default-read-required"),
+		map[string]*runtime.Library{"ext": nullableDefaultLibrary()})
+
+	require.Equal(t,
+		[]string{"type mismatch: expected string, got optional(string); test it first, " +
+			"like if x != null then x else <fallback>"},
+		errs.Messages())
 }
 
 // TestCheckTypesSkipsUnknownTypedInput proves an input whose type the

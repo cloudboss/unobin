@@ -1,0 +1,5 @@
+resources: {
+  server: ext.server {
+    profile: 'dev'
+  }
+}

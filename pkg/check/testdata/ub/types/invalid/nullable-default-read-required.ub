@@ -1,0 +1,8 @@
+resources: {
+  source: ext.server {
+    name: 'source'
+  }
+  sink: ext.server {
+    name: resource.source.profile
+  }
+}

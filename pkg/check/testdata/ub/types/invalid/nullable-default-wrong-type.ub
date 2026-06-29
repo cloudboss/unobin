@@ -1,0 +1,6 @@
+resources: {
+  server: ext.server {
+    name:    'wrong'
+    profile: 3
+  }
+}
