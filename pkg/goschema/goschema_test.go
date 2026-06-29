@@ -146,6 +146,46 @@ func TestReadExtractsPlainConfigurationSchema(t *testing.T) {
 	require.Contains(t, schema.Resources, "bucket")
 }
 
+func TestReadKeepsPlainMapAndSliceInputsRequired(t *testing.T) {
+	src := `package lib
+
+import "github.com/cloudboss/unobin/pkg/runtime"
+
+func Library() *runtime.Library {
+	return &runtime.Library{
+		Name: "lib",
+		Resources: map[string]runtime.ResourceRegistration{
+			"thing": runtime.MakeResource[Thing, *ThingOutput, any](),
+		},
+	}
+}
+
+type Thing struct {
+	Name       string
+	Tags       map[string]string
+	Items      []string
+	MaybeTags  *map[string]string
+	MaybeItems *[]string
+}
+
+type ThingOutput struct {
+	ID string
+}
+`
+	schema, warnings, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+
+	want := map[string]typecheck.Type{
+		"name":        typecheck.TString(),
+		"tags":        typecheck.TMap(typecheck.TString()),
+		"items":       typecheck.TList(typecheck.TString()),
+		"maybe-tags":  typecheck.TOptional(typecheck.TMap(typecheck.TString())),
+		"maybe-items": typecheck.TOptional(typecheck.TList(typecheck.TString())),
+	}
+	require.Equal(t, want, schema.Resources["thing"].Inputs)
+}
+
 func TestReadRejectsMalformedPlainConfigurationDefaults(t *testing.T) {
 	src := plainConfigLibraryWith(`func (c Configuration) Defaults() []defaults.Default {
 	return []defaults.Default{

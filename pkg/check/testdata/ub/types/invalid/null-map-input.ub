@@ -1,0 +1,7 @@
+resources: {
+  bucket: ext.bucket {
+    name: 'bad tags'
+    tags: null
+    items: []
+  }
+}

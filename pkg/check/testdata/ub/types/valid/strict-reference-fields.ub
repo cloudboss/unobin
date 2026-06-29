@@ -1,0 +1,19 @@
+resources: {
+  explicit: ext.bucket {
+    name: 'explicit'
+    tags: {}
+    items: []
+  }
+  omitted-optionals: ext.bucket {
+    name: 'omitted'
+    tags: { env: 'dev' }
+    items: ['one']
+  }
+  null-optionals: ext.bucket {
+    name: 'nulls'
+    tags: {}
+    items: []
+    maybe-tags: null
+    maybe-items: null
+  }
+}
