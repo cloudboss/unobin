@@ -6,6 +6,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type forEachItem struct{}
+
+type forEachItems []forEachItem
+
+func TestForEachAcceptsListFieldForms(t *testing.T) {
+	var plain []forEachItem
+	var pointer *[]forEachItem
+	var named forEachItems
+	var pointerName *forEachItems
+	var scalarPointer *[]string
+
+	_ = ForEach(plain, func(forEachItem) []Constraint { return nil })
+	_ = ForEach(pointer, func(forEachItem) []Constraint { return nil })
+	_ = ForEach(named, func(forEachItem) []Constraint { return nil })
+	_ = ForEach(pointerName, func(forEachItem) []Constraint { return nil })
+	_ = ForEach(scalarPointer, func(string) []Constraint { return nil })
+}
+
 // CertInput is a stand-in for a real library input type: the test builds a
 // realistic mixed set of constraints against its fields, which both proves
 // the field-selector form type-checks through the API and lets us read back

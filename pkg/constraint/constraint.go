@@ -77,11 +77,11 @@ func ForbiddenWith(field any, forbids ...any) Constraint {
 func Must(require ...Condition) Constraint { return Constraint{kind: KindPredicate} }
 
 // ForEach applies per-element rules to a list field, mirroring the
-// @for-each a UB constraint uses. The body receives one element and
-// returns the constraints that must hold for every element of the
-// list; a field reference inside the body names the element's field,
-// and a reference to the receiver names a top-level field as usual. A
-// null or empty list checks nothing.
+// @for-each a UB constraint uses. The list argument is source metadata:
+// pkg/goschema validates that it names a list field and that the body
+// parameter matches the list element type. Pointer list fields are optional
+// in UB, and generated predicate constraints use ?? [] as an empty-list
+// fallback.
 //
 // As with every constructor in this package, ForEach is read from
 // source and never called: the body declares rules and must be a
@@ -93,7 +93,7 @@ func Must(require ...Condition) Constraint { return Constraint{kind: KindPredica
 //			constraint.RequiredWith(r.TLS, v.CACert),
 //		}
 //	})
-func ForEach[T any](list []T, body func(T) []Constraint) Constraint {
+func ForEach[T any](list any, body func(T) []Constraint) Constraint {
 	return Constraint{kind: KindForEach}
 }
 
