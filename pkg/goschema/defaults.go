@@ -166,50 +166,104 @@ func fieldFinalType(entry scopeRoot, hops []selectorHop) (ast.Expr, bool) {
 // folds to its nanosecond count. Anything without a constant value in
 // the source warns and returns ok=false.
 func (w *walker) defaultValueString(arg ast.Expr) (string, bool) {
+	value, ok := w.defaultLiteralValue(arg)
+	if !ok {
+		return "", false
+	}
+	return lang.Render(value), true
+}
+
+func (w *walker) defaultLiteralValue(arg ast.Expr) (any, bool) {
 	switch v := arg.(type) {
 	case *ast.ParenExpr:
-		return w.defaultValueString(v.X)
+		return w.defaultLiteralValue(v.X)
 	case *ast.BasicLit:
 		switch v.Kind {
 		case token.STRING:
-			if s, err := unquoteString(v.Value); err == nil {
-				return "'" + s + "'", true
-			}
+			return sourceString(v)
 		case token.INT:
-			if n, err := strconv.ParseInt(v.Value, 0, 64); err == nil {
-				return strconv.FormatInt(n, 10), true
-			}
+			return sourceInt(v)
 		case token.FLOAT:
-			return v.Value, true
+			return sourceNumber(v)
 		}
 	case *ast.Ident:
-		if v.Name == "true" || v.Name == "false" {
-			return v.Name, true
+		if b, ok := boolLit(v); ok {
+			return b, true
 		}
 	case *ast.UnaryExpr:
 		if v.Op == token.SUB {
-			if bl, ok := v.X.(*ast.BasicLit); ok {
-				switch bl.Kind {
-				case token.INT:
-					if n, err := strconv.ParseInt(bl.Value, 0, 64); err == nil {
-						return strconv.FormatInt(-n, 10), true
-					}
-				case token.FLOAT:
-					return "-" + bl.Value, true
-				}
+			if n, ok := sourceInt(v); ok {
+				return n, true
+			}
+			if n, ok := sourceNumber(v); ok {
+				return n, true
 			}
 		}
 	case *ast.SelectorExpr, *ast.BinaryExpr:
 		if ns, ok := w.foldDuration(arg); ok {
-			return strconv.FormatInt(ns, 10), true
+			return ns, true
 		}
 	case *ast.CallExpr:
 		if len(v.Args) == 1 && w.defaultConversion(v.Fun) {
-			return w.defaultValueString(v.Args[0])
+			return w.defaultLiteralValue(v.Args[0])
 		}
+	case *ast.CompositeLit:
+		return w.defaultCompositeValue(v)
 	}
 	w.addWarnf("a default must be a literal, got %s", renderExpr(arg))
-	return "", false
+	return nil, false
+}
+
+func (w *walker) defaultCompositeValue(lit *ast.CompositeLit) (any, bool) {
+	switch lit.Type.(type) {
+	case *ast.ArrayType:
+		return w.defaultListValue(lit.Elts)
+	case *ast.MapType:
+		return w.defaultMapValue(lit.Elts)
+	}
+	w.addWarnf("a default must be a list or map literal, got %s", renderExpr(lit))
+	return nil, false
+}
+
+func (w *walker) defaultListValue(items []ast.Expr) (any, bool) {
+	out := make([]any, 0, len(items))
+	for _, item := range items {
+		if _, ok := item.(*ast.KeyValueExpr); ok {
+			w.addWarnf("a default list item must not have a key, got %s", renderExpr(item))
+			return nil, false
+		}
+		value, ok := w.defaultLiteralValue(item)
+		if !ok {
+			return nil, false
+		}
+		out = append(out, value)
+	}
+	return out, true
+}
+
+func (w *walker) defaultMapValue(items []ast.Expr) (any, bool) {
+	out := make(map[string]any, len(items))
+	for _, item := range items {
+		kv, ok := item.(*ast.KeyValueExpr)
+		if !ok {
+			w.addWarnf("a default map entry must have a key, got %s", renderExpr(item))
+			return nil, false
+		}
+		key, ok := sourceString(kv.Key)
+		if !ok {
+			w.addWarnf(
+				"a default map key must be a string literal, got %s",
+				renderExpr(kv.Key),
+			)
+			return nil, false
+		}
+		value, ok := w.defaultLiteralValue(kv.Value)
+		if !ok {
+			return nil, false
+		}
+		out[key] = value
+	}
+	return out, true
 }
 
 func (w *walker) defaultConversion(fun ast.Expr) bool {

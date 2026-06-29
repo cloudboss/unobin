@@ -36,6 +36,11 @@ type Thing struct {
 	Code    Code
 	Ptr     *string
 	Items   []Item
+	Tags    map[string]string
+	Names   []string
+	Ports   []int64
+	Flags   []bool
+	Nested  map[string][]string
 }
 
 type Code struct {
@@ -157,6 +162,104 @@ func TestReadExtractsDefaults(t *testing.T) {
 	}
 }`,
 			wantWarns: []string{`Thing: unsupported default constructor "AllowAbsent"`},
+		},
+		{
+			name: "empty map value",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Value(f.Tags, map[string]string{}),
+	}
+}`,
+			wantSpecs: []lang.DefaultSpec{{Field: "input.tags", Value: "{}"}},
+		},
+		{
+			name: "string map value",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Value(f.Tags, map[string]string{"env": "dev"}),
+	}
+}`,
+			wantSpecs: []lang.DefaultSpec{{Field: "input.tags", Value: "{ env: 'dev' }"}},
+		},
+		{
+			name: "list string value",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Value(f.Names, []string{"a", "b"}),
+	}
+}`,
+			wantSpecs: []lang.DefaultSpec{{Field: "input.names", Value: "['a', 'b']"}},
+		},
+		{
+			name: "list integer value",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Value(f.Ports, []int64{80, 443}),
+	}
+}`,
+			wantSpecs: []lang.DefaultSpec{{Field: "input.ports", Value: "[80, 443]"}},
+		},
+		{
+			name: "list boolean value",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Value(f.Flags, []bool{true, false}),
+	}
+}`,
+			wantSpecs: []lang.DefaultSpec{{Field: "input.flags", Value: "[true, false]"}},
+		},
+		{
+			name: "map keys are sorted",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Value(f.Tags, map[string]string{"z": "last", "a": "first"}),
+	}
+}`,
+			wantSpecs: []lang.DefaultSpec{
+				{Field: "input.tags", Value: "{ a: 'first', z: 'last' }"},
+			},
+		},
+		{
+			name: "nested list and map value",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Value(f.Nested, map[string][]string{
+			"b": []string{"two"},
+			"a": []string{"one"},
+		}),
+	}
+}`,
+			wantSpecs: []lang.DefaultSpec{
+				{Field: "input.nested", Value: "{ a: ['one'], b: ['two'] }"},
+			},
+		},
+		{
+			name: "non-string map key warns",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Value(f.Tags, map[int64]string{1: "one"}),
+	}
+}`,
+			wantWarns: []string{`Thing: a default map key must be a string literal, got 1`},
+		},
+		{
+			name: "unsupported map value warns",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Value(f.Tags, map[string]string{"env": make(chan string)}),
+	}
+}`,
+			wantWarns: []string{`Thing: a default must be a literal, got make(chan string)`},
+		},
+		{
+			name: "variable map value warns",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.Value(f.Tags, map[string]string{"env": defaultEnv}),
+	}
+}`,
+			extra:     `var defaultEnv = "dev"`,
+			wantWarns: []string{`Thing: a default must be a literal, got defaultEnv`},
 		},
 		{
 			name: "nested field by dotted path",
