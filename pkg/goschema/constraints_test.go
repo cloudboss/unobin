@@ -371,8 +371,8 @@ func (v Thing) Constraints() []constraint.Constraint {
 	}, schema.Resources["thing"].Constraints)
 }
 
-// TestReadExtractsLengthConditions proves the three length conditions
-// lower to @core.length with null guards for an optional list.
+// TestReadExtractsLengthConditions proves optional list length conditions
+// use direct operands after a Present condition.
 func TestReadExtractsLengthConditions(t *testing.T) {
 	src := constraintLibrary + `
 func (v Thing) Constraints() []constraint.Constraint {
@@ -400,9 +400,8 @@ func (v Thing) Constraints() []constraint.Constraint {
 		{
 			Kind: "predicate",
 			When: "(input.optional-methods != null)",
-			Require: "(input.optional-methods == null || " +
-				"@core.length(input.optional-methods) >= 1)" +
-				" && (@core.length(input.optional-methods ?? []) <= 5)",
+			Require: "(@core.length(input.optional-methods) >= 1) && " +
+				"(@core.length(input.optional-methods) <= 5)",
 		},
 	}, schema.Resources["thing"].Constraints)
 }

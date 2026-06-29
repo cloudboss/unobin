@@ -102,7 +102,25 @@ type scopeRoot struct {
 	scalar    bool
 	valueType typecheck.Type
 	nullable  bool
+	nonNull   map[string]bool
 	source    sourceTypeRef
+}
+
+func (scope constraintScope) withNonNullFacts(facts map[string]bool) constraintScope {
+	if len(facts) == 0 {
+		return scope
+	}
+	out := make(constraintScope, len(scope))
+	for name, root := range scope {
+		nonNull := maps.Clone(root.nonNull)
+		if nonNull == nil {
+			nonNull = map[string]bool{}
+		}
+		maps.Copy(nonNull, facts)
+		root.nonNull = nonNull
+		out[name] = root
+	}
+	return out
 }
 
 type sourceTypeRef struct {
@@ -518,11 +536,11 @@ func (w *walker) specFromCall(
 				renderExpr(sel.X))
 			return lang.ConstraintSpec{}, false
 		}
-		whenStr, ok := w.whenCondition(when, scope)
+		whenStr, facts, ok := w.whenCondition(when, scope)
 		if !ok {
 			return lang.ConstraintSpec{}, false
 		}
-		return w.predicateSpec(whenStr, base.Args, message, scope)
+		return w.predicateSpec(whenStr, base.Args, message, scope.withNonNullFacts(facts))
 	}
 	pkg, ok := identName(sel.X)
 	if !ok || w.imports[pkg] != constraintPkgPath {
@@ -551,23 +569,89 @@ func (w *walker) specFromCall(
 }
 
 // whenCondition reads the cond from a constraint.When(cond) call and
-// renders it to a unobin expression string.
-func (w *walker) whenCondition(when *ast.CallExpr, scope constraintScope) (string, bool) {
+// renders it to a unobin expression string with non-null facts.
+func (w *walker) whenCondition(
+	when *ast.CallExpr, scope constraintScope,
+) (string, map[string]bool, bool) {
 	sel, ok := when.Fun.(*ast.SelectorExpr)
 	if !ok {
 		w.addWarnf("a Require chain must start with constraint.When, got %s", renderExpr(when))
-		return "", false
+		return "", nil, false
 	}
 	pkg, ok := identName(sel.X)
 	if !ok || w.imports[pkg] != constraintPkgPath || sel.Sel.Name != "When" {
 		w.addWarnf("a Require chain must start with constraint.When, got %s", renderExpr(when))
-		return "", false
+		return "", nil, false
 	}
 	if len(when.Args) != 1 {
 		w.addWarnf("When takes exactly one condition")
-		return "", false
+		return "", nil, false
 	}
-	return w.condString(when.Args[0], scope)
+	cond, ok := w.condString(when.Args[0], scope)
+	if !ok {
+		return "", nil, false
+	}
+	return cond, w.nonNullFactsFromCond(when.Args[0], scope), true
+}
+
+func (w *walker) nonNullFactsFromCond(arg ast.Expr, scope constraintScope) map[string]bool {
+	call, ok := arg.(*ast.CallExpr)
+	if !ok {
+		return nil
+	}
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return nil
+	}
+	pkg, ok := identName(sel.X)
+	if !ok || w.imports[pkg] != constraintPkgPath {
+		return nil
+	}
+	switch sel.Sel.Name {
+	case "Present":
+		return w.nonNullFactsFromPresent(call, scope)
+	case "All":
+		facts := map[string]bool{}
+		for _, arg := range call.Args {
+			maps.Copy(facts, w.nonNullFactsFromCond(arg, scope))
+		}
+		return facts
+	case "Not":
+		if len(call.Args) != 1 {
+			return nil
+		}
+		return w.nonNullFactsFromNegatedCond(call.Args[0], scope)
+	}
+	return nil
+}
+
+func (w *walker) nonNullFactsFromNegatedCond(arg ast.Expr, scope constraintScope) map[string]bool {
+	call, ok := arg.(*ast.CallExpr)
+	if !ok {
+		return nil
+	}
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return nil
+	}
+	pkg, ok := identName(sel.X)
+	if !ok || w.imports[pkg] != constraintPkgPath || sel.Sel.Name != "Absent" {
+		return nil
+	}
+	return w.nonNullFactsFromPresent(call, scope)
+}
+
+func (w *walker) nonNullFactsFromPresent(
+	call *ast.CallExpr, scope constraintScope,
+) map[string]bool {
+	if len(call.Args) != 1 {
+		return nil
+	}
+	field, ok := w.selectorFieldRef(call.Args[0], scope)
+	if !ok {
+		return nil
+	}
+	return map[string]bool{field.expr: true}
 }
 
 // predicateSpec builds a predicate spec from a rendered when-expression
@@ -974,9 +1058,13 @@ func (w *walker) selectorFieldRef(
 ) (constraintFieldRef, bool) {
 	if id, ok := arg.(*ast.Ident); ok {
 		if entry, found := scope[id.Name]; found && entry.scalar {
-			valueType, nullable := nullableValueType(entry.valueType)
+			valueType, valueNullable := nullableValueType(entry.valueType)
+			nullable := entry.nullable || valueNullable
+			if entry.nonNull[entry.prefix] {
+				nullable = false
+			}
 			return constraintFieldRef{
-				expr: entry.prefix, valueType: valueType, nullable: entry.nullable || nullable,
+				expr: entry.prefix, valueType: valueType, nullable: nullable,
 			}, true
 		}
 	}
@@ -1348,8 +1436,12 @@ func (w *walker) fieldRefFromRoot(
 			return constraintFieldRef{}, false
 		}
 	}
+	expr := root.prefix + "." + strings.Join(parts, ".")
+	if root.nonNull[expr] {
+		nullable = false
+	}
 	return constraintFieldRef{
-		expr: root.prefix + "." + strings.Join(parts, "."), valueType: valueType,
+		expr: expr, valueType: valueType,
 		nullable: nullable,
 	}, true
 }
