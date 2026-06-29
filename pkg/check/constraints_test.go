@@ -5,6 +5,7 @@ import (
 
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/stretchr/testify/require"
@@ -207,6 +208,21 @@ func TestCheckLiteralConstraintsSkipsPredicatesMissingRequiredReferences(t *test
 		referencePredicateLib(),
 	)
 	require.Equal(t, 0, errs.Len(), "got: %v", errs.Err())
+}
+
+func TestCheckTypesGeneratedConstraintFixtures(t *testing.T) {
+	ubtest.RequireInvalidFixtureGoldens(t, "testdata/ub/constraint-types")
+	ubtest.Run(t, "testdata/ub/constraint-types", func(name string, src []byte) (string, []string) {
+		file, err := syntax.ParseSource("factory.ub", src)
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		if file.Factory == nil {
+			return "", []string{"missing factory block"}
+		}
+		errs := NewSyntax(file.Factory.Body, nil).References(nil)
+		return "", errs.Messages()
+	})
 }
 
 // TestCheckLiteralConstraintsLengthPredicate proves a lowered length

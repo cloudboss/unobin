@@ -1,0 +1,12 @@
+factory: {
+  inputs: {
+    items: { type: optional(list(string)) }
+    tags:  { type: optional(map(string)) }
+    name:  { type: optional(string) }
+  }
+  constraints: [
+    { kind: predicate, when: true, require: @core.length(input.items ?? []) >= 1 },
+    { kind: predicate, when: true, require: @core.length(input.tags ?? {}) >= 1 },
+    { kind: predicate, when: true, require: @core.length(input.name ?? '') >= 1 },
+  ]
+}

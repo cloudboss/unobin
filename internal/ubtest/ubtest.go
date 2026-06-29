@@ -86,6 +86,41 @@ func ReadInvalidFixture(t testing.TB, dir, name string) string {
 	return ReadFixture(t, filepath.Join(dir, "invalid", name+".ub"))
 }
 
+// RequireInvalidFixtureGoldens checks every invalid .ub fixture under dir has
+// a matching .ub.err golden.
+func RequireInvalidFixtureGoldens(t testing.TB, dir string) {
+	t.Helper()
+	var missing []string
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".ub") {
+			return nil
+		}
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			return err
+		}
+		if !hasPathSegment(filepath.ToSlash(rel), "invalid") {
+			return nil
+		}
+		if _, err := os.Stat(path + ".err"); err != nil {
+			missing = append(missing, filepath.ToSlash(rel))
+		}
+		return nil
+	})
+	require.NoError(t, err, "check invalid fixture goldens under %s", dir)
+	if len(missing) > 0 {
+		t.Fatalf("invalid .ub fixtures need matching .ub.err goldens:\n%s",
+			strings.Join(missing, "\n"))
+	}
+}
+
+func hasPathSegment(path, segment string) bool {
+	return strings.Contains("/"+path+"/", "/"+segment+"/")
+}
+
 type fixture struct {
 	name    string // path relative to the root, without the .ub extension
 	src     []byte

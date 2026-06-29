@@ -1,0 +1,8 @@
+factory: {
+  inputs: {
+    items: { type: optional(list(string)) }
+  }
+  constraints: [
+    { kind: predicate, when: true, require: @core.length(input.items ?? {}) >= 1 },
+  ]
+}

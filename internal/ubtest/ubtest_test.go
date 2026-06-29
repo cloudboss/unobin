@@ -48,6 +48,19 @@ func TestReadValidFixture(t *testing.T) {
 	require.Equal(t, "name: 'one'\n", ReadValidFixture(t, dir, "one"))
 }
 
+func TestRequireInvalidFixtureGoldens(t *testing.T) {
+	dir := t.TempDir()
+	invalid := filepath.Join(dir, "invalid")
+	valid := filepath.Join(dir, "valid")
+	require.NoError(t, os.MkdirAll(invalid, 0o755))
+	require.NoError(t, os.MkdirAll(valid, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(invalid, "bad.ub"), []byte("bad\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(invalid, "bad.ub.err"), []byte("bad\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(valid, "clean.ub"), []byte("clean\n"), 0o644))
+
+	RequireInvalidFixtureGoldens(t, dir)
+}
+
 func TestRunExactGoldens(t *testing.T) {
 	Run(t, "testdata/ub/exact", fakeDriver)
 }
