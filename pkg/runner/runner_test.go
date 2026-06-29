@@ -715,6 +715,81 @@ func TestBuildInputsAppliesLibraryConfigReferenceDefaults(t *testing.T) {
 	}, got)
 }
 
+func TestBuildInputsAppliesNullableLibraryConfigDefault(t *testing.T) {
+	factory := ubtest.ReadValidFixture(t,
+		"testdata/ub/runtime-split", "library-config-default-factory")
+	info := testInfo(t, factory)
+	info.Libraries["core"].Schema = libraryConfigSchemaWithNullableDefault()
+	parsed, err := parseFactory(info)
+	require.NoError(t, err)
+
+	got, err := buildInputs(nil, "", parsed, info.Libraries)
+
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{
+		"core-config": map[string]any{"profile": "dev"},
+	}, got)
+}
+
+func TestBuildInputsKeepsNullableLibraryConfigNull(t *testing.T) {
+	factory := ubtest.ReadValidFixture(t,
+		"testdata/ub/runtime-split", "library-config-default-factory")
+	stackSrc := ubtest.ReadValidFixture(t,
+		"testdata/ub/runtime-split", "library-config-nullable-null-stack")
+	info := testInfo(t, factory)
+	info.Libraries["core"].Schema = libraryConfigSchemaWithNullableDefault()
+	parsed, err := parseFactory(info)
+	require.NoError(t, err)
+	stack, err := parseStackSource("dev.ub", []byte(stackSrc))
+	require.NoError(t, err)
+
+	got, err := buildInputs(stack, "dev.ub", parsed, info.Libraries)
+
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{
+		"core-config": map[string]any{"profile": nil},
+	}, got)
+}
+
+func TestBuildInputsKeepsNullableLibraryConfigValue(t *testing.T) {
+	factory := ubtest.ReadValidFixture(t,
+		"testdata/ub/runtime-split", "library-config-default-factory")
+	stackSrc := ubtest.ReadValidFixture(t,
+		"testdata/ub/runtime-split", "library-config-nullable-value-stack")
+	info := testInfo(t, factory)
+	info.Libraries["core"].Schema = libraryConfigSchemaWithNullableDefault()
+	parsed, err := parseFactory(info)
+	require.NoError(t, err)
+	stack, err := parseStackSource("dev.ub", []byte(stackSrc))
+	require.NoError(t, err)
+
+	got, err := buildInputs(stack, "dev.ub", parsed, info.Libraries)
+
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{
+		"core-config": map[string]any{"profile": "prod"},
+	}, got)
+}
+
+func TestBuildInputsRejectsWrongNullableLibraryConfigType(t *testing.T) {
+	factory := ubtest.ReadValidFixture(t,
+		"testdata/ub/runtime-split", "library-config-default-factory")
+	stackSrc := ubtest.ReadInvalidFixture(t,
+		"testdata/ub/runtime-split", "library-config-nullable-wrong-type-stack")
+	info := testInfo(t, factory)
+	info.Libraries["core"].Schema = libraryConfigSchemaWithNullableDefault()
+	parsed, err := parseFactory(info)
+	require.NoError(t, err)
+	stack, err := parseStackSource("dev.ub", []byte(stackSrc))
+	require.NoError(t, err)
+
+	_, err = buildInputs(stack, "dev.ub", parsed, info.Libraries)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "profile")
+	require.Contains(t, err.Error(), "string")
+}
+
 func libraryConfigSchemaWithReferenceDefaults() *runtime.LibrarySchema {
 	fields := []typecheck.ObjectField{
 		{Name: "region", Type: typecheck.TString(), Defaulted: true},
@@ -740,6 +815,19 @@ func libraryConfigSchemaWithReferenceDefaults() *runtime.LibrarySchema {
 		ConfigurationDefaults:    defaults,
 		ConfigurationConstraints: constraints,
 		ConfigurationDigest:      cfg.DigestView(fields, defaults, constraints),
+	}
+}
+
+func libraryConfigSchemaWithNullableDefault() *runtime.LibrarySchema {
+	fields := []typecheck.ObjectField{{
+		Name: "profile", Type: typecheck.TString(), Optional: true, Defaulted: true,
+	}}
+	defaults := []lang.DefaultSpec{{Field: "input.profile", Value: "'dev'"}}
+	return &runtime.LibrarySchema{
+		HasConfiguration:      true,
+		ConfigurationFields:   fields,
+		ConfigurationDefaults: defaults,
+		ConfigurationDigest:   cfg.DigestView(fields, defaults, nil),
 	}
 }
 
