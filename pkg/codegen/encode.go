@@ -29,10 +29,6 @@ func encodeNodeString(n lang.Node, spanName SyntaxSpanNamer) (string, error) {
 	return b.String(), nil
 }
 
-func encodeNode(b *strings.Builder, n lang.Node) error {
-	return encodeNodeWithSpans(b, n, nil)
-}
-
 func encodeNodeWithSpans(b *strings.Builder, n lang.Node, spanName SyntaxSpanNamer) error {
 	switch x := n.(type) {
 	case *lang.File:

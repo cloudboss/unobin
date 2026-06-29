@@ -176,7 +176,7 @@ func Run(opts Options) error {
 	if err != nil {
 		return err
 	}
-	sf, factorySource, err := ParseFactorySyntaxSource(factoryPath, src)
+	sf, _, err := ParseFactorySyntaxSource(factoryPath, src)
 	if err != nil {
 		return err
 	}
@@ -205,7 +205,7 @@ func Run(opts Options) error {
 	if err != nil {
 		return err
 	}
-	factorySource = rootFactorySourceSpec(factoryPath, projectDir, opts.LibraryPath, src)
+	factorySource := rootFactorySourceSpec(factoryPath, projectDir, opts.LibraryPath, src)
 	project, err := readProject(projectDir)
 	if err != nil {
 		return err

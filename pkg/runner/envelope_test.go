@@ -8,8 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/cloudboss/unobin/internal/ubtest"
 )
 
 func writeConfig(t *testing.T, body string) string {
@@ -24,12 +22,6 @@ func stackEnvelopeFixture(t testing.TB, name string) string {
 	path := filepath.Join("testdata/ub/stack-envelope", filepath.FromSlash(name)+".ub")
 	require.FileExists(t, path)
 	return path
-}
-
-func readStackEnvelopeFixture(t testing.TB, name string) string {
-	t.Helper()
-	return ubtest.ReadFixture(t,
-		filepath.Join("testdata/ub/stack-envelope", filepath.FromSlash(name)+".ub"))
 }
 
 func sourceStack(body string) string {
