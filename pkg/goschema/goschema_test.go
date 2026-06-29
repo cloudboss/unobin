@@ -185,6 +185,87 @@ type ThingOutput struct {
 	require.Equal(t, want, schema.Resources["thing"].Inputs)
 }
 
+func TestReadKeepsNullableDefaultInputsOptional(t *testing.T) {
+	src := `package lib
+
+import (
+	"github.com/cloudboss/unobin/pkg/defaults"
+	"github.com/cloudboss/unobin/pkg/runtime"
+)
+
+func Library() *runtime.Library {
+	return &runtime.Library{
+		Name: "lib",
+		Resources: map[string]runtime.ResourceRegistration{
+			"server": runtime.MakeResource[Server, *ServerOutput, any](),
+		},
+	}
+}
+
+type Server struct {
+	Name    string
+	Profile *string
+}
+
+type ServerOutput struct {
+	ID string
+}
+
+func (s Server) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.NullableValue(s.Profile, "dev"),
+	}
+}
+`
+	schema, warnings, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+
+	server := schema.Resources["server"]
+	require.Equal(t, []lang.DefaultSpec{
+		{Field: "input.profile", Value: "'dev'"},
+	}, server.Defaults)
+	require.True(t,
+		server.Inputs["profile"].Equal(typecheck.TOptional(typecheck.TString())),
+		"profile should remain nullable, got %s",
+		server.Inputs["profile"],
+	)
+	require.True(t, server.Inputs["name"].Equal(typecheck.TString()))
+}
+
+func TestReadMarksNullableConfigurationDefaults(t *testing.T) {
+	src := plainConfigLibraryWith(`func (c Configuration) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.NullableValue(c.Profile, "default"),
+	}
+}`)
+	schema, warnings, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+
+	wantFields := []typecheck.ObjectField{
+		{Name: "region", Type: typecheck.TString()},
+		{Name: "profile", Type: typecheck.TString(), Optional: true, Defaulted: true},
+	}
+	wantDefaults := []lang.DefaultSpec{
+		{Field: "input.profile", Value: "'default'"},
+	}
+	require.Equal(t, wantFields, schema.ConfigurationFields)
+	require.Equal(t, objectFieldsToMap(wantFields), schema.Configuration)
+	require.Equal(t, wantDefaults, schema.ConfigurationDefaults)
+	require.Equal(t, cfg.DigestView(wantFields, wantDefaults, nil), schema.ConfigurationDigest)
+
+	changedSrc := plainConfigLibraryWith(`func (c Configuration) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.NullableValue(c.Profile, "other"),
+	}
+}`)
+	changed, warnings, err := readConstraintLibrary(t, changedSrc)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	require.NotEqual(t, schema.ConfigurationDigest, changed.ConfigurationDigest)
+}
+
 func TestReadRejectsMalformedPlainConfigurationDefaults(t *testing.T) {
 	src := plainConfigLibraryWith(`func (c Configuration) Defaults() []defaults.Default {
 	return []defaults.Default{
@@ -259,7 +340,10 @@ func TestReadExtractsSetConstraints(t *testing.T) {
 	require.Contains(t, schema.Resources, "cert")
 
 	want := []lang.ConstraintSpec{
-		{Kind: "exactly-one-of", Fields: []string{"input.self-signed", "input.acm-arn", "input.pem-bundle"}},
+		{
+			Kind:   "exactly-one-of",
+			Fields: []string{"input.self-signed", "input.acm-arn", "input.pem-bundle"},
+		},
 		{Kind: "at-least-one-of", Fields: []string{"input.self-signed", "input.acm-arn"}},
 		{Kind: "at-most-one-of", Fields: []string{"input.acm-arn", "input.pem-bundle"}},
 		{Kind: "required-together", Fields: []string{"input.pem-bundle", "input.private-key"}},
@@ -476,8 +560,17 @@ func TestReadExtractsNestedConstraints(t *testing.T) {
 			Require: "(input.code.signing.key-arn != null)",
 			Message: "signing requires a key arn",
 		},
-		{Kind: "required-together", Fields: []string{"input.listeners[0].cert", "input.listeners[0].key"}},
-		{Kind: "exactly-one-of", Fields: []string{"input.replicas[*].inline", "input.replicas[*].from-file"}},
+		{
+			Kind:   "required-together",
+			Fields: []string{"input.listeners[0].cert", "input.listeners[0].key"},
+		},
+		{
+			Kind: "exactly-one-of",
+			Fields: []string{
+				"input.replicas[*].inline",
+				"input.replicas[*].from-file",
+			},
+		},
 		{Kind: "required-with", Fields: []string{"input.replicas[*].tls", "input.ca-cert"}},
 		{
 			Kind:    "predicate",
