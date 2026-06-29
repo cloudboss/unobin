@@ -16,6 +16,7 @@ func (c Configuration) Defaults() []defaults.Default {
     return []defaults.Default{
         defaults.Value(c.DefaultTags, map[string]string{"managed-by": "unobin"}),
         defaults.Value(c.MaxAttempts, int64(3)),
+        defaults.NullableValue(c.Profile, "default"),
     }
 }
 
@@ -56,9 +57,11 @@ and action input structs:
 Plain map and slice fields are required like other non-pointer fields. Pointer
 fields such as `*map[string]string` are nullable and may be omitted. Use
 `Defaults()` with `defaults.Value` when a non-pointer field may be omitted
-because the compiler should insert a real value. Use `Constraints()` for config
-validation. Defaults are applied before constraints and before the decoded config
-reaches resources, data sources, actions, or functions.
+because the compiler should insert a real value. Use `defaults.NullableValue`
+when a pointer field should default on omission while explicit `null` remains
+null. Use `Constraints()` for config validation. Defaults are applied before
+constraints and before the decoded config reaches resources, data sources,
+actions, or functions.
 
 ## Source use
 

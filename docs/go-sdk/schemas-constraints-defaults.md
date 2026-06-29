@@ -14,6 +14,7 @@ type File struct {
     CreateParents bool `ub:"create-parents"`
     Tags          map[string]string
     MaybeTags     *map[string]string `ub:"maybe-tags"`
+    Profile       *string
 }
 ```
 
@@ -38,11 +39,14 @@ func (f File) Defaults() []defaults.Default {
     return []defaults.Default{
         defaults.Value(f.CreateParents, true),
         defaults.Value(f.Tags, map[string]string{}),
+        defaults.NullableValue(f.Profile, "dev"),
     }
 }
 ```
 
-`defaults.Value` fills a value before the type's runtime method runs. Pointer fields
+`defaults.Value` fills a non-pointer field when a body omits it. Use
+`defaults.NullableValue` for a pointer field where omission should produce a
+non-null default while explicit `null` remains null. Pointer fields with no default
 express optional input without a default. For maps and slices, use composite
 literals such as `map[string]string{}` or `[]string{"a", "b"}`. The same defaults
 method model applies to library configuration structs.

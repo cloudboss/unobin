@@ -32,5 +32,6 @@ type Default struct{}
 // shared type parameter ties the default to the field's type.
 func Value[T any](field, def T) Default { return Default{} }
 
-// NullableValue declares that a pointer field takes def when a body leaves it out.
+// NullableValue declares that a pointer field takes def when omitted.
+// Explicit null stays nil.
 func NullableValue[T any](field *T, def T) Default { return Default{} }
