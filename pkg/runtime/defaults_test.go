@@ -190,6 +190,154 @@ func TestPlanKeepsExplicitValueOverDefault(t *testing.T) {
 	require.Equal(t, map[string]any{"name": "a", "size": int64(9)}, plan.Steps[0].Inputs)
 }
 
+type profileCapture struct {
+	profiles []*string
+}
+
+func (c *profileCapture) add(profile *string) {
+	if profile == nil {
+		c.profiles = append(c.profiles, nil)
+		return
+	}
+	value := *profile
+	c.profiles = append(c.profiles, &value)
+}
+
+type profileResource struct {
+	Name    string
+	Profile *string
+
+	capture *profileCapture
+}
+
+func (r *profileResource) Create(_ context.Context, _ any) (any, error) {
+	r.capture.add(r.Profile)
+	return profileOutput(r), nil
+}
+
+func (r *profileResource) Read(_ context.Context, _ any, prior any) (any, error) {
+	return prior, nil
+}
+
+func (r *profileResource) Update(
+	_ context.Context,
+	_ any,
+	_ Prior[profileResource, any],
+) (any, error) {
+	r.capture.add(r.Profile)
+	return profileOutput(r), nil
+}
+
+func (r *profileResource) Delete(_ context.Context, _ any, _ any) error {
+	return nil
+}
+
+func (r *profileResource) ReplaceFields() []string { return []string{"name"} }
+
+func (r *profileResource) SchemaVersion() int { return 1 }
+
+func profileOutput(r *profileResource) map[string]any {
+	out := map[string]any{"id": "fake-" + r.Name, "name": r.Name}
+	if r.Profile == nil {
+		out["profile"] = nil
+	} else {
+		out["profile"] = *r.Profile
+	}
+	return out
+}
+
+func nullableDefaultExecutor(
+	t *testing.T,
+	fixture string,
+	capture *profileCapture,
+) *Executor {
+	t.Helper()
+	libs := map[string]*Library{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceRegistration{
+				"profile": MakeResourceWith[profileResource, any, any](
+					func() *profileResource { return &profileResource{capture: capture} },
+				),
+			},
+			Defaults: map[string][]lang.DefaultSpec{
+				"resource.profile": {{Field: "input.profile", Value: "'dev'"}},
+			},
+		},
+	}
+	src := ubtest.ReadValidFixture(t, "testdata/ub/defaults", fixture)
+	store := newStateStore(t)
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	return &Executor{
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        store,
+		Factory:      state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+	}
+}
+
+func TestPlanFillsNullableDefaultWhenOmitted(t *testing.T) {
+	exec := nullableDefaultExecutor(t, "nullable-default-omitted", &profileCapture{})
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.Len(t, plan.Steps, 1)
+	require.Equal(t, map[string]any{"name": "a", "profile": "dev"}, plan.Steps[0].Inputs)
+}
+
+func TestPlanKeepsNullNullableDefault(t *testing.T) {
+	exec := nullableDefaultExecutor(t, "nullable-default-null", &profileCapture{})
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.Len(t, plan.Steps, 1)
+	require.Equal(t, map[string]any{"name": "a", "profile": nil}, plan.Steps[0].Inputs)
+}
+
+func TestPlanKeepsExplicitNullableDefaultValue(t *testing.T) {
+	exec := nullableDefaultExecutor(t, "nullable-default-explicit", &profileCapture{})
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.Len(t, plan.Steps, 1)
+	require.Equal(t, map[string]any{"name": "a", "profile": "prod"}, plan.Steps[0].Inputs)
+}
+
+func TestApplyDecodesOmittedNullableDefault(t *testing.T) {
+	capture := &profileCapture{}
+	exec := nullableDefaultExecutor(t, "nullable-default-omitted", capture)
+	_, err := planAndApply(exec)
+	require.NoError(t, err)
+	require.Len(t, capture.profiles, 1)
+	require.NotNil(t, capture.profiles[0])
+	require.Equal(t, "dev", *capture.profiles[0])
+}
+
+func TestApplyDecodesNullNullableDefault(t *testing.T) {
+	capture := &profileCapture{}
+	exec := nullableDefaultExecutor(t, "nullable-default-null", capture)
+	_, err := planAndApply(exec)
+	require.NoError(t, err)
+	require.Equal(t, []*string{nil}, capture.profiles)
+}
+
+func TestPlanRejectsNullForDefaultedNonPointer(t *testing.T) {
+	libs := resourceModules(&resourceCounters{})
+	libs["core"].Defaults = map[string][]lang.DefaultSpec{
+		"resource.thing": {{Field: "input.size", Value: "7"}},
+	}
+	src := ubtest.ReadInvalidFixture(t, "testdata/ub/defaults", "default-size-null")
+	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
+	exec := &Executor{
+		DAG:          dag,
+		SyntaxSource: syntaxSource,
+		Libraries:    libs,
+		Store:        newStateStore(t),
+		Factory:      state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+	}
+	_, err := exec.Plan(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `field "size": required but is null`)
+}
+
 func referenceDefaultsExecutor(t *testing.T, fixture string) *Executor {
 	t.Helper()
 	libs := resourceModules(&resourceCounters{})

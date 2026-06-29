@@ -56,6 +56,16 @@ func TestDecodeLeavesNullPointerReferencesNil(t *testing.T) {
 	require.Nil(t, v.Names)
 }
 
+type pointerScalarInputs struct {
+	Profile *string
+}
+
+func TestDecodeLeavesNullPointerScalarsNil(t *testing.T) {
+	v := &pointerScalarInputs{}
+	require.NoError(t, Decode(v, map[string]any{"profile": nil}))
+	require.Nil(t, v.Profile)
+}
+
 func TestDecodeDurationFromString(t *testing.T) {
 	a := &sampleAction{}
 	err := Decode(a, map[string]any{"timeout": "250ms"})

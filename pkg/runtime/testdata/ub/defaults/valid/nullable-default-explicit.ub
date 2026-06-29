@@ -1,0 +1,3 @@
+resources: {
+  x: core.profile { name: 'a', profile: 'prod' }
+}
