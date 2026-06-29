@@ -60,7 +60,10 @@ func (w *walker) constraintsFromType(typeName string) []lang.ConstraintSpec {
 	w.subject = typeName
 	scope := constraintScope{}
 	if name, ok := receiverName(method); ok {
-		scope[name] = scopeRoot{w: w, typeName: typeName, prefix: "input"}
+		scope[name] = scopeRoot{
+			w: w, typeName: typeName, prefix: "input",
+			source: sourceTypeRef{w: w, expr: ast.NewIdent(typeName)},
+		}
 	}
 	var out []lang.ConstraintSpec
 	for _, call := range w.listReturnCalls(
@@ -99,6 +102,12 @@ type scopeRoot struct {
 	scalar    bool
 	valueType typecheck.Type
 	nullable  bool
+	source    sourceTypeRef
+}
+
+type sourceTypeRef struct {
+	w    *walker
+	expr ast.Expr
 }
 
 // receiverName returns the name a method binds its receiver to. ok is
@@ -267,7 +276,7 @@ func (w *walker) forEachSpecsAt(
 		w.addErrf("ForEach takes a list field and a function")
 		return nil
 	}
-	listPath, elem, ok := w.listField(call.Args[0], scope)
+	list, ok := w.listField(call.Args[0], scope)
 	if !ok {
 		return nil
 	}
@@ -276,7 +285,7 @@ func (w *walker) forEachSpecsAt(
 		w.addErrf("the ForEach body must be a function literal, got %T", call.Args[1])
 		return nil
 	}
-	param, ok := singleParamName(fl)
+	param, paramType, ok := singleParam(fl)
 	if !ok {
 		w.addErrf("the ForEach body must take the element as its one named parameter")
 		return nil
@@ -285,24 +294,31 @@ func (w *walker) forEachSpecsAt(
 		w.addErrf("ForEach parameter %q shadows an enclosing name; rename it", param)
 		return nil
 	}
-	levels := append(slices.Clip(chain),
-		lang.ForEachSpecLevel{Name: "@" + param, In: chainPath(listPath, scope, chainScope)})
+	if !sameSourceType(sourceTypeRef{w: w, expr: paramType}, list.elem.source) {
+		w.addErrf("ForEach parameter type %s does not match element type %s for %s",
+			renderExpr(paramType), renderExpr(list.elem.source.expr), list.path)
+		return nil
+	}
+	levelPath := chainPath(list.path, scope, chainScope)
+	levels := append(slices.Clip(chain), lang.ForEachSpecLevel{
+		Name: "@" + param, In: forEachIterablePath(levelPath, list.nullable),
+	})
 
 	innerSet := make(constraintScope, len(scope)+1)
 	maps.Copy(innerSet, scope)
-	splatted := elem
-	splatted.prefix = listPath + "[*]"
+	splatted := list.elem
+	splatted.prefix = list.path + "[*]"
 	innerSet[param] = splatted
 
 	innerChain := make(constraintScope, len(chainScope)+1)
 	maps.Copy(innerChain, chainScope)
-	chained := elem
+	chained := list.elem
 	chained.prefix = "@" + param + ".value"
 	innerChain[param] = chained
 
 	innerEach := make(constraintScope, len(scope)+1)
 	maps.Copy(innerEach, scope)
-	bound := elem
+	bound := list.elem
 	bound.prefix = "@each.value"
 	innerEach[param] = bound
 
@@ -314,8 +330,8 @@ func (w *walker) forEachSpecsAt(
 				w.addErrf("Message applies to the constraints inside ForEach, not ForEach itself")
 				continue
 			}
-			if elem.scalar {
-				w.addErrf("cannot iterate inside %q; its elements are scalars", listPath)
+			if list.elem.scalar {
+				w.addErrf("cannot iterate inside %q; its elements are scalars", list.path)
 				continue
 			}
 			out = append(out, w.forEachSpecsAt(base, innerSet, innerChain, levels)...)
@@ -335,14 +351,14 @@ func (w *walker) forEachSpecsAt(
 			if !ok {
 				continue
 			}
-			spec.ForEach = listPath
+			spec.ForEach = forEachIterablePath(list.path, list.nullable)
 			out = append(out, spec)
 			continue
 		}
-		if elem.scalar {
+		if list.elem.scalar {
 			w.addErrf(
 				"a set constraint cannot iterate %q; its elements are scalars with no fields",
-				listPath)
+				list.path)
 			continue
 		}
 		spec, ok := w.specFromCall(c, innerSet)
@@ -383,73 +399,96 @@ func isPredicateCall(call *ast.CallExpr) bool {
 	return sel.Sel.Name == "Must" || sel.Sel.Name == "Require"
 }
 
+type forEachListField struct {
+	path     string
+	nullable bool
+	elem     scopeRoot
+}
+
 // listField resolves ForEach's list argument to its rendered input reference
-// (input.replicas) and the scope root of the list's element type.
-func (w *walker) listField(arg ast.Expr, scope constraintScope) (string, scopeRoot, bool) {
+// and the scope root of the list's element type.
+func (w *walker) listField(arg ast.Expr, scope constraintScope) (forEachListField, bool) {
 	sel, ok := arg.(*ast.SelectorExpr)
 	if !ok {
 		w.addErrf("ForEach list must be a struct field selector, got %T", arg)
-		return "", scopeRoot{}, false
+		return forEachListField{}, false
 	}
 	root, hops, ok := flattenSelector(sel)
 	if !ok {
 		w.addErrf("ForEach list must be a chain of struct fields, got %T", arg)
-		return "", scopeRoot{}, false
+		return forEachListField{}, false
 	}
 	entry, ok := scope[root]
 	if !ok {
 		w.addErrf("ForEach list references unknown name %q", root)
-		return "", scopeRoot{}, false
+		return forEachListField{}, false
 	}
 	path, ok := entry.w.fieldPath(entry.typeName, hops)
 	if !ok {
 		w.addErrf("ForEach list references unknown field %q", hopNames(hops))
-		return "", scopeRoot{}, false
+		return forEachListField{}, false
 	}
 	path = entry.prefix + "." + path
-	cw, typeName := entry.w, entry.typeName
-	for _, hop := range hops[:len(hops)-1] {
-		cw, typeName, ok = cw.nestedStruct(typeName, hop)
-		if !ok {
-			w.addErrf("ForEach list %q must be a slice of in-library structs", path)
-			return "", scopeRoot{}, false
-		}
-	}
-	last := hops[len(hops)-1]
-	elemHop := last
-	elemHop.indexes = append(slices.Clone(last.indexes), 0)
-	structWalker, elemType, ok := cw.nestedStruct(typeName, elemHop)
+	fieldSource, ok := entry.w.fieldSourceTypeFromRoot(entry, hops)
 	if !ok {
-		w.addErrf("ForEach list %q must be a slice of in-library structs or scalars", path)
-		return "", scopeRoot{}, false
+		w.addErrf("ForEach list references unknown field %q", hopNames(hops))
+		return forEachListField{}, false
 	}
-	listRef, _ := entry.w.fieldRefFromRoot(entry, hops)
+	listRef, ok := entry.w.fieldRefFromRoot(entry, hops)
+	if !ok {
+		w.addErrf("ForEach list references unknown field %q", hopNames(hops))
+		return forEachListField{}, false
+	}
+	elemSource, sourceNullable, ok := fieldSource.listElementType()
+	if !ok {
+		w.addErrf("ForEach list %q must be a list field", path)
+		return forEachListField{}, false
+	}
 	elemValueType, elemNullable := listElementType(listRef.valueType)
-	if _, isScalar := primitiveFromName(elemType); isScalar {
-		if elemValueType.Kind == typecheck.Unknown {
-			elemValueType, _ = primitiveFromName(elemType)
-		}
-		return path, scopeRoot{
-			w: cw, scalar: true, valueType: elemValueType, nullable: elemNullable,
+	if elemValueType.Kind == typecheck.Unknown {
+		elemValueType = elemSource.w.typeFromAST(elemSource.expr).Unwrap()
+	}
+	elem := scopeRoot{
+		w: elemSource.w, valueType: elemValueType, nullable: elemNullable, source: elemSource,
+	}
+	if isSourceScalar(elemSource) || (elemValueType.Kind != typecheck.Object &&
+		elemValueType.Kind != typecheck.Unknown) {
+		elem.scalar = true
+		return forEachListField{
+			path: path, nullable: listRef.nullable || sourceNullable, elem: elem,
 		}, true
 	}
-	return path, scopeRoot{
-		w: structWalker, typeName: elemType, valueType: elemValueType, nullable: elemNullable,
+	structWalker, elemType, ok := elemSource.structType()
+	if !ok {
+		w.addErrf("ForEach list %q must be a list of in-library structs or scalars", path)
+		return forEachListField{}, false
+	}
+	elem.w = structWalker
+	elem.typeName = elemType
+	return forEachListField{
+		path: path, nullable: listRef.nullable || sourceNullable, elem: elem,
 	}, true
 }
 
-// singleParamName returns the name of a function literal's one
-// parameter. ok is false for any other parameter list.
-func singleParamName(fl *ast.FuncLit) (string, bool) {
+// singleParam returns a function literal's one named parameter and type.
+// ok is false for any other parameter list.
+func singleParam(fl *ast.FuncLit) (string, ast.Expr, bool) {
 	params := fl.Type.Params
 	if params == nil || len(params.List) != 1 || len(params.List[0].Names) != 1 {
-		return "", false
+		return "", nil, false
 	}
 	name := params.List[0].Names[0].Name
 	if name == "" || name == "_" {
-		return "", false
+		return "", nil, false
 	}
-	return name, true
+	return name, params.List[0].Type, true
+}
+
+func forEachIterablePath(path string, nullable bool) string {
+	if nullable {
+		return path + " ?? []"
+	}
+	return path
 }
 
 // specFromCall turns one constructor call into a constraint spec. It
@@ -1072,6 +1111,191 @@ func intLiteral(e ast.Expr) (int, bool) {
 	return n, true
 }
 
+func (w *walker) fieldSourceTypeFromRoot(
+	root scopeRoot, hops []selectorHop,
+) (sourceTypeRef, bool) {
+	cw, typeName := root.w, root.typeName
+	var ref sourceTypeRef
+	for i, hop := range hops {
+		ft := fieldTypeByGoName(fieldStruct(cw.files, typeName), hop.name)
+		if ft == nil {
+			return sourceTypeRef{}, false
+		}
+		ref = sourceTypeRef{w: cw, expr: ft}
+		for range hop.indexes {
+			elem, _, ok := ref.listElementType()
+			if !ok {
+				return sourceTypeRef{}, false
+			}
+			ref = elem
+		}
+		if i == len(hops)-1 {
+			return ref, true
+		}
+		var ok bool
+		cw, typeName, ok = ref.structType()
+		if !ok {
+			return sourceTypeRef{}, false
+		}
+	}
+	return ref, true
+}
+
+func (ref sourceTypeRef) listElementType() (sourceTypeRef, bool, bool) {
+	return ref.listElementTypeWithNullable(false)
+}
+
+func (ref sourceTypeRef) listElementTypeWithNullable(
+	nullable bool,
+) (sourceTypeRef, bool, bool) {
+	switch t := ref.expr.(type) {
+	case *ast.ParenExpr:
+		return sourceTypeRef{w: ref.w, expr: t.X}.listElementTypeWithNullable(nullable)
+	case *ast.StarExpr:
+		return sourceTypeRef{w: ref.w, expr: t.X}.listElementTypeWithNullable(true)
+	case *ast.ArrayType:
+		return sourceTypeRef{w: ref.w, expr: t.Elt}, nullable, true
+	case *ast.Ident:
+		spec := findTypeSpec(ref.w.files, t.Name)
+		if spec == nil {
+			return sourceTypeRef{}, false, false
+		}
+		return sourceTypeRef{w: ref.w, expr: spec.Type}.
+			listElementTypeWithNullable(nullable)
+	case *ast.SelectorExpr:
+		sub, ok := ref.selectorWalker(t)
+		if !ok {
+			return sourceTypeRef{}, false, false
+		}
+		return sourceTypeRef{w: sub, expr: ast.NewIdent(t.Sel.Name)}.
+			listElementTypeWithNullable(nullable)
+	}
+	return sourceTypeRef{}, false, false
+}
+
+func (ref sourceTypeRef) structType() (*walker, string, bool) {
+	switch t := ref.expr.(type) {
+	case *ast.ParenExpr:
+		return sourceTypeRef{w: ref.w, expr: t.X}.structType()
+	case *ast.StarExpr:
+		return sourceTypeRef{w: ref.w, expr: t.X}.structType()
+	case *ast.Ident:
+		if _, ok := primitiveFromName(t.Name); ok {
+			return nil, "", false
+		}
+		spec := findTypeSpec(ref.w.files, t.Name)
+		if spec == nil {
+			return nil, "", false
+		}
+		if spec.Assign != token.NoPos {
+			return sourceTypeRef{w: ref.w, expr: spec.Type}.structType()
+		}
+		if _, ok := spec.Type.(*ast.StructType); ok {
+			return ref.w, t.Name, true
+		}
+	case *ast.SelectorExpr:
+		sub, ok := ref.selectorWalker(t)
+		if !ok {
+			return nil, "", false
+		}
+		return sourceTypeRef{w: sub, expr: ast.NewIdent(t.Sel.Name)}.structType()
+	}
+	return nil, "", false
+}
+
+func (ref sourceTypeRef) selectorWalker(sel *ast.SelectorExpr) (*walker, bool) {
+	pkg, ok := identName(sel.X)
+	if !ok {
+		return nil, false
+	}
+	importPath, ok := ref.w.imports[pkg]
+	if !ok {
+		return nil, false
+	}
+	sub := ref.w.sub(importPath)
+	if sub == nil {
+		return nil, false
+	}
+	return sub, true
+}
+
+func isSourceScalar(ref sourceTypeRef) bool {
+	switch t := ref.expr.(type) {
+	case *ast.ParenExpr:
+		return isSourceScalar(sourceTypeRef{w: ref.w, expr: t.X})
+	case *ast.StarExpr:
+		return isSourceScalar(sourceTypeRef{w: ref.w, expr: t.X})
+	case *ast.Ident:
+		if _, ok := primitiveFromName(t.Name); ok {
+			return true
+		}
+		spec := findTypeSpec(ref.w.files, t.Name)
+		return spec != nil && spec.Assign != token.NoPos &&
+			isSourceScalar(sourceTypeRef{w: ref.w, expr: spec.Type})
+	case *ast.SelectorExpr:
+		sub, ok := ref.selectorWalker(t)
+		return ok && isSourceScalar(sourceTypeRef{w: sub, expr: ast.NewIdent(t.Sel.Name)})
+	}
+	return false
+}
+
+func sameSourceType(a, b sourceTypeRef) bool {
+	ak, aok := sourceTypeKey(a)
+	bk, bok := sourceTypeKey(b)
+	return aok && bok && ak == bk
+}
+
+func sourceTypeKey(ref sourceTypeRef) (string, bool) {
+	switch t := ref.expr.(type) {
+	case *ast.ParenExpr:
+		return sourceTypeKey(sourceTypeRef{w: ref.w, expr: t.X})
+	case *ast.StarExpr:
+		key, ok := sourceTypeKey(sourceTypeRef{w: ref.w, expr: t.X})
+		return "*" + key, ok
+	case *ast.ArrayType:
+		key, ok := sourceTypeKey(sourceTypeRef{w: ref.w, expr: t.Elt})
+		return "[]" + key, ok
+	case *ast.MapType:
+		key, keyOK := sourceTypeKey(sourceTypeRef{w: ref.w, expr: t.Key})
+		val, valOK := sourceTypeKey(sourceTypeRef{w: ref.w, expr: t.Value})
+		return "map[" + key + "]" + val, keyOK && valOK
+	case *ast.InterfaceType:
+		if t.Methods == nil || len(t.Methods.List) == 0 {
+			return "builtin:any", true
+		}
+	case *ast.Ident:
+		if _, ok := primitiveFromName(t.Name); ok {
+			return "builtin:" + t.Name, true
+		}
+		spec := findTypeSpec(ref.w.files, t.Name)
+		if spec == nil {
+			return "", false
+		}
+		if spec.Assign != token.NoPos {
+			return sourceTypeKey(sourceTypeRef{w: ref.w, expr: spec.Type})
+		}
+		return "named:" + ref.w.importPath + ":" + t.Name, true
+	case *ast.SelectorExpr:
+		pkg, ok := identName(t.X)
+		if !ok {
+			return "", false
+		}
+		importPath, ok := ref.w.imports[pkg]
+		if !ok {
+			return "", false
+		}
+		sub := ref.w.sub(importPath)
+		if sub != nil {
+			spec := findTypeSpec(sub.files, t.Sel.Name)
+			if spec != nil && spec.Assign != token.NoPos {
+				return sourceTypeKey(sourceTypeRef{w: sub, expr: spec.Type})
+			}
+		}
+		return "named:" + importPath + ":" + t.Sel.Name, true
+	}
+	return "", false
+}
+
 func (w *walker) fieldRefFromRoot(
 	root scopeRoot, hops []selectorHop,
 ) (constraintFieldRef, bool) {
@@ -1147,6 +1371,7 @@ func typeAfterSelectorHop(
 }
 
 func listElementType(t typecheck.Type) (typecheck.Type, bool) {
+	t = t.Unwrap()
 	if t.Kind != typecheck.List || t.Elem == nil {
 		return typecheck.TUnknown(), false
 	}

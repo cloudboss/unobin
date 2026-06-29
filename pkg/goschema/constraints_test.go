@@ -27,24 +27,34 @@ func Library() *runtime.Library {
 	}
 }
 
+type Items []Item
+
+type Subs []Sub
+
 type Thing struct {
-	Name            *string
-	Kind            *string
-	Port            *int
-	Domain          string
-	Count           int
-	Items           []Item
-	Methods         []string
-	OptionalMethods *[]string
-	Tags            map[string]string
-	OptionalTags    *map[string]string
+	Name                *string
+	Kind                *string
+	Port                *int
+	Domain              string
+	Count               int
+	Items               []Item
+	PointerItems        *[]Item
+	NamedItems          Items
+	PointerNamedItems   *Items
+	PointerElementItems []*Item
+	Methods             []string
+	OptionalMethods     *[]string
+	ScalarPointers      *[]string
+	Tags                map[string]string
+	OptionalTags        *map[string]string
 }
 
 type Item struct {
-	A    *string
-	B    *string
-	Subs []Sub
-	Tags []string
+	A           *string
+	B           *string
+	Subs        []Sub
+	PointerSubs *Subs
+	Tags        []string
 }
 
 type Sub struct {
@@ -61,6 +71,17 @@ func readConstraintLibrary(t *testing.T, src string) (*runtime.LibrarySchema, []
 	t.Helper()
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "library.go"), []byte(src), 0o644))
+	return Read(dir)
+}
+
+func readFilesLibrary(t *testing.T, files map[string]string) (*runtime.LibrarySchema, []string, error) {
+	t.Helper()
+	dir := t.TempDir()
+	for name, src := range files {
+		path := filepath.Join(dir, name)
+		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+		require.NoError(t, os.WriteFile(path, []byte(src), 0o644))
+	}
 	return Read(dir)
 }
 
@@ -523,6 +544,329 @@ func (v Thing) Constraints() []constraint.Constraint {
 			ForEach: "input.methods",
 		},
 	}, schema.Resources["thing"].Constraints)
+}
+
+func TestReadExtractsForEachListFieldForms(t *testing.T) {
+	tests := []struct {
+		name      string
+		method    string
+		wantSpecs []lang.ConstraintSpec
+	}{
+		{
+			name: "plain slice",
+			method: `func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.Items, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.Present(it.A)),
+			}
+		}),
+	}
+}`,
+			wantSpecs: []lang.ConstraintSpec{{
+				Kind:    "predicate",
+				When:    "true",
+				Require: "(@each.value.a != null)",
+				ForEach: "input.items",
+			}},
+		},
+		{
+			name: "pointer slice",
+			method: `func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.PointerItems, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.Present(it.A)),
+			}
+		}),
+	}
+}`,
+			wantSpecs: []lang.ConstraintSpec{{
+				Kind:    "predicate",
+				When:    "true",
+				Require: "(@each.value.a != null)",
+				ForEach: "input.pointer-items ?? []",
+			}},
+		},
+		{
+			name: "named slice",
+			method: `func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.NamedItems, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.Present(it.A)),
+			}
+		}),
+	}
+}`,
+			wantSpecs: []lang.ConstraintSpec{{
+				Kind:    "predicate",
+				When:    "true",
+				Require: "(@each.value.a != null)",
+				ForEach: "input.named-items",
+			}},
+		},
+		{
+			name: "pointer named slice",
+			method: `func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.PointerNamedItems, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.Present(it.A)),
+			}
+		}),
+	}
+}`,
+			wantSpecs: []lang.ConstraintSpec{{
+				Kind:    "predicate",
+				When:    "true",
+				Require: "(@each.value.a != null)",
+				ForEach: "input.pointer-named-items ?? []",
+			}},
+		},
+		{
+			name: "scalar pointer slice",
+			method: `func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.ScalarPointers, func(s string) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.NotEmpty(s)),
+			}
+		}),
+	}
+}`,
+			wantSpecs: []lang.ConstraintSpec{{
+				Kind:    "predicate",
+				When:    "true",
+				Require: "(@core.length(@each.value) >= 1)",
+				ForEach: "input.scalar-pointers ?? []",
+			}},
+		},
+		{
+			name: "pointer element slice",
+			method: `func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.PointerElementItems, func(it *Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.Present(it.A)),
+			}
+		}),
+	}
+}`,
+			wantSpecs: []lang.ConstraintSpec{{
+				Kind:    "predicate",
+				When:    "true",
+				Require: "(@each.value.a != null)",
+				ForEach: "input.pointer-element-items",
+			}},
+		},
+		{
+			name: "nested pointer named slices",
+			method: `func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.PointerNamedItems, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.ForEach(it.PointerSubs, func(s Sub) []constraint.Constraint {
+					return []constraint.Constraint{
+						constraint.Must(constraint.Present(s.C)),
+					}
+				}),
+			}
+		}),
+	}
+}`,
+			wantSpecs: []lang.ConstraintSpec{{
+				Kind:    "predicate",
+				When:    "true",
+				Require: "(@s.value.c != null)",
+				ForEachLevels: []lang.ForEachSpecLevel{
+					{Name: "@it", In: "input.pointer-named-items ?? []"},
+					{Name: "@s", In: "@it.value.pointer-subs ?? []"},
+				},
+			}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			schema, warnings, err := readConstraintLibrary(t, constraintLibrary+tt.method)
+			require.NoError(t, err)
+			require.Empty(t, warnings)
+			require.Equal(t, tt.wantSpecs, schema.Resources["thing"].Constraints)
+		})
+	}
+}
+
+func TestReadRejectsMalformedForEach(t *testing.T) {
+	tests := []struct {
+		name    string
+		method  string
+		extra   string
+		wantErr string
+	}{
+		{
+			name: "non selector list argument",
+			method: `func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach([]Item{}, func(it Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.Present(it.A)),
+			}
+		}),
+	}
+}`,
+			wantErr: "struct field selector",
+		},
+		{
+			name: "non list field",
+			method: `func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.Name, func(name string) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.NotEmpty(name)),
+			}
+		}),
+	}
+}`,
+			wantErr: "must be a list field",
+		},
+		{
+			name: "body is not function literal",
+			method: `func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.Items, itemRules),
+	}
+}`,
+			extra: `var itemRules = func(it Item) []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.Must(constraint.Present(it.A)),
+	}
+}`,
+			wantErr: "function literal",
+		},
+		{
+			name: "blank parameter",
+			method: `func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.Items, func(_ Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.Present(v.Name)),
+			}
+		}),
+	}
+}`,
+			wantErr: "one named parameter",
+		},
+		{
+			name: "parameter type mismatch",
+			method: `func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.Items, func(x Other) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.Present(x.A)),
+			}
+		}),
+	}
+}`,
+			extra: `type Other struct {
+	A *string
+	B *string
+}`,
+			wantErr: "does not match",
+		},
+		{
+			name: "parameter adds pointer",
+			method: `func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.Items, func(x *Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.Present(x.A)),
+			}
+		}),
+	}
+}`,
+			wantErr: "does not match",
+		},
+		{
+			name: "parameter removes pointer",
+			method: `func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.PointerElementItems, func(x Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.Present(x.A)),
+			}
+		}),
+	}
+}`,
+			wantErr: "does not match",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src := constraintLibrary + "\n" + tt.method + "\n" + tt.extra + "\n"
+			_, _, err := readConstraintLibrary(t, src)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+func TestReadRejectsImportedForEachParameterMismatch(t *testing.T) {
+	schema, warnings, err := readFilesLibrary(t, map[string]string{
+		"go.mod": "module example.com/lib\n",
+		"library.go": `package lib
+
+import (
+	"example.com/lib/a"
+	other "example.com/lib/b"
+
+	"github.com/cloudboss/unobin/pkg/constraint"
+	"github.com/cloudboss/unobin/pkg/runtime"
+)
+
+func Library() *runtime.Library {
+	return &runtime.Library{
+		Name: "lib",
+		Resources: map[string]runtime.ResourceRegistration{
+			"thing": runtime.MakeResource[Thing, *ThingOutput, any](),
+		},
+	}
+}
+
+type Thing struct {
+	Items []a.Item
+}
+
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.ForEach(v.Items, func(x other.Item) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.Present(x.Name)),
+			}
+		}),
+	}
+}
+
+type ThingOutput struct {
+	ID string
+}
+`,
+		"a/a.go": `package a
+
+type Item struct {
+	Name *string
+}
+`,
+		"b/b.go": `package b
+
+type Item struct {
+	Name *string
+}
+`,
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "does not match")
+	require.Empty(t, warnings)
+	require.Nil(t, schema)
 }
 
 // TestScalarForEachChecksAgainstValues proves the extracted specs

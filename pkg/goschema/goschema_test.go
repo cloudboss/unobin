@@ -527,7 +527,7 @@ type Item struct {
 		}),
 	}
 }`,
-			"must be a slice of in-library structs"},
+			"must be a list field"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
