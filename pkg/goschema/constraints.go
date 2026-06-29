@@ -810,8 +810,12 @@ func (w *walker) itemsCond(call *ast.CallExpr, op string, scope constraintScope)
 		w.addWarnf("%s takes a field and a whole-number literal", condName(call))
 		return "", false
 	}
-	check := "@core.length(" + field.expr + ") " + op + " " + strconv.Itoa(n)
-	if !field.nullable {
+	operand := field.expr
+	if op == "<=" {
+		operand = lengthOperand(field)
+	}
+	check := "@core.length(" + operand + ") " + op + " " + strconv.Itoa(n)
+	if !field.nullable || operand != field.expr {
 		return "(" + check + ")", true
 	}
 	return "(" + field.expr + " == null || " + check + ")", true

@@ -36,6 +36,7 @@ type Thing struct {
 	Kind                *string
 	Port                *int
 	Domain              string
+	Profile             *string
 	Count               int
 	Items               []Item
 	PointerItems        *[]Item
@@ -401,8 +402,7 @@ func (v Thing) Constraints() []constraint.Constraint {
 			When: "(input.optional-methods != null)",
 			Require: "(input.optional-methods == null || " +
 				"@core.length(input.optional-methods) >= 1)" +
-				" && (input.optional-methods == null || " +
-				"@core.length(input.optional-methods) <= 5)",
+				" && (@core.length(input.optional-methods ?? []) <= 5)",
 		},
 	}, schema.Resources["thing"].Constraints)
 }
@@ -448,6 +448,98 @@ func (v Thing) Constraints() []constraint.Constraint {
 		"an absent list fails NotEmpty but passes MaxItems")
 	require.Equal(t, 1, check(map[string]any{"optional-methods": []any{"a", "b", "c"}}),
 		"three items fail MaxItems(2)")
+}
+
+func TestReadExtractsNullableLengthOperands(t *testing.T) {
+	src := constraintLibrary + `
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.Must(constraint.NotEmpty(v.OptionalMethods)).
+			Message("methods required"),
+		constraint.Must(constraint.Not(constraint.NotEmpty(v.OptionalMethods))).
+			Message("methods must be empty"),
+		constraint.Must(constraint.NotEmpty(v.OptionalTags)).
+			Message("tags required"),
+		constraint.Must(constraint.NotEmpty(v.Profile)).
+			Message("profile required"),
+		constraint.Must(constraint.MaxItems(v.OptionalMethods, 5)).
+			Message("too many methods"),
+		constraint.Must(constraint.MinItems(v.OptionalMethods, 1)).
+			Message("null or at least one method"),
+		constraint.ForEach(v.PointerScalarValues, func(s *string) []constraint.Constraint {
+			return []constraint.Constraint{
+				constraint.Must(constraint.NotEmpty(s)).
+					Message("them values required"),
+			}
+		}),
+		constraint.Must(constraint.NotEmpty(v.Methods)).
+			Message("plain methods required"),
+		constraint.Must(constraint.MaxItems(v.Methods, 2)).
+			Message("plain methods limited"),
+	}
+}
+`
+	schema, warnings, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	require.Equal(t, []lang.ConstraintSpec{
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.optional-methods ?? []) >= 1)",
+			Message: "methods required",
+		},
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "!(@core.length(input.optional-methods ?? []) >= 1)",
+			Message: "methods must be empty",
+		},
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.optional-tags ?? {}) >= 1)",
+			Message: "tags required",
+		},
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.profile ?? '') >= 1)",
+			Message: "profile required",
+		},
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.optional-methods ?? []) <= 5)",
+			Message: "too many methods",
+		},
+		{
+			Kind: "predicate",
+			When: "true",
+			Require: "(input.optional-methods == null || " +
+				"@core.length(input.optional-methods) >= 1)",
+			Message: "null or at least one method",
+		},
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(@each.value ?? '') >= 1)",
+			Message: "them values required",
+			ForEach: "input.pointer-scalar-values ?? []",
+		},
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.methods) >= 1)",
+			Message: "plain methods required",
+		},
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.methods) <= 2)",
+			Message: "plain methods limited",
+		},
+	}, schema.Resources["thing"].Constraints)
 }
 
 func TestReadOmitsNullTestsForRequiredValues(t *testing.T) {

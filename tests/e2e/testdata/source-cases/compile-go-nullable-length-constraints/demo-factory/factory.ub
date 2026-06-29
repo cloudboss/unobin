@@ -1,0 +1,18 @@
+factory: {
+  inputs: {
+    optional-methods: { type: optional(list(string)) }
+    optional-tags:    { type: optional(map(string)) }
+    profile:          { type: optional(string) }
+    them:             { type: optional(list(optional(string))) }
+  }
+  imports: { len: 'example.com/lenlib' }
+  resources: {
+    sample: len.length {
+      name:             'demo'
+      optional-methods: input.optional-methods
+      optional-tags:    input.optional-tags
+      profile:          input.profile
+      them:             input.them
+    }
+  }
+}
