@@ -1,0 +1,5219 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://cloudboss.co/docs/unobin/v0.9.0/reference/api/pkg/deps/">
+      
+      
+        <link rel="prev" href="../defaults/">
+      
+      
+        <link rel="next" href="../docgen/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../../assets/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>pkg/deps - unobin</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Cantarell:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Cantarell";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+    
+  
+  
+  
+  <style>/* The cloudboss look: cloudboss.co palette and typography over Material. */
+
+:root {
+  --md-text-font: "Cantarell";
+  --md-code-font: "SFMono-Regular", "Consolas", "Liberation Mono", "Menlo";
+}
+
+[data-md-color-scheme="default"] {
+  --md-default-fg-color: #1a1a1a;
+  --md-default-fg-color--light: #555555;
+  --md-default-fg-color--lighter: #888888;
+  --md-default-fg-color--lightest: #ebebeb;
+  --md-default-bg-color: #ffffff;
+  --md-typeset-color: #1a1a1a;
+
+  /* White header with dark text, like cloudboss.co. */
+  --md-primary-fg-color: #ffffff;
+  --md-primary-fg-color--light: #ffffff;
+  --md-primary-fg-color--dark: #f5f5f5;
+  --md-primary-bg-color: #1a1a1a;
+  --md-primary-bg-color--light: #555555;
+
+  /* The one accent: cloudboss link blue. */
+  --md-accent-fg-color: #2a7ab5;
+  --md-typeset-a-color: #2a7ab5;
+
+  --md-code-bg-color: #f5f5f5;
+  --md-code-fg-color: #1a1a1a;
+}
+
+.md-header {
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+  box-shadow: none;
+}
+
+/* A bit larger than Material's default 1.2rem logo. */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 1.8rem;
+  width: auto;
+}
+
+.md-typeset {
+  line-height: 1.6;
+}
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3 {
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+
+.md-typeset h2 {
+  margin-top: 1.8em;
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.md-typeset pre > code {
+  border-radius: 9px;
+}
+
+.md-nav__link--active,
+.md-nav__item .md-nav__link--active {
+  font-weight: 700;
+}
+
+/* Admonitions styled like the cloudboss mockup callout: a soft-tinted box with a
+   left accent bar and an uppercase title, no icon and no tinted title bar. Each type
+   sets --cb-admon to its own color; the box, bar, and title all read from it. */
+.md-typeset .admonition,
+.md-typeset details {
+  --cb-admon: var(--md-accent-fg-color);
+  margin: 1.5em 0;
+  padding: 0;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-left: 4px solid var(--cb-admon);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--cb-admon) 9%, #ffffff);
+  box-shadow: none;
+  font-size: 0.8rem;
+}
+
+/* Informational types all share one blue. */
+.md-typeset .note,
+.md-typeset .info,
+.md-typeset .todo,
+.md-typeset .abstract,
+.md-typeset .summary,
+.md-typeset .tldr,
+.md-typeset .tip,
+.md-typeset .hint,
+.md-typeset .important,
+.md-typeset .success,
+.md-typeset .check,
+.md-typeset .done,
+.md-typeset .question,
+.md-typeset .help,
+.md-typeset .faq {
+  --cb-admon: #2a7ab5;
+}
+
+.md-typeset .warning,
+.md-typeset .caution,
+.md-typeset .attention {
+  --cb-admon: #b8730a;
+}
+
+.md-typeset .danger,
+.md-typeset .error,
+.md-typeset .failure,
+.md-typeset .fail,
+.md-typeset .missing,
+.md-typeset .bug {
+  --cb-admon: #c0392b;
+}
+
+.md-typeset .example {
+  --cb-admon: #6a5acd;
+}
+
+.md-typeset .quote,
+.md-typeset .cite {
+  --cb-admon: #6b7280;
+}
+
+.md-typeset .admonition-title {
+  margin: 0;
+  padding: 0.65rem 0.85rem 0;
+  background: transparent;
+  border: 0;
+  color: var(--cb-admon);
+  font-weight: 700;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.md-typeset .admonition-title::before {
+  display: none;
+}
+
+.md-typeset .admonition > :not(.admonition-title) {
+  margin: 0;
+  padding: 0.2rem 0.85rem 0;
+}
+
+.md-typeset .admonition > :last-child {
+  padding-bottom: 0.7rem;
+}</style>
+  
+
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#package-deps" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../../.." title="unobin" class="md-header__button md-logo" aria-label="unobin" data-md-component="logo">
+      
+  <img src="../../../../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            unobin
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              pkg/deps
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/cloudboss/unobin" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cloudboss/unobin
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../../.." title="unobin" class="md-nav__button md-logo" aria-label="unobin" data-md-component="logo">
+      
+  <img src="../../../../assets/logo.svg" alt="logo">
+
+    </a>
+    unobin
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/cloudboss/unobin" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cloudboss/unobin
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Overview
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What is unobin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../overview/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../overview/terraform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Unobin vs Terraform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../getting-started/first-factory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First factory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../getting-started/compile-plan-apply/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compile, plan, apply
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../getting-started/dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Language
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Language
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../language/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Syntax overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../language/files-and-blocks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Files and blocks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../language/strings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Strings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../language/expressions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Expressions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../language/for-comprehensions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    For comprehensions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../language/if-expressions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    If expressions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../language/types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Builtin types
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../language/optionals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Optional values and narrowing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../language/functions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Builtin functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authoring
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Authoring
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../authoring/factories/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factories
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../authoring/stack-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stack files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../authoring/composite-libraries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Composite libraries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../authoring/project-files-and-locks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project files and locks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../authoring/imports-and-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Imports and versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../authoring/local-development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Local development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Libraries
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Libraries
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../libraries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cloudboss libraries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Editors
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Editors
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../editors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Editor setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../editors/emacs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Emacs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../editors/vscode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VS Code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../editors/tree-sitter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tree-sitter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../editors/lsp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LSP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go SDK
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Go SDK
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../go-sdk/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../go-sdk/libraries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Libraries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../go-sdk/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../go-sdk/resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../go-sdk/data-sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../go-sdk/actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Actions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../go-sdk/functions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../go-sdk/schemas-constraints-defaults/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schemas, constraints, defaults
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../go-sdk/state-migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State and migrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../go-sdk/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_8_2" id="__nav_8_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_8_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Go API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../awscfg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/awscfg
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../check/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/check
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../codegen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/codegen
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compile/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/compile
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../constraint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/constraint
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../defaults/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/defaults
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/deps
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/deps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constants
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Functions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-checknoreplacementsentinelinprojectlock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func CheckNoReplacementSentinelInProjectLock
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-checkpackageboundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func CheckPackageBoundary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-checkreplacementsentinels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func CheckReplacementSentinels
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-encodeproject" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func EncodeProject
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-encodeprojectlock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func EncodeProjectLock
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-findprojectdir" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func FindProjectDir
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-findprojectmarkerdir" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func FindProjectMarkerDir
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-goreplacementsentinel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func GoReplacementSentinel
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-hasprojectmarker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func HasProjectMarker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-hashubproject" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func HashUBProject
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-highest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func Highest
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-importedpackages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ImportedPackages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-importedrepos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ImportedRepos
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-isreplacementsentinel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func IsReplacementSentinel
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projectcontains" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ProjectContains
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projecttag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ProjectTag
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-replacementpath" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ReplacementPath
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-requireproject" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func RequireProject
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-resolve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func Resolve
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-resolveversion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ResolveVersion
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func Verify
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func Versions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-writeproject" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func WriteProject
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-writeprojectlock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func WriteProjectLock
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Types
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#type-dependency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type Dependency
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type Dependency">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-parsedependency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ParseDependency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-dependency-string" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (Dependency) String
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-dependency-tag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (Dependency) Tag
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-dependency-tagprefix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (Dependency) TagPrefix
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-fetcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type Fetcher
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type Fetcher">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-newfetcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func NewFetcher
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-packageowner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type PackageOwner
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type PackageOwner">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-mostspecificproject" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func MostSpecificProject
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type Project
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type Project">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-readproject" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ReadProject
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-project-directcount" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*Project) DirectCount
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-project-directrequireversions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*Project) DirectRequireVersions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-project-indirectcount" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*Project) IndirectCount
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-project-requireversions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*Project) RequireVersions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-project-setrequire" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*Project) SetRequire
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-projectid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type ProjectID
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type ProjectID">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-projectidfromdependency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ProjectIDFromDependency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projectidsfromdependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ProjectIDsFromDependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projectidsfromreplace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ProjectIDsFromReplace
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projectid-dependency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (ProjectID) Dependency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projectid-string" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (ProjectID) String
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-projectlock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type ProjectLock
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type ProjectLock">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-decodeprojectlock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func DecodeProjectLock
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-newprojectlock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func NewProjectLock
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projectlockfromimports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ProjectLockFromImports
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-readprojectlock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ReadProjectLock
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projectlock-repoversions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*ProjectLock) RepoVersions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projectlock-sortedids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*ProjectLock) SortedIDs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-projectlockdep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type ProjectLockDep
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-projectlockkind" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type ProjectLockKind
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-remotepackage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type RemotePackage
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type RemotePackage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-remotepackagefromdependency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func RemotePackageFromDependency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-remotepackage-dependency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (RemotePackage) Dependency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-remotepackage-string" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (RemotePackage) String
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-replacement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type Replacement
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type Replacement">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-replacementfor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ReplacementFor
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-requirement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type Requirement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type Selection
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type Selection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-newselection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func NewSelection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-selection-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*Selection) Add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-selection-chosen" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*Selection) Chosen
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-selection-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*Selection) Version
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docgen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/docgen
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../encoding/ub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/encoding/ub
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../encrypters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/encrypters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../fs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/fs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../git/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/git
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gogen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/gogen
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gogen/tf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/gogen/tf
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../golibrary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/golibrary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../goschema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/goschema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../graphprint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/graphprint
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lang/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/lang
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lang/parse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/lang/parse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lang/syntax/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/lang/syntax
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lsp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/lsp
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lsp/protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/lsp/protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../projectmarker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/projectmarker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resolve/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/resolve
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../runner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/runner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../runtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/runtime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sdk/cfg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/sdk/cfg
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sdk/cfg/validate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/sdk/cfg/validate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sdk/encrypt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/sdk/encrypt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sdk/state/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/sdk/state
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sourcecheck/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/sourcecheck
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../state/local/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/state/local
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../state/s3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/state/s3
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stateref/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/stateref
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../structdecode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/structdecode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../toolchain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/toolchain
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../typecheck/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/typecheck
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pkg/ui
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constants
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Functions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-checknoreplacementsentinelinprojectlock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func CheckNoReplacementSentinelInProjectLock
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-checkpackageboundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func CheckPackageBoundary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-checkreplacementsentinels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func CheckReplacementSentinels
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-encodeproject" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func EncodeProject
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-encodeprojectlock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func EncodeProjectLock
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-findprojectdir" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func FindProjectDir
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-findprojectmarkerdir" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func FindProjectMarkerDir
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-goreplacementsentinel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func GoReplacementSentinel
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-hasprojectmarker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func HasProjectMarker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-hashubproject" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func HashUBProject
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-highest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func Highest
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-importedpackages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ImportedPackages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-importedrepos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ImportedRepos
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-isreplacementsentinel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func IsReplacementSentinel
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projectcontains" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ProjectContains
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projecttag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ProjectTag
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-replacementpath" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ReplacementPath
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-requireproject" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func RequireProject
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-resolve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func Resolve
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-resolveversion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ResolveVersion
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func Verify
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func Versions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-writeproject" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func WriteProject
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-writeprojectlock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func WriteProjectLock
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Types
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#type-dependency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type Dependency
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type Dependency">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-parsedependency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ParseDependency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-dependency-string" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (Dependency) String
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-dependency-tag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (Dependency) Tag
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-dependency-tagprefix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (Dependency) TagPrefix
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-fetcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type Fetcher
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type Fetcher">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-newfetcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func NewFetcher
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-packageowner" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type PackageOwner
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type PackageOwner">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-mostspecificproject" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func MostSpecificProject
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type Project
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type Project">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-readproject" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ReadProject
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-project-directcount" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*Project) DirectCount
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-project-directrequireversions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*Project) DirectRequireVersions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-project-indirectcount" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*Project) IndirectCount
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-project-requireversions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*Project) RequireVersions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-project-setrequire" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*Project) SetRequire
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-projectid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type ProjectID
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type ProjectID">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-projectidfromdependency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ProjectIDFromDependency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projectidsfromdependencies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ProjectIDsFromDependencies
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projectidsfromreplace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ProjectIDsFromReplace
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projectid-dependency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (ProjectID) Dependency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projectid-string" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (ProjectID) String
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-projectlock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type ProjectLock
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type ProjectLock">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-decodeprojectlock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func DecodeProjectLock
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-newprojectlock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func NewProjectLock
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projectlockfromimports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ProjectLockFromImports
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-readprojectlock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ReadProjectLock
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projectlock-repoversions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*ProjectLock) RepoVersions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-projectlock-sortedids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*ProjectLock) SortedIDs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-projectlockdep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type ProjectLockDep
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-projectlockkind" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type ProjectLockKind
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-remotepackage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type RemotePackage
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type RemotePackage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-remotepackagefromdependency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func RemotePackageFromDependency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-remotepackage-dependency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (RemotePackage) Dependency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-remotepackage-string" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (RemotePackage) String
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-replacement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type Replacement
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type Replacement">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-replacementfor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func ReplacementFor
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-requirement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type Requirement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        type Selection
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="type Selection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#func-newselection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func NewSelection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-selection-add" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*Selection) Add
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-selection-chosen" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*Selection) Chosen
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#func-selection-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        func (*Selection) Version
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="package-deps">package deps<a class="headerlink" href="#package-deps" title="Permanent link">&para;</a></h1>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>import &quot;github.com/cloudboss/unobin/pkg/deps&quot;
+</code></pre></div>
+<p>Package deps models a factory's dependencies. It reads project.ub, which lists each direct dependency and the lowest version the factory accepts for it, and drives pkg/resolve to fetch them.</p>
+<h2 id="constants">Constants<a class="headerlink" href="#constants" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">CurrentProjectLockVersion</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="mi">1</span>
+</code></pre></div>
+<p>CurrentProjectLockVersion is the schema version this package reads and writes. A different version errors on read, since this build cannot guarantee a correct interpretation.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">ProjectFileName</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;project.ub&quot;</span>
+</code></pre></div>
+<p>ProjectFileName is the dependency project filename.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">ProjectLockFileName</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;project-lock.ub&quot;</span>
+</code></pre></div>
+<p>ProjectLockFileName is the dependency project-lock filename.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">ReplacementSentinel</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">&quot;v0.0.0-unobin-replaced&quot;</span>
+</code></pre></div>
+<h2 id="functions">Functions<a class="headerlink" href="#functions" title="Permanent link">&para;</a></h2>
+<h3 id="func-checknoreplacementsentinelinprojectlock">func CheckNoReplacementSentinelInProjectLock<a class="headerlink" href="#func-checknoreplacementsentinelinprojectlock" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">CheckNoReplacementSentinelInProjectLock</span><span class="p">(</span><span class="nx">projectLock</span><span class="w"> </span><span class="o">*</span><span class="nx">ProjectLock</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span>
+</code></pre></div>
+<h3 id="func-checkpackageboundary">func CheckPackageBoundary<a class="headerlink" href="#func-checkpackageboundary" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">CheckPackageBoundary</span><span class="p">(</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="nx">src</span><span class="w"> </span><span class="o">*</span><span class="nx">resolve</span><span class="p">.</span><span class="nx">Source</span><span class="p">,</span><span class="w"> </span><span class="nx">owner</span><span class="w"> </span><span class="nx">PackageOwner</span><span class="p">,</span><span class="w"> </span><span class="nx">pkg</span><span class="w"> </span><span class="nx">RemotePackage</span><span class="p">,</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="p">)</span><span class="w"> </span><span class="kt">error</span>
+</code></pre></div>
+<h3 id="func-checkreplacementsentinels">func CheckReplacementSentinels<a class="headerlink" href="#func-checkreplacementsentinels" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">CheckReplacementSentinels</span><span class="p">(</span><span class="nx">project</span><span class="w"> </span><span class="o">*</span><span class="nx">Project</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span>
+</code></pre></div>
+<h3 id="func-encodeproject">func EncodeProject<a class="headerlink" href="#func-encodeproject" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">EncodeProject</span><span class="p">(</span><span class="nx">m</span><span class="w"> </span><span class="o">*</span><span class="nx">Project</span><span class="p">)</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span>
+</code></pre></div>
+<p>EncodeProject renders a parseable project.ub draft.</p>
+<h3 id="func-encodeprojectlock">func EncodeProjectLock<a class="headerlink" href="#func-encodeprojectlock" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">EncodeProjectLock</span><span class="p">(</span><span class="nx">projectLock</span><span class="w"> </span><span class="o">*</span><span class="nx">ProjectLock</span><span class="p">)</span><span class="w"> </span><span class="p">([]</span><span class="kt">byte</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+</code></pre></div>
+<p>EncodeProjectLock serializes projectLock as canonical project-lock.ub source.</p>
+<h3 id="func-findprojectdir">func FindProjectDir<a class="headerlink" href="#func-findprojectdir" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">FindProjectDir</span><span class="p">(</span><span class="nx">start</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+</code></pre></div>
+<p>FindProjectDir walks up from start to the nearest ancestor directory holding a project and returns that directory: the root of the project that governs start. start may be any path inside the project, a directory or a file. It stops at the filesystem root and returns an error wrapping fs.ErrNotExist when no project is found.</p>
+<h3 id="func-findprojectmarkerdir">func FindProjectMarkerDir<a class="headerlink" href="#func-findprojectmarkerdir" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">FindProjectMarkerDir</span><span class="p">(</span><span class="nx">start</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">projectmarker</span><span class="p">.</span><span class="nx">Marker</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="func-goreplacementsentinel">func GoReplacementSentinel<a class="headerlink" href="#func-goreplacementsentinel" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">GoReplacementSentinel</span><span class="p">(</span><span class="nx">modulePath</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="func-hasprojectmarker">func HasProjectMarker<a class="headerlink" href="#func-hasprojectmarker" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">HasProjectMarker</span><span class="p">(</span><span class="nx">fsys</span><span class="w"> </span><span class="nx">fs</span><span class="p">.</span><span class="nx">FS</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+</code></pre></div>
+<p>HasProjectMarker reports whether fsys contains project.ub or go.mod at its root.</p>
+<h3 id="func-hashubproject">func HashUBProject<a class="headerlink" href="#func-hashubproject" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">HashUBProject</span><span class="p">(</span><span class="nx">fsys</span><span class="w"> </span><span class="nx">fs</span><span class="p">.</span><span class="nx">FS</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="func-highest">func Highest<a class="headerlink" href="#func-highest" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">Highest</span><span class="p">(</span><span class="nx">vs</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="kt">string</span>
+</code></pre></div>
+<p>Highest returns the greatest version in vs by semver order, or "" when vs is empty.</p>
+<h3 id="func-importedpackages">func ImportedPackages<a class="headerlink" href="#func-importedpackages" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">ImportedPackages</span><span class="p">(</span><span class="nx">root</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="nx">RemotePackage</span><span class="p">]</span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+</code></pre></div>
+<p>ImportedPackages scans every .ub file under root and returns the set of packages named by remote imports. The version on an import is not read here: a package's version floor lives on its owning project in project.ub, not in the import string. Local imports are intra-project and contribute no remote package. Hidden directories (a leading dot, such as .git) are skipped.</p>
+<h3 id="func-importedrepos">func ImportedRepos<a class="headerlink" href="#func-importedrepos" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">ImportedRepos</span><span class="p">(</span><span class="nx">root</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="nx">Dependency</span><span class="p">]</span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+</code></pre></div>
+<p>ImportedRepos is kept for callers that still need the import strings in the older Dependency form.</p>
+<h3 id="func-isreplacementsentinel">func IsReplacementSentinel<a class="headerlink" href="#func-isreplacementsentinel" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">IsReplacementSentinel</span><span class="p">(</span><span class="nx">v</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="kt">bool</span>
+</code></pre></div>
+<h3 id="func-projectcontains">func ProjectContains<a class="headerlink" href="#func-projectcontains" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">ProjectContains</span><span class="p">(</span><span class="nx">project</span><span class="w"> </span><span class="nx">ProjectID</span><span class="p">,</span><span class="w"> </span><span class="nx">pkg</span><span class="w"> </span><span class="nx">RemotePackage</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span>
+</code></pre></div>
+<p>ProjectContains reports whether project owns pkg. The returned subdir is the package path inside the project, or "." when pkg names the project root.</p>
+<h3 id="func-projecttag">func ProjectTag<a class="headerlink" href="#func-projecttag" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">ProjectTag</span><span class="p">(</span><span class="nx">project</span><span class="w"> </span><span class="nx">ProjectID</span><span class="p">,</span><span class="w"> </span><span class="nx">version</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="kt">string</span>
+</code></pre></div>
+<p>ProjectTag returns the git tag for a project version.</p>
+<h3 id="func-replacementpath">func ReplacementPath<a class="headerlink" href="#func-replacementpath" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">ReplacementPath</span><span class="p">(</span><span class="nx">replace</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="nx">Dependency</span><span class="p">]</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">dep</span><span class="w"> </span><span class="nx">Dependency</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span>
+</code></pre></div>
+<p>ReplacementPath returns the local replacement path for dep.</p>
+<h3 id="func-requireproject">func RequireProject<a class="headerlink" href="#func-requireproject" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">RequireProject</span><span class="p">(</span><span class="nx">dep</span><span class="w"> </span><span class="nx">Dependency</span><span class="p">,</span><span class="w"> </span><span class="nx">version</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">resolver</span><span class="w"> </span><span class="nx">resolve</span><span class="p">.</span><span class="nx">Resolver</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span>
+</code></pre></div>
+<p>RequireProject checks that dep resolves to a project root at version.</p>
+<h3 id="func-resolve">func Resolve<a class="headerlink" href="#func-resolve" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">Resolve</span><span class="p">(</span><span class="nx">root</span><span class="w"> </span><span class="o">*</span><span class="nx">Project</span><span class="p">,</span><span class="w"> </span><span class="nx">fetch</span><span class="w"> </span><span class="nx">Fetcher</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="nx">Dependency</span><span class="p">]</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+</code></pre></div>
+<p>Resolve runs minimal version selection over the dependency graph rooted at a project. It selects the highest floor for each dependency, fetches it at that version to read its own requirements, and repeats until the selection stops changing. A dependency whose version is later raised is re-fetched, since a higher version may declare different requirements; the walk terminates at any dependency with no project. The result maps each dependency to its selected version -- project-lock, keyed per imported library, is built separately by the import walk.</p>
+<h3 id="func-resolveversion">func ResolveVersion<a class="headerlink" href="#func-resolveversion" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">ResolveVersion</span><span class="p">(</span><span class="nx">dep</span><span class="w"> </span><span class="nx">Dependency</span><span class="p">,</span><span class="w"> </span><span class="nx">query</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">tags</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+</code></pre></div>
+<p>ResolveVersion turns a `deps get` query into a concrete version of dep, chosen among the repository's tags. An empty query or "latest" picks the highest available version; a full version (vX.Y.Z) is used as-is once confirmed present; a partial version (v1 or v1.2) picks the highest available version under that prefix.</p>
+<h3 id="func-verify">func Verify<a class="headerlink" href="#func-verify" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">Verify</span><span class="p">(</span><span class="nx">projectLock</span><span class="w"> </span><span class="o">*</span><span class="nx">ProjectLock</span><span class="p">,</span><span class="w"> </span><span class="nx">resolver</span><span class="w"> </span><span class="nx">resolve</span><span class="p">.</span><span class="nx">Resolver</span><span class="p">)</span><span class="w"> </span><span class="p">([]</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+</code></pre></div>
+<p>Verify re-fetches every ub-kind dependency in project-lock at its pinned commit and checks the content hash against the recorded one. A mismatch means the source changed under a pinned commit. Go dependencies are skipped: their integrity rides the generated go.sum, not a content hash here. It returns one message per dependency whose hash no longer matches, in id order.</p>
+<h3 id="func-versions">func Versions<a class="headerlink" href="#func-versions" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">Versions</span><span class="p">(</span><span class="nx">dep</span><span class="w"> </span><span class="nx">Dependency</span><span class="p">,</span><span class="w"> </span><span class="nx">tags</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span>
+</code></pre></div>
+<p>Versions returns the dependency's semver tags in increasing order.</p>
+<h3 id="func-writeproject">func WriteProject<a class="headerlink" href="#func-writeproject" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">WriteProject</span><span class="p">(</span><span class="nx">path</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">m</span><span class="w"> </span><span class="o">*</span><span class="nx">Project</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span>
+</code></pre></div>
+<p>WriteProject serializes m as canonical project.ub source and atomically replaces the file at path.</p>
+<h3 id="func-writeprojectlock">func WriteProjectLock<a class="headerlink" href="#func-writeprojectlock" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">WriteProjectLock</span><span class="p">(</span><span class="nx">path</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">projectLock</span><span class="w"> </span><span class="o">*</span><span class="nx">ProjectLock</span><span class="p">)</span><span class="w"> </span><span class="kt">error</span>
+</code></pre></div>
+<p>WriteProjectLock serializes projectLock as canonical project-lock.ub source and atomically replaces the file at path.</p>
+<h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
+<h3 id="type-dependency">type Dependency<a class="headerlink" href="#type-dependency" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">Dependency</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="w">    </span><span class="nx">URL</span><span class="w">    </span><span class="kt">string</span>
+<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a><span class="w">    </span><span class="nx">Subdir</span><span class="w"> </span><span class="kt">string</span>
+<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="p">}</span>
+</code></pre></div>
+<p>Dependency identifies an importable unit by its repository URL and an optional subdirectory within that repository. It is the project's notion of "a dependency"; a resolved version (a git tag) is paired with it elsewhere, not stored on the identity.</p>
+<h4 id="func-parsedependency">func ParseDependency<a class="headerlink" href="#func-parsedependency" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">ParseDependency</span><span class="p">(</span><span class="nx">id</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="nx">Dependency</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+</code></pre></div>
+<p>ParseDependency parses a dependency id of the form `repo-url` or `repo-url//subdir`, the same `//` separator imports use but without a trailing `@version`.</p>
+<h4 id="func-dependency-string">func (Dependency) String<a class="headerlink" href="#func-dependency-string" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="nx">Dependency</span><span class="p">)</span><span class="w"> </span><span class="nx">String</span><span class="p">()</span><span class="w"> </span><span class="kt">string</span>
+</code></pre></div>
+<p>String renders the dependency back to its id form, the inverse of ParseDependency.</p>
+<h4 id="func-dependency-tag">func (Dependency) Tag<a class="headerlink" href="#func-dependency-tag" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="nx">Dependency</span><span class="p">)</span><span class="w"> </span><span class="nx">Tag</span><span class="p">(</span><span class="nx">version</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="kt">string</span>
+</code></pre></div>
+<p>Tag returns the most specific git tag that names a version of this dependency.</p>
+<h4 id="func-dependency-tagprefix">func (Dependency) TagPrefix<a class="headerlink" href="#func-dependency-tagprefix" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">d</span><span class="w"> </span><span class="nx">Dependency</span><span class="p">)</span><span class="w"> </span><span class="nx">TagPrefix</span><span class="p">()</span><span class="w"> </span><span class="kt">string</span>
+</code></pre></div>
+<p>TagPrefix returns the most specific git tag prefix for this dependency.</p>
+<h3 id="type-fetcher">type Fetcher<a class="headerlink" href="#type-fetcher" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">Fetcher</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a><span class="w">    </span><span class="nx">Fetch</span><span class="p">(</span><span class="nx">dep</span><span class="w"> </span><span class="nx">Dependency</span><span class="p">,</span><span class="w"> </span><span class="nx">version</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">Project</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a><span class="p">}</span>
+</code></pre></div>
+<p>Fetcher fetches a dependency's project at a selected version, for the version walk. It returns nil when the dependency declares no project: a leaf with no further dependencies, such as a Go library or a UB library that imports nothing remote.</p>
+<h4 id="func-newfetcher">func NewFetcher<a class="headerlink" href="#func-newfetcher" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">NewFetcher</span><span class="p">(</span><span class="nx">resolver</span><span class="w"> </span><span class="nx">resolve</span><span class="p">.</span><span class="nx">Resolver</span><span class="p">)</span><span class="w"> </span><span class="nx">Fetcher</span>
+</code></pre></div>
+<p>NewFetcher returns a Fetcher that reads dependency projects through resolver. It is the production Fetcher behind unobin deps; tests pass a fake resolver.</p>
+<h3 id="type-packageowner">type PackageOwner<a class="headerlink" href="#type-packageowner" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">PackageOwner</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="w">    </span><span class="nx">Project</span><span class="w">       </span><span class="nx">ProjectID</span>
+<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a><span class="w">    </span><span class="nx">PackageSubdir</span><span class="w"> </span><span class="kt">string</span>
+<a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a><span class="p">}</span>
+</code></pre></div>
+<p>PackageOwner records the project that owns a package import.</p>
+<h4 id="func-mostspecificproject">func MostSpecificProject<a class="headerlink" href="#func-mostspecificproject" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">MostSpecificProject</span><span class="p">(</span><span class="nx">projects</span><span class="w"> </span><span class="p">[]</span><span class="nx">ProjectID</span><span class="p">,</span><span class="w"> </span><span class="nx">pkg</span><span class="w"> </span><span class="nx">RemotePackage</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="nx">PackageOwner</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span>
+</code></pre></div>
+<p>MostSpecificProject chooses the project with the longest matching subdir.</p>
+<h3 id="type-project">type Project<a class="headerlink" href="#type-project" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">Project</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a><span class="w">    </span><span class="nx">UnobinVersion</span><span class="w"> </span><span class="kt">string</span>
+<a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a><span class="w">    </span><span class="nx">Requires</span><span class="w">      </span><span class="kd">map</span><span class="p">[</span><span class="nx">Dependency</span><span class="p">]</span><span class="nx">Requirement</span>
+<a id="__codelineno-38-4" name="__codelineno-38-4" href="#__codelineno-38-4"></a><span class="w">    </span><span class="nx">Replace</span><span class="w">       </span><span class="kd">map</span><span class="p">[</span><span class="nx">Dependency</span><span class="p">]</span><span class="kt">string</span>
+<a id="__codelineno-38-5" name="__codelineno-38-5" href="#__codelineno-38-5"></a><span class="p">}</span>
+</code></pre></div>
+<p>Project is a parsed dependency project. Requires maps each dependency to the lowest version (a git tag) the factory accepts for it; resolution may select a higher one to satisfy the whole set. The factory's own version is its git tag, not recorded here. Replace maps a dependency's URL to a local path: the resolver reads that dependency from the path instead of fetching it, and the dependency needs no floor or project-lock entry. UnobinVersion, when set, pins the toolchain: only a CLI of exactly that version compiles the project, since the unobin runtime is not a dependency whose version resolution selects.</p>
+<h4 id="func-readproject">func ReadProject<a class="headerlink" href="#func-readproject" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">ReadProject</span><span class="p">(</span><span class="nx">fsys</span><span class="w"> </span><span class="nx">fs</span><span class="p">.</span><span class="nx">FS</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">Project</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+</code></pre></div>
+<p>ReadProject reads and parses project.ub from fsys. A missing file returns an error wrapping fs.ErrNotExist, which callers can detect with errors.Is.</p>
+<h4 id="func-project-directcount">func (*Project) DirectCount<a class="headerlink" href="#func-project-directcount" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">m</span><span class="w"> </span><span class="o">*</span><span class="nx">Project</span><span class="p">)</span><span class="w"> </span><span class="nx">DirectCount</span><span class="p">()</span><span class="w"> </span><span class="kt">int</span>
+</code></pre></div>
+<h4 id="func-project-directrequireversions">func (*Project) DirectRequireVersions<a class="headerlink" href="#func-project-directrequireversions" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">m</span><span class="w"> </span><span class="o">*</span><span class="nx">Project</span><span class="p">)</span><span class="w"> </span><span class="nx">DirectRequireVersions</span><span class="p">()</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="nx">Dependency</span><span class="p">]</span><span class="kt">string</span>
+</code></pre></div>
+<h4 id="func-project-indirectcount">func (*Project) IndirectCount<a class="headerlink" href="#func-project-indirectcount" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">m</span><span class="w"> </span><span class="o">*</span><span class="nx">Project</span><span class="p">)</span><span class="w"> </span><span class="nx">IndirectCount</span><span class="p">()</span><span class="w"> </span><span class="kt">int</span>
+</code></pre></div>
+<h4 id="func-project-requireversions">func (*Project) RequireVersions<a class="headerlink" href="#func-project-requireversions" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">m</span><span class="w"> </span><span class="o">*</span><span class="nx">Project</span><span class="p">)</span><span class="w"> </span><span class="nx">RequireVersions</span><span class="p">()</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="nx">Dependency</span><span class="p">]</span><span class="kt">string</span>
+</code></pre></div>
+<h4 id="func-project-setrequire">func (*Project) SetRequire<a class="headerlink" href="#func-project-setrequire" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">m</span><span class="w"> </span><span class="o">*</span><span class="nx">Project</span><span class="p">)</span><span class="w"> </span><span class="nx">SetRequire</span><span class="p">(</span><span class="nx">dep</span><span class="w"> </span><span class="nx">Dependency</span><span class="p">,</span><span class="w"> </span><span class="nx">version</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">indirect</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="type-projectid">type ProjectID<a class="headerlink" href="#type-projectid" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">ProjectID</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-45-2" name="__codelineno-45-2" href="#__codelineno-45-2"></a><span class="w">    </span><span class="nx">URL</span><span class="w">    </span><span class="kt">string</span>
+<a id="__codelineno-45-3" name="__codelineno-45-3" href="#__codelineno-45-3"></a><span class="w">    </span><span class="nx">Subdir</span><span class="w"> </span><span class="kt">string</span>
+<a id="__codelineno-45-4" name="__codelineno-45-4" href="#__codelineno-45-4"></a><span class="p">}</span>
+</code></pre></div>
+<p>ProjectID identifies a versioned dependency project.</p>
+<h4 id="func-projectidfromdependency">func ProjectIDFromDependency<a class="headerlink" href="#func-projectidfromdependency" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">ProjectIDFromDependency</span><span class="p">(</span><span class="nx">dep</span><span class="w"> </span><span class="nx">Dependency</span><span class="p">)</span><span class="w"> </span><span class="nx">ProjectID</span>
+</code></pre></div>
+<h4 id="func-projectidsfromdependencies">func ProjectIDsFromDependencies<a class="headerlink" href="#func-projectidsfromdependencies" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">ProjectIDsFromDependencies</span><span class="p">[</span><span class="nx">V</span><span class="w"> </span><span class="kt">any</span><span class="p">](</span><span class="nx">deps</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="nx">Dependency</span><span class="p">]</span><span class="nx">V</span><span class="p">)</span><span class="w"> </span><span class="p">[]</span><span class="nx">ProjectID</span>
+</code></pre></div>
+<h4 id="func-projectidsfromreplace">func ProjectIDsFromReplace<a class="headerlink" href="#func-projectidsfromreplace" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">ProjectIDsFromReplace</span><span class="p">(</span><span class="nx">replace</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="nx">Dependency</span><span class="p">]</span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">[]</span><span class="nx">ProjectID</span>
+</code></pre></div>
+<h4 id="func-projectid-dependency">func (ProjectID) Dependency<a class="headerlink" href="#func-projectid-dependency" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">p</span><span class="w"> </span><span class="nx">ProjectID</span><span class="p">)</span><span class="w"> </span><span class="nx">Dependency</span><span class="p">()</span><span class="w"> </span><span class="nx">Dependency</span>
+</code></pre></div>
+<h4 id="func-projectid-string">func (ProjectID) String<a class="headerlink" href="#func-projectid-string" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">p</span><span class="w"> </span><span class="nx">ProjectID</span><span class="p">)</span><span class="w"> </span><span class="nx">String</span><span class="p">()</span><span class="w"> </span><span class="kt">string</span>
+</code></pre></div>
+<h3 id="type-projectlock">type ProjectLock<a class="headerlink" href="#type-projectlock" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-51-1" name="__codelineno-51-1" href="#__codelineno-51-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">ProjectLock</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-51-2" name="__codelineno-51-2" href="#__codelineno-51-2"></a><span class="w">    </span><span class="nx">Version</span><span class="w">          </span><span class="kt">int</span>
+<a id="__codelineno-51-3" name="__codelineno-51-3" href="#__codelineno-51-3"></a><span class="w">    </span><span class="nx">ToolchainVersion</span><span class="w"> </span><span class="kt">string</span>
+<a id="__codelineno-51-4" name="__codelineno-51-4" href="#__codelineno-51-4"></a><span class="w">    </span><span class="nx">Deps</span><span class="w">             </span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="o">*</span><span class="nx">ProjectLockDep</span>
+<a id="__codelineno-51-5" name="__codelineno-51-5" href="#__codelineno-51-5"></a><span class="p">}</span>
+</code></pre></div>
+<p>ProjectLock is the on-disk schema for the dependency project-lock file. It pins the full resolved set so compiles are reproducible without re-running selection. Deps is keyed by dependency id, a repository URL with an optional `//subdir`, the same form a project `requires:` key uses.</p>
+<h4 id="func-decodeprojectlock">func DecodeProjectLock<a class="headerlink" href="#func-decodeprojectlock" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-52-1" name="__codelineno-52-1" href="#__codelineno-52-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">DecodeProjectLock</span><span class="p">(</span><span class="nx">b</span><span class="w"> </span><span class="p">[]</span><span class="kt">byte</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">ProjectLock</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+</code></pre></div>
+<p>DecodeProjectLock parses a grammar-first project-lock.ub from bytes.</p>
+<h4 id="func-newprojectlock">func NewProjectLock<a class="headerlink" href="#func-newprojectlock" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-53-1" name="__codelineno-53-1" href="#__codelineno-53-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">NewProjectLock</span><span class="p">()</span><span class="w"> </span><span class="o">*</span><span class="nx">ProjectLock</span>
+</code></pre></div>
+<p>NewProjectLock returns an empty project-lock at the current schema version.</p>
+<h4 id="func-projectlockfromimports">func ProjectLockFromImports<a class="headerlink" href="#func-projectlockfromimports" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-54-1" name="__codelineno-54-1" href="#__codelineno-54-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">ProjectLockFromImports</span><span class="p">(</span>
+<a id="__codelineno-54-2" name="__codelineno-54-2" href="#__codelineno-54-2"></a><span class="w">    </span><span class="nx">rootFS</span><span class="w"> </span><span class="nx">fs</span><span class="p">.</span><span class="nx">FS</span><span class="p">,</span>
+<a id="__codelineno-54-3" name="__codelineno-54-3" href="#__codelineno-54-3"></a><span class="w">    </span><span class="nx">selection</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="nx">Dependency</span><span class="p">]</span><span class="kt">string</span><span class="p">,</span>
+<a id="__codelineno-54-4" name="__codelineno-54-4" href="#__codelineno-54-4"></a><span class="w">    </span><span class="nx">resolver</span><span class="w"> </span><span class="nx">resolve</span><span class="p">.</span><span class="nx">Resolver</span><span class="p">,</span>
+<a id="__codelineno-54-5" name="__codelineno-54-5" href="#__codelineno-54-5"></a><span class="w">    </span><span class="nx">replace</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="nx">Dependency</span><span class="p">]</span><span class="kt">string</span><span class="p">,</span>
+<a id="__codelineno-54-6" name="__codelineno-54-6" href="#__codelineno-54-6"></a><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">ProjectLock</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+</code></pre></div>
+<p>ProjectLockFromImports builds the project-lock for the project rooted at rootFS. It visits every .ub file under the root -- factory.ub, library files at the root, or libraries in subdirectories -- and visits remote UB library imports too. Each remote library becomes one selected dependency entry, keyed by `repo//subdir`. Local imports are not selected separately because the project visit already sees every file under the root. A library's version is its repository's selected version; a repository the selection does not cover is an error. Go dependencies are recorded by project id. UB dependencies are recorded by project id with a project-root hash. A repository named in replace is read from its local path and never added to the project-lock; a replaced UB library's own remote dependencies are still visited.</p>
+<h4 id="func-readprojectlock">func ReadProjectLock<a class="headerlink" href="#func-readprojectlock" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-55-1" name="__codelineno-55-1" href="#__codelineno-55-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">ReadProjectLock</span><span class="p">(</span><span class="nx">fsys</span><span class="w"> </span><span class="nx">fs</span><span class="p">.</span><span class="nx">FS</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="o">*</span><span class="nx">ProjectLock</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+</code></pre></div>
+<p>ReadProjectLock reads and parses project-lock.ub from fsys. A missing file returns an error wrapping fs.ErrNotExist, which callers can detect with errors.Is.</p>
+<h4 id="func-projectlock-repoversions">func (*ProjectLock) RepoVersions<a class="headerlink" href="#func-projectlock-repoversions" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-56-1" name="__codelineno-56-1" href="#__codelineno-56-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">l</span><span class="w"> </span><span class="o">*</span><span class="nx">ProjectLock</span><span class="p">)</span><span class="w"> </span><span class="nx">RepoVersions</span><span class="p">()</span><span class="w"> </span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">error</span><span class="p">)</span>
+</code></pre></div>
+<p>RepoVersions maps each selected dependency id to its selected version. Compile feeds this to the import walk so versionless imports resolve at the selected version.</p>
+<h4 id="func-projectlock-sortedids">func (*ProjectLock) SortedIDs<a class="headerlink" href="#func-projectlock-sortedids" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-57-1" name="__codelineno-57-1" href="#__codelineno-57-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">l</span><span class="w"> </span><span class="o">*</span><span class="nx">ProjectLock</span><span class="p">)</span><span class="w"> </span><span class="nx">SortedIDs</span><span class="p">()</span><span class="w"> </span><span class="p">[]</span><span class="kt">string</span>
+</code></pre></div>
+<p>SortedIDs returns the dependency ids in sorted order.</p>
+<h3 id="type-projectlockdep">type ProjectLockDep<a class="headerlink" href="#type-projectlockdep" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-58-1" name="__codelineno-58-1" href="#__codelineno-58-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">ProjectLockDep</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-58-2" name="__codelineno-58-2" href="#__codelineno-58-2"></a><span class="w">    </span><span class="nx">Kind</span><span class="w">    </span><span class="nx">ProjectLockKind</span>
+<a id="__codelineno-58-3" name="__codelineno-58-3" href="#__codelineno-58-3"></a><span class="w">    </span><span class="nx">Version</span><span class="w"> </span><span class="kt">string</span>
+<a id="__codelineno-58-4" name="__codelineno-58-4" href="#__codelineno-58-4"></a><span class="w">    </span><span class="nx">Commit</span><span class="w">  </span><span class="kt">string</span>
+<a id="__codelineno-58-5" name="__codelineno-58-5" href="#__codelineno-58-5"></a><span class="w">    </span><span class="nx">Hash</span><span class="w">    </span><span class="kt">string</span>
+<a id="__codelineno-58-6" name="__codelineno-58-6" href="#__codelineno-58-6"></a><span class="p">}</span>
+</code></pre></div>
+<p>ProjectLockDep is one resolved dependency. Version is the selected git tag; the floor lives in project.ub and is never copied here. Hash is the source-tree content hash for `ub` dependencies and is omitted for `go`.</p>
+<h3 id="type-projectlockkind">type ProjectLockKind<a class="headerlink" href="#type-projectlockkind" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-59-1" name="__codelineno-59-1" href="#__codelineno-59-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">ProjectLockKind</span><span class="w"> </span><span class="kt">string</span>
+</code></pre></div>
+<p>ProjectLockKind records how a selected dependency's integrity is guaranteed: a `ub` dependency holds a content hash of its source tree, while a `go` dependency rides the generated module's go.sum and records only a commit.</p>
+<h3 id="type-remotepackage">type RemotePackage<a class="headerlink" href="#type-remotepackage" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-60-1" name="__codelineno-60-1" href="#__codelineno-60-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">RemotePackage</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-60-2" name="__codelineno-60-2" href="#__codelineno-60-2"></a><span class="w">    </span><span class="nx">URL</span><span class="w">    </span><span class="kt">string</span>
+<a id="__codelineno-60-3" name="__codelineno-60-3" href="#__codelineno-60-3"></a><span class="w">    </span><span class="nx">Subdir</span><span class="w"> </span><span class="kt">string</span>
+<a id="__codelineno-60-4" name="__codelineno-60-4" href="#__codelineno-60-4"></a><span class="p">}</span>
+</code></pre></div>
+<p>RemotePackage identifies a package import below a dependency project.</p>
+<h4 id="func-remotepackagefromdependency">func RemotePackageFromDependency<a class="headerlink" href="#func-remotepackagefromdependency" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-61-1" name="__codelineno-61-1" href="#__codelineno-61-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">RemotePackageFromDependency</span><span class="p">(</span><span class="nx">dep</span><span class="w"> </span><span class="nx">Dependency</span><span class="p">)</span><span class="w"> </span><span class="nx">RemotePackage</span>
+</code></pre></div>
+<h4 id="func-remotepackage-dependency">func (RemotePackage) Dependency<a class="headerlink" href="#func-remotepackage-dependency" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-62-1" name="__codelineno-62-1" href="#__codelineno-62-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">p</span><span class="w"> </span><span class="nx">RemotePackage</span><span class="p">)</span><span class="w"> </span><span class="nx">Dependency</span><span class="p">()</span><span class="w"> </span><span class="nx">Dependency</span>
+</code></pre></div>
+<h4 id="func-remotepackage-string">func (RemotePackage) String<a class="headerlink" href="#func-remotepackage-string" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-63-1" name="__codelineno-63-1" href="#__codelineno-63-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">p</span><span class="w"> </span><span class="nx">RemotePackage</span><span class="p">)</span><span class="w"> </span><span class="nx">String</span><span class="p">()</span><span class="w"> </span><span class="kt">string</span>
+</code></pre></div>
+<h3 id="type-replacement">type Replacement<a class="headerlink" href="#type-replacement" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-64-1" name="__codelineno-64-1" href="#__codelineno-64-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">Replacement</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-64-2" name="__codelineno-64-2" href="#__codelineno-64-2"></a><span class="w">    </span><span class="nx">Dep</span><span class="w">    </span><span class="nx">Dependency</span>
+<a id="__codelineno-64-3" name="__codelineno-64-3" href="#__codelineno-64-3"></a><span class="w">    </span><span class="nx">Path</span><span class="w">   </span><span class="kt">string</span>
+<a id="__codelineno-64-4" name="__codelineno-64-4" href="#__codelineno-64-4"></a><span class="w">    </span><span class="nx">Suffix</span><span class="w"> </span><span class="kt">string</span>
+<a id="__codelineno-64-5" name="__codelineno-64-5" href="#__codelineno-64-5"></a><span class="w">    </span><span class="nx">Exact</span><span class="w">  </span><span class="kt">bool</span>
+<a id="__codelineno-64-6" name="__codelineno-64-6" href="#__codelineno-64-6"></a><span class="p">}</span>
+</code></pre></div>
+<p>Replacement describes the local path selected for a dependency.</p>
+<h4 id="func-replacementfor">func ReplacementFor<a class="headerlink" href="#func-replacementfor" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-65-1" name="__codelineno-65-1" href="#__codelineno-65-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">ReplacementFor</span><span class="p">(</span><span class="nx">replace</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="nx">Dependency</span><span class="p">]</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">dep</span><span class="w"> </span><span class="nx">Dependency</span><span class="p">)</span><span class="w"> </span><span class="p">(</span><span class="nx">Replacement</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span>
+</code></pre></div>
+<p>ReplacementFor returns the local replacement for dep. A repository-level replacement covers imports from subdirectories in that repository. A subdirectory replacement covers that subdirectory and packages below it.</p>
+<h3 id="type-requirement">type Requirement<a class="headerlink" href="#type-requirement" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-66-1" name="__codelineno-66-1" href="#__codelineno-66-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">Requirement</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-66-2" name="__codelineno-66-2" href="#__codelineno-66-2"></a><span class="w">    </span><span class="nx">Version</span><span class="w">  </span><span class="kt">string</span>
+<a id="__codelineno-66-3" name="__codelineno-66-3" href="#__codelineno-66-3"></a><span class="w">    </span><span class="nx">Indirect</span><span class="w"> </span><span class="kt">bool</span>
+<a id="__codelineno-66-4" name="__codelineno-66-4" href="#__codelineno-66-4"></a><span class="p">}</span>
+</code></pre></div>
+<p>Requirement is a root dependency floor declared by project.ub.</p>
+<h3 id="type-selection">type Selection<a class="headerlink" href="#type-selection" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-67-1" name="__codelineno-67-1" href="#__codelineno-67-1"></a><span class="kd">type</span><span class="w"> </span><span class="nx">Selection</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-67-2" name="__codelineno-67-2" href="#__codelineno-67-2"></a><span class="w">    </span><span class="c1">// contains filtered or unexported fields</span>
+<a id="__codelineno-67-3" name="__codelineno-67-3" href="#__codelineno-67-3"></a><span class="p">}</span>
+</code></pre></div>
+<p>Selection performs minimal version selection incrementally. Add records that some project requires a dependency at a floor version, and Selection keeps the highest floor seen for each dependency -- Go's max-of-minimums. A walker feeds it every requirement across the dependency graph; the highest floor per dependency is the selected version. Floors must be valid semver, which the project reader guarantees.</p>
+<h4 id="func-newselection">func NewSelection<a class="headerlink" href="#func-newselection" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-68-1" name="__codelineno-68-1" href="#__codelineno-68-1"></a><span class="kd">func</span><span class="w"> </span><span class="nx">NewSelection</span><span class="p">()</span><span class="w"> </span><span class="o">*</span><span class="nx">Selection</span>
+</code></pre></div>
+<p>NewSelection returns an empty Selection.</p>
+<h4 id="func-selection-add">func (*Selection) Add<a class="headerlink" href="#func-selection-add" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-69-1" name="__codelineno-69-1" href="#__codelineno-69-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="o">*</span><span class="nx">Selection</span><span class="p">)</span><span class="w"> </span><span class="nx">Add</span><span class="p">(</span><span class="nx">dep</span><span class="w"> </span><span class="nx">Dependency</span><span class="p">,</span><span class="w"> </span><span class="nx">floor</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="kt">bool</span>
+</code></pre></div>
+<p>Add records a required floor for dep and reports whether it raised the selected version: true the first time dep is seen, or when floor is higher than the current selection. A walker uses the result to decide whether it must read dep's project at the new version, since a higher version may declare different requirements.</p>
+<h4 id="func-selection-chosen">func (*Selection) Chosen<a class="headerlink" href="#func-selection-chosen" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-70-1" name="__codelineno-70-1" href="#__codelineno-70-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="o">*</span><span class="nx">Selection</span><span class="p">)</span><span class="w"> </span><span class="nx">Chosen</span><span class="p">()</span><span class="w"> </span><span class="kd">map</span><span class="p">[</span><span class="nx">Dependency</span><span class="p">]</span><span class="kt">string</span>
+</code></pre></div>
+<p>Chosen returns a copy of the selected version for every dependency added so far.</p>
+<h4 id="func-selection-version">func (*Selection) Version<a class="headerlink" href="#func-selection-version" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-71-1" name="__codelineno-71-1" href="#__codelineno-71-1"></a><span class="kd">func</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="w"> </span><span class="o">*</span><span class="nx">Selection</span><span class="p">)</span><span class="w"> </span><span class="nx">Version</span><span class="p">(</span><span class="nx">dep</span><span class="w"> </span><span class="nx">Dependency</span><span class="p">)</span><span class="w"> </span><span class="kt">string</span>
+</code></pre></div>
+<p>Version returns the selected version for dep, or "" if dep has not been added.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright (c) 2026 cloudboss
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../../..", "features": ["navigation.prune", "navigation.sections", "navigation.top", "toc.follow", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../../../search/main.js"></script>
+      
+    
+  </body>
+</html>

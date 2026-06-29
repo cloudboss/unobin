@@ -1,0 +1,2851 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://cloudboss.co/docs/unobin/v0.9.0/reference/cli/">
+      
+      
+        <link rel="prev" href="../../go-sdk/testing/">
+      
+      
+        <link rel="next" href="../api/pkg/awscfg/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>CLI - unobin</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Cantarell:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Cantarell";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+    
+  
+  
+  
+  <style>/* The cloudboss look: cloudboss.co palette and typography over Material. */
+
+:root {
+  --md-text-font: "Cantarell";
+  --md-code-font: "SFMono-Regular", "Consolas", "Liberation Mono", "Menlo";
+}
+
+[data-md-color-scheme="default"] {
+  --md-default-fg-color: #1a1a1a;
+  --md-default-fg-color--light: #555555;
+  --md-default-fg-color--lighter: #888888;
+  --md-default-fg-color--lightest: #ebebeb;
+  --md-default-bg-color: #ffffff;
+  --md-typeset-color: #1a1a1a;
+
+  /* White header with dark text, like cloudboss.co. */
+  --md-primary-fg-color: #ffffff;
+  --md-primary-fg-color--light: #ffffff;
+  --md-primary-fg-color--dark: #f5f5f5;
+  --md-primary-bg-color: #1a1a1a;
+  --md-primary-bg-color--light: #555555;
+
+  /* The one accent: cloudboss link blue. */
+  --md-accent-fg-color: #2a7ab5;
+  --md-typeset-a-color: #2a7ab5;
+
+  --md-code-bg-color: #f5f5f5;
+  --md-code-fg-color: #1a1a1a;
+}
+
+.md-header {
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+  box-shadow: none;
+}
+
+/* A bit larger than Material's default 1.2rem logo. */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 1.8rem;
+  width: auto;
+}
+
+.md-typeset {
+  line-height: 1.6;
+}
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3 {
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+
+.md-typeset h2 {
+  margin-top: 1.8em;
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.md-typeset pre > code {
+  border-radius: 9px;
+}
+
+.md-nav__link--active,
+.md-nav__item .md-nav__link--active {
+  font-weight: 700;
+}
+
+/* Admonitions styled like the cloudboss mockup callout: a soft-tinted box with a
+   left accent bar and an uppercase title, no icon and no tinted title bar. Each type
+   sets --cb-admon to its own color; the box, bar, and title all read from it. */
+.md-typeset .admonition,
+.md-typeset details {
+  --cb-admon: var(--md-accent-fg-color);
+  margin: 1.5em 0;
+  padding: 0;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-left: 4px solid var(--cb-admon);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--cb-admon) 9%, #ffffff);
+  box-shadow: none;
+  font-size: 0.8rem;
+}
+
+/* Informational types all share one blue. */
+.md-typeset .note,
+.md-typeset .info,
+.md-typeset .todo,
+.md-typeset .abstract,
+.md-typeset .summary,
+.md-typeset .tldr,
+.md-typeset .tip,
+.md-typeset .hint,
+.md-typeset .important,
+.md-typeset .success,
+.md-typeset .check,
+.md-typeset .done,
+.md-typeset .question,
+.md-typeset .help,
+.md-typeset .faq {
+  --cb-admon: #2a7ab5;
+}
+
+.md-typeset .warning,
+.md-typeset .caution,
+.md-typeset .attention {
+  --cb-admon: #b8730a;
+}
+
+.md-typeset .danger,
+.md-typeset .error,
+.md-typeset .failure,
+.md-typeset .fail,
+.md-typeset .missing,
+.md-typeset .bug {
+  --cb-admon: #c0392b;
+}
+
+.md-typeset .example {
+  --cb-admon: #6a5acd;
+}
+
+.md-typeset .quote,
+.md-typeset .cite {
+  --cb-admon: #6b7280;
+}
+
+.md-typeset .admonition-title {
+  margin: 0;
+  padding: 0.65rem 0.85rem 0;
+  background: transparent;
+  border: 0;
+  color: var(--cb-admon);
+  font-weight: 700;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.md-typeset .admonition-title::before {
+  display: none;
+}
+
+.md-typeset .admonition > :not(.admonition-title) {
+  margin: 0;
+  padding: 0.2rem 0.85rem 0;
+}
+
+.md-typeset .admonition > :last-child {
+  padding-bottom: 0.7rem;
+}</style>
+  
+
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#cli-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="unobin" class="md-header__button md-logo" aria-label="unobin" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            unobin
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              CLI
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/cloudboss/unobin" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cloudboss/unobin
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="unobin" class="md-nav__button md-logo" aria-label="unobin" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    unobin
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/cloudboss/unobin" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cloudboss/unobin
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Overview
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What is unobin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../overview/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../overview/terraform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Unobin vs Terraform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-factory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First factory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/compile-plan-apply/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compile, plan, apply
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Language
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Language
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Syntax overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/files-and-blocks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Files and blocks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/strings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Strings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/expressions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Expressions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/for-comprehensions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    For comprehensions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/if-expressions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    If expressions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Builtin types
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/optionals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Optional values and narrowing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../language/functions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Builtin functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authoring
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Authoring
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../authoring/factories/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factories
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../authoring/stack-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stack files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../authoring/composite-libraries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Composite libraries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../authoring/project-files-and-locks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project files and locks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../authoring/imports-and-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Imports and versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../authoring/local-development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Local development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Libraries
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Libraries
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../libraries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cloudboss libraries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Editors
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Editors
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../editors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Editor setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../editors/emacs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Emacs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../editors/vscode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VS Code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../editors/tree-sitter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tree-sitter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../editors/lsp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LSP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go SDK
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Go SDK
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../go-sdk/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../go-sdk/libraries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Libraries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../go-sdk/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../go-sdk/resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../go-sdk/data-sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../go-sdk/actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Actions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../go-sdk/functions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../go-sdk/schemas-constraints-defaults/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schemas, constraints, defaults
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../go-sdk/state-migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State and migrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../go-sdk/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#unobin-compile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin compile
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unobin-deps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin deps
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="unobin deps">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unobin-deps-clean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin deps clean
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unobin-deps-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin deps get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unobin-deps-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin deps list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unobin-deps-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin deps sync
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unobin-deps-verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin deps verify
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unobin-fmt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin fmt
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unobin-generate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin generate
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="unobin generate">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unobin-generate-factory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin generate factory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unobin-generate-golibrary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin generate golibrary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unobin-generate-ublibrary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin generate ublibrary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unobin-print-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin print-graph
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unobin-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin version
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../api/pkg/awscfg/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go API
+  
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#unobin-compile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin compile
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unobin-deps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin deps
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="unobin deps">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unobin-deps-clean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin deps clean
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unobin-deps-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin deps get
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unobin-deps-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin deps list
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unobin-deps-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin deps sync
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unobin-deps-verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin deps verify
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unobin-fmt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin fmt
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unobin-generate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin generate
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="unobin generate">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unobin-generate-factory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin generate factory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unobin-generate-golibrary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin generate golibrary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unobin-generate-ublibrary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin generate ublibrary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unobin-print-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin print-graph
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unobin-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unobin version
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="cli-reference">CLI reference<a class="headerlink" href="#cli-reference" title="Permanent link">&para;</a></h1>
+<p>Compile and manage unobin stacks</p>
+<h2 id="unobin-compile">unobin compile<a class="headerlink" href="#unobin-compile" title="Permanent link">&para;</a></h2>
+<p>Generate a factory binary's main.go from factory source</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>unobin compile [flags]
+</code></pre></div>
+<p><strong>Flags</strong></p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--build</code></td>
+<td><code>false</code></td>
+<td>After writing the source, run <code>go build</code> in the output directory.</td>
+</tr>
+<tr>
+<td><code>--go-version string</code></td>
+<td><code>1.26</code></td>
+<td>Go toolchain version to declare in the generated go.mod.</td>
+</tr>
+<tr>
+<td><code>--library-path string</code></td>
+<td></td>
+<td>Library path identity to embed in the binary. The operator's stack file asserts the same value under factory.pin.library-path and plan, refresh, and validate refuse on mismatch.</td>
+</tr>
+<tr>
+<td><code>--name string</code></td>
+<td></td>
+<td>Stack name. Defaults to the parent directory's basename.</td>
+</tr>
+<tr>
+<td><code>-o, --out string</code></td>
+<td></td>
+<td>Directory to write main.go and go.mod into, or <code>-</code> to print main.go to stdout.</td>
+</tr>
+<tr>
+<td><code>-p, --path string</code></td>
+<td><code>.</code></td>
+<td>Path to the factory source file or directory.</td>
+</tr>
+<tr>
+<td><code>--replace-go-module stringArray</code></td>
+<td><code>[]</code></td>
+<td>Local replace for a Go module, repeatable. Format: <code>module-path=local-path</code>. Both the import resolver and the generated go.mod use the substitution.</td>
+</tr>
+<tr>
+<td><code>--replace-unobin string</code></td>
+<td></td>
+<td>Local path to substitute for github.com/cloudboss/unobin via a go.mod replace directive.</td>
+</tr>
+<tr>
+<td><code>--version string</code></td>
+<td><code>v0.0.0</code></td>
+<td>Release version to stamp into the built binary.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unobin-deps">unobin deps<a class="headerlink" href="#unobin-deps" title="Permanent link">&para;</a></h2>
+<p>Manage dependency floors in project.ub and selected versions in project-lock.ub.</p>
+<p>A factory or UB library writes imports in .ub source. The project records
+its direct dependency floors, and project-lock records the versions and source
+hashes the compiler should use.</p>
+<h3 id="unobin-deps-clean">unobin deps clean<a class="headerlink" href="#unobin-deps-clean" title="Permanent link">&para;</a></h3>
+<p>Remove the cached dependency sources</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>unobin deps clean
+</code></pre></div>
+<h3 id="unobin-deps-get">unobin deps get<a class="headerlink" href="#unobin-deps-get" title="Permanent link">&para;</a></h3>
+<p>Add or update a dependency floor and re-pin</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>unobin deps get &lt;dependency&gt;[@version] [flags]
+</code></pre></div>
+<p><strong>Flags</strong></p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-p, --path string</code></td>
+<td><code>.</code></td>
+<td>Path to the factory source file or project directory.</td>
+</tr>
+<tr>
+<td><code>--replace-unobin string</code></td>
+<td></td>
+<td>Local path to substitute for github.com/cloudboss/unobin so the resolver reads from a working tree instead of fetching.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="unobin-deps-list">unobin deps list<a class="headerlink" href="#unobin-deps-list" title="Permanent link">&para;</a></h3>
+<p>List the project-lock dependencies</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>unobin deps list [flags]
+</code></pre></div>
+<p><strong>Flags</strong></p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-p, --path string</code></td>
+<td><code>.</code></td>
+<td>Path to the factory source file or project directory.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="unobin-deps-sync">unobin deps sync<a class="headerlink" href="#unobin-deps-sync" title="Permanent link">&para;</a></h3>
+<p>Reconcile the project and project-lock with the imports</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>unobin deps sync [flags]
+</code></pre></div>
+<p><strong>Flags</strong></p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-p, --path string</code></td>
+<td><code>.</code></td>
+<td>Path to the factory source file or project directory.</td>
+</tr>
+<tr>
+<td><code>--replace-unobin string</code></td>
+<td></td>
+<td>Local path to substitute for github.com/cloudboss/unobin so the resolver reads from a working tree instead of fetching.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="unobin-deps-verify">unobin deps verify<a class="headerlink" href="#unobin-deps-verify" title="Permanent link">&para;</a></h3>
+<p>Check the cached dependencies against project-lock</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>unobin deps verify [flags]
+</code></pre></div>
+<p><strong>Flags</strong></p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-p, --path string</code></td>
+<td><code>.</code></td>
+<td>Path to the factory source file or project directory.</td>
+</tr>
+<tr>
+<td><code>--replace-unobin string</code></td>
+<td></td>
+<td>Local path to substitute for github.com/cloudboss/unobin so the resolver reads from a working tree instead of fetching.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unobin-fmt">unobin fmt<a class="headerlink" href="#unobin-fmt" title="Permanent link">&para;</a></h2>
+<p>Reformat one or more .ub files in canonical form.</p>
+<p>With no path arguments, fmt reads from stdin and writes the
+formatted bytes to stdout. With one or more paths, each file is
+formatted in turn; directory arguments are walked recursively for
+*.ub files.</p>
+<p>Flags:
+  -w / --write   overwrite each file in place instead of writing to
+                 stdout.
+  -l / --list    print the names of files whose formatted output
+                 differs from their current contents; no other output.</p>
+<p>Examples:
+  unobin fmt factory.ub
+  unobin fmt -w factory.ub libraries/
+  unobin fmt -l .</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>unobin fmt [paths...] [flags]
+</code></pre></div>
+<p><strong>Flags</strong></p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-l, --list</code></td>
+<td><code>false</code></td>
+<td>Print paths whose formatted output differs from their contents.</td>
+</tr>
+<tr>
+<td><code>--max-line-length int</code></td>
+<td><code>100</code></td>
+<td>Target line width for formatted output.</td>
+</tr>
+<tr>
+<td><code>--wrap-strings</code></td>
+<td><code>false</code></td>
+<td>Rewrite overflowing single-quoted strings as folded or joined triple-quoted form.</td>
+</tr>
+<tr>
+<td><code>-w, --write</code></td>
+<td><code>false</code></td>
+<td>Write the formatted output back to the source file.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unobin-generate">unobin generate<a class="headerlink" href="#unobin-generate" title="Permanent link">&para;</a></h2>
+<p>Generate code and scaffold libraries</p>
+<h3 id="unobin-generate-factory">unobin generate factory<a class="headerlink" href="#unobin-generate-factory" title="Permanent link">&para;</a></h3>
+<p>Scaffold a new factory directory.</p>
+<p>The generated directory contains a factory.ub source file with empty
+placeholder blocks the author fills in. A stack file is operator supplied
+per stack; use the compiled factory's schema template command to create
+one.</p>
+<p>Examples:
+  unobin generate factory -o ./my-factory</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>unobin generate factory [flags]
+</code></pre></div>
+<p><strong>Flags</strong></p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--force</code></td>
+<td><code>false</code></td>
+<td>Overwrite files if the output directory already exists</td>
+</tr>
+<tr>
+<td><code>-o, --output string</code></td>
+<td></td>
+<td>Output directory for the generated factory</td>
+</tr>
+</tbody>
+</table>
+<h3 id="unobin-generate-golibrary">unobin generate golibrary<a class="headerlink" href="#unobin-generate-golibrary" title="Permanent link">&para;</a></h3>
+<p>Generate a Go library from a Terraform provider schema.</p>
+<p>The generated Go library contains typed structs with ub tags and
+CRUD method stubs for every resource in the provider.</p>
+<p>Examples:
+  unobin generate golibrary --from tf --provider random --go-module-path example.com/libraries/random
+  unobin generate golibrary --from tf --provider aws -o ./aws-library --go-module-path example.com/libraries/aws</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>unobin generate golibrary [flags]
+</code></pre></div>
+<p><strong>Flags</strong></p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--from string</code></td>
+<td><code>tf</code></td>
+<td>Schema source</td>
+</tr>
+<tr>
+<td><code>--go-module-path string</code></td>
+<td></td>
+<td>Go module path for go.mod (e.g., example.com/libraries/aws)</td>
+</tr>
+<tr>
+<td><code>-o, --output string</code></td>
+<td></td>
+<td>Output directory for the generated Go library</td>
+</tr>
+<tr>
+<td><code>--provider string</code></td>
+<td></td>
+<td>Terraform provider source (e.g., hashicorp/aws, ansible/ansible)</td>
+</tr>
+<tr>
+<td><code>--provider-version string</code></td>
+<td></td>
+<td>Terraform provider version constraint (e.g., "~&gt; 5.0")</td>
+</tr>
+<tr>
+<td><code>--replace-unobin string</code></td>
+<td></td>
+<td>Local path to substitute for github.com/cloudboss/unobin via a go.mod replace directive</td>
+</tr>
+</tbody>
+</table>
+<h3 id="unobin-generate-ublibrary">unobin generate ublibrary<a class="headerlink" href="#unobin-generate-ublibrary" title="Permanent link">&para;</a></h3>
+<p>Scaffold a new UB library directory.</p>
+<p>The generated directory contains one starter resource composite export
+file named <type>.ub. The directory listing is the project, so there is
+no separate project file. Blocks are empty for the author to fill in.</p>
+<p>Examples:
+  unobin generate ublibrary -o ./greeter
+  unobin generate ublibrary -o ./greeter --type greeting</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>unobin generate ublibrary [flags]
+</code></pre></div>
+<p><strong>Flags</strong></p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--force</code></td>
+<td><code>false</code></td>
+<td>Overwrite files if the output directory already exists</td>
+</tr>
+<tr>
+<td><code>-o, --output string</code></td>
+<td></td>
+<td>Output directory for the generated library</td>
+</tr>
+<tr>
+<td><code>--type string</code></td>
+<td><code>example</code></td>
+<td>Name of the initial composite type to export</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unobin-print-graph">unobin print-graph<a class="headerlink" href="#unobin-print-graph" title="Permanent link">&para;</a></h2>
+<p>Print a factory's dependency graph from its source.</p>
+<p>Imports are resolved in memory; composite call sites are expanded
+into their internal sub-nodes the same way the generated binary's
+print-graph subcommand does. The output is intended to match what
+the compiled binary would emit.</p>
+<p>Examples:
+  unobin print-graph
+  unobin print-graph -p factory.ub --format dot | dot -Tsvg &gt; graph.svg</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>unobin print-graph [flags]
+</code></pre></div>
+<p><strong>Flags</strong></p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--format string</code></td>
+<td><code>plain</code></td>
+<td>Output format: 'plain' for an indented text listing, 'dot' for Graphviz.</td>
+</tr>
+<tr>
+<td><code>-p, --path string</code></td>
+<td><code>.</code></td>
+<td>Path to the factory source file or directory.</td>
+</tr>
+<tr>
+<td><code>--replace-unobin string</code></td>
+<td></td>
+<td>Local path to substitute for github.com/cloudboss/unobin so the resolver reads from a working tree.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unobin-version">unobin version<a class="headerlink" href="#unobin-version" title="Permanent link">&para;</a></h2>
+<p>Print the unobin version</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>unobin version
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright (c) 2026 cloudboss
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.prune", "navigation.sections", "navigation.top", "toc.follow", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../search/main.js"></script>
+      
+    
+  </body>
+</html>
