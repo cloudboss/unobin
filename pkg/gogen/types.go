@@ -1,12 +1,20 @@
 package gogen
 
-import "github.com/cloudboss/unobin/pkg/lang"
+import (
+	"strings"
+
+	"github.com/cloudboss/unobin/pkg/lang"
+)
 
 // PointerType returns the pointer-wrapped Go type for optional fields.
-// For bare types (string, int64, bool, float64) it returns "*T".
-// For reference types ([]T, map[K]V, any) it returns the type unchanged
-// since slices, maps, and interfaces are nil-able by default.
+// Optional UB fields use Go pointers, including map and slice fields.
 func PointerType(goType string) string {
+	if goType == "any" || strings.HasPrefix(goType, "*") {
+		return goType
+	}
+	if strings.HasPrefix(goType, "[]") || strings.HasPrefix(goType, "map[") {
+		return "*" + goType
+	}
 	switch goType {
 	case "string", "int64", "bool", "float64":
 		return "*" + goType

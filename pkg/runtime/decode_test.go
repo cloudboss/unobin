@@ -24,6 +24,38 @@ func TestDecodePopulatesFields(t *testing.T) {
 	require.Equal(t, map[string]string{"FOO": "bar"}, a.Environment)
 }
 
+type pointerReferenceInputs struct {
+	Tags  *map[string]string
+	Names *[]string
+}
+
+func TestDecodePopulatesPointerReferences(t *testing.T) {
+	v := &pointerReferenceInputs{}
+	err := Decode(v, map[string]any{
+		"tags":  map[string]any{"env": "dev"},
+		"names": []any{"a", "b"},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, v.Tags)
+	require.NotNil(t, v.Names)
+	require.Equal(t, map[string]string{"env": "dev"}, *v.Tags)
+	require.Equal(t, []string{"a", "b"}, *v.Names)
+}
+
+func TestDecodeLeavesMissingPointerReferencesNil(t *testing.T) {
+	v := &pointerReferenceInputs{}
+	require.NoError(t, Decode(v, map[string]any{}))
+	require.Nil(t, v.Tags)
+	require.Nil(t, v.Names)
+}
+
+func TestDecodeLeavesNullPointerReferencesNil(t *testing.T) {
+	v := &pointerReferenceInputs{}
+	require.NoError(t, Decode(v, map[string]any{"tags": nil, "names": nil}))
+	require.Nil(t, v.Tags)
+	require.Nil(t, v.Names)
+}
+
 func TestDecodeDurationFromString(t *testing.T) {
 	a := &sampleAction{}
 	err := Decode(a, map[string]any{"timeout": "250ms"})

@@ -13,8 +13,9 @@ func TestPointerType(t *testing.T) {
 		{"int64", "*int64"},
 		{"bool", "*bool"},
 		{"float64", "*float64"},
-		{"[]string", "[]string"},
-		{"map[string]string", "map[string]string"},
+		{"[]string", "*[]string"},
+		{"map[string]string", "*map[string]string"},
+		{"map[string][]string", "*map[string][]string"},
 		{"any", "any"},
 	}
 	for _, tt := range tests {

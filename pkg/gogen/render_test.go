@@ -14,6 +14,7 @@ func sampleResourceSchema() ResourceSchema {
 		Description: "An S3 bucket for storing objects",
 		InputFields: []Field{
 			{Name: "BucketName", GoType: "string", Description: "The bucket name", Required: true},
+			{Name: "Labels", GoType: "map[string]string", Description: "Fixed labels", Required: true},
 			{Name: "Tags", GoType: "map[string]string", Description: "Resource tags", Required: false},
 		},
 		OutputFields: []Field{
@@ -44,7 +45,8 @@ func TestResourceFileProducesParseableGo(t *testing.T) {
 		"type S3Bucket struct {",
 		"type S3BucketOutput struct {",
 		"BucketName string `ub:\"bucket-name\"`",
-		"Tags map[string]string `ub:\"tags\"`",
+		"Labels map[string]string `ub:\"labels\"`",
+		"Tags *map[string]string `ub:\"tags\"`",
 		"Arn string `ub:\"arn\"`",
 		"func (r *S3Bucket) SchemaVersion() int { return 1 }",
 		"func (r *S3Bucket) Create(ctx context.Context, cfg any) (*S3BucketOutput, error)",
@@ -131,6 +133,8 @@ func TestDataSourceFileProducesParseableGo(t *testing.T) {
 		Description: "An EC2 AMI",
 		InputFields: []Field{
 			{Name: "ImageId", GoType: "string", Description: "The image ID", Required: true},
+			{Name: "Tags", GoType: "map[string]string", Required: false},
+			{Name: "Owners", GoType: "[]string", Required: false},
 		},
 		OutputFields: []Field{
 			{Name: "Architecture", GoType: "string", Description: "The CPU architecture"},
@@ -151,6 +155,12 @@ func TestDataSourceFileProducesParseableGo(t *testing.T) {
 	s := string(src)
 	if !strings.Contains(s, "package data") {
 		t.Error("expected package data")
+	}
+	if !strings.Contains(s, "Tags    *map[string]string `ub:\"tags\"`") {
+		t.Error("expected pointer map input field")
+	}
+	if !strings.Contains(s, "Owners  *[]string          `ub:\"owners\"`") {
+		t.Error("expected pointer list input field")
 	}
 	if !strings.Contains(s, "func (d *AMI) Read(ctx context.Context, cfg any) (*AMIOutput, error)") {
 		t.Error("expected Read method on data source")
