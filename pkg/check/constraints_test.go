@@ -31,6 +31,35 @@ func constrainedLibs() map[string]*runtime.Library {
 	}
 }
 
+func referencePredicateLib() map[string]*runtime.Library {
+	return map[string]*runtime.Library{
+		"core": {Schema: &runtime.LibrarySchema{
+			Resources: map[string]*runtime.TypeSchema{
+				"thing": {
+					Inputs: map[string]typecheck.Type{
+						"tags":  typecheck.TMap(typecheck.TString()),
+						"items": typecheck.TList(typecheck.TString()),
+					},
+					Constraints: []lang.ConstraintSpec{
+						{
+							Kind:    "predicate",
+							When:    "true",
+							Require: "(@core.length(input.tags) >= 1)",
+							Message: "tags are required",
+						},
+						{
+							Kind:    "predicate",
+							When:    "true",
+							Require: "(@core.length(input.items) >= 1)",
+							Message: "items are required",
+						},
+					},
+				},
+			},
+		}},
+	}
+}
+
 func defaultedPredicateLib() map[string]*runtime.Library {
 	return map[string]*runtime.Library{
 		"core": {Schema: &runtime.LibrarySchema{
@@ -167,6 +196,15 @@ func TestCheckLiteralConstraintsSkipsPredicatesMissingRequiredInputs(t *testing.
 		t,
 		checkConstraintFixture(t, "missing-required-predicate"),
 		defaultedPredicateLib(),
+	)
+	require.Equal(t, 0, errs.Len(), "got: %v", errs.Err())
+}
+
+func TestCheckLiteralConstraintsSkipsPredicatesMissingRequiredReferences(t *testing.T) {
+	errs := checkSyntaxLiteralConstraints(
+		t,
+		checkConstraintFixture(t, "missing-reference-predicate"),
+		referencePredicateLib(),
 	)
 	require.Equal(t, 0, errs.Len(), "got: %v", errs.Err())
 }

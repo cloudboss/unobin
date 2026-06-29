@@ -36,6 +36,8 @@ type Thing struct {
 	Items           []Item
 	Methods         []string
 	OptionalMethods *[]string
+	Tags            map[string]string
+	OptionalTags    *map[string]string
 }
 
 type Item struct {
@@ -294,6 +296,57 @@ func TestReadWarnsOnUnextractableConstraints(t *testing.T) {
 			require.Equal(t, tt.wantSpecs, schema.Resources["thing"].Constraints)
 		})
 	}
+}
+
+func TestReadExtractsRequiredReferenceConditions(t *testing.T) {
+	src := constraintLibrary + `
+func (v Thing) Constraints() []constraint.Constraint {
+	return []constraint.Constraint{
+		constraint.Must(constraint.NotEmpty(v.Tags)).Message("tags required"),
+		constraint.Must(constraint.MinItems(v.Tags, 1)),
+		constraint.Must(constraint.NotEmpty(v.Methods)),
+		constraint.Must(constraint.Present(v.Tags)),
+		constraint.Must(constraint.Absent(v.Tags)),
+		constraint.Must(constraint.NotEmpty(v.OptionalTags)),
+		constraint.Must(constraint.MinItems(v.OptionalTags, 1)),
+	}
+}
+`
+	schema, warnings, err := readConstraintLibrary(t, src)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	require.Equal(t, []lang.ConstraintSpec{
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.tags) >= 1)",
+			Message: "tags required",
+		},
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.tags) >= 1)",
+		},
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.methods) >= 1)",
+		},
+		{Kind: "predicate", When: "true", Require: "true"},
+		{Kind: "predicate", When: "true", Require: "false"},
+		{
+			Kind: "predicate",
+			When: "true",
+			Require: "((input.optional-tags != null) && " +
+				"(@core.length(input.optional-tags) >= 1))",
+		},
+		{
+			Kind: "predicate",
+			When: "true",
+			Require: "(input.optional-tags == null || " +
+				"@core.length(input.optional-tags) >= 1)",
+		},
+	}, schema.Resources["thing"].Constraints)
 }
 
 // TestReadExtractsLengthConditions proves the three length conditions
