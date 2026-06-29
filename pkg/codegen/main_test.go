@@ -182,6 +182,40 @@ func TestGenerateInjectsGoConfigSchema(t *testing.T) {
 	require.NoError(t, err, "generated source should parse:\n%s", string(out))
 }
 
+func TestGenerateInjectsNullableGoConfigDefault(t *testing.T) {
+	fields := []typecheck.ObjectField{{
+		Name: "profile", Type: typecheck.TString(), Optional: true, Defaulted: true,
+	}}
+	defaults := []lang.DefaultSpec{{Field: "input.profile", Value: "'dev'"}}
+	digest := cfg.DigestView(fields, defaults, nil)
+	out, err := Generate(Input{
+		Body:        "description: 'x'",
+		FactoryName: "demo",
+		GoImports: map[string]string{
+			"aws": "github.com/example/aws",
+		},
+		GoSchemas: map[string]*runtime.LibrarySchema{
+			"aws": {
+				HasConfiguration:      true,
+				ConfigurationFields:   fields,
+				ConfigurationDefaults: defaults,
+				ConfigurationDigest:   digest,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	s := string(out)
+	require.Contains(t, s,
+		`{Name: "profile", Type: typecheck.TString(), Optional: true, Defaulted: true}`)
+	require.Contains(t, s, `{Field: "input.profile", Value: "'dev'"}`)
+	require.Contains(t, s, `ConfigurationDigest: "`+digest+`"`)
+
+	fset := token.NewFileSet()
+	_, err = parser.ParseFile(fset, "main.go", out, parser.AllErrors)
+	require.NoError(t, err, "generated source should parse:\n%s", string(out))
+}
+
 func TestGenerateInjectsGoConfigSchemaWithoutConstraints(t *testing.T) {
 	fields := []typecheck.ObjectField{{Name: "region", Type: typecheck.TString()}}
 	digest := cfg.DigestView(fields, nil, nil)
