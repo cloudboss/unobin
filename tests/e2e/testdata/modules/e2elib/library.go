@@ -81,7 +81,7 @@ type File struct {
 	Mode          int64
 	CreateParents bool  `ub:"create-parents"`
 	FailUpdate    *bool `ub:"fail-update"`
-	Tags          map[string]string
+	Tags          *map[string]string
 }
 
 type FileOutput struct {
@@ -96,7 +96,6 @@ func (f File) Defaults() []defaults.Default {
 	return []defaults.Default{
 		defaults.Value(f.Mode, 420),
 		defaults.Value(f.CreateParents, true),
-		defaults.Optional(f.Tags),
 	}
 }
 
@@ -193,7 +192,7 @@ func (f *File) write(config *Configuration, operation string) (*FileOutput, erro
 type Object struct {
 	Name string
 	Body map[string]any
-	Tags map[string]string
+	Tags *map[string]string
 }
 
 type ObjectOutput struct {
@@ -201,10 +200,6 @@ type ObjectOutput struct {
 	Path   string
 	Body   map[string]any
 	SHA256 string
-}
-
-func (o Object) Defaults() []defaults.Default {
-	return []defaults.Default{defaults.Optional(o.Tags)}
 }
 
 func (o Object) Constraints() []constraint.Constraint {
@@ -372,7 +367,7 @@ func (e *Echo) Run(_ context.Context, config *Configuration) (*EchoOutput, error
 type Record struct {
 	Name    string
 	Message string
-	Tags    map[string]string
+	Tags    *map[string]string
 }
 
 type RecordOutput struct {
@@ -389,10 +384,6 @@ type Secret struct {
 type SecretOutput struct {
 	Label string
 	Value string `ub:",sensitive"`
-}
-
-func (r Record) Defaults() []defaults.Default {
-	return []defaults.Default{defaults.Optional(r.Tags)}
 }
 
 func (r Record) Constraints() []constraint.Constraint {

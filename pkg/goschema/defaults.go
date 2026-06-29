@@ -84,7 +84,7 @@ func (w *walker) defaultFromCall(
 			w.addWarnf("Value takes a field and a default")
 			return lang.DefaultSpec{}, false
 		}
-		field, ok := w.defaultField(call.Args[0], scope, seen, true)
+		field, ok := w.defaultField(call.Args[0], scope, seen)
 		if !ok {
 			return lang.DefaultSpec{}, false
 		}
@@ -93,27 +93,16 @@ func (w *walker) defaultFromCall(
 			return lang.DefaultSpec{}, false
 		}
 		return lang.DefaultSpec{Field: field, Value: val}, true
-	case "Optional":
-		if len(call.Args) != 1 {
-			w.addWarnf("Optional takes one field")
-			return lang.DefaultSpec{}, false
-		}
-		field, ok := w.defaultField(call.Args[0], scope, seen, false)
-		if !ok {
-			return lang.DefaultSpec{}, false
-		}
-		return lang.DefaultSpec{Field: field, Optional: true}, true
 	}
 	w.addWarnf("unsupported default constructor %q", sel.Sel.Name)
 	return lang.DefaultSpec{}, false
 }
 
 // defaultField reads a default's field selector and validates that the
-// field can take a default: not an indexed list element, not a pointer
-// (a pointer is the spelling for optional with meaningful absence), and
-// not already declared.
+// field can take a default: not an indexed list element, not a pointer,
+// and not already declared.
 func (w *walker) defaultField(
-	arg ast.Expr, scope constraintScope, seen map[string]bool, hasValue bool,
+	arg ast.Expr, scope constraintScope, seen map[string]bool,
 ) (string, bool) {
 	field, ok := w.selectorField(arg, scope)
 	if !ok {
@@ -129,11 +118,7 @@ func (w *walker) defaultField(
 	name := strings.TrimPrefix(field, "input.")
 	if ft, ok := fieldFinalType(scope[root], hops); ok {
 		if _, isPointer := ft.(*ast.StarExpr); isPointer {
-			if hasValue {
-				w.addErrf("pointer field %q cannot take a default", name)
-			} else {
-				w.addErrf("pointer field %q is already optional", name)
-			}
+			w.addErrf("pointer field %q cannot take a default", name)
 			return "", false
 		}
 	}

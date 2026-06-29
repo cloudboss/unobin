@@ -116,7 +116,6 @@ func TestReadExtractsPlainConfigurationSchema(t *testing.T) {
 	}
 	wantDefaults := []lang.DefaultSpec{
 		{Field: "input.max-attempts", Value: "3"},
-		{Field: "input.tags", Optional: true},
 	}
 	wantConstraints := []lang.ConstraintSpec{
 		{

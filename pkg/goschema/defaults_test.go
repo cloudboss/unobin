@@ -141,13 +141,22 @@ func TestReadExtractsDefaults(t *testing.T) {
 			wantSpecs: []lang.DefaultSpec{{Field: "input.timeout", Value: "30000000000"}},
 		},
 		{
-			name: "optional marker",
+			name: "optional constructor warns",
 			method: `func (f Thing) Defaults() []defaults.Default {
 	return []defaults.Default{
 		defaults.Optional(f.Dir),
 	}
 }`,
-			wantSpecs: []lang.DefaultSpec{{Field: "input.dir", Optional: true}},
+			wantWarns: []string{`Thing: unsupported default constructor "Optional"`},
+		},
+		{
+			name: "allow absent constructor warns",
+			method: `func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{
+		defaults.AllowAbsent(f.Dir),
+	}
+}`,
+			wantWarns: []string{`Thing: unsupported default constructor "AllowAbsent"`},
 		},
 		{
 			name: "nested field by dotted path",
@@ -163,13 +172,13 @@ func TestReadExtractsDefaults(t *testing.T) {
 			method: `func (f Thing) Defaults() []defaults.Default {
 	return []defaults.Default{
 		defaults.Value(f.Method, "GET"),
-		defaults.Optional(f.Dir),
+		defaults.Value(f.Dir, "tmp"),
 		defaults.Value(f.Mode, 420),
 	}
 }`,
 			wantSpecs: []lang.DefaultSpec{
 				{Field: "input.method", Value: "'GET'"},
-				{Field: "input.dir", Optional: true},
+				{Field: "input.dir", Value: "'tmp'"},
 				{Field: "input.mode", Value: "420"},
 			},
 		},
@@ -245,19 +254,10 @@ func TestReadRejectsMalformedDefaults(t *testing.T) {
 			wantErr: `pointer field "ptr" cannot take a default`,
 		},
 		{
-			name: "optional on a pointer field",
-			method: `func (f Thing) Defaults() []defaults.Default {
-	return []defaults.Default{
-		defaults.Optional(f.Ptr),
-	}
-}`,
-			wantErr: `pointer field "ptr" is already optional`,
-		},
-		{
 			name: "indexed list element",
 			method: `func (f Thing) Defaults() []defaults.Default {
 	return []defaults.Default{
-		defaults.Optional(f.Items[0].A),
+		defaults.Value(f.Items[0].A, "x"),
 	}
 }`,
 			wantErr: "a default cannot index a list element",

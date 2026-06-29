@@ -34,7 +34,6 @@ func Library() *runtime.Library {
 		"resource.file": {
 			{Field: "input.mode", Value: "420"},
 			{Field: "input.create-parents", Value: "true"},
-			{Field: "input.tags", Optional: true},
 		},
 	}
 	e2elibLib.Schema = &runtime.LibrarySchema{

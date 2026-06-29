@@ -56,7 +56,6 @@ func main() {
 		"resource.file": {
 			{Field: "input.mode", Value: "420"},
 			{Field: "input.create-parents", Value: "true"},
-			{Field: "input.tags", Optional: true},
 		},
 	}
 	libraries["e2e"].Schema = &runtime.LibrarySchema{

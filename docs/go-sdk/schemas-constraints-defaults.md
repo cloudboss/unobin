@@ -16,9 +16,9 @@ type File struct {
 }
 ```
 
-Pointer fields are optional. For non-pointer fields that may be omitted, declare
-`Defaults()` with `defaults.Value` or `defaults.Optional`. Output structs use the same
-field naming rules. An output field can be marked sensitive:
+Pointer fields are optional. Non-pointer fields are required unless `Defaults()`
+declares a value with `defaults.Value`. Output structs use the same field naming
+rules. An output field can be marked sensitive:
 
 ```go
 type SecretOutput struct {
@@ -35,14 +35,13 @@ A type can declare defaults with a `Defaults` method:
 func (f File) Defaults() []defaults.Default {
     return []defaults.Default{
         defaults.Value(f.CreateParents, true),
-        defaults.Optional(f.Tags),
     }
 }
 ```
 
-`defaults.Value` fills a value before the type's runtime method runs.
-`defaults.Optional` says the field may be omitted and the zero value is acceptable.
-The same defaults method model applies to library configuration structs.
+`defaults.Value` fills a value before the type's runtime method runs. Pointer fields
+express optional input without a default. The same defaults method model applies to
+library configuration structs.
 
 ## Constraints
 

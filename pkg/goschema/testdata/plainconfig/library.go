@@ -23,7 +23,6 @@ type AssumeRole struct {
 func (c Configuration) Defaults() []defaults.Default {
 	return []defaults.Default{
 		defaults.Value(c.MaxAttempts, int64(3)),
-		defaults.Optional(c.Tags),
 	}
 }
 
