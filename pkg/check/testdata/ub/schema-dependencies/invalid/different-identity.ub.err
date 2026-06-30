@@ -1,0 +1,1 @@
+type mismatch: expected library-config('example.com/aws//service'), got library-config('example.com/aws//config')

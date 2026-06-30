@@ -293,6 +293,15 @@ func (c *referenceChecker) libraryConfigInputType(
 		return typecheck.TUnknown()
 	}
 	path := t.Path.Value
+	if schemas, ok := c.libraryConfigSchemas[scope]; ok {
+		schema, found := schemas[path]
+		if !found {
+			c.addf(t.Path.S.Start,
+				"library-config %q has no resolved schema dependency", path)
+			return typecheck.TUnknown()
+		}
+		return schema.TypecheckType()
+	}
 	libs := c.libraries[scope]
 	if libs == nil {
 		c.addf(t.Path.S.Start, "library-config %q has no resolved imports", path)

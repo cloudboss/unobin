@@ -18,14 +18,15 @@ import (
 // diagnostics. The graph is exposed so callers executing the factory share the
 // structure the checks ran against.
 type Checker struct {
-	rootSyntax   *syntax.FactoryBody
-	dag          *runtime.DAG
-	inputs       map[string]map[string]bool
-	locals       map[string]map[string]bool
-	libraries    map[string]map[string]*runtime.Library
-	scopes       []checkerScope
-	bodyScopes   []checkerScope
-	nodesByScope map[string][]*runtime.Node
+	rootSyntax           *syntax.FactoryBody
+	dag                  *runtime.DAG
+	inputs               map[string]map[string]bool
+	locals               map[string]map[string]bool
+	libraries            map[string]map[string]*runtime.Library
+	libraryConfigSchemas map[string]map[string]runtime.LibraryConfigSchema
+	scopes               []checkerScope
+	bodyScopes           []checkerScope
+	nodesByScope         map[string][]*runtime.Node
 }
 
 type checkerScope struct {
@@ -43,6 +44,23 @@ func NewSyntax(body syntax.FactoryBody, libs map[string]*runtime.Library) *Check
 		syntaxInputNames(body.Inputs),
 		syntaxLocalNames(body.Locals),
 		libs,
+		nil,
+	)
+}
+
+// NewSyntaxWithLibraryConfigSchemas builds check state with schema dependencies.
+func NewSyntaxWithLibraryConfigSchemas(
+	body syntax.FactoryBody,
+	libs map[string]*runtime.Library,
+	libraryConfigSchemas map[string]runtime.LibraryConfigSchema,
+) *Checker {
+	return newChecker(
+		&body,
+		runtime.BuildSyntaxDAG(body, libs),
+		syntaxInputNames(body.Inputs),
+		syntaxLocalNames(body.Locals),
+		libs,
+		libraryConfigSchemas,
 	)
 }
 
@@ -52,13 +70,18 @@ func newChecker(
 	inputs map[string]bool,
 	locals map[string]bool,
 	libs map[string]*runtime.Library,
+	libraryConfigSchemas map[string]runtime.LibraryConfigSchema,
 ) *Checker {
 	c := &Checker{
-		rootSyntax: root,
-		dag:        dag,
-		inputs:     map[string]map[string]bool{"": inputs},
-		locals:     map[string]map[string]bool{"": locals},
-		libraries:  map[string]map[string]*runtime.Library{"": libs},
+		rootSyntax:           root,
+		dag:                  dag,
+		inputs:               map[string]map[string]bool{"": inputs},
+		locals:               map[string]map[string]bool{"": locals},
+		libraries:            map[string]map[string]*runtime.Library{"": libs},
+		libraryConfigSchemas: map[string]map[string]runtime.LibraryConfigSchema{},
+	}
+	if libraryConfigSchemas != nil {
+		c.libraryConfigSchemas[""] = libraryConfigSchemas
 	}
 	c.buildScopeIndexes()
 	return c
@@ -151,6 +174,9 @@ func (c *Checker) buildScopeIndexes() {
 		c.inputs[node.Address] = syntaxInputNames(node.CompositeSyntaxBody.Inputs)
 		c.locals[node.Address] = syntaxLocalNames(node.CompositeSyntaxBody.Locals)
 		c.libraries[node.Address] = node.Libraries
+		if node.LibraryConfigSchemas != nil {
+			c.libraryConfigSchemas[node.Address] = node.LibraryConfigSchemas
+		}
 		scope := checkerScope{
 			address: node.Address,
 			body:    node.CompositeSyntaxBody,

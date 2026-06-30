@@ -1,0 +1,17 @@
+factory: {
+  imports: {
+    bundle: 'example.com/bundle'
+  }
+
+  inputs: {
+    aws: {
+      type: library-config('example.com/aws//config')
+    }
+  }
+
+  resources: {
+    app: bundle.app {
+      aws: input.aws
+    }
+  }
+}

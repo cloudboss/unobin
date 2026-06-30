@@ -7,6 +7,7 @@ import (
 
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/typecheck"
@@ -52,16 +53,34 @@ func localFileLibrary() *runtime.Library {
 }
 
 func libraryConfigSchemaLibrary(digest string) *runtime.Library {
+	return libraryConfigSchemaLibraryWithIdentity("", digest)
+}
+
+func libraryConfigSchemaLibraryWithIdentity(identity, digest string) *runtime.Library {
 	fields := []typecheck.ObjectField{{Name: "region", Type: typecheck.TString()}}
 	if digest == "" {
 		digest = cfg.DigestView(fields, nil, nil)
 	}
 	return &runtime.Library{Schema: &runtime.LibrarySchema{
-		HasConfiguration:    true,
-		ConfigurationFields: fields,
-		ConfigurationDigest: digest,
-		Configuration:       map[string]typecheck.Type{"region": typecheck.TString()},
+		HasConfiguration:      true,
+		ConfigurationFields:   fields,
+		ConfigurationIdentity: identity,
+		ConfigurationDigest:   digest,
+		Configuration:         map[string]typecheck.Type{"region": typecheck.TString()},
 	}}
+}
+
+func libraryConfigSchema(path, identity, digest string) runtime.LibraryConfigSchema {
+	fields := []typecheck.ObjectField{{Name: "region", Type: typecheck.TString()}}
+	if digest == "" {
+		digest = cfg.DigestView(fields, nil, nil)
+	}
+	return runtime.LibraryConfigSchema{
+		Path:     path,
+		Identity: identity,
+		Fields:   fields,
+		Digest:   digest,
+	}
 }
 
 func regularConfigResourceLibrary() *runtime.Library {
@@ -142,6 +161,66 @@ func emptyConfigResourceLibrary() *runtime.Library {
 			"bucket": {Inputs: map[string]typecheck.Type{}},
 		},
 	}}
+}
+
+func TestCheckTypesSchemaDependencyFixtures(t *testing.T) {
+	root := "testdata/ub/schema-dependencies"
+	ubtest.RequireInvalidFixtureGoldens(t, root)
+	ubtest.Run(t, root, func(name string, src []byte) (string, []string) {
+		file, err := syntax.ParseSource("factory.ub", src)
+		require.NoError(t, err)
+		require.NotNil(t, file.Factory)
+
+		libs, schemas := schemaDependencyFixtureContext(t, name)
+		errList := NewSyntaxWithLibraryConfigSchemas(
+			file.Factory.Body,
+			libs,
+			schemas,
+		).References(nil)
+		return "", errList.Messages()
+	})
+}
+
+func schemaDependencyFixtureContext(
+	t testing.TB,
+	name string,
+) (map[string]*runtime.Library, map[string]runtime.LibraryConfigSchema) {
+	t.Helper()
+	digest := cfg.DigestView(
+		[]typecheck.ObjectField{{Name: "region", Type: typecheck.TString()}},
+		nil,
+		nil,
+	)
+	serviceIdentity := "example.com/aws.Configuration"
+	configIdentity := serviceIdentity
+	if name == "invalid/different-identity" {
+		configIdentity = "example.com/other.Configuration"
+	}
+	schema := libraryConfigSchema("example.com/aws//config", configIdentity, digest)
+	if name == "valid/composite-schema-without-import" {
+		composite := parseSyntaxCompositeFixture(t, ubtest.ReadValidFixture(
+			t,
+			"testdata/ub/schema-dependency-support",
+			"composite-schema-body",
+		))
+		body := composite.body
+		return map[string]*runtime.Library{
+			"bundle": {ResourceComposites: map[string]*runtime.CompositeType{
+				"app": {
+					Name:                 "app",
+					SyntaxBody:           &body,
+					LibraryConfigSchemas: map[string]runtime.LibraryConfigSchema{schema.Path: schema},
+				},
+			}},
+		}, map[string]runtime.LibraryConfigSchema{schema.Path: schema}
+	}
+	libs := map[string]*runtime.Library{
+		"service": libraryConfigSchemaLibraryWithIdentity(serviceIdentity, digest),
+	}
+	if name == "invalid/missing-schema" {
+		return libs, map[string]runtime.LibraryConfigSchema{}
+	}
+	return libs, map[string]runtime.LibraryConfigSchema{schema.Path: schema}
 }
 
 func TestCheckTypesAcceptsStrictReferenceInputs(t *testing.T) {
