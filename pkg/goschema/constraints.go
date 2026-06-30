@@ -34,20 +34,12 @@ var setConstraintKinds = map[string]string{
 
 // lookupConstraints resolves a registration's input type and returns the
 // constraint entries declared by its Constraints method, each field
-// selector mapped to its kebab input name. A type in a subpackage
-// (PkgAlias set) is followed the same way lookupFields does.
+// selector mapped to its kebab input name. A type in another package
+// is followed the same way lookupFields does.
 func (w *walker) lookupConstraints(ref typeRef) []lang.ConstraintSpec {
-	cw := w
-	if ref.PkgAlias != "" {
-		importPath, ok := w.imports[ref.PkgAlias]
-		if !ok {
-			return nil
-		}
-		sub := w.sub(importPath)
-		if sub == nil {
-			return nil
-		}
-		cw = sub
+	cw := w.walkerForRef(ref)
+	if cw == nil {
+		return nil
 	}
 	return cw.constraintsFromType(ref.TypeName)
 }

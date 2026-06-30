@@ -18,20 +18,12 @@ const defaultsPkgPath = "github.com/cloudboss/unobin/pkg/defaults"
 
 // lookupDefaults resolves a registration's input type and returns the
 // defaults declared by its Defaults method, each field selector mapped
-// to its kebab input name. A type in a subpackage (PkgAlias set) is
-// followed the same way lookupFields does.
+// to its kebab input name. A type in another package is followed the
+// same way lookupFields does.
 func (w *walker) lookupDefaults(ref typeRef) []lang.DefaultSpec {
-	cw := w
-	if ref.PkgAlias != "" {
-		importPath, ok := w.imports[ref.PkgAlias]
-		if !ok {
-			return nil
-		}
-		sub := w.sub(importPath)
-		if sub == nil {
-			return nil
-		}
-		cw = sub
+	cw := w.walkerForRef(ref)
+	if cw == nil {
+		return nil
 	}
 	return cw.defaultsFromType(ref.TypeName)
 }

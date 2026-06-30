@@ -33,18 +33,11 @@ func (w *walker) lookupConfigurationDefaults(
 	if init == nil {
 		return nil
 	}
-	if ref.PkgAlias == "" {
-		return w.configDefaultsFromPackage(ref.TypeName, init, nil)
-	}
-	importPath, ok := w.imports[ref.PkgAlias]
-	if !ok {
+	cw := w.walkerForRef(ref)
+	if cw == nil {
 		return nil
 	}
-	sub := w.sub(importPath)
-	if sub == nil {
-		return nil
-	}
-	return sub.configDefaultsFromPackage(ref.TypeName, init, nil)
+	return cw.configDefaultsFromPackage(ref.TypeName, init, nil)
 }
 
 func (w *walker) configDefaultsFromPackage(

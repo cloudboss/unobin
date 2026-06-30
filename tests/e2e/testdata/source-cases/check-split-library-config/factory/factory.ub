@@ -1,0 +1,15 @@
+factory: {
+  imports: {
+    service: 'example.com/aws//service'
+  }
+
+  inputs: {
+    aws: {
+      type: library-config('example.com/aws//config')
+    }
+  }
+
+  library-configs: {
+    service: input.aws
+  }
+}

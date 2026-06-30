@@ -1,0 +1,33 @@
+{
+  "name": "check-split-library-config",
+  "rootPath": "factory",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "remotes": [
+    {
+      "key": "example.com/aws//service@v1.0.0",
+      "path": "remotes/aws/service",
+      "commit": "c1",
+      "sourcePath": true,
+      "moduleRootPath": "remotes/aws",
+      "modulePath": "example.com/aws",
+      "goImportPath": "example.com/aws/service"
+    },
+    {
+      "key": "example.com/aws//config@v1.0.0",
+      "path": "remotes/aws/config",
+      "commit": "c1",
+      "sourcePath": true,
+      "moduleRootPath": "remotes/aws",
+      "modulePath": "example.com/aws",
+      "goImportPath": "example.com/aws/config"
+    }
+  ],
+  "commands": [
+    {
+      "name": "check",
+      "args": ["check", "-p", "factory.ub"],
+      "stdout": "want/check.stdout"
+    }
+  ]
+}

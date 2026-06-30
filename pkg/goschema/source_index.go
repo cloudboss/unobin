@@ -124,7 +124,11 @@ func (i *sourceIndexer) build(libraryFunc *ast.FuncDecl) (*SourceIndex, error) {
 			index.OutputFields[kind][site.Name] = i.fieldLocations(typePkg, spec.Name.Name)
 		}
 	}
-	if ref, _, found, ok := extractConfigurationRef(libraryFunc, rootPkg.files); found && ok {
+	if ref, _, found, ok := extractConfigurationRef(
+		libraryFunc,
+		rootPkg,
+		i.loadImportedPackage,
+	); found && ok {
 		if typePkg, spec, ok := i.resolveType(rootPkg, ref); ok {
 			index.ConfigType = typePkg.location(spec.Name.Pos())
 			index.ConfigFields = i.fieldLocations(typePkg, spec.Name.Name)
@@ -189,6 +193,20 @@ type sourceIndexer struct {
 	root     *indexedPackage
 }
 
+func (i *sourceIndexer) loadImportedPackage(
+	from *indexedPackage,
+	alias string,
+) (*indexedPackage, bool) {
+	if from == nil {
+		return nil, false
+	}
+	importPath, ok := from.imports[alias]
+	if !ok {
+		return nil, false
+	}
+	return i.loadPackage(importPath)
+}
+
 func (i *sourceIndexer) loadPackage(importPath string) (*indexedPackage, bool) {
 	if pkg, ok := i.packages[importPath]; ok {
 		return pkg, true
@@ -232,11 +250,15 @@ func (i *sourceIndexer) resolveType(
 		return nil, nil, false
 	}
 	typePkg := pkg
+	importPath := ref.ImportPath
 	if ref.PkgAlias != "" {
-		importPath, ok := pkg.imports[ref.PkgAlias]
+		var ok bool
+		importPath, ok = pkg.imports[ref.PkgAlias]
 		if !ok {
 			return nil, nil, false
 		}
+	}
+	if importPath != "" && importPath != pkg.importPath {
 		var found bool
 		typePkg, found = i.loadPackage(importPath)
 		if !found {

@@ -47,6 +47,31 @@ func TestCheckFactoryReportsForEachNesting(t *testing.T) {
 	requireErrorMatchesGolden(t, "invalid/nested-foreach/factory", err)
 }
 
+func TestCheckFactoryAcceptsSplitConfigPackage(t *testing.T) {
+	path := fixturePath("valid/schema-dependencies/aws-split/factory")
+	body := parseFactoryAt(t, path)
+	resolver := newTestResolver(t, filepath.Dir(path))
+	serviceSource := goFixtureSource(t, "configforward/service")
+	serviceSource.ModulePath = "example.com/aws"
+	serviceSource.GoImportPath = "example.com/aws/service"
+	configSource := goFixtureSource(t, "configforward/config")
+	configSource.ModulePath = "example.com/aws"
+	configSource.GoImportPath = "example.com/aws/config"
+	resolver.remotes["example.com/aws//service"] = serviceSource
+	resolver.remotes["example.com/aws//config"] = configSource
+
+	_, err := CheckFactoryBody(body, Options{
+		Resolver: resolver,
+		Versions: map[string]string{"example.com/aws": "v1.0.0"},
+		Source: &resolve.Source{
+			FS:   os.DirFS(filepath.Dir(path)),
+			Path: filepath.Dir(path),
+		},
+	})
+
+	require.NoError(t, err)
+}
+
 func TestCheckFactoryReadsSchemaDependencies(t *testing.T) {
 	path := fixturePath("valid/schema-dependencies/check-factory/factory")
 	body := parseFactoryAt(t, path)
@@ -244,6 +269,11 @@ func (r *testResolver) lookup(ref resolve.ImportRef) (*resolve.Source, bool, err
 		source, err := r.local.Resolve(v)
 		return source, err == nil, err
 	case *resolve.RemoteImport:
+		if v.Subdir != "" {
+			if source, ok := r.remotes[v.URL+"//"+v.Subdir]; ok {
+				return source, true, nil
+			}
+		}
 		source, ok := r.remotes[v.URL]
 		return source, ok, nil
 	default:
