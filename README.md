@@ -2,6 +2,10 @@
 
 Unobin means _one binary_. It's a tool for infrastructure automation inspired by [Terraform](https://developer.hashicorp.com/terraform), [Ansible](https://docs.ansible.com/projects/ansible/latest/index.html), and others, but unlike those, unobin compiles your code to a standalone binary called a factory.
 
+Read the [full docs](https://cloudboss.co/docs/unobin).
+
+![Apply UI showing an apply run](docs/assets/apply-ui.webp)
+
 ## Quickstart
 
 Install unobin:
