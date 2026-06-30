@@ -1,0 +1,11 @@
+factory: {
+  inputs: {
+    aws: {
+      type: library-config('example.com/schema')
+    }
+  }
+
+  locals: {
+    region: input.aws.region
+  }
+}

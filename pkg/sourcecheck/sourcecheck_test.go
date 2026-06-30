@@ -47,6 +47,27 @@ func TestCheckFactoryReportsForEachNesting(t *testing.T) {
 	requireErrorMatchesGolden(t, "invalid/nested-foreach/factory", err)
 }
 
+func TestCheckFactoryReadsSchemaDependencies(t *testing.T) {
+	path := fixturePath("valid/schema-dependencies/check-factory/factory")
+	body := parseFactoryAt(t, path)
+	resolver := newTestResolver(t, filepath.Dir(path))
+	schemaSource := goFixtureSource(t, "configschema")
+	schemaSource.ModulePath = "example.com/schema"
+	schemaSource.GoImportPath = "example.com/schema"
+	resolver.remotes["example.com/schema"] = schemaSource
+
+	_, err := CheckFactoryBody(body, Options{
+		Resolver: resolver,
+		Versions: map[string]string{"example.com/schema": "v1.0.0"},
+		Source: &resolve.Source{
+			FS:   os.DirFS(filepath.Dir(path)),
+			Path: filepath.Dir(path),
+		},
+	})
+
+	require.NoError(t, err)
+}
+
 func TestCheckUBLibraryReportsCompositeBodyErrors(t *testing.T) {
 	root := fixtureDir(t, "invalid/library-body-error")
 	resolver := newTestResolver(t, root)

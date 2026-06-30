@@ -35,8 +35,9 @@ type Options struct {
 
 // Result is the source-check result for a factory or composite body.
 type Result struct {
-	Libraries map[string]*runtime.Library
-	DAG       *runtime.DAG
+	Libraries            map[string]*runtime.Library
+	LibraryConfigSchemas map[string]runtime.LibraryConfigSchema
+	DAG                  *runtime.DAG
 }
 
 // CheckFactoryBody resolves imports and runs compile-time checks for body.
@@ -45,11 +46,15 @@ func CheckFactoryBody(body syntax.FactoryBody, opts Options) (*Result, error) {
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
 	}
-	libs, err := buildLibraries(refs, opts)
+	analysis, err := analyzeFactoryImports(body, refs, opts)
 	if err != nil {
 		return nil, err
 	}
-	checker := check.NewSyntax(body, libs)
+	checker := check.NewSyntaxWithLibraryConfigSchemas(
+		body,
+		analysis.Libraries,
+		analysis.LibraryConfigSchemas,
+	)
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return nil, errs.Err()
 	}
@@ -59,7 +64,11 @@ func CheckFactoryBody(body syntax.FactoryBody, opts Options) (*Result, error) {
 	if errs := checker.ForEachNesting(); errs.Len() > 0 {
 		return nil, errs.Err()
 	}
-	return &Result{Libraries: libs, DAG: checker.DAG()}, nil
+	return &Result{
+		Libraries:            analysis.Libraries,
+		LibraryConfigSchemas: analysis.LibraryConfigSchemas,
+		DAG:                  checker.DAG(),
+	}, nil
 }
 
 // CheckUBLibrary checks every exported composite body in source.
@@ -113,11 +122,12 @@ func checkCompositeEntries(entries []resolve.CompositeEntry, opts Options) error
 	return errors.Join(bodyErrs...)
 }
 
-func buildLibraries(
+func analyzeFactoryImports(
+	body syntax.FactoryBody,
 	refs map[string]resolve.ImportRef,
 	opts Options,
-) (map[string]*runtime.Library, error) {
-	analysis, err := AnalyzeImports(refs, ImportAnalysisOptions{
+) (*ImportAnalysis, error) {
+	return AnalyzeImports(refs, ImportAnalysisOptions{
 		ProjectDir:  opts.ProjectDir,
 		Source:      opts.Source,
 		Resolver:    opts.Resolver,
@@ -125,11 +135,8 @@ func buildLibraries(
 		SchemaCache: opts.SchemaCache,
 		WarnOut:     opts.WarnOut,
 		Mode:        opts.Mode,
+		Body:        &body,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return analysis.Libraries, nil
 }
 
 func printSchemaWarnings(out io.Writer, alias string, warnings []string) {
