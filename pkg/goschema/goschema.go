@@ -60,6 +60,26 @@ func Read(dir string, extra ...ModuleRoot) (*runtime.LibrarySchema, []string, er
 	return analysis.Schema, analysis.Warnings, nil
 }
 
+// ReadLibraryConfiguration parses a package's LibraryConfiguration entry point.
+func ReadLibraryConfiguration(
+	dir string,
+	extra ...ModuleRoot,
+) (*runtime.LibrarySchema, []string, error) {
+	ctx, err := newAnalysisContext(dir, extra...)
+	if err != nil {
+		return nil, nil, err
+	}
+	fn := findPackageFunc(ctx.root.files, "LibraryConfiguration")
+	if fn == nil {
+		return nil, nil, fmt.Errorf("no LibraryConfiguration() function in %s", dir)
+	}
+	schema, err := ctx.readLibraryConfigurationSchema(fn)
+	if err != nil {
+		return schema, slices.Clone(ctx.warnings), err
+	}
+	return schema, slices.Clone(ctx.warnings), nil
+}
+
 type analysisContext struct {
 	dir      string
 	roots    []ModuleRoot
@@ -162,23 +182,7 @@ func (c *analysisContext) readSchema(
 					"(write `New: func() any { return &T{} }`), so configuration fields "+
 					"are unchecked")
 		} else {
-			w := c.newWalker()
-			w.subject = "library configuration"
-			fields, defaults, _ := w.lookupConfigurationFields(ref, init)
-			if fields == nil {
-				c.warnings = append(c.warnings, fmt.Sprintf(
-					"library configuration: %s not found in reachable source, "+
-						"so configuration fields are unchecked", ref))
-			} else {
-				w = c.newWalker()
-				constraints := w.lookupConstraints(ref)
-				schema.Configuration = objectFieldsToMap(fields)
-				schema.ConfigurationFields = fields
-				schema.ConfigurationDefaults = defaults
-				schema.ConfigurationConstraints = constraints
-				schema.ConfigurationEmpty = len(fields) == 0
-				schema.ConfigurationDigest = cfg.DigestView(fields, defaults, constraints)
-			}
+			c.fillConfigurationSchema(schema, ref, init, "library configuration")
 		}
 	}
 	maps.Copy(schema.Functions, extractFunctions(libraryFunc, c.root.files, &c.errs))
@@ -186,6 +190,57 @@ func (c *analysisContext) readSchema(
 		return nil, errors.Join(c.errs...)
 	}
 	return schema, nil
+}
+
+func (c *analysisContext) readLibraryConfigurationSchema(
+	fn *ast.FuncDecl,
+) (*runtime.LibrarySchema, error) {
+	schema := &runtime.LibrarySchema{
+		Resources:        map[string]*runtime.TypeSchema{},
+		DataSources:      map[string]*runtime.TypeSchema{},
+		Actions:          map[string]*runtime.TypeSchema{},
+		Functions:        map[string]typecheck.FuncSig{},
+		HasConfiguration: true,
+	}
+	ref, init, found, ok := extractLibraryConfigurationRef(fn)
+	if !found || !ok {
+		return schema, fmt.Errorf(
+			"LibraryConfiguration(): cannot read the struct behind New from source")
+	}
+	if !c.fillConfigurationSchema(schema, ref, init, "library configuration") {
+		return schema, fmt.Errorf(
+			"LibraryConfiguration(): %s not found in reachable source", ref)
+	}
+	if len(c.errs) > 0 {
+		return nil, errors.Join(c.errs...)
+	}
+	return schema, nil
+}
+
+func (c *analysisContext) fillConfigurationSchema(
+	schema *runtime.LibrarySchema,
+	ref typeRef,
+	init *ast.CompositeLit,
+	subject string,
+) bool {
+	w := c.newWalker()
+	w.subject = subject
+	fields, defaults, _ := w.lookupConfigurationFields(ref, init)
+	if fields == nil {
+		c.warnings = append(c.warnings, fmt.Sprintf(
+			"%s: %s not found in reachable source, so configuration fields are unchecked",
+			subject, ref))
+		return false
+	}
+	w = c.newWalker()
+	constraints := w.lookupConstraints(ref)
+	schema.Configuration = objectFieldsToMap(fields)
+	schema.ConfigurationFields = fields
+	schema.ConfigurationDefaults = defaults
+	schema.ConfigurationConstraints = constraints
+	schema.ConfigurationEmpty = len(fields) == 0
+	schema.ConfigurationDigest = cfg.DigestView(fields, defaults, constraints)
+	return true
 }
 
 func (c *analysisContext) newWalker() *walker {
@@ -683,6 +738,10 @@ func objectField(name string, t typecheck.Type) typecheck.ObjectField {
 }
 
 func findModuleFunc(files []*ast.File) *ast.FuncDecl {
+	return findPackageFunc(files, "Library")
+}
+
+func findPackageFunc(files []*ast.File, name string) *ast.FuncDecl {
 	for _, f := range files {
 		for _, decl := range f.Decls {
 			fn, ok := decl.(*ast.FuncDecl)
@@ -692,7 +751,7 @@ func findModuleFunc(files []*ast.File) *ast.FuncDecl {
 			if fn.Recv != nil {
 				continue
 			}
-			if fn.Name.Name == "Library" {
+			if fn.Name.Name == name {
 				return fn
 			}
 		}
@@ -789,20 +848,46 @@ func extractConfigurationRef(
 			if ctLit == nil {
 				return typeRef{}, nil, true, false
 			}
-			for _, cel := range ctLit.Elts {
-				ckv, ckvOk := cel.(*ast.KeyValueExpr)
-				if !ckvOk {
-					continue
-				}
-				if name, nameOk := identName(ckv.Key); !nameOk || name != "New" {
-					continue
-				}
-				return configurationNewRef(ckv.Value)
-			}
-			return typeRef{}, nil, true, false
+			return configurationTypeRef(ctLit)
 		}
 	}
 	return typeRef{}, nil, false, false
+}
+
+func extractLibraryConfigurationRef(
+	fn *ast.FuncDecl,
+) (ref typeRef, init *ast.CompositeLit, found, ok bool) {
+	if fn.Body == nil {
+		return typeRef{}, nil, false, false
+	}
+	for _, stmt := range fn.Body.List {
+		ret, retOk := stmt.(*ast.ReturnStmt)
+		if !retOk || len(ret.Results) != 1 {
+			continue
+		}
+		ctLit := unwrapModuleLiteral(ret.Results[0])
+		if ctLit == nil {
+			return typeRef{}, nil, true, false
+		}
+		return configurationTypeRef(ctLit)
+	}
+	return typeRef{}, nil, true, false
+}
+
+func configurationTypeRef(
+	ctLit *ast.CompositeLit,
+) (ref typeRef, init *ast.CompositeLit, found, ok bool) {
+	for _, cel := range ctLit.Elts {
+		ckv, ckvOk := cel.(*ast.KeyValueExpr)
+		if !ckvOk {
+			continue
+		}
+		if name, nameOk := identName(ckv.Key); !nameOk || name != "New" {
+			continue
+		}
+		return configurationNewRef(ckv.Value)
+	}
+	return typeRef{}, nil, true, false
 }
 
 // configurationNewRef reads the struct type behind a ConfigurationType

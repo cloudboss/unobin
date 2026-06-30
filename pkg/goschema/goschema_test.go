@@ -145,6 +145,50 @@ func TestReadExtractsPlainConfigurationSchema(t *testing.T) {
 	require.Contains(t, schema.Resources, "bucket")
 }
 
+func TestReadLibraryConfigurationSchema(t *testing.T) {
+	schema, warnings, err := ReadLibraryConfiguration("testdata/configschema")
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+
+	assumeRole := typecheck.TObject([]typecheck.ObjectField{
+		{Name: "role-arn", Type: typecheck.TString()},
+		{Name: "external-id", Type: typecheck.TString(), Optional: true},
+	})
+	wantFields := []typecheck.ObjectField{
+		{Name: "region", Type: typecheck.TString()},
+		{Name: "profile", Type: typecheck.TString(), Optional: true},
+		{Name: "max-attempts", Type: typecheck.TInteger(), Defaulted: true},
+		{Name: "tags", Type: typecheck.TMap(typecheck.TString())},
+		{Name: "assume-role", Type: assumeRole, Optional: true},
+	}
+	wantDefaults := []lang.DefaultSpec{{Field: "input.max-attempts", Value: "3"}}
+	wantConstraints := []lang.ConstraintSpec{
+		{
+			Kind:    "predicate",
+			When:    "true",
+			Require: "(@core.length(input.region) >= 1)",
+			Message: "region is required",
+		},
+		{
+			Kind: "required-with",
+			Fields: []string{
+				"input.assume-role.external-id",
+				"input.assume-role.role-arn",
+			},
+		},
+	}
+	require.Equal(t, wantFields, schema.ConfigurationFields)
+	require.Equal(t, objectFieldsToMap(wantFields), schema.Configuration)
+	require.Equal(t, wantDefaults, schema.ConfigurationDefaults)
+	require.Equal(t, wantConstraints, schema.ConfigurationConstraints)
+	require.Equal(t,
+		cfg.DigestView(wantFields, wantDefaults, wantConstraints),
+		schema.ConfigurationDigest,
+	)
+	require.True(t, schema.HasConfiguration)
+	require.Empty(t, schema.Resources)
+}
+
 func TestReadKeepsPlainMapAndSliceInputsRequired(t *testing.T) {
 	src := `package lib
 
