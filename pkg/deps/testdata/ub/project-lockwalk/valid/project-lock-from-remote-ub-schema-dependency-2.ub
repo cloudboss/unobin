@@ -1,0 +1,7 @@
+cluster: resource {
+  inputs: {
+    aws: {
+      type: library-config('example.com/aws//config')
+    }
+  }
+}

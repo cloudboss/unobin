@@ -83,6 +83,9 @@ func (w *projectLockWalker) projectLockFileImports(rootFS fs.FS, path string) er
 	}
 	for _, ref := range refs {
 		if local, ok := ref.Ref.(*resolve.LocalImport); ok {
+			if ref.Kind == resolve.SyntaxDependencyLibraryConfig {
+				continue
+			}
 			if err := w.checkLocalImport(rootFS, ref.Label, local, filepath.Dir(path)); err != nil {
 				return err
 			}
@@ -90,7 +93,7 @@ func (w *projectLockWalker) projectLockFileImports(rootFS fs.FS, path string) er
 		}
 		r := ref.Ref.(*resolve.RemoteImport)
 		if err := w.walkRemote(r); err != nil {
-			return fmt.Errorf("import %q: %w", ref.Label, err)
+			return fmt.Errorf("%s %q: %w", ref.Kind, ref.Label, err)
 		}
 	}
 	return nil
@@ -107,18 +110,20 @@ type projectLockWalker struct {
 
 type projectLockImportRef struct {
 	Label string
+	Kind  resolve.SyntaxDependencyKind
 	Ref   resolve.ImportRef
 }
 
 func projectLockFileImportRefs(path string, src []byte) ([]projectLockImportRef, error) {
-	refs, err := extractSyntaxImportRefs(path, src)
+	refs, err := extractSyntaxDependencyRefs(path, src)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]projectLockImportRef, 0, len(refs))
 	for _, ref := range refs {
 		out = append(out, projectLockImportRef{
-			Label: syntaxImportLabel(ref),
+			Label: ref.Label,
+			Kind:  ref.Kind,
 			Ref:   ref.Ref,
 		})
 	}
@@ -126,13 +131,6 @@ func projectLockFileImportRefs(path string, src []byte) ([]projectLockImportRef,
 		return strings.Compare(a.Label, b.Label)
 	})
 	return out, nil
-}
-
-func syntaxImportLabel(ref resolve.SyntaxImport) string {
-	if ref.Scope == "" {
-		return ref.Alias
-	}
-	return ref.Scope + "." + ref.Alias
 }
 
 func (w *projectLockWalker) walkBodyFile(path string, src []byte, parent *resolve.Source) error {
@@ -144,12 +142,15 @@ func (w *projectLockWalker) walkBodyFile(path string, src []byte, parent *resolv
 		var err error
 		switch r := ref.Ref.(type) {
 		case *resolve.LocalImport:
+			if ref.Kind == resolve.SyntaxDependencyLibraryConfig {
+				continue
+			}
 			err = w.walkLocal(r, parent)
 		case *resolve.RemoteImport:
 			err = w.walkRemote(r)
 		}
 		if err != nil {
-			return fmt.Errorf("import %q: %w", ref.Label, err)
+			return fmt.Errorf("%s %q: %w", ref.Kind, ref.Label, err)
 		}
 	}
 	return nil

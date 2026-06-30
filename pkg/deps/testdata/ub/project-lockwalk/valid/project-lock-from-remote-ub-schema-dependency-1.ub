@@ -1,0 +1,9 @@
+factory: {
+  imports: {
+    platform: 'example.com/platform//lib'
+  }
+
+  resources: {
+    cluster: platform.cluster {}
+  }
+}

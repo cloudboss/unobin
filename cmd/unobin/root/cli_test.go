@@ -229,6 +229,10 @@ func TestDepsSyncKeepsSchemaDependencyDirect(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, deps.Requirement{Version: "v0.1.0"},
 		synced.Requires[deps.Dependency{URL: "example.com/aws"}])
+	projectLock, err := deps.ReadProjectLock(os.DirFS(dir))
+	require.NoError(t, err)
+	require.Equal(t, deps.ProjectLockKindGo,
+		projectLock.Deps["example.com/aws"].Kind)
 }
 
 func TestDepsGetTreatsSchemaDependencyAsDirect(t *testing.T) {

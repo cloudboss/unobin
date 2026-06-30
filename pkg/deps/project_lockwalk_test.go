@@ -74,6 +74,25 @@ func TestProjectLockFromImportsSourceDeclaredFactory(t *testing.T) {
 	}, projectLock.Deps)
 }
 
+func TestProjectLockFromImportsSchemaDependency(t *testing.T) {
+	root := mapFS(map[string]string{
+		"factory.ub": projectLockWalkFixture(t, "project-lock-from-schema-dependency"),
+	})
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("example.com/aws", "config", "v0.1.0"): goSrc("c1"),
+	}}
+	sel := map[Dependency]string{{URL: "example.com/aws"}: "v0.1.0"}
+
+	projectLock, err := ProjectLockFromImports(root, sel, r, nil)
+
+	require.NoError(t, err)
+	assert.Equal(t, map[string]*ProjectLockDep{
+		"example.com/aws": {
+			Kind: ProjectLockKindGo, Version: "v0.1.0", Commit: "c1",
+		},
+	}, projectLock.Deps)
+}
+
 func TestProjectLockFromImportsValidatesSourceDeclaredFactory(t *testing.T) {
 	root := mapFS(map[string]string{
 		"factory.ub": projectLockWalkFixture(t, "project-lock-from-imports-validates-source-declared-factory"),
@@ -446,6 +465,41 @@ func TestProjectLockFromImportsRecursesThroughSourceDeclaredRemoteUB(t *testing.
 			Hash:    hashProject(t, mapFS(packageFiles)),
 		},
 		"github.com/cloudboss/unobin//pkg/libraries/local": {
+			Kind: ProjectLockKindGo, Version: "v0.1.0", Commit: "c3",
+		},
+	}, projectLock.Deps)
+}
+
+func TestProjectLockFromImportsRecursesThroughRemoteUBSchemaDependency(t *testing.T) {
+	root := mapFS(map[string]string{
+		"factory.ub": projectLockWalkFixture(t,
+			"project-lock-from-remote-ub-schema-dependency-1"),
+	})
+	packageFiles := map[string]string{
+		"library.ub": projectLockWalkFixture(t,
+			"project-lock-from-remote-ub-schema-dependency-2"),
+	}
+	r := &fakeResolver{sources: map[string]*resolve.Source{
+		srcKey("example.com/platform", "lib", "v0.1.0"): ubSrc(
+			"c2", "h2", packageFiles),
+		srcKey("example.com/aws", "config", "v0.1.0"): goSrc("c3"),
+	}}
+	sel := map[Dependency]string{
+		{URL: "example.com/platform", Subdir: "lib"}: "v0.1.0",
+		{URL: "example.com/aws"}:                     "v0.1.0",
+	}
+
+	projectLock, err := ProjectLockFromImports(root, sel, r, nil)
+
+	require.NoError(t, err)
+	assert.Equal(t, map[string]*ProjectLockDep{
+		"example.com/platform//lib": {
+			Kind:    ProjectLockKindUB,
+			Version: "v0.1.0",
+			Commit:  "c2",
+			Hash:    hashProject(t, mapFS(packageFiles)),
+		},
+		"example.com/aws": {
 			Kind: ProjectLockKindGo, Version: "v0.1.0", Commit: "c3",
 		},
 	}, projectLock.Deps)
