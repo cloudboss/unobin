@@ -1,0 +1,3 @@
+cluster: resource {
+  description: 'schema dependency target'
+}

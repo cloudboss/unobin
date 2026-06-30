@@ -1,6 +1,7 @@
 package deps
 
 import (
+	"os"
 	"testing"
 	"testing/fstest"
 
@@ -14,6 +15,11 @@ import (
 func projectLockWalkFixture(t testing.TB, name string) string {
 	t.Helper()
 	return ubtest.ReadValidFixture(t, "testdata/ub/project-lockwalk", name)
+}
+
+func projectLockWalkSupportFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/project-lockwalk/support", name)
 }
 
 func mapFS(files map[string]string) fstest.MapFS {
@@ -34,6 +40,11 @@ func goSrc(commit string) *resolve.Source {
 // imports the test needs for recursion.
 func ubSrc(commit, _ string, files map[string]string) *resolve.Source {
 	return &resolve.Source{Commit: commit, FS: mapFS(files)}
+}
+
+func goTestdataSrc(t testing.TB, commit, dir string) *resolve.Source {
+	t.Helper()
+	return &resolve.Source{Commit: commit, FS: os.DirFS(dir), Path: dir}
 }
 
 func TestProjectLockFromImportsRemoteGoLibrary(t *testing.T) {
@@ -91,6 +102,50 @@ func TestProjectLockFromImportsSchemaDependency(t *testing.T) {
 			Kind: ProjectLockKindGo, Version: "v0.1.0", Commit: "c1",
 		},
 	}, projectLock.Deps)
+}
+
+func TestProjectLockFromImportsInvalidFixtures(t *testing.T) {
+	ubtest.RequireInvalidFixtureGoldens(t, "testdata/ub/project-lockwalk")
+	ubtest.Run(t, "testdata/ub/project-lockwalk/invalid",
+		func(name string, src []byte) (string, []string) {
+			root := mapFS(map[string]string{"factory.ub": string(src)})
+			resolver, selection := projectLockInvalidFixtureDeps(t, name)
+
+			_, err := ProjectLockFromImports(root, selection, resolver, nil)
+			if err == nil {
+				return "", nil
+			}
+			return "", []string{err.Error()}
+		})
+}
+
+func projectLockInvalidFixtureDeps(
+	t testing.TB,
+	name string,
+) (*fakeResolver, map[Dependency]string) {
+	t.Helper()
+	selection := map[Dependency]string{{URL: "example.com/aws"}: "v0.1.0"}
+	sources := map[string]*resolve.Source{}
+	switch name {
+	case "schema-dependency-ub-target":
+		sources[srcKey("example.com/aws", "config", "v0.1.0")] = ubSrc(
+			"c1",
+			"",
+			map[string]string{
+				"library.ub": projectLockWalkSupportFixture(t,
+					"project-lock-schema-dependency-ub-target"),
+			},
+		)
+	case "schema-dependency-missing-entry-point":
+		sources[srcKey("example.com/aws", "config", "v0.1.0")] = goTestdataSrc(
+			t,
+			"c1",
+			"testdata/go/no-entry",
+		)
+	default:
+		t.Fatalf("unknown invalid project-lockwalk fixture %s", name)
+	}
+	return &fakeResolver{sources: sources}, selection
 }
 
 func TestProjectLockFromImportsValidatesSourceDeclaredFactory(t *testing.T) {

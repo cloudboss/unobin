@@ -1,0 +1,1 @@
+library-config "input.aws.type": library-config schema dependency must resolve to a Go package

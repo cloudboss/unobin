@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/golibrary"
+	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
@@ -92,7 +93,7 @@ func (w *projectLockWalker) projectLockFileImports(rootFS fs.FS, path string) er
 			continue
 		}
 		r := ref.Ref.(*resolve.RemoteImport)
-		if err := w.walkRemote(r); err != nil {
+		if err := w.walkRemote(r, ref.Kind); err != nil {
 			return fmt.Errorf("%s %q: %w", ref.Kind, ref.Label, err)
 		}
 	}
@@ -147,7 +148,7 @@ func (w *projectLockWalker) walkBodyFile(path string, src []byte, parent *resolv
 			}
 			err = w.walkLocal(r, parent)
 		case *resolve.RemoteImport:
-			err = w.walkRemote(r)
+			err = w.walkRemote(r, ref.Kind)
 		}
 		if err != nil {
 			return fmt.Errorf("%s %q: %w", ref.Kind, ref.Label, err)
@@ -164,7 +165,10 @@ func (w *projectLockWalker) walkLocal(r *resolve.LocalImport, parent *resolve.So
 	return w.walkBodies(src)
 }
 
-func (w *projectLockWalker) walkRemote(r *resolve.RemoteImport) error {
+func (w *projectLockWalker) walkRemote(
+	r *resolve.RemoteImport,
+	depKind resolve.SyntaxDependencyKind,
+) error {
 	pkg := RemotePackage{URL: r.URL, Subdir: r.Subdir}
 	if _, replaced := MostSpecificProject(ProjectIDsFromReplace(w.replace), pkg); replaced {
 		return w.walkReplaced(r)
@@ -194,6 +198,13 @@ func (w *projectLockWalker) walkRemote(r *resolve.RemoteImport) error {
 		return err
 	}
 	classification := resolve.ClassifySource(src)
+	if depKind == resolve.SyntaxDependencyLibraryConfig {
+		if err := w.checkRemoteSchemaDependency(pkg, owner, version, src, classification); err != nil {
+			return err
+		}
+		w.walked[packageKey] = true
+		return nil
+	}
 	kind := ProjectLockKindGo
 	switch classification.Kind {
 	case resolve.SourceFactory:
@@ -231,6 +242,44 @@ func (w *projectLockWalker) walkRemote(r *resolve.RemoteImport) error {
 	return nil
 }
 
+func (w *projectLockWalker) checkRemoteSchemaDependency(
+	pkg RemotePackage,
+	owner PackageOwner,
+	version string,
+	src *resolve.Source,
+	classification resolve.SourceClassification,
+) error {
+	switch classification.Kind {
+	case resolve.SourceFactory:
+		return fmt.Errorf("a factory cannot be used as a library-config schema")
+	case resolve.SourceInvalid:
+		return missingPackageProjectError(pkg, owner.Project)
+	case resolve.SourceUBLibrary:
+		return fmt.Errorf("library-config schema dependency must resolve to a Go package")
+	case resolve.SourceGoLibrary:
+		if src.ModulePath != "" {
+			if err := resolve.ValidateGoModulePath(
+				remotePackageRef(pkg, owner, version), src.ModulePath,
+			); err != nil {
+				return err
+			}
+		}
+		if err := validateGoLibraryConfigurationSource(src); err != nil {
+			return err
+		}
+	}
+	projectID := owner.Project.String()
+	if _, done := w.projectLock.Deps[projectID]; done {
+		return nil
+	}
+	entry, err := w.projectLockEntry(owner.Project, version, ProjectLockKindGo, src)
+	if err != nil {
+		return err
+	}
+	w.projectLock.Deps[projectID] = entry
+	return nil
+}
+
 func validateGoLibrarySource(src *resolve.Source) error {
 	if src == nil || src.Path == "" {
 		return nil
@@ -240,6 +289,14 @@ func validateGoLibrarySource(src *resolve.Source) error {
 		return err
 	}
 	_, err = golibrary.ValidatePackage(moduleRoot, src.Path)
+	return err
+}
+
+func validateGoLibraryConfigurationSource(src *resolve.Source) error {
+	if src == nil || src.Path == "" {
+		return nil
+	}
+	_, _, err := goschema.ReadLibraryConfiguration(src.Path)
 	return err
 }
 
