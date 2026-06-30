@@ -1,0 +1,9 @@
+factory: {
+  imports: {
+    bundle: 'example.com/bundle'
+  }
+
+  resources: {
+    cluster: bundle.cluster {}
+  }
+}

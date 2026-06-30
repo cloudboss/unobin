@@ -1,0 +1,18 @@
+factory: {
+  imports: {
+    std: 'example.com/schema'
+  }
+
+  inputs: {
+    aws: {
+      type: library-config('example.com/schema')
+    }
+  }
+
+  resources: {
+    go: std.file {
+      path:    'go.txt'
+      content: 'go'
+    }
+  }
+}

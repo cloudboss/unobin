@@ -5,9 +5,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/stretchr/testify/require"
 )
@@ -83,6 +85,171 @@ func TestImportAnalysisBuildsSameLibrariesForCompileAndGraph(t *testing.T) {
 		"wrap":       "factory/internal/wrap",
 		"wrap-again": "factory/internal/wrap",
 	}, analysis.UBImports)
+}
+
+func TestImportAnalysisReadsRootLibraryConfigSchemas(t *testing.T) {
+	path := fixturePath("valid/schema-dependencies/root/factory")
+	body := parseFactoryAt(t, path)
+	refs, errs := resolve.ExtractSyntaxBodyImports(body)
+	require.Empty(t, errs)
+
+	goSource := writeImportAnalysisGoLibrary(t)
+	resolver := newTestResolver(t, filepath.Dir(path))
+	resolver.remotes["example.com/schema"] = &resolve.Source{
+		FS:           os.DirFS(goSource),
+		Path:         goSource,
+		ModulePath:   "example.com/schema",
+		GoImportPath: "example.com/schema",
+	}
+	reads := map[string]int{}
+	schemas := NewSchemaCacheWithReader(
+		func(sourcePath string) (*runtime.LibrarySchema, []string, error) {
+			reads[sourcePath]++
+			return importAnalysisSchema(), nil, nil
+		},
+	)
+
+	analysis, err := AnalyzeImports(refs, ImportAnalysisOptions{
+		Resolver: resolver,
+		Versions: map[string]string{
+			"example.com/schema": "v1.0.0",
+		},
+		SchemaCache: schemas,
+		Source: &resolve.Source{
+			FS:   os.DirFS(filepath.Dir(path)),
+			Path: filepath.Dir(path),
+		},
+		Body: &body,
+	})
+	require.NoError(t, err)
+
+	require.Empty(t, analysis.GoImports)
+	require.Equal(t, map[string]int{goSource: 1}, reads)
+	require.Equal(t, map[string]runtime.LibraryConfigSchema{
+		"example.com/schema": importAnalysisConfigSchema("example.com/schema"),
+	}, analysis.LibraryConfigSchemas)
+}
+
+func TestImportAnalysisReadsSchemaOnlyGoPackage(t *testing.T) {
+	path := fixturePath("valid/schema-dependencies/root/factory")
+	body := parseFactoryAt(t, path)
+	refs, errs := resolve.ExtractSyntaxBodyImports(body)
+	require.Empty(t, errs)
+
+	resolver := newTestResolver(t, filepath.Dir(path))
+	schemaSource := goFixtureSource(t, "configschema")
+	schemaSource.ModulePath = "example.com/schema"
+	schemaSource.GoImportPath = "example.com/schema"
+	resolver.remotes["example.com/schema"] = schemaSource
+
+	analysis, err := AnalyzeImports(refs, ImportAnalysisOptions{
+		Resolver: resolver,
+		Versions: map[string]string{
+			"example.com/schema": "v1.0.0",
+		},
+		SchemaCache: NewSchemaCache(),
+		Source: &resolve.Source{
+			FS:   os.DirFS(filepath.Dir(path)),
+			Path: filepath.Dir(path),
+		},
+		Body: &body,
+	})
+	require.NoError(t, err)
+
+	require.Contains(t, analysis.LibraryConfigSchemas, "example.com/schema")
+	require.Equal(t,
+		"example.com/configschema.Configuration",
+		analysis.LibraryConfigSchemas["example.com/schema"].Identity,
+	)
+}
+
+func TestImportAnalysisReusesSchemaCacheForImportAndSchemaDependency(t *testing.T) {
+	path := fixturePath("valid/schema-dependencies/import-and-schema/factory")
+	body := parseFactoryAt(t, path)
+	refs, errs := resolve.ExtractSyntaxBodyImports(body)
+	require.Empty(t, errs)
+
+	goSource := writeImportAnalysisGoLibrary(t)
+	resolver := newTestResolver(t, filepath.Dir(path))
+	resolver.remotes["example.com/schema"] = &resolve.Source{
+		FS:           os.DirFS(goSource),
+		Path:         goSource,
+		ModulePath:   "example.com/schema",
+		GoImportPath: "example.com/schema",
+	}
+	reads := map[string]int{}
+	schemas := NewSchemaCacheWithReader(
+		func(sourcePath string) (*runtime.LibrarySchema, []string, error) {
+			reads[sourcePath]++
+			return importAnalysisSchema(), nil, nil
+		},
+	)
+
+	analysis, err := AnalyzeImports(refs, ImportAnalysisOptions{
+		Resolver: resolver,
+		Versions: map[string]string{
+			"example.com/schema": "v1.0.0",
+		},
+		SchemaCache: schemas,
+		Source: &resolve.Source{
+			FS:   os.DirFS(filepath.Dir(path)),
+			Path: filepath.Dir(path),
+		},
+		Body: &body,
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, map[string]int{goSource: 1}, reads)
+	require.Equal(t, map[string]string{"std": "example.com/schema"}, analysis.GoImports)
+	require.Equal(t, map[string]runtime.LibraryConfigSchema{
+		"example.com/schema": importAnalysisConfigSchema("example.com/schema"),
+	}, analysis.LibraryConfigSchemas)
+}
+
+func TestImportAnalysisReadsCompositeLibraryConfigSchemas(t *testing.T) {
+	path := fixturePath("valid/schema-dependencies/composite-root/factory")
+	body := parseFactoryAt(t, path)
+	refs, errs := resolve.ExtractSyntaxBodyImports(body)
+	require.Empty(t, errs)
+
+	goSource := writeImportAnalysisGoLibrary(t)
+	resolver := newTestResolver(t, filepath.Dir(path))
+	resolver.remotes["example.com/bundle"] = sourceForDir(t,
+		fixtureDir(t, "valid/schema-dependencies/library"))
+	resolver.remotes["example.com/schema"] = &resolve.Source{
+		FS:           os.DirFS(goSource),
+		Path:         goSource,
+		ModulePath:   "example.com/schema",
+		GoImportPath: "example.com/schema",
+	}
+	schemas := NewSchemaCacheWithReader(
+		func(sourcePath string) (*runtime.LibrarySchema, []string, error) {
+			require.Equal(t, goSource, sourcePath)
+			return importAnalysisSchema(), nil, nil
+		},
+	)
+
+	analysis, err := AnalyzeImports(refs, ImportAnalysisOptions{
+		Resolver: resolver,
+		Versions: map[string]string{
+			"example.com/bundle": "v1.0.0",
+			"example.com/schema": "v1.0.0",
+		},
+		SchemaCache: schemas,
+		Source: &resolve.Source{
+			FS:   os.DirFS(filepath.Dir(path)),
+			Path: filepath.Dir(path),
+		},
+		Body: &body,
+	})
+	require.NoError(t, err)
+
+	require.Empty(t, analysis.GoImports)
+	composite := analysis.Libraries["bundle"].Composite(runtime.NodeResource, "cluster")
+	require.NotNil(t, composite)
+	require.Equal(t, map[string]runtime.LibraryConfigSchema{
+		"example.com/schema": importAnalysisConfigSchema("example.com/schema"),
+	}, composite.LibraryConfigSchemas)
 }
 
 func TestImportAnalysisPassesSourceMetadataToGeneratedPackages(t *testing.T) {
@@ -228,6 +395,12 @@ func copyImportAnalysisFixture(t testing.TB, name, dst string) {
 
 func importAnalysisSchema() *runtime.LibrarySchema {
 	stringType := typecheck.TString()
+	fields := []typecheck.ObjectField{{
+		Name:      "region",
+		Type:      stringType,
+		Defaulted: true,
+	}}
+	defaults := []lang.DefaultSpec{{Field: "input.region", Value: "'us-west-2'"}}
 	return &runtime.LibrarySchema{
 		Resources: map[string]*runtime.TypeSchema{
 			"file": {
@@ -240,5 +413,18 @@ func importAnalysisSchema() *runtime.LibrarySchema {
 				},
 			},
 		},
+		ConfigurationFields:   fields,
+		ConfigurationDefaults: defaults,
+		ConfigurationIdentity: "example.com/config.Configuration",
+		ConfigurationDigest:   cfg.DigestView(fields, defaults, nil),
+		HasConfiguration:      true,
 	}
+}
+
+func importAnalysisConfigSchema(path string) runtime.LibraryConfigSchema {
+	schema, ok := runtime.LibraryConfigSchemaFromLibrarySchema(path, importAnalysisSchema())
+	if !ok {
+		panic("unreadable import analysis config schema")
+	}
+	return schema
 }

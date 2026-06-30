@@ -82,10 +82,11 @@ type FunctionType struct {
 // importing every library it transitively uses. A nil Libraries uses
 // the executor's root Libraries table.
 type CompositeType struct {
-	Name       string
-	Kind       NodeKind
-	SyntaxBody *syntax.FactoryBody
-	Libraries  map[string]*Library
+	Name                 string
+	Kind                 NodeKind
+	SyntaxBody           *syntax.FactoryBody
+	Libraries            map[string]*Library
+	LibraryConfigSchemas map[string]LibraryConfigSchema
 }
 
 // LibraryWithPath records the resolved import path on a library registration.

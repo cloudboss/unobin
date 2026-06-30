@@ -81,6 +81,7 @@ type UBLibrary struct {
 	SyntaxBodies map[string]map[string]syntax.FactoryBody
 	SourceFiles  map[string]syntax.SourceFileSpec
 	BodyImports  map[string]map[string][]Resolution
+	Source       *Source
 }
 
 type CompositeEntry struct {
@@ -172,9 +173,13 @@ type ubWalker struct {
 	goPackageModules map[string]string
 }
 
-// projectLockVersion returns ref with the selected project-lock version
-// filled in when the map has one. Local imports and dependencies absent from
-// the map are returned unchanged.
+// ProjectLockVersion returns ref with a selected project-lock version when
+// versions contains an owner for its remote project. Local imports and
+// dependencies absent from the map are returned unchanged.
+func ProjectLockVersion(ref ImportRef, versions map[string]string) ImportRef {
+	return (&ubWalker{versions: versions}).projectLockVersion(ref)
+}
+
 func (w *ubWalker) projectLockVersion(ref ImportRef) ImportRef {
 	r, ok := ref.(*RemoteImport)
 	if !ok {
@@ -223,6 +228,12 @@ func remoteProjectContains(projectSubdir, packageSubdir string) bool {
 		return true
 	}
 	return strings.HasPrefix(packageSubdir, projectSubdir+"/")
+}
+
+// CheckRemotePackageBoundary reports when a remote package is inside a nested
+// project outside its selected owner.
+func CheckRemotePackageBoundary(r *RemoteImport, source *Source) error {
+	return checkRemotePackageBoundary(r, source)
 }
 
 func checkRemotePackageBoundary(r *RemoteImport, source *Source) error {
@@ -344,13 +355,18 @@ func (w *ubWalker) walkOne(
 }
 
 func (w *ubWalker) resolveImport(ref ImportRef, parent *Source) (*Source, error) {
+	return ResolveImportFrom(w.resolver, ref, parent)
+}
+
+// ResolveImportFrom resolves ref using parent source context when available.
+func ResolveImportFrom(resolver Resolver, ref ImportRef, parent *Source) (*Source, error) {
 	if li, ok := ref.(*LocalImport); ok && parent != nil {
 		return ResolveLocalSource(li, parent)
 	}
-	if resolver, ok := w.resolver.(ContextResolver); ok && parent != nil {
+	if resolver, ok := resolver.(ContextResolver); ok && parent != nil {
 		return resolver.ResolveFrom(ref, parent)
 	}
-	return w.resolver.Resolve(ref)
+	return resolver.Resolve(ref)
 }
 
 func (w *ubWalker) handleGoImport(
@@ -659,7 +675,7 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 			sourceFiles[filename] = librarySourceFileSpec(source, filename, b)
 		}
 	}
-	return &UBLibrary{SyntaxBodies: syntaxBodies, SourceFiles: sourceFiles}, nil
+	return &UBLibrary{SyntaxBodies: syntaxBodies, SourceFiles: sourceFiles, Source: source}, nil
 }
 
 func librarySourceFileSpec(source *Source, filename string, src []byte) syntax.SourceFileSpec {

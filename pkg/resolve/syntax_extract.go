@@ -28,6 +28,7 @@ type SyntaxDependency struct {
 	Scope string
 	Label string
 	Kind  SyntaxDependencyKind
+	Path  string
 	Ref   ImportRef
 }
 
@@ -148,6 +149,7 @@ func appendSyntaxImportDeps(
 			Scope: scope,
 			Label: label,
 			Kind:  SyntaxDependencyImport,
+			Path:  decl.Ref.Value,
 			Ref:   ref,
 		})
 	}
@@ -179,6 +181,7 @@ func appendSyntaxLibraryConfigDeps(
 			Scope: scope,
 			Label: label,
 			Kind:  SyntaxDependencyLibraryConfig,
+			Path:  lib.Path.Value,
 			Ref:   ref,
 		})
 	}

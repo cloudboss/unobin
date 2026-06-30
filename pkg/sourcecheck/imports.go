@@ -19,12 +19,13 @@ import (
 // ImportAnalysis is the resolved import data shared by source checks,
 // compile, and graph printing.
 type ImportAnalysis struct {
-	Top        []resolve.Resolution
-	Libraries  map[string]*runtime.Library
-	GoImports  map[string]string
-	GoModules  map[string]string
-	UBImports  map[string]string
-	UBPackages map[string][]byte
+	Top                  []resolve.Resolution
+	Libraries            map[string]*runtime.Library
+	LibraryConfigSchemas map[string]runtime.LibraryConfigSchema
+	GoImports            map[string]string
+	GoModules            map[string]string
+	UBImports            map[string]string
+	UBPackages           map[string][]byte
 }
 
 // ImportAnalysisOptions configures AnalyzeImports.
@@ -39,6 +40,7 @@ type ImportAnalysisOptions struct {
 	StackName               string
 	GeneratePackages        bool
 	ValidateCompositeBodies bool
+	Body                    *syntax.FactoryBody
 }
 
 // AnalyzeImports resolves refs once and builds the data each caller needs.
@@ -46,9 +48,6 @@ func AnalyzeImports(
 	refs map[string]resolve.ImportRef,
 	opts ImportAnalysisOptions,
 ) (*ImportAnalysis, error) {
-	if len(refs) > 0 && opts.Resolver == nil {
-		return nil, errors.New("sourcecheck: resolver is required when imports are present")
-	}
 	resolver := opts.Resolver
 	if opts.Mode == ModeNoFetch {
 		resolver = noFetchResolver{wrapped: resolver}
@@ -57,19 +56,29 @@ func AnalyzeImports(
 	if schemas == nil {
 		schemas = NewSchemaCache()
 	}
-	visitor := newImportVisitor(opts, schemas)
+	rootConfigDeps, err := bodyLibraryConfigDeps(opts.Body)
+	if err != nil {
+		return nil, err
+	}
+	if len(refs)+len(rootConfigDeps) > 0 && opts.Resolver == nil {
+		return nil, errors.New("sourcecheck: resolver is required when dependencies are present")
+	}
+	visitorOpts := opts
+	visitorOpts.Resolver = resolver
+	visitor := newImportVisitor(visitorOpts, schemas)
 	top, err := resolve.WalkUBFrom(refs, resolver, visitor, opts.Versions,
 		importSourceForOptions(opts))
 	if err != nil {
 		return nil, err
 	}
 	analysis := &ImportAnalysis{
-		Top:        top,
-		Libraries:  make(map[string]*runtime.Library, len(top)),
-		GoImports:  map[string]string{},
-		GoModules:  visitor.goModules,
-		UBImports:  map[string]string{},
-		UBPackages: visitor.packages,
+		Top:                  top,
+		Libraries:            make(map[string]*runtime.Library, len(top)),
+		LibraryConfigSchemas: map[string]runtime.LibraryConfigSchema{},
+		GoImports:            map[string]string{},
+		GoModules:            visitor.goModules,
+		UBImports:            map[string]string{},
+		UBPackages:           visitor.packages,
 	}
 	for _, res := range top {
 		switch res.Kind {
@@ -92,6 +101,16 @@ func AnalyzeImports(
 			}
 		}
 	}
+	libraryConfigSchemas, err := visitor.resolveLibraryConfigDeps(
+		rootConfigDeps,
+		importSourceForOptions(opts),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if libraryConfigSchemas != nil {
+		analysis.LibraryConfigSchemas = libraryConfigSchemas
+	}
 	return analysis, nil
 }
 
@@ -105,7 +124,22 @@ func importSourceForOptions(opts ImportAnalysisOptions) *resolve.Source {
 	return &resolve.Source{FS: os.DirFS(opts.ProjectDir), Path: opts.ProjectDir}
 }
 
+func bodyLibraryConfigDeps(
+	body *syntax.FactoryBody,
+) ([]resolve.SyntaxDependency, error) {
+	if body == nil {
+		return nil, nil
+	}
+	deps, errs := resolve.ExtractSyntaxBodyLibraryConfigDeps(*body)
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
+	}
+	return deps, nil
+}
+
 type importVisitor struct {
+	resolver                resolve.Resolver
+	versions                map[string]string
 	stackName               string
 	generatePackages        bool
 	validateCompositeBodies bool
@@ -131,6 +165,8 @@ func newImportVisitor(opts ImportAnalysisOptions, schemas *SchemaCache) *importV
 		packageIDByKey = ids.byKey
 	}
 	return &importVisitor{
+		resolver:                opts.Resolver,
+		versions:                opts.Versions,
 		stackName:               stackName,
 		generatePackages:        opts.GeneratePackages,
 		validateCompositeBodies: opts.ValidateCompositeBodies,
@@ -154,6 +190,105 @@ func (v *importVisitor) OnGoImport(_, _, modulePath, version string) error {
 	}
 	v.goModules[modulePath] = version
 	return nil
+}
+
+func (v *importVisitor) resolveBodyLibraryConfigSchemas(
+	body syntax.FactoryBody,
+	parent *resolve.Source,
+) (map[string]runtime.LibraryConfigSchema, error) {
+	deps, err := bodyLibraryConfigDeps(&body)
+	if err != nil {
+		return nil, err
+	}
+	return v.resolveLibraryConfigDeps(deps, parent)
+}
+
+func (v *importVisitor) resolveLibraryConfigDeps(
+	deps []resolve.SyntaxDependency,
+	parent *resolve.Source,
+) (map[string]runtime.LibraryConfigSchema, error) {
+	if len(deps) == 0 {
+		return nil, nil
+	}
+	out := map[string]runtime.LibraryConfigSchema{}
+	for _, dep := range deps {
+		if dep.Kind != resolve.SyntaxDependencyLibraryConfig {
+			continue
+		}
+		if _, done := out[dep.Path]; done {
+			continue
+		}
+		schema, err := v.resolveLibraryConfigDep(dep, parent)
+		if err != nil {
+			return nil, fmt.Errorf("%s %q: %w", dep.Kind, dep.Label, err)
+		}
+		out[dep.Path] = schema
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
+}
+
+func (v *importVisitor) resolveLibraryConfigDep(
+	dep resolve.SyntaxDependency,
+	parent *resolve.Source,
+) (runtime.LibraryConfigSchema, error) {
+	if v.resolver == nil {
+		return runtime.LibraryConfigSchema{},
+			errors.New("sourcecheck: resolver is required for schema dependencies")
+	}
+	ref := resolve.ProjectLockVersion(dep.Ref, v.versions)
+	remote, isRemote := ref.(*resolve.RemoteImport)
+	if isRemote && remote.Version == "" {
+		return runtime.LibraryConfigSchema{}, fmt.Errorf(
+			"no version for %s in project-lock.ub; run `unobin deps sync`",
+			dep.Path,
+		)
+	}
+	source, err := resolve.ResolveImportFrom(v.resolver, ref, parent)
+	if err != nil {
+		return runtime.LibraryConfigSchema{}, err
+	}
+	if isRemote {
+		if err := resolve.CheckRemotePackageBoundary(remote, source); err != nil {
+			return runtime.LibraryConfigSchema{}, err
+		}
+	}
+	classification := resolve.ClassifySource(source)
+	if classification.Kind != resolve.SourceGoLibrary {
+		return runtime.LibraryConfigSchema{}, libraryConfigSourceError(dep.Path, classification)
+	}
+	if isRemote && source.ModulePath != "" {
+		if err := resolve.ValidateGoModulePath(remote, source.ModulePath); err != nil {
+			return runtime.LibraryConfigSchema{}, err
+		}
+	}
+	schema, warnings, err := v.schemas.ReadLibraryConfiguration(source.Path)
+	if err != nil {
+		return runtime.LibraryConfigSchema{}, err
+	}
+	printSchemaWarnings(v.warnOut, dep.Label, warnings)
+	out, ok := runtime.LibraryConfigSchemaFromLibrarySchema(dep.Path, schema)
+	if !ok {
+		return runtime.LibraryConfigSchema{},
+			errors.New("configuration schema is unreadable")
+	}
+	return out, nil
+}
+
+func libraryConfigSourceError(
+	path string,
+	classification resolve.SourceClassification,
+) error {
+	switch classification.Kind {
+	case resolve.SourceFactory:
+		return fmt.Errorf("%s is a factory", path)
+	case resolve.SourceUBLibrary:
+		return fmt.Errorf("%s is a UB library", path)
+	default:
+		return fmt.Errorf("%s is not a Go package", path)
+	}
 }
 
 func (v *importVisitor) ubImportPath(canonicalKey string) (string, error) {
@@ -183,7 +318,7 @@ func (v *importVisitor) OnUBLibrary(
 	if v.generatePackages {
 		packageID = v.packageIDs.ID(alias, canonicalKey)
 	}
-	composites, err := v.buildCompiledComposites(entries, lib.BodyImports)
+	composites, err := v.buildCompiledComposites(entries, lib.BodyImports, lib.Source)
 	if err != nil {
 		return err
 	}
@@ -207,15 +342,17 @@ func (v *importVisitor) OnUBLibrary(
 }
 
 type compiledComposite struct {
-	entry          resolve.CompositeEntry
-	bodyLibs       map[string]*runtime.Library
-	codegenImports map[string]string
-	goSpecs        map[string]codegen.GoLibrarySpecs
+	entry                resolve.CompositeEntry
+	bodyLibs             map[string]*runtime.Library
+	libraryConfigSchemas map[string]runtime.LibraryConfigSchema
+	codegenImports       map[string]string
+	goSpecs              map[string]codegen.GoLibrarySpecs
 }
 
 func (v *importVisitor) buildCompiledComposites(
 	entries []resolve.CompositeEntry,
 	bodyImports map[string]map[string][]resolve.Resolution,
+	source *resolve.Source,
 ) ([]compiledComposite, error) {
 	composites := make([]compiledComposite, 0, len(entries))
 	for _, entry := range entries {
@@ -241,6 +378,14 @@ func (v *importVisitor) buildCompiledComposites(
 				}
 			}
 		}
+		libraryConfigSchemas, err := v.resolveBodyLibraryConfigSchemas(
+			entry.SyntaxBody,
+			source,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("%s composite %q: %w", entry.Kind, entry.Name, err)
+		}
+		composite.libraryConfigSchemas = libraryConfigSchemas
 		if len(composite.codegenImports) == 0 {
 			composite.codegenImports = nil
 		}
@@ -306,10 +451,11 @@ func runtimeLibraryForCompiledComposites(
 	for _, composite := range composites {
 		syntaxBody := composite.entry.SyntaxBody
 		lib.AddComposite(&runtime.CompositeType{
-			Name:       composite.entry.Name,
-			Kind:       runtime.NodeKind(composite.entry.Kind),
-			SyntaxBody: &syntaxBody,
-			Libraries:  composite.bodyLibs,
+			Name:                 composite.entry.Name,
+			Kind:                 runtime.NodeKind(composite.entry.Kind),
+			SyntaxBody:           &syntaxBody,
+			Libraries:            composite.bodyLibs,
+			LibraryConfigSchemas: composite.libraryConfigSchemas,
 		})
 	}
 	return lib

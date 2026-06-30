@@ -30,7 +30,7 @@ func TestImportVisitorBuildsCompositeArtifactsTogether(t *testing.T) {
 	require.Equal(t, "leaf", visitor.packageIDs.ID("leaf", "local:/leaf"))
 
 	lib := compositeArtifactLibrary(goSourcePath)
-	composites, err := visitor.buildCompiledComposites(lib.CompositeEntries(), lib.BodyImports)
+	composites, err := visitor.buildCompiledComposites(lib.CompositeEntries(), lib.BodyImports, nil)
 	require.NoError(t, err)
 	require.Len(t, composites, 2)
 
