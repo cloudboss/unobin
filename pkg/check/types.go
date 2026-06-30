@@ -1,14 +1,12 @@
 package check
 
 import (
-	"maps"
 	"slices"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
-	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
@@ -358,48 +356,20 @@ func libraryConfigType(path string, lib *runtime.Library) (typecheck.Type, bool)
 	if lib == nil {
 		return typecheck.TUnknown(), false
 	}
-	if lib.Schema != nil && lib.Schema.HasConfiguration {
-		fields := lib.Schema.ConfigurationFields
-		if fields == nil && lib.Schema.Configuration != nil {
-			fields = configurationFieldsFromMap(lib.Schema.Configuration)
-		}
-		if fields == nil {
-			return typecheck.TUnknown(), true
-		}
-		digest := lib.Schema.ConfigurationDigest
-		if digest == "" {
-			digest = cfg.DigestView(
-				fields,
-				lib.Schema.ConfigurationDefaults,
-				lib.Schema.ConfigurationConstraints,
-			)
-		}
-		return typecheck.TLibraryConfig(path, path, digest, fields), true
+	schema, ok, err := runtime.LibraryConfigSchemaFromLibrary(path, lib)
+	if err != nil {
+		return typecheck.TUnknown(), false
 	}
-	if lib.Configuration != nil {
-		view, err := cfg.View(lib.Configuration)
-		if err != nil {
-			return typecheck.TUnknown(), false
-		}
-		return typecheck.TLibraryConfig(path, path, view.SchemaDigest, view.Fields), true
+	if ok {
+		return schema.TypecheckType(), true
+	}
+	if lib.Schema != nil && lib.Schema.HasConfiguration {
+		return typecheck.TUnknown(), true
 	}
 	if !libraryKnown(lib) {
 		return typecheck.TUnknown(), true
 	}
 	return typecheck.TUnknown(), false
-}
-
-func configurationFieldsFromMap(schema map[string]typecheck.Type) []typecheck.ObjectField {
-	fields := make([]typecheck.ObjectField, 0, len(schema))
-	for _, name := range slices.Sorted(maps.Keys(schema)) {
-		t := schema[name]
-		fields = append(fields, typecheck.ObjectField{
-			Name:     name,
-			Type:     t.Unwrap(),
-			Optional: t.Kind == typecheck.Optional,
-		})
-	}
-	return fields
 }
 
 func inputDeclHasDefault(decl *lang.ObjectLit) bool {
