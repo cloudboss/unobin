@@ -34,6 +34,7 @@ type LibrarySchema struct {
 	ConfigurationFields      []typecheck.ObjectField
 	ConfigurationDefaults    []lang.DefaultSpec
 	ConfigurationConstraints []lang.ConstraintSpec
+	ConfigurationIdentity    string
 	ConfigurationDigest      string
 	ConfigurationEmpty       bool
 	HasConfiguration         bool

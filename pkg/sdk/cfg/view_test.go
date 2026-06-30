@@ -85,6 +85,7 @@ func TestViewBuildsFieldsDefaultsAndDigest(t *testing.T) {
 	require.Equal(t, wantFields, got.Fields)
 	require.Equal(t, wantDefaults, got.Defaults)
 	require.False(t, got.Empty)
+	require.Equal(t, "github.com/cloudboss/unobin/pkg/sdk/cfg.viewConfiguration", got.Identity)
 	require.Regexp(t, regexp.MustCompile(`^[0-9a-f]{64}$`), got.SchemaDigest)
 
 	again, err := View(ct)

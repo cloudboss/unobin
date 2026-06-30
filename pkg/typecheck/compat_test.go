@@ -187,12 +187,26 @@ func TestAssignableObjectFromMap(t *testing.T) {
 
 func TestAssignableLibraryConfig(t *testing.T) {
 	fields := []ObjectField{{Name: "region", Type: TString()}}
-	aws := TLibraryConfig("github.com/acme/aws", "github.com/acme/aws", "abc", fields)
-	awsAgain := TLibraryConfig("github.com/acme/aws", "github.com/acme/aws", "abc", fields)
-	other := TLibraryConfig("github.com/acme/aws", "github.com/acme/aws", "def", fields)
+	aws := TLibraryConfig("example.com/aws", "example.com/aws.Configuration", "abc", fields)
+	awsAgain := TLibraryConfig("example.com/aws", "example.com/aws.Configuration", "abc", fields)
+	other := TLibraryConfig("example.com/aws", "example.com/aws.Configuration", "def", fields)
+	sameIdentity := TLibraryConfig(
+		"example.com/aws-config",
+		"example.com/aws.Configuration",
+		"abc",
+		fields,
+	)
+	differentIdentity := TLibraryConfig(
+		"example.com/other",
+		"example.com/other.Configuration",
+		"abc",
+		fields,
+	)
 
 	assert.True(t, Assignable(aws, awsAgain))
+	assert.True(t, Assignable(aws, sameIdentity))
 	assert.False(t, Assignable(aws, other))
+	assert.False(t, Assignable(aws, differentIdentity))
 	assert.True(t, Assignable(aws, TObject(fields)))
 	assert.True(t, Assignable(TObject(fields), aws))
 	assert.False(t, Assignable(aws, TObject([]ObjectField{{Name: "region", Type: TInteger()}})))

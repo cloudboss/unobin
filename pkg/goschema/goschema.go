@@ -238,9 +238,21 @@ func (c *analysisContext) fillConfigurationSchema(
 	schema.ConfigurationFields = fields
 	schema.ConfigurationDefaults = defaults
 	schema.ConfigurationConstraints = constraints
+	schema.ConfigurationIdentity = c.configurationIdentity(ref)
 	schema.ConfigurationEmpty = len(fields) == 0
 	schema.ConfigurationDigest = cfg.DigestView(fields, defaults, constraints)
 	return true
+}
+
+func (c *analysisContext) configurationIdentity(ref typeRef) string {
+	importPath := c.root.importPath
+	if ref.PkgAlias != "" {
+		importPath = c.root.imports[ref.PkgAlias]
+	}
+	if importPath == "" {
+		return ref.String()
+	}
+	return importPath + "." + ref.TypeName
 }
 
 func (c *analysisContext) newWalker() *walker {

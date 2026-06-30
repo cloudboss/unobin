@@ -29,19 +29,26 @@ func TestLibraryConfigSchemaFromLibrarySchemaUsesSchemaFields(t *testing.T) {
 		ConfigurationFields:      fields,
 		ConfigurationDefaults:    defaults,
 		ConfigurationConstraints: constraints,
+		ConfigurationIdentity:    "example.com/config.Configuration",
 		ConfigurationDigest:      digest,
 	})
 
 	require.True(t, ok)
 	require.Equal(t, LibraryConfigSchema{
 		Path:        "example.com/aws",
+		Identity:    "example.com/config.Configuration",
 		Fields:      fields,
 		Defaults:    defaults,
 		Constraints: constraints,
 		Digest:      digest,
 	}, got)
 	require.Equal(t,
-		typecheck.TLibraryConfig("example.com/aws", "example.com/aws", digest, fields),
+		typecheck.TLibraryConfig(
+			"example.com/aws",
+			"example.com/config.Configuration",
+			digest,
+			fields,
+		),
 		got.TypecheckType())
 	require.Equal(t, lang.LibraryConfigSchema{
 		Type: &lang.TypeObject{Fields: []*lang.TypeObjectField{
@@ -81,6 +88,7 @@ func TestLibraryConfigSchemaFromLibrarySchemaRejectsUnreadableSchema(t *testing.
 func TestLibraryConfigSchemaFromView(t *testing.T) {
 	fields := []typecheck.ObjectField{{Name: "region", Type: typecheck.TString()}}
 	view := cfg.LibraryConfigView{
+		Identity:     "example.com/config.Configuration",
 		Fields:       fields,
 		Defaults:     []lang.DefaultSpec{{Field: "input.region", Value: "'us-west-2'"}},
 		Empty:        false,
@@ -90,6 +98,7 @@ func TestLibraryConfigSchemaFromView(t *testing.T) {
 	got := LibraryConfigSchemaFromView("example.com/aws", view)
 
 	require.Equal(t, "example.com/aws", got.Path)
+	require.Equal(t, view.Identity, got.Identity)
 	require.Equal(t, fields, got.Fields)
 	require.Equal(t, view.Defaults, got.Defaults)
 	require.Equal(t, view.SchemaDigest, got.Digest)

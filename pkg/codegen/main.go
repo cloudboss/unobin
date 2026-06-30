@@ -264,8 +264,8 @@ func schemaHasRuntimeData(schema *runtime.LibrarySchema) bool {
 func schemaHasConfigurationData(schema *runtime.LibrarySchema) bool {
 	return schema != nil && (schema.HasConfiguration || schema.Configuration != nil ||
 		len(schema.ConfigurationFields) > 0 || len(schema.ConfigurationDefaults) > 0 ||
-		len(schema.ConfigurationConstraints) > 0 || schema.ConfigurationDigest != "" ||
-		schema.ConfigurationEmpty)
+		len(schema.ConfigurationConstraints) > 0 || schema.ConfigurationIdentity != "" ||
+		schema.ConfigurationDigest != "" || schema.ConfigurationEmpty)
 }
 
 func schemaNeedsLang(schema *runtime.LibrarySchema) bool {
@@ -397,6 +397,9 @@ func schemaConfigurationLiteral(b *strings.Builder, schema *runtime.LibrarySchem
 			b.WriteString(",\n")
 		}
 		b.WriteString("},\n")
+	}
+	if schema.ConfigurationIdentity != "" {
+		fmt.Fprintf(b, "ConfigurationIdentity: %q,\n", schema.ConfigurationIdentity)
 	}
 	if schema.ConfigurationDigest != "" {
 		fmt.Fprintf(b, "ConfigurationDigest: %q,\n", schema.ConfigurationDigest)

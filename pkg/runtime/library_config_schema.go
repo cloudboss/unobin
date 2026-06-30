@@ -43,6 +43,7 @@ func LibraryConfigSchemaFromLibrarySchema(
 	}
 	return LibraryConfigSchema{
 		Path:        path,
+		Identity:    schema.ConfigurationIdentity,
 		Fields:      fields,
 		Defaults:    schema.ConfigurationDefaults,
 		Constraints: schema.ConfigurationConstraints,
@@ -54,6 +55,7 @@ func LibraryConfigSchemaFromLibrarySchema(
 func LibraryConfigSchemaFromView(path string, view cfg.LibraryConfigView) LibraryConfigSchema {
 	return LibraryConfigSchema{
 		Path:     path,
+		Identity: view.Identity,
 		Fields:   view.Fields,
 		Defaults: view.Defaults,
 		Digest:   view.SchemaDigest,

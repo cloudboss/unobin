@@ -16,6 +16,7 @@ import (
 // LibraryConfigView is the config schema in the form used by input and
 // type checking.
 type LibraryConfigView struct {
+	Identity     string
 	Fields       []typecheck.ObjectField
 	Defaults     []lang.DefaultSpec
 	Empty        bool
@@ -50,12 +51,26 @@ func View(ct Registration) (LibraryConfigView, error) {
 		return LibraryConfigView{}, err
 	}
 	out := LibraryConfigView{
+		Identity: configIdentity(v.Type()),
 		Fields:   fields,
 		Defaults: defaults,
 		Empty:    len(fields) == 0,
 	}
 	out.SchemaDigest = DigestView(out.Fields, out.Defaults, nil)
 	return out, nil
+}
+
+func configIdentity(t reflect.Type) string {
+	if t == nil {
+		return ""
+	}
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t.Name() == "" || t.PkgPath() == "" {
+		return ""
+	}
+	return t.PkgPath() + "." + t.Name()
 }
 
 func viewStruct(

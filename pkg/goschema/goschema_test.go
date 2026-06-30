@@ -185,6 +185,7 @@ func TestReadLibraryConfigurationSchema(t *testing.T) {
 		cfg.DigestView(wantFields, wantDefaults, wantConstraints),
 		schema.ConfigurationDigest,
 	)
+	require.Equal(t, "example.com/configschema.Configuration", schema.ConfigurationIdentity)
 	require.True(t, schema.HasConfiguration)
 	require.Empty(t, schema.Resources)
 }
@@ -1185,6 +1186,7 @@ func TestReadConfigurationFromExtraRoot(t *testing.T) {
 	}
 	require.Equal(t, want, schema.Configuration)
 	require.Equal(t, wantFields, schema.ConfigurationFields)
+	require.Equal(t, "example.com/shared/awscfg.Configuration", schema.ConfigurationIdentity)
 	require.Equal(t, cfg.DigestView(wantFields, nil, nil), schema.ConfigurationDigest)
 	require.True(t, schema.HasConfiguration)
 }
