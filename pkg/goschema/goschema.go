@@ -174,7 +174,7 @@ func (c *analysisContext) readSchema(
 			schema.Actions[reg.Name] = ts
 		}
 	}
-	if ref, init, found, ok := extractConfigurationRef(libraryFunc); found {
+	if ref, init, found, ok := extractConfigurationRef(libraryFunc, c.root.files); found {
 		schema.HasConfiguration = true
 		if !ok {
 			c.warnings = append(c.warnings,
@@ -184,6 +184,9 @@ func (c *analysisContext) readSchema(
 		} else {
 			c.fillConfigurationSchema(schema, ref, init, "library configuration")
 		}
+	}
+	if err := c.checkLibraryConfigurationMatch(schema); err != nil {
+		return nil, err
 	}
 	maps.Copy(schema.Functions, extractFunctions(libraryFunc, c.root.files, &c.errs))
 	if len(c.errs) > 0 {
@@ -215,6 +218,34 @@ func (c *analysisContext) readLibraryConfigurationSchema(
 		return nil, errors.Join(c.errs...)
 	}
 	return schema, nil
+}
+
+func (c *analysisContext) checkLibraryConfigurationMatch(
+	schema *runtime.LibrarySchema,
+) error {
+	if schema == nil || !schema.HasConfiguration ||
+		(schema.ConfigurationFields == nil && !schema.ConfigurationEmpty) {
+		return nil
+	}
+	fn := findPackageFunc(c.root.files, "LibraryConfiguration")
+	if fn == nil {
+		return nil
+	}
+	ref, init, found, ok := extractLibraryConfigurationRef(fn)
+	if !found || !ok {
+		return fmt.Errorf(
+			"LibraryConfiguration(): cannot read the struct behind New from source")
+	}
+	other := &runtime.LibrarySchema{HasConfiguration: true}
+	if !c.fillConfigurationSchema(other, ref, init, "LibraryConfiguration()") {
+		return fmt.Errorf(
+			"LibraryConfiguration(): %s not found in reachable source", ref)
+	}
+	if schema.ConfigurationIdentity == other.ConfigurationIdentity &&
+		schema.ConfigurationDigest == other.ConfigurationDigest {
+		return nil
+	}
+	return fmt.Errorf("LibraryConfiguration() disagrees with Library().Configuration")
 }
 
 func (c *analysisContext) fillConfigurationSchema(
@@ -835,6 +866,7 @@ func extractRegistrations(fn *ast.FuncDecl) []registration {
 // `New: func() any { return &T{} }` (a `&pkg.T{}` works too).
 func extractConfigurationRef(
 	fn *ast.FuncDecl,
+	files []*ast.File,
 ) (ref typeRef, init *ast.CompositeLit, found, ok bool) {
 	if fn.Body == nil {
 		return typeRef{}, nil, false, false
@@ -858,12 +890,31 @@ func extractConfigurationRef(
 			}
 			ctLit := unwrapModuleLiteral(kv.Value)
 			if ctLit == nil {
-				return typeRef{}, nil, true, false
+				return configurationCallRef(kv.Value, files)
 			}
 			return configurationTypeRef(ctLit)
 		}
 	}
 	return typeRef{}, nil, false, false
+}
+
+func configurationCallRef(
+	e ast.Expr,
+	files []*ast.File,
+) (ref typeRef, init *ast.CompositeLit, found, ok bool) {
+	call, callOk := e.(*ast.CallExpr)
+	if !callOk || len(call.Args) != 0 {
+		return typeRef{}, nil, true, false
+	}
+	name, nameOk := identName(call.Fun)
+	if !nameOk || name != "LibraryConfiguration" {
+		return typeRef{}, nil, true, false
+	}
+	fn := findPackageFunc(files, "LibraryConfiguration")
+	if fn == nil {
+		return typeRef{}, nil, true, false
+	}
+	return extractLibraryConfigurationRef(fn)
 }
 
 func extractLibraryConfigurationRef(

@@ -124,7 +124,7 @@ func (i *sourceIndexer) build(libraryFunc *ast.FuncDecl) (*SourceIndex, error) {
 			index.OutputFields[kind][site.Name] = i.fieldLocations(typePkg, spec.Name.Name)
 		}
 	}
-	if ref, _, found, ok := extractConfigurationRef(libraryFunc); found && ok {
+	if ref, _, found, ok := extractConfigurationRef(libraryFunc, rootPkg.files); found && ok {
 		if typePkg, spec, ok := i.resolveType(rootPkg, ref); ok {
 			index.ConfigType = typePkg.location(spec.Name.Pos())
 			index.ConfigFields = i.fieldLocations(typePkg, spec.Name.Name)

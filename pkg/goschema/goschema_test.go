@@ -145,6 +145,31 @@ func TestReadExtractsPlainConfigurationSchema(t *testing.T) {
 	require.Contains(t, schema.Resources, "bucket")
 }
 
+func TestReadCombinedLibraryConfigurationSchema(t *testing.T) {
+	schema, warnings, err := Read("testdata/configschemacombined")
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+
+	fields := []typecheck.ObjectField{{Name: "region", Type: typecheck.TString()}}
+	require.Equal(t, fields, schema.ConfigurationFields)
+	require.Equal(t,
+		"example.com/configschemacombined.Configuration",
+		schema.ConfigurationIdentity,
+	)
+	require.Equal(t, cfg.DigestView(fields, nil, nil), schema.ConfigurationDigest)
+	require.True(t, schema.HasConfiguration)
+}
+
+func TestReadRejectsMismatchedLibraryConfigurationSchema(t *testing.T) {
+	want, readErr := os.ReadFile("testdata/configschemamismatch/read.err")
+	require.NoError(t, readErr)
+
+	_, _, err := Read("testdata/configschemamismatch")
+
+	require.Error(t, err)
+	require.Equal(t, string(want), err.Error()+"\n")
+}
+
 func TestReadLibraryConfigurationSchema(t *testing.T) {
 	schema, warnings, err := ReadLibraryConfiguration("testdata/configschema")
 	require.NoError(t, err)
