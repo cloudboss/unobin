@@ -1,0 +1,12 @@
+factory: {
+  imports: {
+    ec2: 'example.com/aws//service/ec2'
+  }
+
+  inputs: {
+    aws: {
+      type: library-config('example.com/aws//config')
+      default: {}
+    }
+  }
+}

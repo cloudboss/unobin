@@ -1,0 +1,1 @@
+library-config "input.aws.type": import "github.com": repo URL must contain a host and a path

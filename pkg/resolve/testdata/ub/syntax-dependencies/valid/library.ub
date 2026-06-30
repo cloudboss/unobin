@@ -1,0 +1,11 @@
+cluster: resource {
+  imports: {
+    local: './local-lib'
+  }
+
+  inputs: {
+    aws: {
+      type: library-config('example.com/aws//config')
+    }
+  }
+}

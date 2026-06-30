@@ -1,0 +1,2 @@
+ec2 import remote example.com/aws//service/ec2
+input.aws.type library-config remote example.com/aws//config

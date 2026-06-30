@@ -1,0 +1,2 @@
+resource.cluster.local import local ./local-lib
+resource.cluster.input.aws.type library-config remote example.com/aws//config
