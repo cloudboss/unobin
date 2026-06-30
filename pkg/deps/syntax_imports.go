@@ -8,6 +8,30 @@ import (
 )
 
 func extractSyntaxImportRefs(path string, src []byte) ([]resolve.SyntaxImport, error) {
+	sf, err := parseDependencySource(path, src)
+	if err != nil {
+		return nil, err
+	}
+	refs, errs := resolve.ExtractSyntaxImports(sf)
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
+	}
+	return refs, nil
+}
+
+func extractSyntaxDependencyRefs(path string, src []byte) ([]resolve.SyntaxDependency, error) {
+	sf, err := parseDependencySource(path, src)
+	if err != nil {
+		return nil, err
+	}
+	refs, errs := resolve.ExtractSyntaxDependencies(sf)
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
+	}
+	return refs, nil
+}
+
+func parseDependencySource(path string, src []byte) (*syntax.File, error) {
 	sf, err := syntax.ParseSource(path, src)
 	if err != nil {
 		return nil, err
@@ -18,9 +42,5 @@ func extractSyntaxImportRefs(path string, src []byte) ([]resolve.SyntaxImport, e
 			return nil, verrs.Err()
 		}
 	}
-	refs, errs := resolve.ExtractSyntaxImports(sf)
-	if len(errs) > 0 {
-		return nil, errors.Join(errs...)
-	}
-	return refs, nil
+	return sf, nil
 }

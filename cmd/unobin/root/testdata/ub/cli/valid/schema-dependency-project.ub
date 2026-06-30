@@ -1,0 +1,5 @@
+project: {
+  requires: {
+    'example.com/aws': { version: 'v0.1.0' }
+  }
+}

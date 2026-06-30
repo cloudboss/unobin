@@ -48,6 +48,20 @@ func TestImportedPackagesScansSourceDeclaredLibraryExports(t *testing.T) {
 	}, repos)
 }
 
+func TestImportedPackagesScansSchemaDependencies(t *testing.T) {
+	repos, err := ImportedPackages(scanFixtureRoot(t, "valid/schema-dependencies"))
+	require.NoError(t, err)
+	assert.Equal(t, map[RemotePackage]bool{
+		{URL: "example.com/aws", Subdir: "config"}: true,
+	}, repos)
+}
+
+func TestImportedPackagesSkipsLocalSchemaDependencies(t *testing.T) {
+	repos, err := ImportedPackages(scanFixtureRoot(t, "valid/local-schema-dependencies"))
+	require.NoError(t, err)
+	assert.Empty(t, repos)
+}
+
 func TestImportedPackagesNoRemoteDeps(t *testing.T) {
 	repos, err := ImportedPackages(scanFixtureRoot(t, "valid/no-remote-deps"))
 	require.NoError(t, err)

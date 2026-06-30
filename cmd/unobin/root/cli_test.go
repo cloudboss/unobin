@@ -9,6 +9,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/deps"
@@ -174,6 +175,14 @@ func projectSource(body string) []byte {
 	return []byte("project" + ": {\n" + body + "}\n")
 }
 
+func commandMapSource(commit string, files map[string]string) *resolve.Source {
+	fsys := make(fstest.MapFS, len(files))
+	for path, body := range files {
+		fsys[path] = &fstest.MapFile{Data: []byte(body)}
+	}
+	return &resolve.Source{Commit: commit, FS: fsys}
+}
+
 // setCLIVersion stamps the CLI version for one test, the way a release
 // build's ldflags would.
 func setCLIVersion(t *testing.T, v string) {
@@ -204,6 +213,63 @@ func TestDepsSyncOutputCompilesForReplacedUnobinSubdir(t *testing.T) {
 	require.Empty(t, synced.Requires)
 	_, err = runCommand(t, "compile", "-p", filepath.Join(dir, "factory.ub"), "-o", "-")
 	require.NoError(t, err)
+}
+
+func TestDepsSyncKeepsSchemaDependencyDirect(t *testing.T) {
+	dir := t.TempDir()
+	writeSchemaDependencyFactory(t, dir)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, deps.ProjectFileName),
+		[]byte(cliFixture(t, "schema-dependency-project")), 0o644))
+
+	_, err := runCommandWithRemotes(t, schemaDependencyRemotes(t),
+		"deps", "sync", "-p", filepath.Join(dir, "factory.ub"))
+
+	require.NoError(t, err)
+	synced, err := deps.ReadProject(os.DirFS(dir))
+	require.NoError(t, err)
+	require.Equal(t, deps.Requirement{Version: "v0.1.0"},
+		synced.Requires[deps.Dependency{URL: "example.com/aws"}])
+}
+
+func TestDepsGetTreatsSchemaDependencyAsDirect(t *testing.T) {
+	dir := t.TempDir()
+	writeSchemaDependencyFactory(t, dir)
+	restoreTags := SetDepsListTagsForTest(func(url string) ([]string, error) {
+		require.Equal(t, "example.com/aws", url)
+		return []string{"v0.1.0"}, nil
+	})
+	t.Cleanup(restoreTags)
+
+	_, err := runCommandWithRemotes(t, schemaDependencyRemotes(t),
+		"deps", "get", "example.com/aws@v0.1.0", "-p", filepath.Join(dir, "factory.ub"))
+
+	require.NoError(t, err)
+	synced, err := deps.ReadProject(os.DirFS(dir))
+	require.NoError(t, err)
+	require.Equal(t, deps.Requirement{Version: "v0.1.0"},
+		synced.Requires[deps.Dependency{URL: "example.com/aws"}])
+}
+
+func writeSchemaDependencyFactory(t testing.TB, dir string) {
+	t.Helper()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),
+		[]byte(cliFixture(t, "schema-dependency-factory")), 0o644))
+}
+
+func schemaDependencyRemotes(t testing.TB) map[string]*resolve.Source {
+	t.Helper()
+	return map[string]*resolve.Source{
+		remoteSourceKey("example.com/aws", "", "v0.1.0"): commandMapSource(
+			"root",
+			map[string]string{
+				deps.ProjectFileName: cliFixture(t, "schema-dependency-remote-project"),
+			},
+		),
+		remoteSourceKey("example.com/aws", "config", "v0.1.0"): commandMapSource(
+			"config",
+			map[string]string{"config.go": "package config\n"},
+		),
+	}
 }
 
 // TestCLIVersionFallsBackToBuildInfo proves an unstamped binary

@@ -79,15 +79,15 @@ func scanImports(path string, packages map[RemotePackage]bool) error {
 	if err != nil {
 		return err
 	}
-	refs, err := extractSyntaxImportRefs(path, b)
+	refs, err := extractSyntaxDependencyRefs(path, b)
 	if err != nil {
 		return err
 	}
-	addSyntaxImportRefs(packages, refs)
+	addSyntaxDependencyRefs(packages, refs)
 	return nil
 }
 
-func addSyntaxImportRefs(packages map[RemotePackage]bool, refs []resolve.SyntaxImport) {
+func addSyntaxDependencyRefs(packages map[RemotePackage]bool, refs []resolve.SyntaxDependency) {
 	for _, ref := range refs {
 		rem, ok := ref.Ref.(*resolve.RemoteImport)
 		if !ok {
