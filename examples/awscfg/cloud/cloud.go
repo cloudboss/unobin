@@ -45,15 +45,20 @@ func (a *DescribeAction) Run(
 	return out, nil
 }
 
+// LibraryConfiguration returns the configuration registration for the cloud library.
+func LibraryConfiguration() *cfg.ConfigurationType[*awscfg.Configuration] {
+	return &cfg.ConfigurationType[*awscfg.Configuration]{
+		Description: "AWS connection settings, shared with unobin's own backends.",
+		New:         func() *awscfg.Configuration { return &awscfg.Configuration{} },
+	}
+}
+
 // Library returns the registration record for the cloud library.
 func Library() *runtime.Library {
 	return &runtime.Library{
-		Name:        "cloud",
-		Description: "Reports the AWS connection settings a configuration selects.",
-		Configuration: &cfg.ConfigurationType[*awscfg.Configuration]{
-			Description: "AWS connection settings, shared with unobin's own backends.",
-			New:         func() *awscfg.Configuration { return &awscfg.Configuration{} },
-		},
+		Name:          "cloud",
+		Description:   "Reports the AWS connection settings a configuration selects.",
+		Configuration: LibraryConfiguration(),
 		Actions: map[string]runtime.ActionRegistration{
 			"describe": runtime.MakeAction[
 				DescribeAction,

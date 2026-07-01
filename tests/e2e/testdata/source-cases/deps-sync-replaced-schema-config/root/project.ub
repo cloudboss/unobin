@@ -1,0 +1,6 @@
+project: {
+  requires: {}
+  replace: {
+    'example.com/aws': '../modules/aws'
+  }
+}

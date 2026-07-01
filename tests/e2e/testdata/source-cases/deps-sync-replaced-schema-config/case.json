@@ -1,0 +1,16 @@
+{
+  "name": "deps-sync-replaced-schema-config",
+  "rootPath": "root",
+  "executor": "root",
+  "commands": [
+    {
+      "name": "deps-sync",
+      "args": ["deps", "sync"],
+      "stderr": "want/deps-sync.stderr"
+    }
+  ],
+  "files": [
+    { "path": "root/project.ub", "want": "want/project.ub" },
+    { "path": "root/project-lock.ub", "want": "want/project-lock.ub" }
+  ]
+}

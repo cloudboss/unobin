@@ -185,7 +185,7 @@ func (w *projectLockWalker) walkRemote(
 ) error {
 	pkg := RemotePackage{URL: r.URL, Subdir: r.Subdir}
 	if _, replaced := MostSpecificProject(ProjectIDsFromReplace(w.replace), pkg); replaced {
-		return w.walkReplaced(r)
+		return w.walkReplaced(r, depKind)
 	}
 	owner, version, ok := w.ownerVersion(pkg)
 	if !ok {
@@ -263,24 +263,8 @@ func (w *projectLockWalker) checkRemoteSchemaDependency(
 	src *resolve.Source,
 	classification resolve.SourceClassification,
 ) error {
-	switch classification.Kind {
-	case resolve.SourceFactory:
-		return fmt.Errorf("a factory cannot be used as a library-config schema")
-	case resolve.SourceInvalid:
-		return missingPackageProjectError(pkg, owner.Project)
-	case resolve.SourceUBLibrary:
-		return fmt.Errorf("library-config schema dependency must resolve to a Go package")
-	case resolve.SourceGoLibrary:
-		if src.ModulePath != "" {
-			if err := resolve.ValidateGoModulePath(
-				remotePackageRef(pkg, owner, version), src.ModulePath,
-			); err != nil {
-				return err
-			}
-		}
-		if err := validateGoLibraryConfigurationSource(src, w.schemaRoots...); err != nil {
-			return err
-		}
+	if err := w.validateSchemaDependencySource(pkg, owner, version, src, classification); err != nil {
+		return err
 	}
 	projectID := owner.Project.String()
 	if _, done := w.projectLock.Deps[projectID]; done {
@@ -291,6 +275,33 @@ func (w *projectLockWalker) checkRemoteSchemaDependency(
 		return err
 	}
 	w.projectLock.Deps[projectID] = entry
+	return nil
+}
+
+func (w *projectLockWalker) validateSchemaDependencySource(
+	pkg RemotePackage,
+	owner PackageOwner,
+	version string,
+	src *resolve.Source,
+	classification resolve.SourceClassification,
+) error {
+	switch classification.Kind {
+	case resolve.SourceFactory:
+		return fmt.Errorf("a factory cannot be used as a library-config schema")
+	case resolve.SourceInvalid:
+		return missingPackageProjectError(pkg, owner.Project)
+	case resolve.SourceUBLibrary:
+		return fmt.Errorf("library-config schema dependency must resolve to a Go package")
+	case resolve.SourceGoLibrary:
+		if version != "" && src.ModulePath != "" {
+			if err := resolve.ValidateGoModulePath(
+				remotePackageRef(pkg, owner, version), src.ModulePath,
+			); err != nil {
+				return err
+			}
+		}
+		return validateGoLibraryConfigurationSource(src, w.schemaRoots...)
+	}
 	return nil
 }
 
@@ -435,7 +446,10 @@ func checkLocalImportProjectBoundary(rootFS fs.FS, baseDir, importPath string) e
 	return nil
 }
 
-func (w *projectLockWalker) walkReplaced(r *resolve.RemoteImport) error {
+func (w *projectLockWalker) walkReplaced(
+	r *resolve.RemoteImport,
+	depKind resolve.SyntaxDependencyKind,
+) error {
 	pkg := RemotePackage{URL: r.URL, Subdir: r.Subdir}
 	owner, ok := MostSpecificProject(ProjectIDsFromReplace(w.replace), pkg)
 	if !ok {
@@ -448,7 +462,11 @@ func (w *projectLockWalker) walkReplaced(r *resolve.RemoteImport) error {
 	if err := CheckPackageBoundary(src, owner, pkg); err != nil {
 		return err
 	}
-	switch resolve.ClassifySource(src).Kind {
+	classification := resolve.ClassifySource(src)
+	if depKind == resolve.SyntaxDependencyLibraryConfig {
+		return w.validateSchemaDependencySource(pkg, owner, "", src, classification)
+	}
+	switch classification.Kind {
 	case resolve.SourceFactory:
 		return fmt.Errorf("a factory cannot be imported")
 	case resolve.SourceUBLibrary:

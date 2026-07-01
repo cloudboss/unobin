@@ -1,0 +1,10 @@
+project: {
+  requires: {
+    'example.com/aws': {
+      version: 'v0.0.0-unobin-replaced'
+    }
+  }
+  replace: {
+    'example.com/aws': '../modules/aws'
+  }
+}
