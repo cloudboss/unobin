@@ -12,9 +12,12 @@ type SchemaCache = sourcecheck.SchemaCache
 // NewSchemaCache returns a cache that reads through ReadGoSchema with
 // extra as the module roots for every lookup.
 func NewSchemaCache(extra ...goschema.ModuleRoot) *SchemaCache {
-	return NewSchemaCacheWithReader(
+	return sourcecheck.NewSchemaCacheWithReaders(
 		func(sourcePath string) (*ubruntime.LibrarySchema, []string, error) {
 			return ReadGoSchema(sourcePath, extra...)
+		},
+		func(sourcePath string) (*ubruntime.LibrarySchema, []string, error) {
+			return goschema.ReadLibraryConfiguration(sourcePath, extra...)
 		},
 	)
 }

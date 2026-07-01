@@ -1,0 +1,8 @@
+project: {
+  requires: {
+    'example.com/aws': { version: 'v1.0.0' }
+  }
+  replace: {
+    'example.com/aws': './modules/aws'
+  }
+}

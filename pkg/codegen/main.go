@@ -55,6 +55,9 @@ type Input struct {
 	// GoSchemas maps a Go-library alias to schema metadata the compiled
 	// runtime needs after compile-time checks, such as sensitive fields.
 	GoSchemas map[string]*runtime.LibrarySchema
+	// LibraryConfigSchemas maps library-config paths to schemas resolved by
+	// source analysis, including schema packages not listed in imports.
+	LibraryConfigSchemas map[string]runtime.LibraryConfigSchema
 }
 
 // Generate produces the formatted Go source for the factory binary's
@@ -69,6 +72,7 @@ func Generate(in Input) ([]byte, error) {
 	constraintAliases := injectedAliases(in.GoConstraints)
 	defaultAliases := injectedAliases(in.GoDefaults)
 	schemaInjectAliases := schemaAliases(in.GoSchemas)
+	hasLibraryConfigSchemas := len(in.LibraryConfigSchemas) > 0
 	body, source, err := factoryBodyInput(in)
 	if err != nil {
 		return nil, err
@@ -80,40 +84,47 @@ func Generate(in Input) ([]byte, error) {
 		return nil, err
 	}
 	data := struct {
-		FactoryBodyLiteral string
-		FactorySourcePath  string
-		FactoryLineStarts  string
-		LibraryPath        string
-		FactoryName        string
-		GoImports          []aliasImport
-		UBImports          []aliasImport
-		ConstraintAliases  []string
-		GoConstraints      map[string]map[string][]lang.ConstraintSpec
-		DefaultAliases     []string
-		GoDefaults         map[string]map[string][]lang.DefaultSpec
-		SchemaAliases      []string
-		GoSchemas          map[string]*runtime.LibrarySchema
-		HasLang            bool
-		HasTypecheck       bool
-		Inject             bool
+		FactoryBodyLiteral     string
+		FactorySourcePath      string
+		FactoryLineStarts      string
+		LibraryPath            string
+		FactoryName            string
+		GoImports              []aliasImport
+		UBImports              []aliasImport
+		ConstraintAliases      []string
+		GoConstraints          map[string]map[string][]lang.ConstraintSpec
+		DefaultAliases         []string
+		GoDefaults             map[string]map[string][]lang.DefaultSpec
+		SchemaAliases          []string
+		GoSchemas              map[string]*runtime.LibrarySchema
+		LibraryConfigSchemas   map[string]runtime.LibraryConfigSchema
+		HasLibraryConfigSchema bool
+		HasLang                bool
+		HasTypecheck           bool
+		Inject                 bool
 	}{
-		FactoryBodyLiteral: factoryBody,
-		FactorySourcePath:  factorySourceDisplayPath(source),
-		FactoryLineStarts:  intSliceLiteral(source.LineStarts),
-		LibraryPath:        in.LibraryPath,
-		FactoryName:        in.FactoryName,
-		GoImports:          goImports,
-		UBImports:          ubImports,
-		ConstraintAliases:  constraintAliases,
-		GoConstraints:      in.GoConstraints,
-		DefaultAliases:     defaultAliases,
-		GoDefaults:         in.GoDefaults,
-		SchemaAliases:      schemaInjectAliases,
-		GoSchemas:          in.GoSchemas,
+		FactoryBodyLiteral:     factoryBody,
+		FactorySourcePath:      factorySourceDisplayPath(source),
+		FactoryLineStarts:      intSliceLiteral(source.LineStarts),
+		LibraryPath:            in.LibraryPath,
+		FactoryName:            in.FactoryName,
+		GoImports:              goImports,
+		UBImports:              ubImports,
+		ConstraintAliases:      constraintAliases,
+		GoConstraints:          in.GoConstraints,
+		DefaultAliases:         defaultAliases,
+		GoDefaults:             in.GoDefaults,
+		SchemaAliases:          schemaInjectAliases,
+		GoSchemas:              in.GoSchemas,
+		LibraryConfigSchemas:   in.LibraryConfigSchemas,
+		HasLibraryConfigSchema: hasLibraryConfigSchemas,
 		HasLang: len(constraintAliases)+len(defaultAliases) > 0 ||
-			schemasNeedLang(in.GoSchemas) || strings.Contains(factoryBody, "lang."),
-		HasTypecheck: schemasNeedTypecheck(in.GoSchemas),
-		Inject:       len(constraintAliases)+len(defaultAliases)+len(schemaInjectAliases) > 0,
+			schemasNeedLang(in.GoSchemas) ||
+			libraryConfigSchemasNeedLang(in.LibraryConfigSchemas) ||
+			strings.Contains(factoryBody, "lang."),
+		HasTypecheck: schemasNeedTypecheck(in.GoSchemas) ||
+			libraryConfigSchemasNeedTypecheck(in.LibraryConfigSchemas),
+		Inject: len(constraintAliases)+len(defaultAliases)+len(schemaInjectAliases) > 0,
 	}
 
 	var buf bytes.Buffer
@@ -257,6 +268,24 @@ func schemasNeedTypecheck(m map[string]*runtime.LibrarySchema) bool {
 	return false
 }
 
+func libraryConfigSchemasNeedLang(m map[string]runtime.LibraryConfigSchema) bool {
+	for _, schema := range m {
+		if len(schema.Defaults) > 0 || len(schema.Constraints) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func libraryConfigSchemasNeedTypecheck(m map[string]runtime.LibraryConfigSchema) bool {
+	for _, schema := range m {
+		if len(schema.Fields) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func schemaHasRuntimeData(schema *runtime.LibrarySchema) bool {
 	return schemaHasSensitivity(schema) || schemaHasConfigurationData(schema)
 }
@@ -309,6 +338,70 @@ func injectDefaults(alias string, all map[string]map[string][]lang.DefaultSpec) 
 
 func injectSchema(alias string, all map[string]*runtime.LibrarySchema) string {
 	return schemaAssign(fmt.Sprintf("libraries[%q]", alias), all[alias])
+}
+
+func libraryConfigSchemasLiteral(m map[string]runtime.LibraryConfigSchema) string {
+	var b strings.Builder
+	b.WriteString("map[string]runtime.LibraryConfigSchema{\n")
+	for _, path := range sortedLibraryConfigSchemaKeys(m) {
+		fmt.Fprintf(&b, "%q: %s,\n", path, libraryConfigSchemaLiteral(m[path]))
+	}
+	b.WriteString("}")
+	return b.String()
+}
+
+func sortedLibraryConfigSchemaKeys(m map[string]runtime.LibraryConfigSchema) []string {
+	keys := make([]string, 0, len(m))
+	for path := range m {
+		keys = append(keys, path)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+func libraryConfigSchemaLiteral(schema runtime.LibraryConfigSchema) string {
+	parts := []string{fmt.Sprintf("Path: %q", schema.Path)}
+	if len(schema.Fields) > 0 {
+		parts = append(parts, "Fields: "+objectFieldsLiteral(schema.Fields))
+	}
+	if len(schema.Defaults) > 0 {
+		parts = append(parts, "Defaults: "+defaultSpecsLiteral(schema.Defaults))
+	}
+	if len(schema.Constraints) > 0 {
+		parts = append(parts, "Constraints: "+constraintSpecsLiteral(schema.Constraints))
+	}
+	if schema.Identity != "" {
+		parts = append(parts, fmt.Sprintf("Identity: %q", schema.Identity))
+	}
+	if schema.Digest != "" {
+		parts = append(parts, fmt.Sprintf("Digest: %q", schema.Digest))
+	}
+	if schema.Empty {
+		parts = append(parts, "Empty: true")
+	}
+	return "{" + strings.Join(parts, ", ") + "}"
+}
+
+func defaultSpecsLiteral(specs []lang.DefaultSpec) string {
+	var b strings.Builder
+	b.WriteString("[]lang.DefaultSpec{\n")
+	for _, spec := range specs {
+		b.WriteString(defaultLiteral(spec))
+		b.WriteString(",\n")
+	}
+	b.WriteString("}")
+	return b.String()
+}
+
+func constraintSpecsLiteral(specs []lang.ConstraintSpec) string {
+	var b strings.Builder
+	b.WriteString("[]lang.ConstraintSpec{\n")
+	for _, spec := range specs {
+		b.WriteString(specLiteral(spec))
+		b.WriteString(",\n")
+	}
+	b.WriteString("}")
+	return b.String()
 }
 
 // constraintsAssign renders the statement attaching constraint specs to
@@ -579,6 +672,7 @@ var mainTemplate = template.Must(template.New("main.go").Funcs(template.FuncMap{
 	"injectConstraints": injectConstraints,
 	"injectDefaults":    injectDefaults,
 	"injectSchema":      injectSchema,
+	"lcs":               libraryConfigSchemasLiteral,
 }).Parse(`// Code generated by unobin. DO NOT EDIT.
 package main
 
@@ -618,7 +712,8 @@ var (
 )
 
 func main() {
-{{if .Inject -}}
+{{if .HasLibraryConfigSchema}}	configSchemas := {{lcs .LibraryConfigSchemas}}
+{{end}}{{if .Inject -}}
 	libraries := map[string]*runtime.Library{
 {{range .GoImports}}		{{quote .LocalAlias}}: runtime.LibraryWithPath(
 			{{.GoIdent}}.Library(),
@@ -639,7 +734,8 @@ func main() {
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries:       libraries,
-		UnobinVersion:   unobinVersion,
+{{if .HasLibraryConfigSchema}}		LibraryConfigSchemas: configSchemas,
+{{end}}		UnobinVersion: unobinVersion,
 	})
 {{else -}}
 	runner.Run(runner.Info{
@@ -658,7 +754,8 @@ func main() {
 				{{quote .Path}},
 			),
 {{end}}		},
-		UnobinVersion: unobinVersion,
+{{if .HasLibraryConfigSchema}}		LibraryConfigSchemas: configSchemas,
+{{end}}		UnobinVersion: unobinVersion,
 	})
 {{end -}}
 }

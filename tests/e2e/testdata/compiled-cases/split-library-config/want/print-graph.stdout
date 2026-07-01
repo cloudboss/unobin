@@ -1,0 +1,8 @@
+action.region
+  -> library-config.service
+
+library-config.service
+  -> input.aws
+
+output.region
+  -> action.region

@@ -28,6 +28,11 @@
       "name": "check",
       "args": ["check", "-p", "factory.ub"],
       "stdout": "want/check.stdout"
+    },
+    {
+      "name": "print-graph",
+      "args": ["print-graph", "-p", "factory.ub"],
+      "stdout": "want/print-graph.stdout"
     }
   ]
 }

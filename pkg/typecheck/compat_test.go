@@ -190,6 +190,7 @@ func TestAssignableLibraryConfig(t *testing.T) {
 	aws := TLibraryConfig("example.com/aws", "example.com/aws.Configuration", "abc", fields)
 	awsAgain := TLibraryConfig("example.com/aws", "example.com/aws.Configuration", "abc", fields)
 	other := TLibraryConfig("example.com/aws", "example.com/aws.Configuration", "def", fields)
+	samePathMissingIdentity := TLibraryConfig("example.com/aws", "", "abc", fields)
 	sameIdentity := TLibraryConfig(
 		"example.com/aws-config",
 		"example.com/aws.Configuration",
@@ -204,6 +205,7 @@ func TestAssignableLibraryConfig(t *testing.T) {
 	)
 
 	assert.True(t, Assignable(aws, awsAgain))
+	assert.True(t, Assignable(aws, samePathMissingIdentity))
 	assert.True(t, Assignable(aws, sameIdentity))
 	assert.False(t, Assignable(aws, other))
 	assert.False(t, Assignable(aws, differentIdentity))

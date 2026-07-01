@@ -1,1 +1,1 @@
-Error: factory.ub:3:50: resolve: library-config path "example.com/unobin/missing" is not imported in this body
+Error: library-config "input.other-config.type": no version for example.com/unobin/missing in project-lock.ub; run `unobin deps sync`

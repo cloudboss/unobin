@@ -1,0 +1,1 @@
+{ kind: 'apply-output', name: 'region', value: 'us-west-2' }

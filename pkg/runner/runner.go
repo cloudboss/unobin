@@ -39,12 +39,13 @@ const EnvVarPrefix = "UB_INPUT_"
 // operator's stack file asserts the same value under `factory.pin.library-path`.
 // An empty LibraryPath disables that identity check.
 type Info struct {
-	FactoryName     string
-	FactoryVersion  string
-	ContentRevision string
-	FactoryBody     *syntax.FactoryBody
-	LibraryPath     string
-	Libraries       map[string]*runtime.Library
+	FactoryName          string
+	FactoryVersion       string
+	ContentRevision      string
+	FactoryBody          *syntax.FactoryBody
+	LibraryPath          string
+	Libraries            map[string]*runtime.Library
+	LibraryConfigSchemas map[string]runtime.LibraryConfigSchema
 
 	// UnobinVersion is the unobin version the factory was compiled
 	// against, stamped at link time the way FactoryVersion is. Run
@@ -430,7 +431,13 @@ func doRefresh(cmd *cobra.Command, info Info, config *parsedStack, configPath st
 		return err
 	}
 	dag := parsed.dag
-	inputs, err := buildInputs(config, configPath, parsed, info.Libraries)
+	inputs, err := buildInputs(
+		config,
+		configPath,
+		parsed,
+		info.Libraries,
+		info.LibraryConfigSchemas,
+	)
 	if err != nil {
 		return err
 	}
@@ -500,12 +507,22 @@ func doValidate(cmd *cobra.Command, info Info, config *parsedStack, configPath s
 	// Validation is the one command whose job is to re-prove the
 	// stack, so it runs the deep checks the other commands leave to
 	// the compiler.
-	checker := check.NewSyntax(*parsed.syntaxBody, info.Libraries)
+	checker := check.NewSyntaxWithLibraryConfigSchemas(
+		*parsed.syntaxBody,
+		info.Libraries,
+		info.LibraryConfigSchemas,
+	)
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return errs.Err()
 	}
 	dag := checker.DAG()
-	if _, err := buildInputs(config, configPath, parsed, info.Libraries); err != nil {
+	if _, err := buildInputs(
+		config,
+		configPath,
+		parsed,
+		info.Libraries,
+		info.LibraryConfigSchemas,
+	); err != nil {
 		return err
 	}
 	if err := validateStateRefs(config, configPath); err != nil {
@@ -686,7 +703,13 @@ func doPlan(
 		return err
 	}
 	dag := parsed.dag
-	inputs, err := buildInputs(config, configPath, parsed, info.Libraries)
+	inputs, err := buildInputs(
+		config,
+		configPath,
+		parsed,
+		info.Libraries,
+		info.LibraryConfigSchemas,
+	)
 	if err != nil {
 		return err
 	}
@@ -746,6 +769,7 @@ func buildInputs(
 	configPath string,
 	parsed *parsedFactory,
 	libs map[string]*runtime.Library,
+	libraryConfigSchemas map[string]runtime.LibraryConfigSchema,
 ) (map[string]any, error) {
 	decl := parsed.inputBlock()
 	constraints := parsed.constraints()
@@ -757,12 +781,20 @@ func buildInputs(
 		return nil, err
 	}
 	validated, errs := lang.ValidateInputsWithLibraryConfigs(
-		decl, inputs, defaultEval, libraryConfigInputResolver(parsed.syntaxBody, libs))
+		decl,
+		inputs,
+		defaultEval,
+		libraryConfigInputResolver(parsed.syntaxBody, libs, libraryConfigSchemas),
+	)
 	if errs.Len() > 0 {
 		return nil, errs.Err()
 	}
 	if err := checkLibraryConfigInputConstraints(
-		decl, validated, parsed.syntaxBody, libs,
+		decl,
+		validated,
+		parsed.syntaxBody,
+		libs,
+		libraryConfigSchemas,
 	); err != nil {
 		return nil, err
 	}
@@ -779,8 +811,9 @@ func checkLibraryConfigInputConstraints(
 	values map[string]any,
 	body *syntax.FactoryBody,
 	libs map[string]*runtime.Library,
+	libraryConfigSchemas map[string]runtime.LibraryConfigSchema,
 ) error {
-	resolve := libraryConfigInputResolver(body, libs)
+	resolve := libraryConfigInputResolver(body, libs, libraryConfigSchemas)
 	for _, field := range libraryConfigInputFields(decl) {
 		schema, ok := resolve(field.path)
 		if !ok || len(schema.Constraints) == 0 {

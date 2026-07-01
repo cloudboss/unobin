@@ -76,7 +76,8 @@ func main() {
 			{Field: "input.nested.label", Value: "'nested'"},
 			{Field: "input.nested.enabled", Value: "true"},
 		},
-		ConfigurationDigest: "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3",
+		ConfigurationIdentity: "example.com/unobin/e2elib.Configuration",
+		ConfigurationDigest:   "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3",
 	}
 	runner.Run(runner.Info{
 		FactoryName:     factoryName,

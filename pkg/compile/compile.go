@@ -316,6 +316,7 @@ func Run(opts Options) error {
 		StackName:               name,
 		GeneratePackages:        true,
 		ValidateCompositeBodies: true,
+		Body:                    &sf.Factory.Body,
 		Source: &resolve.Source{
 			FS:   os.DirFS(sourceDir),
 			Path: sourceDir,
@@ -349,7 +350,11 @@ func Run(opts Options) error {
 	pruneUnusedSpecs(goConstraints, used)
 	pruneUnusedSpecs(goDefaults, used)
 	pruneUnusedSchemas(goSchemas, used)
-	checker := check.NewSyntax(sf.Factory.Body, libs)
+	checker := check.NewSyntaxWithLibraryConfigSchemas(
+		sf.Factory.Body,
+		libs,
+		analysis.LibraryConfigSchemas,
+	)
 	if errs := checker.References(opts.TypeObserver); errs.Len() > 0 {
 		return errs.Err()
 	}
@@ -371,6 +376,10 @@ func Run(opts Options) error {
 		GoConstraints: goConstraints,
 		GoDefaults:    goDefaults,
 		GoSchemas:     goSchemas,
+		LibraryConfigSchemas: schemaOnlyLibraryConfigSchemas(
+			sf.Factory.Body,
+			analysis.LibraryConfigSchemas,
+		),
 	}
 
 	if opts.OutDir == "-" {
@@ -1060,6 +1069,31 @@ func keepUsedTypes[T any](m map[string][]T, used map[string]bool) map[string][]T
 	return out
 }
 
+func schemaOnlyLibraryConfigSchemas(
+	body syntax.FactoryBody,
+	schemas map[string]ubruntime.LibraryConfigSchema,
+) map[string]ubruntime.LibraryConfigSchema {
+	if len(schemas) == 0 {
+		return nil
+	}
+	imports := map[string]bool{}
+	for _, imp := range body.Imports {
+		if imp.Ref != nil {
+			imports[imp.Ref.Value] = true
+		}
+	}
+	out := map[string]ubruntime.LibraryConfigSchema{}
+	for path, schema := range schemas {
+		if !imports[path] {
+			out[path] = schema
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 func pruneUnusedSchemas(
 	schemas map[string]*ubruntime.LibrarySchema,
 	used map[string]map[string]bool,
@@ -1102,6 +1136,7 @@ func copyConfigurationSchema(dst, src *ubruntime.LibrarySchema) {
 	dst.ConfigurationFields = slices.Clone(src.ConfigurationFields)
 	dst.ConfigurationDefaults = slices.Clone(src.ConfigurationDefaults)
 	dst.ConfigurationConstraints = slices.Clone(src.ConfigurationConstraints)
+	dst.ConfigurationIdentity = src.ConfigurationIdentity
 	dst.ConfigurationDigest = src.ConfigurationDigest
 	dst.ConfigurationEmpty = src.ConfigurationEmpty
 }

@@ -9,8 +9,12 @@ import (
 func libraryConfigInputResolver(
 	body *syntax.FactoryBody,
 	libs map[string]*runtime.Library,
+	libraryConfigSchemas map[string]runtime.LibraryConfigSchema,
 ) lang.LibraryConfigResolver {
 	return func(path string) (lang.LibraryConfigSchema, bool) {
+		if schema, ok := libraryConfigSchemas[path]; ok {
+			return schema.LangSchema(), true
+		}
 		if body == nil || libs == nil {
 			return lang.LibraryConfigSchema{}, false
 		}

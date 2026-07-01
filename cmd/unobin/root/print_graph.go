@@ -121,6 +121,7 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 		Versions:    repoVersions,
 		WarnOut:     cmd.ErrOrStderr(),
 		SchemaCache: compile.NewSchemaCache(schemaRoots...),
+		Body:        &sf.Factory.Body,
 		Source: &resolve.Source{
 			FS:   os.DirFS(filepath.Dir(stackPath)),
 			Path: filepath.Dir(stackPath),
@@ -130,7 +131,11 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 		return err
 	}
 	libs := analysis.Libraries
-	checker := check.NewSyntax(sf.Factory.Body, libs)
+	checker := check.NewSyntaxWithLibraryConfigSchemas(
+		sf.Factory.Body,
+		libs,
+		analysis.LibraryConfigSchemas,
+	)
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return errs.Err()
 	}

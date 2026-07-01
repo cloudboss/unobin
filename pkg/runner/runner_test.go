@@ -672,7 +672,7 @@ func TestBuildInputsChecksLibraryConfigConstraints(t *testing.T) {
 	stack, err := parseStackSource("dev.ub", []byte(stackSrc))
 	require.NoError(t, err)
 
-	_, err = buildInputs(stack, "dev.ub", parsed, info.Libraries)
+	_, err = buildInputs(stack, "dev.ub", parsed, info.Libraries, nil)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "core-config")
@@ -687,7 +687,7 @@ func TestBuildInputsAppliesLibraryConfigDefaultsBeforeConstraints(t *testing.T) 
 	parsed, err := parseFactory(info)
 	require.NoError(t, err)
 
-	got, err := buildInputs(nil, "", parsed, info.Libraries)
+	got, err := buildInputs(nil, "", parsed, info.Libraries, nil)
 
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{
@@ -703,7 +703,7 @@ func TestBuildInputsAppliesLibraryConfigReferenceDefaults(t *testing.T) {
 	parsed, err := parseFactory(info)
 	require.NoError(t, err)
 
-	got, err := buildInputs(nil, "", parsed, info.Libraries)
+	got, err := buildInputs(nil, "", parsed, info.Libraries, nil)
 
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{
@@ -723,7 +723,7 @@ func TestBuildInputsAppliesNullableLibraryConfigDefault(t *testing.T) {
 	parsed, err := parseFactory(info)
 	require.NoError(t, err)
 
-	got, err := buildInputs(nil, "", parsed, info.Libraries)
+	got, err := buildInputs(nil, "", parsed, info.Libraries, nil)
 
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{
@@ -743,7 +743,7 @@ func TestBuildInputsKeepsNullableLibraryConfigNull(t *testing.T) {
 	stack, err := parseStackSource("dev.ub", []byte(stackSrc))
 	require.NoError(t, err)
 
-	got, err := buildInputs(stack, "dev.ub", parsed, info.Libraries)
+	got, err := buildInputs(stack, "dev.ub", parsed, info.Libraries, nil)
 
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{
@@ -763,7 +763,7 @@ func TestBuildInputsKeepsNullableLibraryConfigValue(t *testing.T) {
 	stack, err := parseStackSource("dev.ub", []byte(stackSrc))
 	require.NoError(t, err)
 
-	got, err := buildInputs(stack, "dev.ub", parsed, info.Libraries)
+	got, err := buildInputs(stack, "dev.ub", parsed, info.Libraries, nil)
 
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{
@@ -783,7 +783,7 @@ func TestBuildInputsRejectsWrongNullableLibraryConfigType(t *testing.T) {
 	stack, err := parseStackSource("dev.ub", []byte(stackSrc))
 	require.NoError(t, err)
 
-	_, err = buildInputs(stack, "dev.ub", parsed, info.Libraries)
+	_, err = buildInputs(stack, "dev.ub", parsed, info.Libraries, nil)
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "profile")

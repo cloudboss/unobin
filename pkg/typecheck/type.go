@@ -318,6 +318,12 @@ func sameLibraryConfig(a, b *LibraryConfigInfo) bool {
 	if a == nil || b == nil {
 		return a == b
 	}
+	if a.SchemaDigest != b.SchemaDigest {
+		return false
+	}
+	if a.Path == b.Path {
+		return true
+	}
 	aID := a.Identity
 	if aID == "" {
 		aID = a.Path
@@ -326,7 +332,7 @@ func sameLibraryConfig(a, b *LibraryConfigInfo) bool {
 	if bID == "" {
 		bID = b.Path
 	}
-	return aID == bID && a.SchemaDigest == b.SchemaDigest
+	return aID == bID
 }
 
 func objectFieldEqual(a, b ObjectField) bool {

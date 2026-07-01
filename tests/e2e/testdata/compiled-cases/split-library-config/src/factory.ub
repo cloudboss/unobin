@@ -1,0 +1,24 @@
+factory: {
+  inputs: {
+    aws: {
+      type: library-config('example.com/aws//config')
+      default: { region: 'us-west-2' }
+    }
+  }
+
+  imports: {
+    service: 'example.com/aws//service'
+  }
+
+  library-configs: {
+    service: input.aws
+  }
+
+  actions: {
+    region: service.region {}
+  }
+
+  outputs: {
+    region: { value: action.region.region }
+  }
+}
