@@ -1,0 +1,40 @@
+{
+  "name": "deps-get-schema-config-unobin-type",
+  "rootPath": "root",
+  "executor": "root",
+  "cliVersion": "v0.10.0-a.3.0.20260701031358-5710a0863ebf+dirty",
+  "tags": {
+    "example.com/aws": ["v1.0.0"]
+  },
+  "remotes": [
+    {
+      "key": "example.com/aws@v1.0.0",
+      "path": "remotes/aws",
+      "commit": "c1",
+      "sourcePath": true,
+      "moduleRootPath": "remotes/aws",
+      "modulePath": "example.com/aws",
+      "goImportPath": "example.com/aws"
+    },
+    {
+      "key": "example.com/aws//config@v1.0.0",
+      "path": "remotes/aws/config",
+      "commit": "c1",
+      "sourcePath": true,
+      "moduleRootPath": "remotes/aws",
+      "modulePath": "example.com/aws",
+      "goImportPath": "example.com/aws/config"
+    }
+  ],
+  "commands": [
+    {
+      "name": "deps-get",
+      "args": ["deps", "get", "example.com/aws@v1.0.0", "-p", "factory.ub"],
+      "stderr": "want/deps-get.stderr"
+    }
+  ],
+  "files": [
+    { "path": "root/project.ub", "want": "want/project.ub" },
+    { "path": "root/project-lock.ub", "want": "want/project-lock.ub" }
+  ]
+}

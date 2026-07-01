@@ -1,0 +1,8 @@
+factory: {
+  inputs: {
+    aws-config: {
+      type:    library-config('example.com/aws//config')
+      default: {}
+    }
+  }
+}

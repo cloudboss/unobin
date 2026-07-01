@@ -7,9 +7,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 
+	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
 
 	"github.com/cloudboss/unobin/pkg/goschema"
@@ -28,7 +30,7 @@ func UnobinSchemaRoots(stderr io.Writer, replaceUnobin, version string) []gosche
 			replaceAbs = abs
 		}
 	}
-	root, ok := unobinModuleRoot(replaceAbs, version, func(v string) error {
+	root, ok := unobinModuleRoot(replaceAbs, version, currentUnobinSourceRoot, func(v string) error {
 		return downloadUnobinModule(stderr, v)
 	})
 	if !ok {
@@ -39,18 +41,26 @@ func UnobinSchemaRoots(stderr io.Writer, replaceUnobin, version string) []gosche
 
 // unobinModuleRoot locates the unobin source a factory build will
 // link, so schema extraction can read types that live in unobin's own
-// packages. A replacement directory serves directly when configured;
-// otherwise the module cache holds this CLI's own pinned version, and
-// download fetches it on a cache miss. ok is false when no source is
-// reachable, and schema extraction degrades to its unchecked-fields
-// warning. A development build has no version to look up; compile
-// requires a replace for one before this runs.
+// packages. A replacement directory serves directly when configured.
+// Local builds use source from the running binary. Pinned versions use
+// the module cache first and fall back to local source if download is
+// unavailable. ok is false when no source is reachable, and schema
+// extraction degrades to its unchecked-fields warning.
 func unobinModuleRoot(
-	replaceAbs, version string, download func(version string) error,
+	replaceAbs, version string,
+	sourceRoot func() (string, bool),
+	download func(version string) error,
 ) (goschema.ModuleRoot, bool) {
 	if replaceAbs != "" {
 		return goschema.ModuleRoot{Path: toolchain.UnobinModulePath, Dir: replaceAbs}, true
 	}
+	localVersion := version == "dev" || strings.HasSuffix(version, "+dirty")
+	if localVersion {
+		if root, ok := sourceModuleRoot(sourceRoot); ok {
+			return root, true
+		}
+	}
+	version = downloadableUnobinVersion(version)
 	if version == "" || version == "dev" {
 		return goschema.ModuleRoot{}, false
 	}
@@ -69,10 +79,52 @@ func unobinModuleRoot(
 	dir := filepath.Join(cache, filepath.FromSlash(escapedPath)+"@"+escapedVersion)
 	if !dirExists(dir) {
 		if download == nil || download(version) != nil || !dirExists(dir) {
+			if !localVersion {
+				return sourceModuleRoot(sourceRoot)
+			}
 			return goschema.ModuleRoot{}, false
 		}
 	}
 	return goschema.ModuleRoot{Path: toolchain.UnobinModulePath, Dir: dir}, true
+}
+
+func sourceModuleRoot(sourceRoot func() (string, bool)) (goschema.ModuleRoot, bool) {
+	if sourceRoot == nil {
+		return goschema.ModuleRoot{}, false
+	}
+	dir, ok := sourceRoot()
+	if !ok {
+		return goschema.ModuleRoot{}, false
+	}
+	return goschema.ModuleRoot{Path: toolchain.UnobinModulePath, Dir: dir}, true
+}
+
+func downloadableUnobinVersion(version string) string {
+	return strings.TrimSuffix(version, "+dirty")
+}
+
+func currentUnobinSourceRoot() (string, bool) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", false
+	}
+	return unobinSourceRootFromFile(file)
+}
+
+func unobinSourceRootFromFile(file string) (string, bool) {
+	if !filepath.IsAbs(file) {
+		return "", false
+	}
+	for dir := filepath.Dir(file); ; dir = filepath.Dir(dir) {
+		body, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+		if err == nil && modfile.ModulePath(body) == toolchain.UnobinModulePath {
+			return dir, true
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", false
+		}
+	}
 }
 
 // goModCacheDir resolves the module cache the way the go command

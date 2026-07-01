@@ -19,6 +19,16 @@ func noDownload(t *testing.T) func(string) error {
 	}
 }
 
+func noSourceRoot() (string, bool) {
+	return "", false
+}
+
+func sourceRoot(dir string) func() (string, bool) {
+	return func() (string, bool) {
+		return dir, true
+	}
+}
+
 func cachedUnobinDir(t *testing.T, cache, version string) string {
 	t.Helper()
 	dir := filepath.Join(cache, "github.com", "cloudboss", "unobin@"+version)
@@ -27,14 +37,21 @@ func cachedUnobinDir(t *testing.T, cache, version string) string {
 }
 
 func TestUnobinModuleRootPrefersReplace(t *testing.T) {
-	root, ok := unobinModuleRoot("/src/unobin", "v1.2.3", noDownload(t))
+	root, ok := unobinModuleRoot("/src/unobin", "v1.2.3", noSourceRoot, noDownload(t))
 	require.True(t, ok)
 	require.Equal(t, toolchain.UnobinModulePath, root.Path)
 	require.Equal(t, "/src/unobin", root.Dir)
 }
 
-func TestUnobinModuleRootRefusesDevWithoutReplace(t *testing.T) {
-	_, ok := unobinModuleRoot("", "dev", noDownload(t))
+func TestUnobinModuleRootUsesSourceRoot(t *testing.T) {
+	root, ok := unobinModuleRoot("", "dev", sourceRoot("/src/unobin"), noDownload(t))
+	require.True(t, ok)
+	require.Equal(t, toolchain.UnobinModulePath, root.Path)
+	require.Equal(t, "/src/unobin", root.Dir)
+}
+
+func TestUnobinModuleRootRefusesDevWithoutSource(t *testing.T) {
+	_, ok := unobinModuleRoot("", "dev", noSourceRoot, noDownload(t))
 	require.False(t, ok)
 }
 
@@ -42,7 +59,27 @@ func TestUnobinModuleRootFindsCachedModule(t *testing.T) {
 	cache := t.TempDir()
 	dir := cachedUnobinDir(t, cache, "v1.2.3")
 	t.Setenv("GOMODCACHE", cache)
-	root, ok := unobinModuleRoot("", "v1.2.3", noDownload(t))
+	root, ok := unobinModuleRoot("", "v1.2.3", noSourceRoot, noDownload(t))
+	require.True(t, ok)
+	require.Equal(t, toolchain.UnobinModulePath, root.Path)
+	require.Equal(t, dir, root.Dir)
+}
+
+func TestUnobinModuleRootPrefersCacheForPinnedVersion(t *testing.T) {
+	cache := t.TempDir()
+	dir := cachedUnobinDir(t, cache, "v1.2.3")
+	t.Setenv("GOMODCACHE", cache)
+	root, ok := unobinModuleRoot("", "v1.2.3", sourceRoot("/src/unobin"), noDownload(t))
+	require.True(t, ok)
+	require.Equal(t, toolchain.UnobinModulePath, root.Path)
+	require.Equal(t, dir, root.Dir)
+}
+
+func TestUnobinModuleRootFindsCachedDirtyModule(t *testing.T) {
+	cache := t.TempDir()
+	dir := cachedUnobinDir(t, cache, "v1.2.3")
+	t.Setenv("GOMODCACHE", cache)
+	root, ok := unobinModuleRoot("", "v1.2.3+dirty", noSourceRoot, noDownload(t))
 	require.True(t, ok)
 	require.Equal(t, toolchain.UnobinModulePath, root.Path)
 	require.Equal(t, dir, root.Dir)
@@ -51,7 +88,7 @@ func TestUnobinModuleRootFindsCachedModule(t *testing.T) {
 func TestUnobinModuleRootDownloadsOnCacheMiss(t *testing.T) {
 	cache := t.TempDir()
 	t.Setenv("GOMODCACHE", cache)
-	root, ok := unobinModuleRoot("", "v1.2.3", func(version string) error {
+	root, ok := unobinModuleRoot("", "v1.2.3", noSourceRoot, func(version string) error {
 		require.Equal(t, "v1.2.3", version)
 		cachedUnobinDir(t, cache, version)
 		return nil
@@ -60,9 +97,22 @@ func TestUnobinModuleRootDownloadsOnCacheMiss(t *testing.T) {
 	require.Equal(t, filepath.Join(cache, "github.com", "cloudboss", "unobin@v1.2.3"), root.Dir)
 }
 
+func TestUnobinSourceRootFromFileFindsModule(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte(
+		"module "+toolchain.UnobinModulePath+"\n"), 0o644))
+	subdir := filepath.Join(root, "pkg", "compile")
+	require.NoError(t, os.MkdirAll(subdir, 0o755))
+
+	got, ok := unobinSourceRootFromFile(filepath.Join(subdir, "unobinroot.go"))
+
+	require.True(t, ok)
+	require.Equal(t, root, got)
+}
+
 func TestUnobinModuleRootDegradesWhenDownloadFails(t *testing.T) {
 	t.Setenv("GOMODCACHE", t.TempDir())
-	_, ok := unobinModuleRoot("", "v1.2.3", func(string) error {
+	_, ok := unobinModuleRoot("", "v1.2.3", noSourceRoot, func(string) error {
 		return errors.New("offline")
 	})
 	require.False(t, ok)
