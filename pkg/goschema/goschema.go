@@ -13,6 +13,7 @@ import (
 	"go/types"
 	"maps"
 	"os"
+	pathpkg "path"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -90,8 +91,8 @@ type analysisContext struct {
 }
 
 func newAnalysisContext(dir string, extra ...ModuleRoot) (*analysisContext, error) {
-	root := ModuleRoot{Path: readGoModPath(dir), Dir: dir}
-	rootPkg, err := parseIndexedPackageDir(dir, root.Path)
+	root, importPath := packageModuleRoot(dir)
+	rootPkg, err := parseIndexedPackageDir(dir, importPath)
 	if err != nil {
 		return nil, err
 	}
@@ -99,8 +100,8 @@ func newAnalysisContext(dir string, extra ...ModuleRoot) (*analysisContext, erro
 	roots = append(roots, root)
 	roots = append(roots, extra...)
 	packages := map[string]*indexedPackage{}
-	if root.Path != "" {
-		packages[root.Path] = rootPkg
+	if rootPkg.importPath != "" {
+		packages[rootPkg.importPath] = rootPkg
 	}
 	return &analysisContext{
 		dir:      dir,
@@ -174,7 +175,11 @@ func (c *analysisContext) readSchema(
 			schema.Actions[reg.Name] = ts
 		}
 	}
-	if ref, init, found, ok := extractConfigurationRef(libraryFunc, c.root.files); found {
+	if ref, init, found, ok := extractConfigurationRef(
+		libraryFunc,
+		c.root,
+		c.loadImportedPackage,
+	); found {
 		schema.HasConfiguration = true
 		if !ok {
 			c.warnings = append(c.warnings,
@@ -205,7 +210,11 @@ func (c *analysisContext) readLibraryConfigurationSchema(
 		Functions:        map[string]typecheck.FuncSig{},
 		HasConfiguration: true,
 	}
-	ref, init, found, ok := extractLibraryConfigurationRef(fn)
+	ref, init, found, ok := extractLibraryConfigurationRef(
+		fn,
+		c.root,
+		c.loadImportedPackage,
+	)
 	if !found || !ok {
 		return schema, fmt.Errorf(
 			"LibraryConfiguration(): cannot read the struct behind New from source")
@@ -231,7 +240,11 @@ func (c *analysisContext) checkLibraryConfigurationMatch(
 	if fn == nil {
 		return nil
 	}
-	ref, init, found, ok := extractLibraryConfigurationRef(fn)
+	ref, init, found, ok := extractLibraryConfigurationRef(
+		fn,
+		c.root,
+		c.loadImportedPackage,
+	)
 	if !found || !ok {
 		return fmt.Errorf(
 			"LibraryConfiguration(): cannot read the struct behind New from source")
@@ -276,7 +289,10 @@ func (c *analysisContext) fillConfigurationSchema(
 }
 
 func (c *analysisContext) configurationIdentity(ref typeRef) string {
-	importPath := c.root.importPath
+	importPath := ref.ImportPath
+	if importPath == "" {
+		importPath = c.root.importPath
+	}
 	if ref.PkgAlias != "" {
 		importPath = c.root.imports[ref.PkgAlias]
 	}
@@ -297,6 +313,34 @@ func (c *analysisContext) buildSourceIndex(libraryFunc *ast.FuncDecl) (*SourceIn
 		root:     c.root,
 	}
 	return indexer.build(libraryFunc)
+}
+
+func (c *analysisContext) loadImportedPackage(
+	from *indexedPackage,
+	alias string,
+) (*indexedPackage, bool) {
+	if from == nil {
+		return nil, false
+	}
+	importPath, ok := from.imports[alias]
+	if !ok {
+		return nil, false
+	}
+	w := c.newWalker()
+	files, ok := w.loadPackage(importPath)
+	if !ok {
+		return nil, false
+	}
+	pkg := c.packages[importPath]
+	if pkg == nil {
+		pkg = &indexedPackage{
+			files:      files,
+			importPath: importPath,
+			imports:    buildImportMap(files),
+		}
+		c.packages[importPath] = pkg
+	}
+	return pkg, true
 }
 
 func sortedKeys(m map[string]bool) []string {
@@ -338,17 +382,21 @@ type registration struct {
 }
 
 type typeRef struct {
-	PkgAlias string
-	TypeName string
+	PkgAlias   string
+	ImportPath string
+	TypeName   string
 }
 
-// String renders the ref the way the library's source spells it, with
-// the package qualifier when the type lives in another package.
+// String renders the ref with a qualifier when the type lives in another
+// package.
 func (r typeRef) String() string {
-	if r.PkgAlias == "" {
-		return r.TypeName
+	if r.PkgAlias != "" {
+		return r.PkgAlias + "." + r.TypeName
 	}
-	return r.PkgAlias + "." + r.TypeName
+	if r.ImportPath != "" {
+		return r.ImportPath + "." + r.TypeName
+	}
+	return r.TypeName
 }
 
 // ModuleRoot names a module's source on disk: Path is the module's
@@ -387,9 +435,8 @@ type walker struct {
 	imports    map[string]string
 }
 
-// newWalker positions a walker at the first root's package, the
-// library being read. Packages under the other roots become readable
-// through cross-package recursion.
+// newWalker positions a walker at the package being read. Packages under the
+// module roots become readable through cross-package recursion.
 func newWalker(
 	roots []ModuleRoot,
 	rootPkg *indexedPackage,
@@ -397,8 +444,8 @@ func newWalker(
 	errs *[]error,
 	warns *[]string,
 ) *walker {
-	if roots[0].Path != "" {
-		cache[roots[0].Path] = rootPkg
+	if rootPkg.importPath != "" {
+		cache[rootPkg.importPath] = rootPkg
 	}
 	return &walker{
 		roots:        roots,
@@ -406,7 +453,7 @@ func newWalker(
 		visiting:     map[string]bool{},
 		errs:         errs,
 		warns:        warns,
-		importPath:   roots[0].Path,
+		importPath:   rootPkg.importPath,
 		files:        rootPkg.files,
 		imports:      buildImportMap(rootPkg.files),
 	}
@@ -483,18 +530,26 @@ func (w *walker) lookupFields(ref typeRef) (map[string]typecheck.Type, map[strin
 }
 
 func (w *walker) lookupObjectFields(ref typeRef) ([]typecheck.ObjectField, map[string]bool) {
-	if ref.PkgAlias == "" {
-		return w.objectFieldsFromPackage(ref.TypeName)
-	}
-	importPath, ok := w.imports[ref.PkgAlias]
-	if !ok {
+	cw := w.walkerForRef(ref)
+	if cw == nil {
 		return nil, nil
 	}
-	sub := w.sub(importPath)
-	if sub == nil {
-		return nil, nil
+	return cw.objectFieldsFromPackage(ref.TypeName)
+}
+
+func (w *walker) walkerForRef(ref typeRef) *walker {
+	importPath := ref.ImportPath
+	if ref.PkgAlias != "" {
+		var ok bool
+		importPath, ok = w.imports[ref.PkgAlias]
+		if !ok {
+			return nil
+		}
 	}
-	return sub.objectFieldsFromPackage(ref.TypeName)
+	if importPath == "" || importPath == w.importPath {
+		return w
+	}
+	return w.sub(importPath)
 }
 
 // objectFieldsFromPackage finds the named type in the walker's current
@@ -864,9 +919,12 @@ func extractRegistrations(fn *ast.FuncDecl) []registration {
 // Configuration at all; ok reports whether the struct type could be
 // read from source, which requires the direct form
 // `New: func() any { return &T{} }` (a `&pkg.T{}` works too).
+type importedPackageLoader func(from *indexedPackage, alias string) (*indexedPackage, bool)
+
 func extractConfigurationRef(
 	fn *ast.FuncDecl,
-	files []*ast.File,
+	pkg *indexedPackage,
+	load importedPackageLoader,
 ) (ref typeRef, init *ast.CompositeLit, found, ok bool) {
 	if fn.Body == nil {
 		return typeRef{}, nil, false, false
@@ -890,7 +948,7 @@ func extractConfigurationRef(
 			}
 			ctLit := unwrapModuleLiteral(kv.Value)
 			if ctLit == nil {
-				return configurationCallRef(kv.Value, files)
+				return configurationCallRef(kv.Value, pkg, load)
 			}
 			return configurationTypeRef(ctLit)
 		}
@@ -900,25 +958,47 @@ func extractConfigurationRef(
 
 func configurationCallRef(
 	e ast.Expr,
-	files []*ast.File,
+	pkg *indexedPackage,
+	load importedPackageLoader,
 ) (ref typeRef, init *ast.CompositeLit, found, ok bool) {
 	call, callOk := e.(*ast.CallExpr)
 	if !callOk || len(call.Args) != 0 {
 		return typeRef{}, nil, true, false
 	}
-	name, nameOk := identName(call.Fun)
-	if !nameOk || name != "LibraryConfiguration" {
+	if name, nameOk := identName(call.Fun); nameOk {
+		if name != "LibraryConfiguration" {
+			return typeRef{}, nil, true, false
+		}
+		fn := findPackageFunc(pkg.files, "LibraryConfiguration")
+		if fn == nil {
+			return typeRef{}, nil, true, false
+		}
+		return extractLibraryConfigurationRef(fn, pkg, load)
+	}
+	selector, selectorOk := call.Fun.(*ast.SelectorExpr)
+	if !selectorOk || selector.Sel.Name != "LibraryConfiguration" {
 		return typeRef{}, nil, true, false
 	}
-	fn := findPackageFunc(files, "LibraryConfiguration")
+	alias, aliasOk := identName(selector.X)
+	if !aliasOk || load == nil {
+		return typeRef{}, nil, true, false
+	}
+	targetPkg, targetOk := load(pkg, alias)
+	if !targetOk {
+		return typeRef{}, nil, true, false
+	}
+	fn := findPackageFunc(targetPkg.files, "LibraryConfiguration")
 	if fn == nil {
 		return typeRef{}, nil, true, false
 	}
-	return extractLibraryConfigurationRef(fn)
+	ref, init, found, ok = extractLibraryConfigurationRef(fn, targetPkg, load)
+	return qualifyTypeRef(ref, targetPkg), init, found, ok
 }
 
 func extractLibraryConfigurationRef(
 	fn *ast.FuncDecl,
+	pkg *indexedPackage,
+	load importedPackageLoader,
 ) (ref typeRef, init *ast.CompositeLit, found, ok bool) {
 	if fn.Body == nil {
 		return typeRef{}, nil, false, false
@@ -930,11 +1010,27 @@ func extractLibraryConfigurationRef(
 		}
 		ctLit := unwrapModuleLiteral(ret.Results[0])
 		if ctLit == nil {
-			return typeRef{}, nil, true, false
+			return configurationCallRef(ret.Results[0], pkg, load)
 		}
-		return configurationTypeRef(ctLit)
+		ref, init, found, ok = configurationTypeRef(ctLit)
+		return qualifyTypeRef(ref, pkg), init, found, ok
 	}
 	return typeRef{}, nil, true, false
+}
+
+func qualifyTypeRef(ref typeRef, pkg *indexedPackage) typeRef {
+	if ref.TypeName == "" || ref.ImportPath != "" || pkg == nil {
+		return ref
+	}
+	if ref.PkgAlias != "" {
+		if importPath := pkg.imports[ref.PkgAlias]; importPath != "" {
+			ref.ImportPath = importPath
+			ref.PkgAlias = ""
+		}
+		return ref
+	}
+	ref.ImportPath = pkg.importPath
+	return ref
 }
 
 func configurationTypeRef(
@@ -1429,6 +1525,31 @@ func unquoteString(s string) (string, error) {
 		return s[1 : len(s)-1], nil
 	}
 	return "", fmt.Errorf("not a double-quoted string: %s", s)
+}
+
+func packageModuleRoot(dir string) (ModuleRoot, string) {
+	moduleDir, modulePath, ok := findGoModule(dir)
+	if !ok {
+		return ModuleRoot{Dir: dir}, ""
+	}
+	importPath := modulePath
+	if rel, err := filepath.Rel(moduleDir, dir); err == nil && rel != "." {
+		importPath = pathpkg.Join(modulePath, filepath.ToSlash(rel))
+	}
+	return ModuleRoot{Path: modulePath, Dir: moduleDir}, importPath
+}
+
+func findGoModule(dir string) (moduleDir, modulePath string, ok bool) {
+	for cur := filepath.Clean(dir); ; cur = filepath.Dir(cur) {
+		modulePath := readGoModPath(cur)
+		if modulePath != "" {
+			return cur, modulePath, true
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return "", "", false
+		}
+	}
 }
 
 // readGoModPath reads the `module <path>` declaration from a go.mod

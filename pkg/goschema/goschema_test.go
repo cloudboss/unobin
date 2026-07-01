@@ -160,6 +160,36 @@ func TestReadCombinedLibraryConfigurationSchema(t *testing.T) {
 	require.True(t, schema.HasConfiguration)
 }
 
+func TestReadLibraryConfigurationAcceptsSubdirectoryPackage(t *testing.T) {
+	schema, warnings, err := ReadLibraryConfiguration("testdata/configforward/config")
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+
+	fields := []typecheck.ObjectField{{Name: "region", Type: typecheck.TString()}}
+	require.Equal(t, fields, schema.ConfigurationFields)
+	require.Equal(t,
+		"example.com/aws/awscfg.Configuration",
+		schema.ConfigurationIdentity,
+	)
+	require.Equal(t, cfg.DigestView(fields, nil, nil), schema.ConfigurationDigest)
+	require.True(t, schema.HasConfiguration)
+}
+
+func TestReadAcceptsImportedLibraryConfigurationCall(t *testing.T) {
+	schema, warnings, err := Read("testdata/configforward/service")
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+
+	fields := []typecheck.ObjectField{{Name: "region", Type: typecheck.TString()}}
+	require.Equal(t, fields, schema.ConfigurationFields)
+	require.Equal(t,
+		"example.com/aws/awscfg.Configuration",
+		schema.ConfigurationIdentity,
+	)
+	require.Equal(t, cfg.DigestView(fields, nil, nil), schema.ConfigurationDigest)
+	require.True(t, schema.HasConfiguration)
+}
+
 func TestReadRejectsMismatchedLibraryConfigurationSchema(t *testing.T) {
 	want, readErr := os.ReadFile("testdata/configschemamismatch/read.err")
 	require.NoError(t, readErr)
