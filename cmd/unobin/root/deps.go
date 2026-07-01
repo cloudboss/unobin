@@ -545,7 +545,13 @@ func resolveAndWrite(
 	if err != nil {
 		return err
 	}
-	projectLock, err := deps.ProjectLockFromImports(os.DirFS(root), selection, resolver, project.Replace)
+	unobinReplace, err := printGraphUnobinReplace(root, replaceUnobin, project.Replace)
+	if err != nil {
+		return err
+	}
+	schemaRoots := compile.UnobinSchemaRoots(cmd.ErrOrStderr(), unobinReplace, cliVersion())
+	projectLock, err := deps.ProjectLockFromImportsWithSchemaRoots(
+		os.DirFS(root), selection, resolver, project.Replace, schemaRoots)
 	if err != nil {
 		return err
 	}
@@ -554,7 +560,8 @@ func resolveAndWrite(
 		return err
 	}
 	projectLock.ToolchainVersion = cliVersion()
-	if err := deps.WriteProjectLock(filepath.Join(root, deps.ProjectLockFileName), projectLock); err != nil {
+	lockPath := filepath.Join(root, deps.ProjectLockFileName)
+	if err := deps.WriteProjectLock(lockPath, projectLock); err != nil {
 		return err
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(),

@@ -254,6 +254,57 @@ func TestDepsGetTreatsSchemaDependencyAsDirect(t *testing.T) {
 		synced.Requires[deps.Dependency{URL: "example.com/aws"}])
 }
 
+func TestDepsGetUsesReplaceUnobinForSchemaDependencyConfigType(t *testing.T) {
+	rootDir := findUnobinRoot(t)
+	dir := t.TempDir()
+	writeSchemaDependencyFactory(t, dir)
+	restoreTags := SetDepsListTagsForTest(func(url string) ([]string, error) {
+		require.Equal(t, "example.com/aws", url)
+		return []string{"v0.1.0"}, nil
+	})
+	t.Cleanup(restoreTags)
+
+	awsRoot := t.TempDir()
+	configDir := filepath.Join(awsRoot, "config")
+	require.NoError(t, os.MkdirAll(configDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(awsRoot, "go.mod"), []byte(`module example.com/aws
+
+go 1.26.2
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.go"), []byte(`package config
+
+import (
+	"github.com/cloudboss/unobin/pkg/awscfg"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
+)
+
+func LibraryConfiguration() *cfg.ConfigurationType[*awscfg.Configuration] {
+	return &cfg.ConfigurationType[*awscfg.Configuration]{
+		New: func() *awscfg.Configuration { return &awscfg.Configuration{} },
+	}
+}
+`), 0o644))
+	remotes := map[string]*resolve.Source{
+		remoteSourceKey("example.com/aws", "", "v0.1.0"): {
+			Commit: "c1",
+			Path:   awsRoot,
+		},
+		remoteSourceKey("example.com/aws", "config", "v0.1.0"): {
+			Commit: "c1",
+			Path:   configDir,
+		},
+	}
+
+	_, err := runCommandWithRemotes(t, remotes,
+		"deps", "get", "example.com/aws@v0.1.0", "-p", filepath.Join(dir, "factory.ub"),
+		"--replace-unobin", rootDir)
+
+	require.NoError(t, err)
+	projectLock, err := deps.ReadProjectLock(os.DirFS(dir))
+	require.NoError(t, err)
+	require.Equal(t, deps.ProjectLockKindGo, projectLock.Deps["example.com/aws"].Kind)
+}
+
 func writeSchemaDependencyFactory(t testing.TB, dir string) {
 	t.Helper()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.ub"),

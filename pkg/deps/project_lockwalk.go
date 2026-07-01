@@ -31,10 +31,23 @@ func ProjectLockFromImports(
 	resolver resolve.Resolver,
 	replace map[Dependency]string,
 ) (*ProjectLock, error) {
+	return ProjectLockFromImportsWithSchemaRoots(rootFS, selection, resolver, replace, nil)
+}
+
+// ProjectLockFromImportsWithSchemaRoots is ProjectLockFromImports with extra
+// Go module roots available to config schema validation.
+func ProjectLockFromImportsWithSchemaRoots(
+	rootFS fs.FS,
+	selection map[Dependency]string,
+	resolver resolve.Resolver,
+	replace map[Dependency]string,
+	schemaRoots []goschema.ModuleRoot,
+) (*ProjectLock, error) {
 	w := &projectLockWalker{
 		resolver:    resolver,
 		selection:   selection,
 		replace:     replace,
+		schemaRoots: slices.Clone(schemaRoots),
 		projectLock: NewProjectLock(),
 		inProgress:  map[string]bool{},
 		walked:      map[string]bool{},
@@ -104,6 +117,7 @@ type projectLockWalker struct {
 	resolver    resolve.Resolver
 	selection   map[Dependency]string
 	replace     map[Dependency]string
+	schemaRoots []goschema.ModuleRoot
 	projectLock *ProjectLock
 	inProgress  map[string]bool
 	walked      map[string]bool
@@ -264,7 +278,7 @@ func (w *projectLockWalker) checkRemoteSchemaDependency(
 				return err
 			}
 		}
-		if err := validateGoLibraryConfigurationSource(src); err != nil {
+		if err := validateGoLibraryConfigurationSource(src, w.schemaRoots...); err != nil {
 			return err
 		}
 	}
@@ -292,11 +306,14 @@ func validateGoLibrarySource(src *resolve.Source) error {
 	return err
 }
 
-func validateGoLibraryConfigurationSource(src *resolve.Source) error {
+func validateGoLibraryConfigurationSource(
+	src *resolve.Source,
+	extra ...goschema.ModuleRoot,
+) error {
 	if src == nil || src.Path == "" {
 		return nil
 	}
-	_, _, err := goschema.ReadLibraryConfiguration(src.Path)
+	_, _, err := goschema.ReadLibraryConfiguration(src.Path, extra...)
 	return err
 }
 
