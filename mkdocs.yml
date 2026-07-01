@@ -25,6 +25,7 @@ plugins:
       nav_file: SUMMARY.md
 
 extra:
+  google_analytics_property: G-MZGMN4NWS2
   version:
     provider: mike
     default: latest
