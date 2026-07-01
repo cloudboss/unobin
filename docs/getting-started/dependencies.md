@@ -13,7 +13,12 @@ imports: {
 }
 ```
 
-Remote imports need a project requirement in `project.ub`. The project file records minimum dependency versions. For Cloudboss libraries and their manuals, see [Cloudboss libraries](../libraries/index.md).
+Remote imports need a project requirement in `project.ub`. The project file
+records minimum dependency versions. For Cloudboss libraries and their manuals,
+see [Cloudboss libraries](../libraries/index.md).
+
+Factory inputs that use `library-config('...')` also count as direct
+dependencies. This includes config packages that are not present in `imports`.
 
 ```
 project: {

@@ -166,7 +166,29 @@ library-configs: {
 
 Inputs may use `library-config('...')` to define the configuration type, passing in the library path. Thus, ordinary inputs are used to configure libraries; there is no separate configuration mechanism like Terraform uses for providers.
 
-To configure multiple library instances with different configurations, import the library again under a different alias, and bind the configurations separately:
+The `library-config(...)` path may name a separate configuration package. This
+is useful when one repository has service packages that share a config package:
+
+```
+inputs: {
+  aws: { type: library-config('example.com/aws//config') }
+}
+
+imports: {
+  s3: 'example.com/aws//s3'
+}
+
+library-configs: {
+  s3: input.aws
+}
+```
+
+The imported service package can set `Library().Configuration` to
+`config.LibraryConfiguration()`. The config package must provide
+`LibraryConfiguration()`.
+
+To configure multiple library instances with different configurations, import the
+library again under a different alias, and bind the configurations separately:
 
 ```
 inputs: {

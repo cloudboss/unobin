@@ -87,3 +87,69 @@ library-configs: {
 
 Every resource, data source, action, and function under the `cloud` alias receives
 that config type at runtime.
+
+## Separate configuration packages
+
+A repository can keep its configuration entry point in a separate Go package.
+That package defines `LibraryConfiguration()`:
+
+```go
+package config
+
+import (
+    "example.com/aws/awscfg"
+    "github.com/cloudboss/unobin/pkg/sdk/cfg"
+)
+
+func LibraryConfiguration() *cfg.ConfigurationType[*awscfg.Configuration] {
+    return &cfg.ConfigurationType[*awscfg.Configuration]{
+        Description: "AWS settings.",
+        New: func() *awscfg.Configuration {
+            return &awscfg.Configuration{}
+        },
+    }
+}
+```
+
+A service package can use that entry point from `Library().Configuration`:
+
+```go
+package service
+
+import (
+    "example.com/aws/config"
+    "github.com/cloudboss/unobin/pkg/runtime"
+)
+
+func Library() *runtime.Library {
+    return &runtime.Library{
+        Name:          "aws-service",
+        Configuration: config.LibraryConfiguration(),
+    }
+}
+```
+
+`LibraryConfiguration()` may return a configuration type from the same package
+or from another package in the same module. The schema identity is the resolved
+Go type, such as `example.com/aws/awscfg.Configuration`.
+
+Factory source names the configuration package in `library-config(...)` and
+binds the resulting value to the service alias:
+
+```ub
+inputs: {
+  aws: { type: library-config('example.com/aws//config') }
+}
+
+imports: {
+  service: 'example.com/aws//service'
+}
+
+library-configs: {
+  service: input.aws
+}
+```
+
+For remote dependencies, the `library-config(...)` path must resolve to a Go
+package with `LibraryConfiguration()`. `unobin deps sync` includes that package
+path when it builds `project-lock.ub`.

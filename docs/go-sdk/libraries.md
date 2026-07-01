@@ -22,7 +22,13 @@ The main fields are:
 - `Functions` for inline expression functions.
 - `ResourceComposites`, `DataComposites`, and `ActionComposites` for generated UB libraries.
 
-The compiler assigns the resolved library path. Library authors register the types; factory source chooses the import alias.
+The compiler assigns the resolved library path. Library authors register the
+types; factory source chooses the import alias.
+
+`Configuration` can be declared inline or returned by another package's
+`LibraryConfiguration()` function. Split packages let service packages share one
+configuration schema while factories still import each service package by its
+own path.
 
 A factory imports the library and calls a registered type with `alias.type`:
 

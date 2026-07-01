@@ -56,7 +56,8 @@ size: { type: optional(integer), default: 3 }
 
 ## Library configuration types
 
-A Go library can expose a configuration schema. A factory input can use it with `library-config('<library-path>')`:
+A Go library can expose a configuration schema. A factory input can use it with
+`library-config('<library-path>')`:
 
 ```
 cloud: {
@@ -64,6 +65,11 @@ cloud: {
   default: {}
 }
 ```
+
+The path may point at a configuration package rather than the service package
+that is imported. For example, `library-config('example.com/aws//config')` can
+provide the configuration type for an imported `example.com/aws//s3` library
+when that service package uses `config.LibraryConfiguration()`.
 
 ## Input declaration fields
 

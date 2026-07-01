@@ -70,4 +70,24 @@ Use this for local UB libraries in the same project.
 
 A `.ub` file may import a Go package below a Go module. Generated `main.go` imports the package path, while generated `go.mod` requires and replaces the module path read from the selected project's `go.mod`.
 
-Go modules follow Go's major-version path rule. UB project ids do not add `/vN` for major versions.
+Go modules follow Go's major-version path rule. UB project ids do not add `/vN`
+for major versions.
+
+## Configuration schema dependencies
+
+A `library-config('...')` type expression also names a package path. The path is
+resolved for source checks and dependency locking, even when it is not listed in
+`imports`.
+
+```
+inputs: {
+  aws: { type: library-config('example.com/aws//config') }
+}
+
+imports: {
+  s3: 'example.com/aws//s3'
+}
+```
+
+In this example, both `example.com/aws//s3` and `example.com/aws//config` must
+resolve. The config package must be a Go package with `LibraryConfiguration()`.
