@@ -4,8 +4,8 @@ project-lock: {
   deps: {
     'github.com/cloudboss/unobin-library-std': {
       kind:    go
-      version: 'v0.2.1'
-      commit:  '09f63e9942ddf3c13d1276a57bfbad0ab57199b4'
+      version: 'v0.2.3'
+      commit:  '08a835b5aa58844c5dccc7b1ddd4329737bbed27'
     }
   }
 }

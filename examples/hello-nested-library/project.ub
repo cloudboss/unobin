@@ -4,7 +4,7 @@ project: {
       version: 'v0.9.1'
     }
     'github.com/cloudboss/unobin-library-std': {
-      version:  'v0.2.0'
+      version:  'v0.2.3'
       indirect: true
     }
   }
