@@ -49,6 +49,14 @@ func TestReadWithIndexCrossPackageFieldPaths(t *testing.T) {
 	requireLocationPrefix(t, loc, "shared.go", "URL")
 }
 
+func TestReadLibraryConfigurationWithIndexReturnsSourceLocations(t *testing.T) {
+	_, index, _, err := ReadLibraryConfigurationWithIndex("testdata/configforward/config")
+	require.NoError(t, err)
+
+	requireLocationPrefix(t, index.ConfigType, "configuration.go", "Configuration")
+	requireLocationPrefix(t, index.ConfigFields["region"], "configuration.go", "Region")
+}
+
 func TestSourceIndexCacheInvalidatesChangedSource(t *testing.T) {
 	dir := copyDefinitionFixture(t)
 	cache := NewSourceIndexCache()

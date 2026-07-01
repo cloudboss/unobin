@@ -230,7 +230,7 @@ func typeLibraryConfigAtOffset(
 ) (*parse.TypeLibraryConfig, bool) {
 	switch v := typ.(type) {
 	case *parse.TypeLibraryConfig:
-		if typeConstructorContainsOffset(text, v.S, "library-config", offset) {
+		if typeLibraryConfigContainsOffset(text, v, offset) {
 			return v, true
 		}
 	case *parse.TypeList:
@@ -270,6 +270,47 @@ func typeConstructorContainsOffset(
 		return spanContainsOffset(span, offset)
 	}
 	return offset >= start && offset < end
+}
+
+func typeLibraryConfigContainsOffset(
+	text string,
+	lib *parse.TypeLibraryConfig,
+	offset int,
+) bool {
+	if lib == nil {
+		return false
+	}
+	if typeConstructorContainsOffset(text, lib.S, "library-config", offset) {
+		return true
+	}
+	return stringLiteralContainsOffset(text, lib.Path, offset)
+}
+
+func stringLiteralContainsOffset(text string, lit *parse.StringLit, offset int) bool {
+	if lit == nil {
+		return false
+	}
+	start := lit.S.Start.Offset
+	if start < 0 || start >= len(text) || text[start] != '\'' {
+		return spanContainsOffset(lit.S, offset)
+	}
+	end := singleQuotedLiteralEnd(text, start)
+	return offset >= start && offset < end
+}
+
+func singleQuotedLiteralEnd(text string, start int) int {
+	if strings.HasPrefix(text[start:], "'''") {
+		if end := strings.Index(text[start+3:], "'''"); end >= 0 {
+			return start + 3 + end + 3
+		}
+		return len(text)
+	}
+	for i := start + 1; i < len(text); i++ {
+		if text[i] == '\'' && text[i-1] != '\\' {
+			return i + 1
+		}
+	}
+	return len(text)
 }
 
 func libraryConfigInputDefinition(
@@ -637,6 +678,10 @@ func goConfigTypeDefinitionForPath(
 	decls definitionDecls,
 	projects *ProjectCache,
 ) ([]protocol.Location, bool, error) {
+	locations, found, err := goConfigTypeDefinitionForSchemaPath(path, libraryPath, projects)
+	if err == nil && found {
+		return locations, true, nil
+	}
 	for alias, imp := range decls.imports {
 		if imp.Ref == nil || imp.Ref.Value != libraryPath {
 			continue
@@ -644,6 +689,18 @@ func goConfigTypeDefinitionForPath(
 		return goConfigTypeDefinition(path, alias, decls, projects)
 	}
 	return []protocol.Location{}, true, nil
+}
+
+func goConfigTypeDefinitionForSchemaPath(
+	path string,
+	libraryPath string,
+	projects *ProjectCache,
+) ([]protocol.Location, bool, error) {
+	index, found, err := goConfigIndexForSchemaPath(path, libraryPath, projects)
+	if err != nil || !found {
+		return []protocol.Location{}, found, err
+	}
+	return goLocationDefinition(index.ConfigType)
 }
 
 func goConfigTypeDefinition(
@@ -670,6 +727,12 @@ func goConfigFieldDefinitionForPath(
 	decls definitionDecls,
 	projects *ProjectCache,
 ) ([]protocol.Location, bool, error) {
+	locations, found, err := goConfigFieldDefinitionForSchemaPath(
+		path, libraryPath, fieldPath, projects,
+	)
+	if err == nil && found {
+		return locations, true, nil
+	}
 	for alias, imp := range decls.imports {
 		if imp.Ref == nil || imp.Ref.Value != libraryPath {
 			continue
@@ -677,6 +740,23 @@ func goConfigFieldDefinitionForPath(
 		return goConfigFieldDefinition(path, alias, fieldPath, decls, projects)
 	}
 	return []protocol.Location{}, true, nil
+}
+
+func goConfigFieldDefinitionForSchemaPath(
+	path string,
+	libraryPath string,
+	fieldPath string,
+	projects *ProjectCache,
+) ([]protocol.Location, bool, error) {
+	index, found, err := goConfigIndexForSchemaPath(path, libraryPath, projects)
+	if err != nil || !found {
+		return []protocol.Location{}, found, err
+	}
+	loc, ok := index.ConfigFields[fieldPath]
+	if !ok {
+		return []protocol.Location{}, true, nil
+	}
+	return goLocationDefinition(loc)
 }
 
 func goConfigFieldDefinition(
@@ -748,6 +828,29 @@ func resolveImportAlias(
 	return resolvedImport{project: project, source: src, found: true, sourceOK: ok}, nil
 }
 
+func resolveLibraryConfigPath(
+	path string,
+	libraryPath string,
+	projects *ProjectCache,
+) (resolvedImport, error) {
+	if projects == nil {
+		return resolvedImport{}, nil
+	}
+	ref, err := resolve.ParseImportRef(libraryPath)
+	if err != nil {
+		return resolvedImport{}, nil
+	}
+	project, err := projects.ProjectForPath(path)
+	if err != nil {
+		return resolvedImport{}, err
+	}
+	src, ok, err := project.Resolver.ResolveNoFetch(ref)
+	if err != nil {
+		return resolvedImport{}, err
+	}
+	return resolvedImport{project: project, source: src, found: true, sourceOK: ok}, nil
+}
+
 func goIndexForResolved(resolved resolvedImport) (*goschema.SourceIndex, bool, error) {
 	if !resolved.sourceOK {
 		return &goschema.SourceIndex{}, true, nil
@@ -759,6 +862,29 @@ func goIndexForResolved(resolved resolvedImport) (*goschema.SourceIndex, bool, e
 	_, index, _, err := resolved.project.GoIndex.Read(resolved.source.Path)
 	if err != nil {
 		return nil, true, err
+	}
+	return index, true, nil
+}
+
+func goConfigIndexForSchemaPath(
+	path string,
+	libraryPath string,
+	projects *ProjectCache,
+) (*goschema.SourceIndex, bool, error) {
+	resolved, err := resolveLibraryConfigPath(path, libraryPath, projects)
+	if err != nil || !resolved.found {
+		return nil, false, err
+	}
+	if !resolved.sourceOK {
+		return &goschema.SourceIndex{}, true, nil
+	}
+	if resolved.source == nil || resolved.source.Path == "" || !resolve.IsGoLibrary(resolved.source) {
+		return nil, false, nil
+	}
+	resolved.project.EnsureGoModuleRoot(resolved.source)
+	_, index, _, err := resolved.project.GoIndex.ReadLibraryConfiguration(resolved.source.Path)
+	if err != nil {
+		return nil, false, nil
 	}
 	return index, true, nil
 }

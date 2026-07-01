@@ -315,6 +315,17 @@ func (c *analysisContext) buildSourceIndex(libraryFunc *ast.FuncDecl) (*SourceIn
 	return indexer.build(libraryFunc)
 }
 
+func (c *analysisContext) buildLibraryConfigurationSourceIndex(
+	fn *ast.FuncDecl,
+) (*SourceIndex, error) {
+	indexer := &sourceIndexer{
+		roots:    c.roots,
+		packages: c.packages,
+		root:     c.root,
+	}
+	return indexer.buildLibraryConfiguration(fn)
+}
+
 func (c *analysisContext) loadImportedPackage(
 	from *indexedPackage,
 	alias string,

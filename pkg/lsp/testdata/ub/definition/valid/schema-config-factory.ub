@@ -1,0 +1,19 @@
+factory: {
+  inputs: {
+    aws-config: {
+      type: library-config('example.com/aws//config')
+      default: {
+        region: 'us-east-1'
+      }
+    }
+  }
+  imports: {
+    svc: 'example.com/aws//service'
+  }
+  library-configs: {
+    svc: input.aws-config
+  }
+  resources: {
+    bucket: svc.bucket { name: 'assets' }
+  }
+}

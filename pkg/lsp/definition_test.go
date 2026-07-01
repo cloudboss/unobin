@@ -172,6 +172,45 @@ func TestDefinitionLibraryConfigTypeConstructor(t *testing.T) {
 		"type Config struct", "Config")
 }
 
+func TestDefinitionLibraryConfigSchemaDependency(t *testing.T) {
+	root, factoryPath, factorySource, moduleDir := configForwardDefinitionProject(t)
+	cache := NewProjectCache(root)
+	configPath := filepath.Join(moduleDir, "awscfg", "configuration.go")
+	configSource := readTestFile(t, configPath)
+
+	locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+		positionInText(factorySource, "type: library-config", "library-config"), cache)
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, configPath, configSource,
+		"type Configuration struct", "Configuration")
+}
+
+func TestDefinitionLibraryConfigSchemaDependencyPathLiteral(t *testing.T) {
+	root, factoryPath, factorySource, moduleDir := configForwardDefinitionProject(t)
+	cache := NewProjectCache(root)
+	configPath := filepath.Join(moduleDir, "awscfg", "configuration.go")
+	configSource := readTestFile(t, configPath)
+
+	locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+		positionInText(factorySource, "example.com/aws//config", "config"), cache)
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, configPath, configSource,
+		"type Configuration struct", "Configuration")
+}
+
+func TestDefinitionLibraryConfigSchemaDependencyDefaultField(t *testing.T) {
+	root, factoryPath, factorySource, moduleDir := configForwardDefinitionProject(t)
+	cache := NewProjectCache(root)
+	configPath := filepath.Join(moduleDir, "awscfg", "configuration.go")
+	configSource := readTestFile(t, configPath)
+
+	locations, rpcErr := DefinitionForText(factoryPath, factorySource,
+		positionInText(factorySource, "region: 'us-east-1'", "region"), cache)
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, configPath, configSource,
+		"Region string", "Region")
+}
+
 func TestDefinitionLibraryConfigAlias(t *testing.T) {
 	root, factoryPath, factorySource, goDir := goDefinitionProject(t)
 	cache := NewProjectCache(root)
@@ -390,6 +429,24 @@ func goDefinitionProject(t *testing.T) (string, string, string, string) {
 	return goDefinitionProjectFixture(
 		t, "testdata/ub/definition/valid/go-backed-factory.ub",
 	)
+}
+
+func configForwardDefinitionProject(t *testing.T) (string, string, string, string) {
+	t.Helper()
+	root := t.TempDir()
+	moduleDir, err := filepath.Abs(filepath.Join("..", "goschema", "testdata", "configforward"))
+	require.NoError(t, err)
+	dep := deps.Dependency{URL: "example.com/aws"}
+	require.NoError(t, deps.WriteProject(filepath.Join(root, deps.ProjectFileName), &deps.Project{
+		Requires: map[deps.Dependency]deps.Requirement{},
+		Replace:  map[deps.Dependency]string{dep: moduleDir},
+	}))
+	factorySource := ubtest.ReadFixture(
+		t, "testdata/ub/definition/valid/schema-config-factory.ub",
+	)
+	factoryPath := filepath.Join(root, "factory.ub")
+	require.NoError(t, os.WriteFile(factoryPath, []byte(factorySource), 0o644))
+	return root, factoryPath, factorySource, moduleDir
 }
 
 func goDefinitionProjectFixture(

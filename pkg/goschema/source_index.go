@@ -51,6 +51,32 @@ func ReadWithIndex(dir string, extra ...ModuleRoot) (
 	return analysis.Schema, analysis.Index, analysis.Warnings, nil
 }
 
+// ReadLibraryConfigurationWithIndex reads a config-schema package and source index.
+func ReadLibraryConfigurationWithIndex(dir string, extra ...ModuleRoot) (
+	schema *runtime.LibrarySchema,
+	index *SourceIndex,
+	warnings []string,
+	err error,
+) {
+	ctx, err := newAnalysisContext(dir, extra...)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	fn := findPackageFunc(ctx.root.files, "LibraryConfiguration")
+	if fn == nil {
+		return nil, nil, nil, fmt.Errorf("no LibraryConfiguration() function in %s", dir)
+	}
+	schema, err = ctx.readLibraryConfigurationSchema(fn)
+	if err != nil {
+		return schema, nil, ctx.warnings, err
+	}
+	index, err = ctx.buildLibraryConfigurationSourceIndex(fn)
+	if err != nil {
+		return schema, nil, ctx.warnings, err
+	}
+	return schema, index, ctx.warnings, nil
+}
+
 // SourceIndexCache caches schema and source-index reads by directory.
 type SourceIndexCache struct {
 	extra   []ModuleRoot
@@ -58,9 +84,12 @@ type SourceIndexCache struct {
 }
 
 type sourceIndexCacheEntry struct {
-	schema   *runtime.LibrarySchema
-	index    *SourceIndex
-	warnings []string
+	schema                *runtime.LibrarySchema
+	index                 *SourceIndex
+	warnings              []string
+	configurationSchema   *runtime.LibrarySchema
+	configurationIndex    *SourceIndex
+	configurationWarnings []string
 }
 
 // NewSourceIndexCache returns an empty source index cache.
@@ -82,18 +111,45 @@ func (c *SourceIndexCache) Read(dir string) (
 		return ReadWithIndex(dir)
 	}
 	key := filepath.Clean(dir)
-	if entry, ok := c.entries[key]; ok {
+	if entry, ok := c.entries[key]; ok && entry.schema != nil {
 		return entry.schema, entry.index, entry.warnings, nil
 	}
 	schema, index, warnings, err = ReadWithIndex(dir, c.extra...)
 	if err != nil {
 		return schema, index, warnings, err
 	}
-	c.entries[key] = sourceIndexCacheEntry{
-		schema:   schema,
-		index:    index,
-		warnings: append([]string(nil), warnings...),
+	entry := c.entries[key]
+	entry.schema = schema
+	entry.index = index
+	entry.warnings = append([]string(nil), warnings...)
+	c.entries[key] = entry
+	return schema, index, warnings, nil
+}
+
+// ReadLibraryConfiguration reads a config-schema package and source index.
+func (c *SourceIndexCache) ReadLibraryConfiguration(dir string) (
+	schema *runtime.LibrarySchema,
+	index *SourceIndex,
+	warnings []string,
+	err error,
+) {
+	if c == nil {
+		return ReadLibraryConfigurationWithIndex(dir)
 	}
+	key := filepath.Clean(dir)
+	if entry, ok := c.entries[key]; ok && entry.configurationSchema != nil {
+		return entry.configurationSchema, entry.configurationIndex,
+			entry.configurationWarnings, nil
+	}
+	schema, index, warnings, err = ReadLibraryConfigurationWithIndex(dir, c.extra...)
+	if err != nil {
+		return schema, index, warnings, err
+	}
+	entry := c.entries[key]
+	entry.configurationSchema = schema
+	entry.configurationIndex = index
+	entry.configurationWarnings = append([]string(nil), warnings...)
+	c.entries[key] = entry
 	return schema, index, warnings, nil
 }
 
@@ -135,6 +191,22 @@ func (i *sourceIndexer) build(libraryFunc *ast.FuncDecl) (*SourceIndex, error) {
 		}
 	}
 	index.Functions = extractFunctionLocations(rootPkg, libraryFunc)
+	return index, nil
+}
+
+func (i *sourceIndexer) buildLibraryConfiguration(fn *ast.FuncDecl) (*SourceIndex, error) {
+	index := newSourceIndex()
+	ref, _, found, ok := extractLibraryConfigurationRef(
+		fn,
+		i.root,
+		i.loadImportedPackage,
+	)
+	if found && ok {
+		if typePkg, spec, ok := i.resolveType(i.root, ref); ok {
+			index.ConfigType = typePkg.location(spec.Name.Pos())
+			index.ConfigFields = i.fieldLocations(typePkg, spec.Name.Name)
+		}
+	}
 	return index, nil
 }
 

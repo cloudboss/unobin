@@ -146,11 +146,16 @@ func diagnosticProjectVersions(project *Project) (map[string]string, error) {
 }
 
 func diagnosticSchemaCache(project *Project) *sourcecheck.SchemaCache {
-	return sourcecheck.NewSchemaCacheWithReader(
+	return sourcecheck.NewSchemaCacheWithReaders(
 		func(sourcePath string) (*runtime.LibrarySchema, []string, error) {
 			schema, _, warnings, err := project.GoIndex.Read(sourcePath)
 			return schema, warnings, err
-		})
+		},
+		func(sourcePath string) (*runtime.LibrarySchema, []string, error) {
+			schema, _, warnings, err := project.GoIndex.ReadLibraryConfiguration(sourcePath)
+			return schema, warnings, err
+		},
+	)
 }
 
 func diagnosticLooseLibraryOptions(

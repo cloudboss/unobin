@@ -79,6 +79,14 @@ func TestDiagnosticsUseSchemaRootsForLibraryConfigTypes(t *testing.T) {
 		"type mismatch: expected string, got integer")
 }
 
+func TestDiagnosticsReadLibraryConfigurationSchemaDependency(t *testing.T) {
+	source := readDiagnosticFixture(t, "valid/schema-config-split")
+
+	diags := diagnosticsForConfigSchemaDependencyFixture(t, source)
+
+	require.Empty(t, diags)
+}
+
 func TestDiagnosticsReportLiteralConstraints(t *testing.T) {
 	source := ubtest.ReadFixture(t,
 		"testdata/ub/diagnostics/invalid/literal-constraint.ub")
@@ -294,6 +302,8 @@ func diagnosticsForFixture(t *testing.T, name string, source string) []protocol.
 		return diagnosticsForMissingRemoteFixture(t, source)
 	case "invalid/go-config-field-type":
 		return diagnosticsForConfigFieldTypeFixture(t, source)
+	case "valid/schema-config-split":
+		return diagnosticsForConfigSchemaDependencyFixture(t, source)
 	case "invalid/literal-constraint":
 		return diagnosticsForLiteralConstraintFixture(t, source)
 	case "invalid/nested-for-each":
@@ -351,6 +361,22 @@ func diagnosticsForConfigFieldTypeFixture(t *testing.T, source string) []protoco
 		{Path: "example.com/shared", Dir: sharedDir},
 	})
 	return DiagnosticsForTextWithProjects(sourcePath, source, cache)
+}
+
+func diagnosticsForConfigSchemaDependencyFixture(
+	t *testing.T,
+	source string,
+) []protocol.Diagnostic {
+	t.Helper()
+	moduleDir, err := filepath.Abs(filepath.Join("..", "goschema", "testdata", "configforward"))
+	require.NoError(t, err)
+	root, sourcePath := writeDiagnosticProject(t, source, &deps.Project{
+		Requires: map[deps.Dependency]deps.Requirement{},
+		Replace: map[deps.Dependency]string{
+			{URL: "example.com/aws"}: moduleDir,
+		},
+	}, nil)
+	return DiagnosticsForTextWithProjects(sourcePath, source, NewProjectCache(root))
 }
 
 func diagnosticsForLiteralConstraintFixture(
