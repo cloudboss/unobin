@@ -18,6 +18,7 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(root.DocsCmd)
+	rootCmd.AddCommand(root.ModZipCmd)
 }
 
 func main() {
