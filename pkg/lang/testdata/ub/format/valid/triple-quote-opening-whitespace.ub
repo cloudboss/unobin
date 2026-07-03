@@ -1,0 +1,13 @@
+literal: '''|  
+  one
+  '''
+folded: '''>- 	
+  one two
+  '''
+joined: '''\-	
+  https://example.com/
+  v1
+  '''
+interp: $'''>-  
+  hello {{ input.name }}
+  '''

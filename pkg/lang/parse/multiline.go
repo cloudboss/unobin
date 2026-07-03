@@ -23,11 +23,11 @@ func processTripleQuoteBody(text []byte, startCol int, sigil string) (string, er
 	if sigil == "" {
 		return string(body), nil
 	}
-	skip := len(sigil) + 1
-	if skip > len(body) {
-		return "", fmt.Errorf("triple-quoted string body too short")
+	var err error
+	body, err = trimTripleQuoteOpening(body, sigil)
+	if err != nil {
+		return "", err
 	}
-	body = body[skip:]
 
 	col := startCol
 	for i := 0; i < len(text)-3; i++ {
@@ -101,6 +101,20 @@ func processTripleQuoteBody(text []byte, startCol int, sigil string) (string, er
 		value = strings.TrimRight(value, "\n") + "\n"
 	}
 	return value, nil
+}
+
+func trimTripleQuoteOpening(body []byte, sigil string) ([]byte, error) {
+	if len(body) < len(sigil) || string(body[:len(sigil)]) != sigil {
+		return nil, fmt.Errorf("triple-quoted string body too short")
+	}
+	i := len(sigil)
+	for i < len(body) && (body[i] == ' ' || body[i] == '\t') {
+		i++
+	}
+	if i >= len(body) || body[i] != '\n' {
+		return nil, fmt.Errorf("triple-quoted string body too short")
+	}
+	return body[i+1:], nil
 }
 
 // contentLine describes one content line of a multi-line triple-quoted

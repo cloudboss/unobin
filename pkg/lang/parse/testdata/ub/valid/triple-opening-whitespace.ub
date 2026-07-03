@@ -1,0 +1,27 @@
+literal-clip: '''| 
+  one
+  '''
+
+literal-strip: '''|-	
+  one
+  '''
+
+folded-clip: '''>  
+  one
+  two
+  '''
+
+folded-strip: '''>-	 
+  one
+  two
+  '''
+
+joined-clip: '''\ 
+  https://example.com/
+  v1
+  '''
+
+joined-strip: '''\-	
+  https://example.com/
+  v1
+  '''

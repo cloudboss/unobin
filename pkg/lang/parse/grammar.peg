@@ -1123,7 +1123,7 @@ DoubleQuotedKey <- s:DoubleQuotedString {
 // TestSlotFormParity holds the two together.
 InterpolatedStringNode <- InterpolatedMultiTriple / InterpolatedSingleTriple / InterpolatedSingleQuote
 
-InterpolatedMultiTriple <- "$'''" s:Sigil "\n" MultiLineContent Indent "'''" {
+InterpolatedMultiTriple <- "$'''" s:Sigil OpeningSpace "\n" MultiLineContent Indent "'''" {
 	return buildInterpolatedTriple(c.rangeSpan(), c.text, c.pos.col, s.(string))
 }
 
@@ -1177,7 +1177,7 @@ InterpolatedSingleLiteral <- ( "\\" . / !"{{" !"'" !"\n" !"\r" . )+ {
 
 TripleQuoteStringLitNode <- MultiLineTripleQuote / SingleLineTripleQuote
 
-MultiLineTripleQuote <- "'''" s:Sigil "\n" MultiLineContent Indent "'''" {
+MultiLineTripleQuote <- "'''" s:Sigil OpeningSpace "\n" MultiLineContent Indent "'''" {
 	sig := s.(string)
 	val, err := processTripleQuoteBody(c.text, c.pos.col, sig)
 	return &StringLit{S: c.rangeSpan(), Value: val, Form: formFromSigil(sig)}, err
@@ -1191,6 +1191,8 @@ SingleLineTripleQuote <- "'''" SingleLineContent "'''" {
 Sigil <- ( "|" / ">" / "\\" ) "-"? {
 	return string(c.text), nil
 }
+
+OpeningSpace <- [ \t]*
 
 MultiLineContent <- ( !ContentBreak . )*
 

@@ -193,6 +193,29 @@ func TestParseFixtureTripleStrings(t *testing.T) {
 	}
 }
 
+func TestParseFixtureTripleOpeningWhitespace(t *testing.T) {
+	f := loadFixture(t, "testdata/ub/valid/triple-opening-whitespace.ub")
+	wants := []struct {
+		key  string
+		form StringForm
+		val  string
+	}{
+		{"literal-clip", StringLiteralClip, "one\n"},
+		{"literal-strip", StringLiteralStrip, "one"},
+		{"folded-clip", StringFoldedClip, "one two\n"},
+		{"folded-strip", StringFoldedStrip, "one two"},
+		{"joined-clip", StringJoinedClip, "https://example.com/v1\n"},
+		{"joined-strip", StringJoinedStrip, "https://example.com/v1"},
+	}
+	require.Len(t, f.Body.Fields, len(wants))
+	for i, w := range wants {
+		identField(t, f.Body.Fields[i], w.key)
+		s := f.Body.Fields[i].Value.(*StringLit)
+		require.Equal(t, w.form, s.Form, "%s: Form", w.key)
+		require.Equal(t, w.val, s.Value, "%s: Value", w.key)
+	}
+}
+
 func TestParseFixtureMultilineStrings(t *testing.T) {
 	f := loadFixture(t, "testdata/ub/valid/multiline-strings.ub")
 	wants := []struct {
