@@ -386,9 +386,9 @@ func remoteProjectRef(project ProjectID, version string) *resolve.RemoteImport {
 	}
 }
 
-// checkLocalImport resolves a local import and rejects it when it points to a
-// Go library, which cannot be imported by path. A UB library is fine: the
-// project visit sees its files directly, so nothing more is recorded.
+// checkLocalImport resolves a local import and rejects paths that compile would
+// reject. A UB library is fine: the project visit sees its files directly, so
+// nothing more is recorded.
 func (w *projectLockWalker) checkLocalImport(
 	rootFS fs.FS,
 	alias string,
@@ -398,7 +398,8 @@ func (w *projectLockWalker) checkLocalImport(
 	if err := checkLocalImportProjectBoundary(rootFS, baseDir, r.Path); err != nil {
 		return fmt.Errorf("import %q: %w", alias, err)
 	}
-	resolved := &resolve.LocalImport{Path: rebaseLocalPath(baseDir, r.Path)}
+	resolvedPath := rebaseLocalPath(baseDir, r.Path)
+	resolved := &resolve.LocalImport{Path: resolvedPath}
 	src, err := w.resolver.Resolve(resolved)
 	if err != nil {
 		return fmt.Errorf("import %q: %w", alias, err)
@@ -406,6 +407,9 @@ func (w *projectLockWalker) checkLocalImport(
 	classification := resolve.ClassifySource(src)
 	switch classification.Kind {
 	case resolve.SourceFactory:
+		if cleanFSPath(resolvedPath) != cleanFSPath(baseDir) {
+			return fmt.Errorf("import %q: a factory cannot be imported", alias)
+		}
 		if !classification.HasCompositeExports {
 			return fmt.Errorf("import %q: %s is not a UB library", alias, r.Path)
 		}

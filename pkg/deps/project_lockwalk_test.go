@@ -108,7 +108,7 @@ func TestProjectLockFromImportsInvalidFixtures(t *testing.T) {
 	ubtest.RequireInvalidFixtureGoldens(t, "testdata/ub/project-lockwalk")
 	ubtest.Run(t, "testdata/ub/project-lockwalk/invalid",
 		func(name string, src []byte) (string, []string) {
-			root := mapFS(map[string]string{"factory.ub": string(src)})
+			root := projectLockInvalidFixtureRoot(t, name, src)
 			resolver, selection := projectLockInvalidFixtureDeps(t, name)
 
 			_, err := ProjectLockFromImports(root, selection, resolver, nil)
@@ -117,6 +117,18 @@ func TestProjectLockFromImportsInvalidFixtures(t *testing.T) {
 			}
 			return "", []string{err.Error()}
 		})
+}
+
+func projectLockInvalidFixtureRoot(t testing.TB, name string, src []byte) fstest.MapFS {
+	t.Helper()
+	files := map[string]string{"factory.ub": string(src)}
+	if name == "local-factory-import" {
+		files["other/factory.ub"] = projectLockWalkSupportFixture(t,
+			"local-factory-import-target-factory")
+		files["other/library.ub"] = projectLockWalkSupportFixture(t,
+			"local-factory-import-target-library")
+	}
+	return mapFS(files)
 }
 
 func projectLockInvalidFixtureDeps(
@@ -142,6 +154,15 @@ func projectLockInvalidFixtureDeps(
 			"c1",
 			"testdata/go/no-entry",
 		)
+	case "local-factory-import":
+		return &fakeResolver{locals: map[string]*resolve.Source{
+			"./other": ubSrc("", "", map[string]string{
+				"factory.ub": projectLockWalkSupportFixture(t,
+					"local-factory-import-target-factory"),
+				"library.ub": projectLockWalkSupportFixture(t,
+					"local-factory-import-target-library"),
+			}),
+		}}, selection
 	default:
 		t.Fatalf("unknown invalid project-lockwalk fixture %s", name)
 	}
