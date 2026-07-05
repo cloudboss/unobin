@@ -155,6 +155,7 @@ func WalkUBFrom(
 		resolver:         resolver,
 		visitor:          v,
 		versions:         versions,
+		factoryRoot:      factoryRootSource(source),
 		parsed:           map[string]*UBLibrary{},
 		inProgress:       map[string]bool{},
 		goModuleProjects: map[string]string{},
@@ -167,6 +168,7 @@ type ubWalker struct {
 	resolver         Resolver
 	visitor          UBVisitor
 	versions         map[string]string
+	factoryRoot      *Source
 	parsed           map[string]*UBLibrary
 	inProgress       map[string]bool
 	goModuleProjects map[string]string
@@ -199,6 +201,13 @@ func (w *ubWalker) projectLockVersion(ref ImportRef) ImportRef {
 type remoteOwner struct {
 	projectSubdir string
 	version       string
+}
+
+func factoryRootSource(source *Source) *Source {
+	if ContainsFactorySource(source) {
+		return source
+	}
+	return nil
 }
 
 func (w *ubWalker) ownerFor(r *RemoteImport) (remoteOwner, bool) {
@@ -337,7 +346,7 @@ func (w *ubWalker) walkOne(
 	classification := ClassifySource(source)
 	switch classification.Kind {
 	case SourceFactory:
-		if !local {
+		if !local || !w.isSelfFactoryImport(ref, parent, source) {
 			return Resolution{}, fmt.Errorf("import %q: a factory cannot be imported", alias)
 		}
 		if !classification.HasCompositeExports {
@@ -356,6 +365,27 @@ func (w *ubWalker) walkOne(
 
 func (w *ubWalker) resolveImport(ref ImportRef, parent *Source) (*Source, error) {
 	return ResolveImportFrom(w.resolver, ref, parent)
+}
+
+func (w *ubWalker) isSelfFactoryImport(ref ImportRef, parent, target *Source) bool {
+	if !sameSource(parent, w.factoryRoot) {
+		return false
+	}
+	if sameSource(target, w.factoryRoot) {
+		return true
+	}
+	li, ok := ref.(*LocalImport)
+	return ok && filepath.Clean(li.Path) == "."
+}
+
+func sameSource(a, b *Source) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	if a.Path != "" && b.Path != "" {
+		return sameDir(a.Path, b.Path)
+	}
+	return a == b
 }
 
 // ResolveImportFrom resolves ref using parent source context when available.

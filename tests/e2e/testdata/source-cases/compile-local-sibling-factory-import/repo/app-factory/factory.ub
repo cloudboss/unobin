@@ -1,0 +1,4 @@
+factory: {
+  imports: { other: '../other-factory' }
+  data-sources: { message: other.message {} }
+}
