@@ -18,6 +18,41 @@
       "skipPin": true
     },
     {
+      "name": "validate-good-gcs",
+      "args": ["validate", "--allow-version-mismatch", "-c", "stacks/good-gcs.ub"],
+      "stdout": "want/validate-good-env-key.stdout",
+      "stderr": "want/validate-good-env-key.stderr",
+      "skipPin": true
+    },
+    {
+      "name": "validate-good-gcp-kms",
+      "args": ["validate", "--allow-version-mismatch", "-c", "stacks/good-gcp-kms.ub"],
+      "stdout": "want/validate-good-env-key.stdout",
+      "stderr": "want/validate-good-env-key.stderr",
+      "skipPin": true
+    },
+    {
+      "name": "validate-bad-gcs-missing-bucket",
+      "args": ["validate", "--allow-version-mismatch", "-c", "stacks/bad-gcs-missing-bucket.ub"],
+      "stderr": "want/validate-bad-gcs-missing-bucket.stderr",
+      "exitCode": 1,
+      "skipPin": true
+    },
+    {
+      "name": "validate-bad-gcp-kms-missing-key-id",
+      "args": ["validate", "--allow-version-mismatch", "-c", "stacks/bad-gcp-kms-missing-key-id.ub"],
+      "stderr": "want/validate-bad-gcp-kms-missing-key-id.stderr",
+      "exitCode": 1,
+      "skipPin": true
+    },
+    {
+      "name": "validate-bad-gcs-endpoint-preferences",
+      "args": ["validate", "--allow-version-mismatch", "-c", "stacks/bad-gcs-endpoint-preferences.ub"],
+      "stderr": "want/validate-bad-gcs-endpoint-preferences.stderr",
+      "exitCode": 1,
+      "skipPin": true
+    },
+    {
       "name": "validate-bad-syntax",
       "args": ["validate", "--allow-version-mismatch", "-c", "stacks/bad-syntax.ub"],
       "stderr": "want/validate-bad-syntax.stderr",

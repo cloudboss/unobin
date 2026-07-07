@@ -1,0 +1,11 @@
+stack: {
+  state: gcs {
+    bucket: 'unobin-test-state'
+    gcp: {
+      prefer-regional-endpoints: true
+      prefer-global-endpoints:   true
+    }
+  }
+
+  encryption: noop {}
+}

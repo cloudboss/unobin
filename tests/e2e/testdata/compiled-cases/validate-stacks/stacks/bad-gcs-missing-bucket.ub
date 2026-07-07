@@ -1,0 +1,5 @@
+stack: {
+  state: gcs {}
+
+  encryption: noop {}
+}

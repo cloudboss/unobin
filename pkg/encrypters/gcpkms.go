@@ -21,6 +21,18 @@ type GCPKMSConfig struct {
 	GCP   *gcpcfg.Configuration
 }
 
+func (c *GCPKMSConfig) Validate() error {
+	if c.KeyID == "" {
+		return fmt.Errorf("gcp-kms encrypter: %s is required", sdkencrypt.ConfigKeyID)
+	}
+	if c.GCP != nil {
+		if err := c.GCP.Validate(); err != nil {
+			return fmt.Errorf("gcp-kms encrypter: %w", err)
+		}
+	}
+	return nil
+}
+
 type gcpKMSClient interface {
 	encryptDataKey(ctx context.Context, keyID string, plaintext []byte) ([]byte, error)
 	decryptDataKey(ctx context.Context, keyID string, ciphertext []byte) ([]byte, error)

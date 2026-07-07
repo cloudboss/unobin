@@ -1,0 +1,10 @@
+stack: {
+  state: local {
+    path: '.unobin/state'
+  }
+
+  encryption: gcp-kms {
+    key-id: 'projects/p/locations/us/keyRings/r/cryptoKeys/k'
+    gcp:    { project: 'test-project' }
+  }
+}

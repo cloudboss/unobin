@@ -178,6 +178,18 @@ func decodeRefConfig(ct cfg.Registration, ref *resolverRef) (any, error) {
 	return cfg.Decode(ct, ref.Body)
 }
 
+type staticConfigValidator interface {
+	Validate() error
+}
+
+func validateRefConfig(config any) error {
+	v, ok := config.(staticConfigValidator)
+	if !ok {
+		return nil
+	}
+	return v.Validate()
+}
+
 // sortedNames renders the registry keys in sorted order for an error that
 // lists the available backends or encrypters.
 func sortedNames[V any](m map[string]V) string {

@@ -557,7 +557,11 @@ func validateStateRefs(config *parsedStack, configPath string) error {
 		if err != nil {
 			return err
 		}
-		if _, err := decodeRefConfig(bt.Configuration, sc.Backend); err != nil {
+		decoded, err := decodeRefConfig(bt.Configuration, sc.Backend)
+		if err != nil {
+			return fmt.Errorf("state: %w", err)
+		}
+		if err := validateRefConfig(decoded); err != nil {
 			return fmt.Errorf("state: %w", err)
 		}
 	}
@@ -566,7 +570,11 @@ func validateStateRefs(config *parsedStack, configPath string) error {
 		if err != nil {
 			return err
 		}
-		if _, err := decodeRefConfig(et.Configuration, sc.Encrypter); err != nil {
+		decoded, err := decodeRefConfig(et.Configuration, sc.Encrypter)
+		if err != nil {
+			return fmt.Errorf("encryption: %w", err)
+		}
+		if err := validateRefConfig(decoded); err != nil {
 			return fmt.Errorf("encryption: %w", err)
 		}
 	}

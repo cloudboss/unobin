@@ -137,6 +137,18 @@ type GCSBackendConfig struct {
 	GCP        *gcpcfg.Configuration
 }
 
+func (c *GCSBackendConfig) Validate() error {
+	if c.Bucket == "" {
+		return errors.New("gcs backend: bucket is required")
+	}
+	if c.GCP != nil {
+		if err := c.GCP.Validate(); err != nil {
+			return fmt.Errorf("gcs backend: %w", err)
+		}
+	}
+	return nil
+}
+
 func newGCSBackend(
 	config any,
 	factory, stack string,
@@ -146,8 +158,8 @@ func newGCSBackend(
 	if !ok {
 		return nil, fmt.Errorf("gcs backend: missing or wrong configuration (got %T)", config)
 	}
-	if c.Bucket == "" {
-		return nil, errors.New("gcs backend: bucket is required")
+	if err := c.Validate(); err != nil {
+		return nil, err
 	}
 	opts, err := c.GCP.ClientOptions("storage")
 	if err != nil {

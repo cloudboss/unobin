@@ -115,8 +115,8 @@ func newGCPKMSEncrypter(config any, body map[string]any) (sdkencrypt.Encrypter, 
 	if !ok {
 		return nil, fmt.Errorf("gcp-kms encrypter: missing or wrong configuration (got %T)", config)
 	}
-	if c.KeyID == "" {
-		return nil, fmt.Errorf("gcp-kms encrypter: %s is required", sdkencrypt.ConfigKeyID)
+	if err := c.Validate(); err != nil {
+		return nil, err
 	}
 	opts, err := c.GCP.ClientOptions("kms")
 	if err != nil {

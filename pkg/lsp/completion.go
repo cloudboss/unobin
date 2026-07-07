@@ -932,11 +932,11 @@ func projectRequirementCompletionItems() []protocol.CompletionItem {
 }
 
 func stackStateCompletionItems() []protocol.CompletionItem {
-	return keywordCompletionItems("local", "s3")
+	return keywordCompletionItems("gcs", "local", "s3")
 }
 
 func stackEncryptionCompletionItems() []protocol.CompletionItem {
-	return keywordCompletionItems("env-key", "kms", "noop")
+	return keywordCompletionItems("env-key", "gcp-kms", "kms", "noop")
 }
 
 func inputDeclarationCompletionItems(text string, offset int) []protocol.CompletionItem {

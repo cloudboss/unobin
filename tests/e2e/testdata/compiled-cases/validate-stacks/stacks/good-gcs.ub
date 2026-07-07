@@ -1,0 +1,9 @@
+stack: {
+  state: gcs {
+    bucket: 'unobin-test-state'
+    prefix: 'app'
+    gcp:    { project: 'test-project' }
+  }
+
+  encryption: noop {}
+}

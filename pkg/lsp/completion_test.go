@@ -57,7 +57,7 @@ func TestCompletionStackStateSelectors(t *testing.T) {
 
 	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
 	require.Nil(t, rpcErr)
-	requireCompletionLabels(t, list, "local", "s3")
+	requireCompletionLabels(t, list, "gcs", "local", "s3")
 }
 
 func TestCompletionStackEncryptionSelectors(t *testing.T) {
@@ -68,7 +68,7 @@ func TestCompletionStackEncryptionSelectors(t *testing.T) {
 
 	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
 	require.Nil(t, rpcErr)
-	requireCompletionLabels(t, list, "env-key", "kms", "noop")
+	requireCompletionLabels(t, list, "env-key", "gcp-kms", "kms", "noop")
 }
 
 func TestCompletionProjectKeys(t *testing.T) {
