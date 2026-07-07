@@ -1,0 +1,40 @@
+factory: {
+  description: '''>-
+    Configures a library with gcpcfg.Configuration, the Google Cloud
+    connection schema used by the gcs state backend and gcp-kms encrypter.
+    '''
+
+  inputs: {
+    region: { type: string, default: 'us-central1' }
+    gcp-config: {
+      type:    library-config('github.com/cloudboss/unobin//examples/gcpcfg/cloud')
+      default: {}
+    }
+  }
+
+  imports: {
+    gcp:        'github.com/cloudboss/unobin//examples/gcpcfg/cloud'
+    gcp-scoped: 'github.com/cloudboss/unobin//examples/gcpcfg/cloud'
+  }
+
+  library-configs: {
+    gcp:        input.gcp-config
+    gcp-scoped: @core.merge(input.gcp-config, { region: input.region })
+  }
+
+  actions: {
+    default: gcp.describe {
+      label: 'default'
+    }
+    scoped: gcp-scoped.describe {
+      label: 'scoped'
+    }
+  }
+
+  outputs: {
+    default-project:   { value: action.default.project }
+    scoped-region:     { value: action.scoped.region }
+    storage-endpoint:  { value: action.default.storage-endpoint }
+    first-scope:       { value: action.default.first-scope }
+  }
+}

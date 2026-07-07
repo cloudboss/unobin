@@ -25,7 +25,8 @@ type exampleSourceRoot struct {
 }
 
 var exampleCompileCases = map[string]exampleCompileConfig{
-	"awscfg": {},
+	"awscfg":  {},
+	"gcpcfg": {},
 	"comprehensions": {
 		skip: "uses github.com/cloudboss/unobin-library-std without a local replacement",
 	},

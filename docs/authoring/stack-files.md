@@ -101,6 +101,20 @@ state: s3 {
 }
 ```
 
+`state: gcs` stores state in Google Cloud Storage:
+
+```
+state: gcs {
+  bucket:       'acme-unobin-state'
+  prefix:       'appdeploy/dev'
+  kms-key-name: 'projects/acme/locations/us/keyRings/state/cryptoKeys/storage'
+  gcp:          { project: 'acme-prod' }
+}
+```
+
+`kms-key-name` is the GCS CMEK setting for stored objects. It is separate from
+an envelope encrypter's `key-id`.
+
 ## Encryption
 
 The `env-key` encrypter reads a base64 AES-256 key from an environment variable:
@@ -119,6 +133,17 @@ encryption: kms {
   aws: { ... }
 }
 ```
+
+The `gcp-kms` encrypter uses Google Cloud KMS to protect local data keys:
+
+```
+encryption: gcp-kms {
+  key-id: 'projects/acme/locations/us/keyRings/state/cryptoKeys/envelope'
+  gcp:    { project: 'acme-prod' }
+}
+```
+
+`key-id` is a CryptoKey resource name, not a CryptoKeyVersion resource name.
 
 ## Library configs
 

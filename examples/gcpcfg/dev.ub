@@ -1,0 +1,31 @@
+stack: {
+  locals: {
+    gcp-config: {
+      project: 'unobin-example'
+      region:  'us-central1'
+      endpoints: {
+        storage: 'https://storage.googleapis.example'
+        kms:     'https://cloudkms.googleapis.example'
+      }
+    }
+    kms-key-id: 'projects/unobin-example/locations/us/keyRings/state/cryptoKeys/main'
+  }
+
+  factory: {
+    inputs: {
+      gcp-config: local.gcp-config
+    }
+  }
+
+  state: gcs {
+    bucket:       'unobin-example-state'
+    prefix:       'gcpcfg/dev'
+    kms-key-name: local.kms-key-id
+    gcp:          local.gcp-config
+  }
+
+  encryption: gcp-kms {
+    key-id: local.kms-key-id
+    gcp:    local.gcp-config
+  }
+}
