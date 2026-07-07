@@ -25,6 +25,13 @@ func TestBackendsRegistersS3(t *testing.T) {
 	assert.Equal(t, "s3", bt.Name)
 }
 
+func TestBackendsRegistersGCS(t *testing.T) {
+	bt, ok := Backends()["gcs"]
+	require.True(t, ok, "expected a gcs backend")
+	require.NotNil(t, bt.Configuration)
+	assert.Equal(t, "gcs", bt.Name)
+}
+
 // The decoder maps Go fields to UB keys with PascalToKebab and no tag
 // override, so every exported field must kebab to exactly the
 // operator-facing name.
@@ -32,6 +39,15 @@ func TestS3BackendConfigKebabNames(t *testing.T) {
 	expected := []string{"bucket", "prefix", "kms-key-id", "use-path-style", "aws"}
 	var got []string
 	for f := range reflect.TypeFor[S3BackendConfig]().Fields() {
+		got = append(got, lang.PascalToKebab(f.Name))
+	}
+	assert.Equal(t, expected, got)
+}
+
+func TestGCSBackendConfigKebabNames(t *testing.T) {
+	expected := []string{"bucket", "prefix", "kms-key-name", "gcp"}
+	var got []string
+	for f := range reflect.TypeFor[GCSBackendConfig]().Fields() {
 		got = append(got, lang.PascalToKebab(f.Name))
 	}
 	assert.Equal(t, expected, got)
@@ -58,6 +74,18 @@ func TestNewS3BackendRequiresBucket(t *testing.T) {
 
 func TestNewS3BackendRejectsWrongConfigType(t *testing.T) {
 	_, err := newS3Backend(&LocalBackendConfig{}, "factory", "stack", nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "missing or wrong configuration")
+}
+
+func TestNewGCSBackendRequiresBucket(t *testing.T) {
+	_, err := newGCSBackend(&GCSBackendConfig{}, "factory", "stack", nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "bucket is required")
+}
+
+func TestNewGCSBackendRejectsWrongConfigType(t *testing.T) {
+	_, err := newGCSBackend(&LocalBackendConfig{}, "factory", "stack", nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing or wrong configuration")
 }

@@ -12,10 +12,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
+	gcstorage "google.golang.org/api/storage/v1"
+
 	"github.com/cloudboss/unobin/pkg/awscfg"
+	"github.com/cloudboss/unobin/pkg/gcpcfg"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	sdkstate "github.com/cloudboss/unobin/pkg/sdk/state"
+	gcsstore "github.com/cloudboss/unobin/pkg/state/gcs"
 	"github.com/cloudboss/unobin/pkg/state/local"
 	s3store "github.com/cloudboss/unobin/pkg/state/s3"
 )
@@ -24,6 +28,7 @@ import (
 const (
 	LocalName = "local"
 	S3Name    = "s3"
+	GCSName   = "gcs"
 )
 
 // Backends returns the state backends keyed by the bare name an operator
@@ -48,6 +53,15 @@ func Backends() map[string]sdkstate.BackendType {
 				New:         func() any { return &S3BackendConfig{} },
 			},
 			New: newS3Backend,
+		},
+		GCSName: {
+			Name:        GCSName,
+			Description: "GCS state backend with generation-precondition locking.",
+			Configuration: &cfg.ConfigurationType[any]{
+				Description: "GCS state backend configuration.",
+				New:         func() any { return &GCSBackendConfig{} },
+			},
+			New: newGCSBackend,
 		},
 	}
 }
@@ -113,6 +127,39 @@ func newS3Backend(
 	})
 	return s3store.NewStore(client, c.Bucket, optString(c.Prefix),
 		optString(c.KMSKeyID), factory, stack, enc)
+}
+
+// GCSBackendConfig is the operator-facing body under `state: gcs { ... }`.
+type GCSBackendConfig struct {
+	Bucket     string
+	Prefix     *string
+	KMSKeyName *string
+	GCP        *gcpcfg.Configuration
+}
+
+func newGCSBackend(
+	config any,
+	factory, stack string,
+	enc sdkencrypt.Encrypter,
+) (sdkstate.Backend, error) {
+	c, ok := config.(*GCSBackendConfig)
+	if !ok {
+		return nil, fmt.Errorf("gcs backend: missing or wrong configuration (got %T)", config)
+	}
+	if c.Bucket == "" {
+		return nil, errors.New("gcs backend: bucket is required")
+	}
+	opts, err := c.GCP.ClientOptions("storage")
+	if err != nil {
+		return nil, fmt.Errorf("gcs backend: %w", err)
+	}
+	service, err := gcstorage.NewService(context.Background(), opts...)
+	if err != nil {
+		return nil, fmt.Errorf("gcs backend: %w", err)
+	}
+	client := gcsstore.NewClient(service, c.Bucket)
+	return gcsstore.NewStore(client, c.Bucket, optString(c.Prefix),
+		optString(c.KMSKeyName), factory, stack, enc)
 }
 
 func optString(p *string) string {
