@@ -38,6 +38,13 @@ func TestEncryptersRegistersKMS(t *testing.T) {
 	assert.Equal(t, "kms", et.Name)
 }
 
+func TestEncryptersRegistersGCPKMS(t *testing.T) {
+	et, ok := Encrypters()["gcp-kms"]
+	require.True(t, ok, "expected a gcp-kms encrypter")
+	require.NotNil(t, et.Configuration)
+	assert.Equal(t, "gcp-kms", et.Name)
+}
+
 func TestNewEnvKeyAcceptsPlainConfig(t *testing.T) {
 	key := base64.StdEncoding.EncodeToString(make([]byte, 32))
 	t.Setenv("UB_STATE_KEY", key)
@@ -54,8 +61,13 @@ func TestKMSConfigKebabNames(t *testing.T) {
 	assert.Equal(t, []string{"key-id", "aws"}, kebabFieldNames[KMSConfig]())
 }
 
+func TestGCPKMSConfigKebabNames(t *testing.T) {
+	assert.Equal(t, []string{"key-id", "gcp"}, kebabFieldNames[GCPKMSConfig]())
+}
+
 func TestConfigKeyConstantsMatchSchemas(t *testing.T) {
 	assert.Contains(t, kebabFieldNames[KMSConfig](), sdkencrypt.ConfigKeyID)
+	assert.Contains(t, kebabFieldNames[GCPKMSConfig](), sdkencrypt.ConfigKeyID)
 	assert.Contains(t, kebabFieldNames[EnvKeyConfig](), sdkencrypt.ConfigEnvVar)
 }
 
@@ -75,6 +87,18 @@ func TestNewKMSEncrypterRequiresKeyID(t *testing.T) {
 
 func TestNewKMSEncrypterRejectsWrongConfigType(t *testing.T) {
 	_, err := newKMSEncrypter(&EnvKeyConfig{}, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "missing or wrong configuration")
+}
+
+func TestNewGCPKMSEncrypterRequiresKeyID(t *testing.T) {
+	_, err := newGCPKMSEncrypter(&GCPKMSConfig{}, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "key-id is required")
+}
+
+func TestNewGCPKMSEncrypterRejectsWrongConfigType(t *testing.T) {
+	_, err := newGCPKMSEncrypter(&EnvKeyConfig{}, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing or wrong configuration")
 }

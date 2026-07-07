@@ -10,6 +10,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
+	cloudkms "google.golang.org/api/cloudkms/v1"
 
 	"github.com/cloudboss/unobin/pkg/awscfg"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
@@ -21,6 +22,7 @@ import (
 const (
 	EnvKeyName = "env-key"
 	KMSName    = "kms"
+	GCPKMSName = "gcp-kms"
 	NoopName   = "noop"
 )
 
@@ -47,6 +49,15 @@ func Encrypters() map[string]sdkencrypt.EncrypterType {
 				New:         func() any { return &KMSConfig{} },
 			},
 			New: newKMSEncrypter,
+		},
+		GCPKMSName: {
+			Name:        GCPKMSName,
+			Description: "AES-256-GCM with data keys wrapped by Google Cloud KMS.",
+			Configuration: &cfg.ConfigurationType[any]{
+				Description: "GCP KMS encrypter configuration.",
+				New:         func() any { return &GCPKMSConfig{} },
+			},
+			New: newGCPKMSEncrypter,
 		},
 		NoopName: {
 			Name:        NoopName,
@@ -97,6 +108,25 @@ func newKMSEncrypter(config any, body map[string]any) (sdkencrypt.Encrypter, err
 		}
 	})
 	return NewKMS(client, c.KeyID, body)
+}
+
+func newGCPKMSEncrypter(config any, body map[string]any) (sdkencrypt.Encrypter, error) {
+	c, ok := config.(*GCPKMSConfig)
+	if !ok {
+		return nil, fmt.Errorf("gcp-kms encrypter: missing or wrong configuration (got %T)", config)
+	}
+	if c.KeyID == "" {
+		return nil, fmt.Errorf("gcp-kms encrypter: %s is required", sdkencrypt.ConfigKeyID)
+	}
+	opts, err := c.GCP.ClientOptions("kms")
+	if err != nil {
+		return nil, fmt.Errorf("gcp-kms encrypter: %w", err)
+	}
+	service, err := cloudkms.NewService(context.Background(), opts...)
+	if err != nil {
+		return nil, fmt.Errorf("gcp-kms encrypter: %w", err)
+	}
+	return NewGCPKMS(newGCPKMSRESTClient(service), c.KeyID, body)
 }
 
 // newNoop builds the no-op encrypter, which writes state as

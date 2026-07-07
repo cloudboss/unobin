@@ -14,8 +14,6 @@ import (
 	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 )
 
-const GCPKMSName = "gcp-kms"
-
 var _ sdkencrypt.Encrypter = (*GCPKMS)(nil)
 
 type GCPKMSConfig struct {
