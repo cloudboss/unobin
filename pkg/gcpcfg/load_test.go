@@ -1,6 +1,8 @@
 package gcpcfg
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,7 +26,7 @@ func TestClientOptionsRejectsBadTimeoutOrConflictsBeforeNetwork(t *testing.T) {
 
 func TestClientOptionsAcceptsStaticConfig(t *testing.T) {
 	config := &Configuration{
-		CredentialsFile:                    new("/tmp/service-account.json"),
+		CredentialsFile:                    newTestCredentialsFile(t, "authorized_user"),
 		BillingProject:                     new("billing-project"),
 		RequestReason:                      new("test run"),
 		UniverseDomain:                     new("googleapis.com"),
@@ -36,4 +38,25 @@ func TestClientOptionsAcceptsStaticConfig(t *testing.T) {
 	opts, err := config.ClientOptions("storage")
 	require.NoError(t, err)
 	assert.NotEmpty(t, opts)
+}
+
+func TestClientOptionsRejectsUnsupportedCredentialsFileType(t *testing.T) {
+	config := &Configuration{CredentialsFile: newTestCredentialsFile(t, "unknown")}
+	_, err := config.ClientOptions("storage")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "credentials-file")
+	assert.Contains(t, err.Error(), "unsupported type")
+}
+
+func newTestCredentialsFile(t *testing.T, typ string) *string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "credentials.json")
+	body := []byte(`{
+		"type": "` + typ + `",
+		"client_id": "client-id",
+		"client_secret": "client-secret",
+		"refresh_token": "refresh-token"
+	}`)
+	require.NoError(t, os.WriteFile(path, body, 0o600))
+	return &path
 }
