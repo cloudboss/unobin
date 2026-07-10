@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
@@ -53,7 +54,7 @@ func planEvalBody(body lang.Expr, ec *EvalContext) (map[string]any, map[string][
 			continue
 		}
 		if !errors.Is(err, ErrEvalNotFound) {
-			return nil, nil, fmt.Errorf("field %q: %w", fld.Key.Name, err)
+			return nil, nil, diagnostic.Context(fmt.Sprintf("field %q", fld.Key.Name), err)
 		}
 		refs := deferredRefs(fld.Value, locals)
 		if len(refs) == 0 {
@@ -339,7 +340,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 			node := e.DAG.Nodes[addr]
 			steps, err := e.planNodeSteps(ctx, rs, node)
 			if err != nil {
-				return nil, fmt.Errorf("%s: %w", addr, err)
+				return nil, diagnostic.Context(addr, err)
 			}
 			for _, step := range steps {
 				step.SensitiveInputs = sensitivity.sensitiveInputs(node.Body, node.Composite)
@@ -357,7 +358,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 				rs.plannedByTemplate[tmpl] = append(rs.plannedByTemplate[tmpl], step)
 				liveAddresses[step.Address] = true
 				if err := e.seedStepAttrs(rs, step); err != nil {
-					return nil, fmt.Errorf("%s: %w", step.Address, err)
+					return nil, diagnostic.Context(step.Address, err)
 				}
 				constraintErrs = append(constraintErrs, e.checkStepConstraints(step)...)
 				constraintErrs = append(constraintErrs, e.checkCompositeConstraints(rs, step)...)
@@ -468,7 +469,7 @@ func (e *Executor) readDestroySteps(ctx context.Context, steps []*PlanStep) erro
 	wg.Wait()
 	for i, s := range jobs {
 		if errs[i] != nil {
-			return fmt.Errorf("%s: read: %w", s.Address, errs[i])
+			return diagnostic.Context(s.Address+": read", errs[i])
 		}
 		s.AlreadyGone = gone[i]
 	}
@@ -891,7 +892,7 @@ func (e *Executor) planConfigNode(rs *runState, n *Node) (*PlanStep, error) {
 		var unresolved map[string][]string
 		inputs, unresolved, err = planEvalBody(n.Body, scope)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", n.Address, err)
+			return nil, diagnostic.Context(n.Address, err)
 		}
 		step.Inputs = inputs
 		if len(unresolved) > 0 {
@@ -904,7 +905,7 @@ func (e *Executor) planConfigNode(rs *runState, n *Node) (*PlanStep, error) {
 			return step, nil
 		}
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", n.Address, err)
+			return nil, diagnostic.Context(n.Address, err)
 		}
 		step.Inputs = inputs
 	}
@@ -915,7 +916,7 @@ func (e *Executor) planConfigNode(rs *runState, n *Node) (*PlanStep, error) {
 	}
 	decoded, err := decodeLibraryConfig(lib, inputs)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", n.Address, err)
+		return nil, diagnostic.Context(n.Address, err)
 	}
 	e.storeInternalConfiguration(n.Address, decoded)
 	return step, nil
@@ -1314,7 +1315,7 @@ func (e *Executor) runPendingReads(ctx context.Context, rs *runState) error {
 func (e *Executor) finalizePendingReads(rs *runState) error {
 	for _, pr := range rs.pendingReads {
 		if err := finalizeResourceRead(pr); err != nil {
-			return fmt.Errorf("%s: %w", pr.step.Address, err)
+			return diagnostic.Context(pr.step.Address, err)
 		}
 	}
 	return nil
@@ -1335,10 +1336,10 @@ func (e *Executor) readPriorBinding(ctx context.Context, pr *pendingRead) (map[s
 }
 
 func priorBindingUnavailableError(binding *state.Binding, err error) error {
-	return fmt.Errorf(
+	return diagnostic.Context(fmt.Sprintf(
 		"prior binding %s is needed after current binding read returned not found; "+
-			"restore the import alias and library config or edit state manually: %w",
-		priorBindingLabel(binding), err)
+			"restore the import alias and library config or edit state manually",
+		priorBindingLabel(binding)), err)
 }
 
 func priorBindingLabel(binding *state.Binding) string {
@@ -1366,7 +1367,7 @@ func finalizeResourceRead(pr *pendingRead) error {
 		return finalizeMissingCurrentRead(pr)
 	}
 	if pr.err != nil {
-		return fmt.Errorf("read: %w", pr.err)
+		return diagnostic.Context("read", pr.err)
 	}
 	pr.step.ObservedOutputs = pr.observed
 	if pr.step.mayChangeOutputs {
@@ -1395,7 +1396,7 @@ func finalizeMissingCurrentRead(pr *pendingRead) error {
 		return nil
 	}
 	if pr.priorErr != nil {
-		return fmt.Errorf("prior read: %w", pr.priorErr)
+		return diagnostic.Context("prior read", pr.priorErr)
 	}
 	pr.step.PriorBinding = cloneBinding(pr.priorBinding)
 	pr.step.ObservedOutputs = pr.priorObserved
@@ -1481,7 +1482,7 @@ func (e *Executor) planOneData(
 	result, err := dt.Read(ctx, receiver, e.configFor(n))
 	if err != nil {
 		blameLibrary(err, n.Alias)
-		return nil, fmt.Errorf("read: %w", err)
+		return nil, diagnostic.Context("read", err)
 	}
 	step.ObservedOutputs = mapify(result)
 	return step, nil

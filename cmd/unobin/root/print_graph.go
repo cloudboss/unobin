@@ -119,7 +119,7 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	analysis, err := sourcecheck.AnalyzeImports(refs, sourcecheck.ImportAnalysisOptions{
 		Resolver:    resolver,
 		Versions:    repoVersions,
-		WarnOut:     cmd.ErrOrStderr(),
+		Reporter:    textDiagnosticReporter{out: cmd.ErrOrStderr()},
 		SchemaCache: compile.NewSchemaCache(schemaRoots...),
 		Body:        &sf.Factory.Body,
 		Source: &resolve.Source{

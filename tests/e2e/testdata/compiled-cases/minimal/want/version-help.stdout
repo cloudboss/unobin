@@ -1,0 +1,7 @@
+Print factory identity
+
+Usage:
+  minimal version [flags]
+
+Flags:
+  -h, --help   help for version

@@ -11,6 +11,11 @@
       "stderr": "want/version.stderr"
     },
     {
+      "name": "version-help",
+      "args": ["version", "--help"],
+      "stdout": "want/version-help.stdout"
+    },
+    {
       "name": "validate",
       "args": ["validate", "-c", "stacks/dev.ub"],
       "stdout": "want/validate.stdout",

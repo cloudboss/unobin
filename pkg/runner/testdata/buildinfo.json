@@ -1,0 +1,49 @@
+{
+  "decisions": [
+    {
+      "name": "linked version matches",
+      "notice": "",
+      "error": ""
+    },
+    {
+      "name": "replaced module proceeds with a notice",
+      "notice": "github.com/cloudboss/unobin is replaced; this factory runs /home/dev/unobin, not v0.1.0",
+      "error": ""
+    },
+    {
+      "name": "mismatch is refused",
+      "notice": "",
+      "error": "this factory was compiled against github.com/cloudboss/unobin v0.1.0 but links v0.2.0; rebuild it with the matching unobin"
+    },
+    {
+      "name": "unobin absent checks nothing",
+      "notice": "",
+      "error": ""
+    }
+  ],
+  "statuses": [
+    {
+      "name": "unstamped skips build info",
+      "notice": "",
+      "error": ""
+    },
+    {
+      "name": "build info unavailable",
+      "notice": "",
+      "error": "",
+      "read-calls": 1
+    },
+    {
+      "name": "replacement status",
+      "notice": "github.com/cloudboss/unobin is replaced; this factory runs /home/dev/unobin, not v0.1.0",
+      "error": "",
+      "read-calls": 1
+    },
+    {
+      "name": "mismatch status",
+      "notice": "",
+      "error": "this factory was compiled against github.com/cloudboss/unobin v0.1.0 but links v0.2.0; rebuild it with the matching unobin",
+      "read-calls": 1
+    }
+  ]
+}

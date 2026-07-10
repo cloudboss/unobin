@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lsp"
 )
 
@@ -60,7 +61,7 @@ func openLSPOutput(path string, flag string) (*os.File, error) {
 	}
 	file, err := os.Create(path)
 	if err != nil {
-		return nil, fmt.Errorf("open %s path: %w", flag, err)
+		return nil, diagnostic.Context(fmt.Sprintf("open %s path", flag), err)
 	}
 	return file, nil
 }

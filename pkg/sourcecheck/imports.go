@@ -3,13 +3,13 @@ package sourcecheck
 import (
 	"errors"
 	"fmt"
-	"io"
 	"maps"
 	"os"
 	"slices"
 
 	"github.com/cloudboss/unobin/pkg/codegen"
 	"github.com/cloudboss/unobin/pkg/deps"
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/resolve"
@@ -35,7 +35,7 @@ type ImportAnalysisOptions struct {
 	Resolver                resolve.Resolver
 	Versions                map[string]string
 	SchemaCache             *SchemaCache
-	WarnOut                 io.Writer
+	Reporter                diagnostic.Reporter
 	Mode                    Mode
 	StackName               string
 	GeneratePackages        bool
@@ -85,9 +85,11 @@ func AnalyzeImports(
 		case resolve.ResolutionGo:
 			schema, warnings, err := schemas.Read(res.SourcePath)
 			if err != nil {
-				return nil, fmt.Errorf("import %q: %w", res.LocalAlias, err)
+				return nil, diagnostic.Context(
+					fmt.Sprintf("import %q", res.LocalAlias), err,
+				)
 			}
-			printSchemaWarnings(opts.WarnOut, res.LocalAlias, warnings)
+			reportSchemaWarnings(opts.Reporter, res.LocalAlias, warnings)
 			analysis.GoImports[res.LocalAlias] = res.Path
 			analysis.Libraries[res.LocalAlias] = &runtime.Library{Schema: schema}
 		case resolve.ResolutionUB:
@@ -148,7 +150,7 @@ type importVisitor struct {
 	packages                map[string][]byte
 	goModules               map[string]string
 	runtimeLibraries        map[string]*runtime.Library
-	warnOut                 io.Writer
+	reporter                diagnostic.Reporter
 	schemas                 *SchemaCache
 }
 
@@ -175,7 +177,7 @@ func newImportVisitor(opts ImportAnalysisOptions, schemas *SchemaCache) *importV
 		packages:                packages,
 		goModules:               map[string]string{},
 		runtimeLibraries:        map[string]*runtime.Library{},
-		warnOut:                 opts.WarnOut,
+		reporter:                opts.Reporter,
 		schemas:                 schemas,
 	}
 }
@@ -220,7 +222,9 @@ func (v *importVisitor) resolveLibraryConfigDeps(
 		}
 		schema, err := v.resolveLibraryConfigDep(dep, parent)
 		if err != nil {
-			return nil, fmt.Errorf("%s %q: %w", dep.Kind, dep.Label, err)
+			return nil, diagnostic.Context(
+				fmt.Sprintf("%s %q", dep.Kind, dep.Label), err,
+			)
 		}
 		out[dep.Path] = schema
 	}
@@ -268,7 +272,7 @@ func (v *importVisitor) resolveLibraryConfigDep(
 	if err != nil {
 		return runtime.LibraryConfigSchema{}, err
 	}
-	printSchemaWarnings(v.warnOut, dep.Label, warnings)
+	reportSchemaWarnings(v.reporter, dep.Label, warnings)
 	out, ok := runtime.LibraryConfigSchemaFromLibrarySchema(dep.Path, schema)
 	if !ok {
 		return runtime.LibraryConfigSchema{},
@@ -383,7 +387,9 @@ func (v *importVisitor) buildCompiledComposites(
 			source,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("%s composite %q: %w", entry.Kind, entry.Name, err)
+			return nil, diagnostic.Context(
+				fmt.Sprintf("%s composite %q", entry.Kind, entry.Name), err,
+			)
 		}
 		composite.libraryConfigSchemas = libraryConfigSchemas
 		if len(composite.codegenImports) == 0 {
@@ -405,11 +411,11 @@ func (v *importVisitor) addCompiledGoImport(
 ) error {
 	schema, warnings, err := v.schemas.Read(res.SourcePath)
 	if err != nil {
-		return fmt.Errorf(
-			"%s composite %q import %q: %w",
-			entry.Kind, entry.Name, res.LocalAlias, err)
+		return diagnostic.Context(fmt.Sprintf(
+			"%s composite %q import %q", entry.Kind, entry.Name, res.LocalAlias,
+		), err)
 	}
-	printSchemaWarnings(v.warnOut, res.LocalAlias, warnings)
+	reportSchemaWarnings(v.reporter, res.LocalAlias, warnings)
 	composite.bodyLibs[res.LocalAlias] = &runtime.Library{Schema: schema}
 	if !v.generatePackages {
 		return nil

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/spf13/cobra"
 )
@@ -89,7 +90,7 @@ func runFmt(cmd *cobra.Command, args []string, cfg *fmtConfig) error {
 func formatStdin(out io.Writer, in io.Reader, cfg *fmtConfig) error {
 	src, err := io.ReadAll(in)
 	if err != nil {
-		return fmt.Errorf("read stdin: %w", err)
+		return diagnostic.Context("read stdin", err)
 	}
 	formatted, err := formatBytes("<stdin>", src, cfg)
 	if err != nil {
@@ -112,7 +113,7 @@ func formatStdin(out io.Writer, in io.Reader, cfg *fmtConfig) error {
 func formatPath(out io.Writer, path string, cfg *fmtConfig) (bool, error) {
 	src, err := os.ReadFile(path)
 	if err != nil {
-		return false, fmt.Errorf("read %s: %w", path, err)
+		return false, diagnostic.Context(fmt.Sprintf("read %s", path), err)
 	}
 	formatted, err := formatBytes(path, src, cfg)
 	if err != nil {
@@ -129,7 +130,7 @@ func formatPath(out io.Writer, path string, cfg *fmtConfig) (bool, error) {
 			return unchanged, nil
 		}
 		if err := os.WriteFile(path, formatted, 0o644); err != nil {
-			return unchanged, fmt.Errorf("write %s: %w", path, err)
+			return unchanged, diagnostic.Context(fmt.Sprintf("write %s", path), err)
 		}
 	default:
 		if _, err := out.Write(formatted); err != nil {
@@ -159,7 +160,7 @@ func expandFmtPaths(args []string) ([]string, error) {
 	for _, arg := range args {
 		info, err := os.Stat(arg)
 		if err != nil {
-			return nil, fmt.Errorf("stat %s: %w", arg, err)
+			return nil, diagnostic.Context(fmt.Sprintf("stat %s", arg), err)
 		}
 		if !info.IsDir() {
 			out = append(out, arg)
@@ -178,7 +179,7 @@ func expandFmtPaths(args []string) ([]string, error) {
 			return nil
 		})
 		if err != nil {
-			return nil, fmt.Errorf("walk %s: %w", arg, err)
+			return nil, diagnostic.Context(fmt.Sprintf("walk %s", arg), err)
 		}
 	}
 	return out, nil

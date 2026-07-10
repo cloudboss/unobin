@@ -189,7 +189,7 @@ func checkOptions(
 		Resolver:    resolver,
 		Versions:    repoVersions,
 		SchemaCache: sourcecheck.NewSchemaCache(schemaRoots...),
-		WarnOut:     cmd.ErrOrStderr(),
+		Reporter:    textDiagnosticReporter{out: cmd.ErrOrStderr()},
 	}, nil
 }
 

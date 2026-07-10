@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 )
 
 // insideForEachComposite reports whether any composite call site in
@@ -34,7 +36,7 @@ func (e *Executor) planForEachLeaf(
 		addr := instanceAddress(n.Address, key)
 		step, err := e.planOneInstance(ctx, rs, n, inst, addr)
 		if err != nil {
-			return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
+			return nil, diagnostic.Context(fmt.Sprintf("@for-each[%q]", key), err)
 		}
 		steps = append(steps, step)
 	}
@@ -68,13 +70,13 @@ func (e *Executor) planForEachComposite(
 	for _, key := range sortedKeys(instances) {
 		instAddr := instanceAddress(boundary.Address, key)
 		if _, err := e.ensureCompositeScope(rs, instAddr); err != nil {
-			return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
+			return nil, diagnostic.Context(fmt.Sprintf("@for-each[%q]", key), err)
 		}
 		for _, internal := range internals {
 			rewritten := rewriteAddress(internal.Address, boundary.Address, instAddr)
 			subSteps, err := e.planInternalUnder(ctx, rs, internal, rewritten, instAddr)
 			if err != nil {
-				return nil, fmt.Errorf("@for-each[%q]: %w", key, err)
+				return nil, diagnostic.Context(fmt.Sprintf("@for-each[%q]", key), err)
 			}
 			steps = append(steps, subSteps...)
 		}

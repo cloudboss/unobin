@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/typecheck"
@@ -107,7 +108,7 @@ func checkConfigObject(
 			return fmt.Errorf("field %q: required but is null", field.Name)
 		}
 		if err := checkConfigValue(field.Type, value); err != nil {
-			return fmt.Errorf("field %q: %w", field.Name, err)
+			return diagnostic.Context(fmt.Sprintf("field %q", field.Name), err)
 		}
 	}
 	for name := range values {
@@ -174,7 +175,7 @@ func checkConfigValue(t typecheck.Type, value any) error {
 		}
 		for i, item := range items {
 			if err := checkConfigValue(elemType(t), item); err != nil {
-				return fmt.Errorf("element %d: %w", i, err)
+				return diagnostic.Context(fmt.Sprintf("element %d", i), err)
 			}
 		}
 		return nil
@@ -186,7 +187,7 @@ func checkConfigValue(t typecheck.Type, value any) error {
 		keys := slices.Sorted(maps.Keys(items))
 		for _, key := range keys {
 			if err := checkConfigValue(elemType(t), items[key]); err != nil {
-				return fmt.Errorf("key %q: %w", key, err)
+				return diagnostic.Context(fmt.Sprintf("key %q", key), err)
 			}
 		}
 		return nil
@@ -206,7 +207,7 @@ func checkConfigValue(t typecheck.Type, value any) error {
 		}
 		for i, item := range items {
 			if err := checkConfigValue(t.Elems[i], item); err != nil {
-				return fmt.Errorf("element %d: %w", i, err)
+				return diagnostic.Context(fmt.Sprintf("element %d", i), err)
 			}
 		}
 		return nil

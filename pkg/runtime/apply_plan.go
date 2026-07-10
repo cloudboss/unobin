@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
@@ -33,7 +34,7 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 
 	lock, err := e.Store.Lock(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("acquire lock: %w", err)
+		return nil, diagnostic.Context("acquire lock", err)
 	}
 	defer func() { _ = lock.Unlock() }()
 
@@ -177,7 +178,7 @@ func (e *Executor) applyConfigNode(rs *runState, step *PlanStep, node *Node) err
 	raw, err := evalConfigurationBody(node.Body, rs.eval)
 	rs.mu.Unlock()
 	if err != nil {
-		return fmt.Errorf("%s: %w", step.Address, err)
+		return diagnostic.Context(step.Address, err)
 	}
 	lib, ok := e.librariesFor(node)[node.Alias]
 	if !ok || lib.Configuration == nil {
@@ -186,7 +187,7 @@ func (e *Executor) applyConfigNode(rs *runState, step *PlanStep, node *Node) err
 	}
 	decoded, err := decodeLibraryConfig(lib, raw)
 	if err != nil {
-		return fmt.Errorf("%s: %w", step.Address, err)
+		return diagnostic.Context(step.Address, err)
 	}
 	e.storeInternalConfiguration(step.Address, decoded)
 	return nil
@@ -312,7 +313,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 			deleteRT = priorRT
 			deleteReceiver = priorRT.NewReceiver()
 			if err := Decode(deleteReceiver, step.PriorInputs); err != nil {
-				return fmt.Errorf("replace: decode prior: %w", err)
+				return diagnostic.Context("replace: decode prior", err)
 			}
 			priorCfg, err := e.configForStateAddress(step.Address, priorAlias)
 			if err != nil {
@@ -321,11 +322,11 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 			deleteCfg = priorCfg
 		}
 		if err := deleteRT.Delete(ctx, deleteReceiver, deleteCfg, step.PriorOutputs); err != nil {
-			return fmt.Errorf("replace: delete prior: %w", err)
+			return diagnostic.Context("replace: delete prior", err)
 		}
 		result, err := rt.Create(ctx, receiver, cfg)
 		if err != nil {
-			return fmt.Errorf("replace: create: %w", err)
+			return diagnostic.Context("replace: create", err)
 		}
 		outputs = mapify(result)
 	default:
@@ -596,7 +597,7 @@ func (e *Executor) evalPlanOutputs(rs *runState) error {
 		}
 		val, err := Eval(n.Body, rs.eval)
 		if err != nil {
-			return fmt.Errorf("%s: %w", n.Address, err)
+			return diagnostic.Context(n.Address, err)
 		}
 		rs.outputs[n.Name] = val
 	}

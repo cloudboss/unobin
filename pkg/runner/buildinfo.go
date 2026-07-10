@@ -2,7 +2,6 @@ package runner
 
 import (
 	"fmt"
-	"os"
 	"runtime/debug"
 
 	"github.com/cloudboss/unobin/pkg/toolchain"
@@ -12,28 +11,16 @@ import (
 // without a real build.
 var readBuildInfo = debug.ReadBuildInfo
 
-// verifyLinkedUnobin compares the unobin module this binary links
-// against the version the compiling CLI pinned into it, refusing to
-// run when they differ: the compile-time checks were made by one
-// runtime and the binary would execute another. A replaced module is
-// the development escape and proceeds with a notice; a binary with no
-// stamped expectation (built outside the CLI) checks nothing.
-func verifyLinkedUnobin(expected string) error {
+// linkedUnobinStatus compares the linked module with the version pinned by the compiler.
+func linkedUnobinStatus(expected string) (string, error) {
 	if expected == "" {
-		return nil
+		return "", nil
 	}
 	info, ok := readBuildInfo()
 	if !ok {
-		return nil
+		return "", nil
 	}
-	notice, err := decideLinkedUnobin(info, expected)
-	if err != nil {
-		return err
-	}
-	if notice != "" {
-		fmt.Fprintln(os.Stderr, notice)
-	}
-	return nil
+	return decideLinkedUnobin(info, expected)
 }
 
 // decideLinkedUnobin applies the version rule to one build info.
@@ -43,7 +30,7 @@ func decideLinkedUnobin(bi *debug.BuildInfo, expected string) (string, error) {
 			continue
 		}
 		if dep.Replace != nil {
-			return fmt.Sprintf("notice: %s is replaced; this factory runs %s, not %s",
+			return fmt.Sprintf("%s is replaced; this factory runs %s, not %s",
 				toolchain.UnobinModulePath, dep.Replace.Path, expected), nil
 		}
 		if dep.Version != expected {

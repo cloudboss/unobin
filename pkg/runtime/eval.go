@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang"
 )
 
@@ -335,7 +336,7 @@ func evalArray(a *lang.ArrayLit, ctx *EvalContext) ([]any, error) {
 	for i, el := range a.Elements {
 		val, err := Eval(el, ctx)
 		if err != nil {
-			return nil, fmt.Errorf("eval: array[%d]: %w", i, err)
+			return nil, diagnostic.Context(fmt.Sprintf("eval: array[%d]", i), err)
 		}
 		out = append(out, val)
 	}
@@ -354,7 +355,7 @@ func evalObject(o *lang.ObjectLit, ctx *EvalContext) (map[string]any, error) {
 		}
 		val, err := Eval(fld.Value, ctx)
 		if err != nil {
-			return nil, fmt.Errorf("eval: field %q: %w", key, err)
+			return nil, diagnostic.Context(fmt.Sprintf("eval: field %q", key), err)
 		}
 		out[key] = val
 	}
@@ -425,7 +426,7 @@ func evalArgs(name string, exprs []lang.Expr, ctx *EvalContext) ([]any, error) {
 	for i, a := range exprs {
 		v, err := Eval(a, ctx)
 		if err != nil {
-			return nil, fmt.Errorf("eval: %s arg %d: %w", name, i, err)
+			return nil, diagnostic.Context(fmt.Sprintf("eval: %s arg %d", name, i), err)
 		}
 		args[i] = v
 	}
@@ -858,7 +859,7 @@ func mapStep(cur any, key, path string) (any, string, error) {
 	}
 	next, exists := m[key]
 	if !exists {
-		return nil, path, fmt.Errorf("eval: %s: %w", path, ErrEvalNotFound)
+		return nil, path, diagnostic.Context("eval: "+path, ErrEvalNotFound)
 	}
 	return next, path, nil
 }
@@ -875,7 +876,7 @@ func indexElement(cur any, i int64, path string) (any, string, error) {
 			"eval: cannot index into %s at %s", lang.TypeMessage(cur), path)
 	}
 	if i < 0 || i >= int64(len(lst)) {
-		return nil, path, fmt.Errorf("eval: %s: %w", path, ErrEvalNotFound)
+		return nil, path, diagnostic.Context("eval: "+path, ErrEvalNotFound)
 	}
 	return lst[i], path, nil
 }

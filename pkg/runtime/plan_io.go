@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 )
 
 // PlanFormatVersion is the schema version this package reads and writes
@@ -63,7 +65,7 @@ func EncodePlan(p *Plan) ([]byte, error) {
 	}
 	b, err := json.MarshalIndent(pf, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("plan: %w", err)
+		return nil, diagnostic.Context("plan", err)
 	}
 	return append(b, '\n'), nil
 }
@@ -80,7 +82,7 @@ func DecodePlan(b []byte) (*PlanFile, error) {
 	dec.UseNumber()
 	var pf PlanFile
 	if err := dec.Decode(&pf); err != nil {
-		return nil, fmt.Errorf("plan: %w", err)
+		return nil, diagnostic.Context("plan", err)
 	}
 	if pf.FormatVersion != PlanFormatVersion {
 		return nil, fmt.Errorf("plan: unsupported format-version %d (this build expects %d)",

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang"
 )
 
@@ -89,7 +90,9 @@ func evalCompositeOutputDecls(
 			continue
 		}
 		if err != nil {
-			return nil, fmt.Errorf("composite output %q: %w", output.name, err)
+			return nil, diagnostic.Context(fmt.Sprintf(
+				"composite output %q", output.name,
+			), err)
 		}
 		out[output.name] = val
 	}

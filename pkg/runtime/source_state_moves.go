@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
@@ -225,11 +226,11 @@ func (e *Executor) applyPlannedEntryMoves(rs *runState, moves []PlannedEntryMove
 	for i, move := range moves {
 		from, err := ParseEntryRef(move.From)
 		if err != nil {
-			return fmt.Errorf("state-moves[%d].from: %w", i, err)
+			return diagnostic.Context(fmt.Sprintf("state-moves[%d].from", i), err)
 		}
 		to, err := ParseEntryRef(move.To)
 		if err != nil {
-			return fmt.Errorf("state-moves[%d].to: %w", i, err)
+			return diagnostic.Context(fmt.Sprintf("state-moves[%d].to", i), err)
 		}
 		specs = append(specs, EntryMoveSpec{From: from, To: to})
 	}

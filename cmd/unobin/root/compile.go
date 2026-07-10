@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/compile"
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/spf13/cobra"
 )
@@ -118,7 +119,9 @@ func parseReplaceFlags(values []string) (map[string]string, error) {
 		path := raw[idx+1:]
 		abs, err := filepath.Abs(path)
 		if err != nil {
-			return nil, fmt.Errorf("--replace-go-module %q: %w", raw, err)
+			return nil, diagnostic.Context(fmt.Sprintf(
+				"--replace-go-module %q", raw,
+			), err)
 		}
 		out[mod] = abs
 	}

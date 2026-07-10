@@ -1,0 +1,29 @@
+{
+  "error": "",
+  "diagnostics": [
+    {
+      "code": "unobin.schema.extraction",
+      "severity": "warning",
+      "message": "import 'input.aws.type': configuration default unavailable"
+    },
+    {
+      "code": "unobin.schema.extraction",
+      "severity": "warning",
+      "message": "import 'service': resource output type unavailable"
+    }
+  ],
+  "import-error": [
+    {
+      "code": "unobin.schema",
+      "severity": "error",
+      "message": "import \"service\": schema unavailable"
+    }
+  ],
+  "composite-error": [
+    {
+      "code": "unobin.schema",
+      "severity": "error",
+      "message": "resource composite \"wrapper\": resource composite \"leaf\" import \"std\": schema unavailable"
+    }
+  ]
+}

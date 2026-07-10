@@ -10,6 +10,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
@@ -193,7 +194,7 @@ func fnToJSON(v any) (string, error) {
 	enc := json.NewEncoder(&b)
 	enc.SetEscapeHTML(false)
 	if err := enc.Encode(v); err != nil {
-		return "", fmt.Errorf("to-json: %w", err)
+		return "", diagnostic.Context("to-json", err)
 	}
 	return strings.TrimSuffix(b.String(), "\n"), nil
 }
@@ -205,7 +206,7 @@ func fnB64Encode(s string) (string, error) {
 func fnB64Decode(s string) (string, error) {
 	decoded, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
-		return "", fmt.Errorf("b64-decode: %w", err)
+		return "", diagnostic.Context("b64-decode", err)
 	}
 	return string(decoded), nil
 }

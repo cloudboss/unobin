@@ -1,79 +1,106 @@
 package runner
 
 import (
+	"encoding/json"
+	"os"
 	"runtime/debug"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/cloudboss/unobin/pkg/toolchain"
+	"github.com/stretchr/testify/require"
 )
 
-func TestDecideLinkedUnobin(t *testing.T) {
+type buildInfoGolden struct {
+	Decisions []buildInfoCaseGolden `json:"decisions"`
+	Statuses  []buildInfoCaseGolden `json:"statuses"`
+}
+
+type buildInfoCaseGolden struct {
+	Name      string `json:"name"`
+	Notice    string `json:"notice"`
+	Error     string `json:"error"`
+	ReadCalls int    `json:"read-calls,omitempty"`
+}
+
+func TestLinkedUnobinStatusGolden(t *testing.T) {
 	linked := func(version string, replace *debug.Module) *debug.BuildInfo {
-		return &debug.BuildInfo{
-			Deps: []*debug.Module{
-				{Path: "github.com/other/lib", Version: "v3.0.0"},
-				{Path: toolchain.UnobinModulePath, Version: version, Replace: replace},
-			},
-		}
+		return &debug.BuildInfo{Deps: []*debug.Module{
+			{Path: "github.com/other/lib", Version: "v3.0.0"},
+			{Path: toolchain.UnobinModulePath, Version: version, Replace: replace},
+		}}
 	}
-	tests := []struct {
-		name       string
-		info       *debug.BuildInfo
-		expected   string
-		wantNotice string
-		wantErr    string
+	decisionCases := []struct {
+		name     string
+		info     *debug.BuildInfo
+		expected string
 	}{
+		{name: "linked version matches", info: linked("v0.1.0", nil), expected: "v0.1.0"},
 		{
-			name:     "linked version matches",
-			info:     linked("v0.1.0", nil),
+			name:     "replaced module proceeds with a notice",
+			info:     linked("v0.1.0", &debug.Module{Path: "/home/dev/unobin"}),
 			expected: "v0.1.0",
 		},
+		{name: "mismatch is refused", info: linked("v0.2.0", nil), expected: "v0.1.0"},
 		{
-			name:       "replaced module proceeds with a notice",
-			info:       linked("v0.1.0", &debug.Module{Path: "/home/dev/unobin"}),
-			expected:   "v0.1.0",
-			wantNotice: "/home/dev/unobin",
-		},
-		{
-			name:     "mismatch is refused",
-			info:     linked("v0.2.0", nil),
-			expected: "v0.1.0",
-			wantErr:  "compiled against github.com/cloudboss/unobin v0.1.0 but links v0.2.0",
-		},
-		{
-			name:     "unobin absent from the dependency list checks nothing",
+			name:     "unobin absent checks nothing",
 			info:     &debug.BuildInfo{Deps: []*debug.Module{{Path: "github.com/other/lib"}}},
 			expected: "v0.1.0",
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			notice, err := decideLinkedUnobin(tt.info, tt.expected)
-			if tt.wantErr != "" {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-			if tt.wantNotice == "" {
-				require.Empty(t, notice)
-			} else {
-				require.Contains(t, notice, tt.wantNotice)
-			}
+	result := buildInfoGolden{}
+	for _, tc := range decisionCases {
+		notice, err := decideLinkedUnobin(tc.info, tc.expected)
+		result.Decisions = append(result.Decisions, buildInfoCaseGolden{
+			Name: tc.name, Notice: notice, Error: runnerErrorString(err),
 		})
 	}
+
+	previous := readBuildInfo
+	t.Cleanup(func() { readBuildInfo = previous })
+	statusCases := []struct {
+		name     string
+		expected string
+		info     *debug.BuildInfo
+		readable bool
+	}{
+		{name: "unstamped skips build info", readable: true},
+		{name: "build info unavailable", expected: "v0.1.0"},
+		{
+			name:     "replacement status",
+			expected: "v0.1.0",
+			info:     linked("v0.1.0", &debug.Module{Path: "/home/dev/unobin"}),
+			readable: true,
+		},
+		{
+			name:     "mismatch status",
+			expected: "v0.1.0",
+			info:     linked("v0.2.0", nil),
+			readable: true,
+		},
+	}
+	for _, tc := range statusCases {
+		readCalls := 0
+		readBuildInfo = func() (*debug.BuildInfo, bool) {
+			readCalls++
+			return tc.info, tc.readable
+		}
+		notice, err := linkedUnobinStatus(tc.expected)
+		result.Statuses = append(result.Statuses, buildInfoCaseGolden{
+			Name: tc.name, Notice: notice, Error: runnerErrorString(err), ReadCalls: readCalls,
+		})
+	}
+
+	got, err := json.MarshalIndent(result, "", "  ")
+	require.NoError(t, err)
+	got = append(got, '\n')
+	want, err := os.ReadFile("testdata/buildinfo.json")
+	require.NoError(t, err)
+	require.Equal(t, string(want), string(got))
 }
 
-// TestVerifyLinkedUnobinUnstamped proves a binary with no stamped
-// expectation, one built outside the CLI, runs without any check.
-func TestVerifyLinkedUnobinUnstamped(t *testing.T) {
-	prev := readBuildInfo
-	t.Cleanup(func() { readBuildInfo = prev })
-	readBuildInfo = func() (*debug.BuildInfo, bool) {
-		t.Fatal("an unstamped binary must not read build info")
-		return nil, false
+func runnerErrorString(err error) string {
+	if err == nil {
+		return ""
 	}
-	require.NoError(t, verifyLinkedUnobin(""))
+	return err.Error()
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 )
 
 // Prior is everything known before Update acts: the inputs the body
@@ -507,7 +509,7 @@ func coercePrior[Out any](prior any) (Out, error) {
 	}
 	target := reflect.New(t.Elem())
 	if err := Decode(target.Interface(), m); err != nil {
-		return zero, fmt.Errorf("coerce prior state into %s: %w", t, err)
+		return zero, diagnostic.Context(fmt.Sprintf("coerce prior state into %s", t), err)
 	}
 	return target.Interface().(Out), nil
 }

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/backends"
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/encrypters"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
@@ -82,8 +83,9 @@ func readResolverDecl(
 		}
 		val, err := runtime.Eval(fld.Value, ctx)
 		if err != nil {
-			errs = append(errs, fmt.Errorf(
-				"%s: %s.%s: %w", configPath, section, fld.Key.Name, err))
+			errs = append(errs, diagnostic.Context(fmt.Sprintf(
+				"%s: %s.%s", configPath, section, fld.Key.Name,
+			), err))
 			continue
 		}
 		body[fld.Key.Name] = val
@@ -115,7 +117,7 @@ func resolveEncrypter(ref *resolverRef) (sdkencrypt.Encrypter, error) {
 	}
 	decoded, err := decodeRefConfig(rt.Configuration, ref)
 	if err != nil {
-		return nil, fmt.Errorf("encryption: %w", err)
+		return nil, diagnostic.Context("encryption", err)
 	}
 	return rt.New(decoded, ref.Body)
 }
@@ -139,7 +141,7 @@ func resolveBackend(
 	}
 	decoded, err := decodeRefConfig(bt.Configuration, ref)
 	if err != nil {
-		return nil, fmt.Errorf("state: %w", err)
+		return nil, diagnostic.Context("state", err)
 	}
 	return bt.New(decoded, factory, stack, enc)
 }

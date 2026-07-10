@@ -1,0 +1,67 @@
+{
+  "cases": [
+    {
+      "name": "selected equals expected",
+      "list-output": "v0.1.0\n",
+      "expected": "v0.1.0",
+      "notice": "",
+      "error": ""
+    },
+    {
+      "name": "replaced module proceeds with a notice",
+      "list-output": "v0.0.0 replaced\n",
+      "expected": "v0.0.0",
+      "notice": "github.com/cloudboss/unobin is replaced; the factory runs the replacement, not v0.0.0",
+      "error": ""
+    },
+    {
+      "name": "replaced module proceeds even when the version differs",
+      "list-output": "v0.2.0 replaced\n",
+      "expected": "v0.1.0",
+      "notice": "github.com/cloudboss/unobin is replaced; the factory runs the replacement, not v0.1.0",
+      "error": ""
+    },
+    {
+      "name": "newer selection without replace is refused",
+      "list-output": "v0.2.0\n",
+      "expected": "v0.1.0",
+      "notice": "",
+      "error": "the build selected github.com/cloudboss/unobin v0.2.0 but this unobin is v0.1.0; a dependency requires the newer runtime, so upgrade unobin to v0.2.0 or replace the repo locally"
+    },
+    {
+      "name": "unreadable output is refused",
+      "list-output": "",
+      "expected": "v0.1.0",
+      "notice": "",
+      "error": "cannot read the selected version of github.com/cloudboss/unobin"
+    }
+  ],
+  "text-output": "notice: the project replacement runs instead\nnotice: the selected replacement runs instead\ngo tool output\nBuilt factory v0.1.0 (content-revision abc123)\nwarning: import 'library': output type unavailable\n",
+  "diagnostics": [
+    {
+      "code": "unobin.schema.extraction",
+      "severity": "warning",
+      "message": "import 'library': output type unavailable"
+    },
+    {
+      "code": "unobin.compile.built",
+      "severity": "info",
+      "message": "Built factory v0.1.0 (content-revision abc123)"
+    },
+    {
+      "code": "unobin.compile.go-tool-output",
+      "severity": "info",
+      "message": "go tool output\n"
+    },
+    {
+      "code": "unobin.compile.replaced-toolchain",
+      "severity": "info",
+      "message": "the project replacement runs instead"
+    },
+    {
+      "code": "unobin.compile.selected-toolchain",
+      "severity": "info",
+      "message": "the selected replacement runs instead"
+    }
+  ]
+}

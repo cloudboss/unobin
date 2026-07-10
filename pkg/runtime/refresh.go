@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
@@ -31,7 +32,7 @@ func (e *Executor) Refresh(ctx context.Context) (*RefreshResult, error) {
 	}
 	lock, err := e.Store.Lock(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("acquire lock: %w", err)
+		return nil, diagnostic.Context("acquire lock", err)
 	}
 	defer func() { _ = lock.Unlock() }()
 
@@ -82,7 +83,7 @@ func (e *Executor) Refresh(ctx context.Context) (*RefreshResult, error) {
 	rs.next.Entries = append(rs.next.Entries, carry...)
 	for _, r := range results {
 		if r.err != nil {
-			return nil, fmt.Errorf("%s: %w", leaves[r.idx].Address, r.err)
+			return nil, diagnostic.Context(leaves[r.idx].Address, r.err)
 		}
 		if r.dropped {
 			res.Dropped++

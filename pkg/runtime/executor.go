@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/encoding/ub"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
@@ -186,7 +187,7 @@ func (e *Executor) seedPriorInternalConfigurations(
 			if errors.Is(err, ErrEvalNotFound) {
 				continue
 			}
-			return fmt.Errorf("%s: %w", n.Address, err)
+			return diagnostic.Context(n.Address, err)
 		}
 		lib, ok := e.librariesFor(n)[n.Alias]
 		if !ok || lib.Configuration == nil {
@@ -195,7 +196,7 @@ func (e *Executor) seedPriorInternalConfigurations(
 		}
 		decoded, err := decodeLibraryConfig(lib, raw)
 		if err != nil {
-			return fmt.Errorf("%s: %w", n.Address, err)
+			return diagnostic.Context(n.Address, err)
 		}
 		e.internalMu.Lock()
 		if e.priorInternalConfigurations == nil {
@@ -442,24 +443,30 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 	}
 	parent, err := e.enclosingScope(rs, callSite)
 	if err != nil {
-		return nil, fmt.Errorf("composite %s: build parent scope: %w", callSite, err)
+		return nil, diagnostic.Context(
+			fmt.Sprintf("composite %s: build parent scope", callSite), err,
+		)
 	}
 	setAddr, instKey := splitInstanceAddress(callSite)
 	bodyScope := parent
 	if instKey != "" {
 		instances, err := forEachInstancesFor(rs, setAddr, boundary.ForEach, parent)
 		if err != nil {
-			return nil, fmt.Errorf("composite %s: eval @for-each: %w", callSite, err)
+			return nil, diagnostic.Context(
+				fmt.Sprintf("composite %s: eval @for-each", callSite), err,
+			)
 		}
 		value, ok := instances[instKey]
 		if !ok {
-			return nil, fmt.Errorf("composite %s: %w", callSite, ErrInstanceGone)
+			return nil, diagnostic.Context(fmt.Sprintf("composite %s", callSite), ErrInstanceGone)
 		}
 		bodyScope = childScopeWithEach(parent, instKey, value)
 	}
 	args, err := evalBody(boundary.Body, bodyScope)
 	if err != nil {
-		return nil, fmt.Errorf("composite %s: eval call args: %w", callSite, err)
+		return nil, diagnostic.Context(
+			fmt.Sprintf("composite %s: eval call args", callSite), err,
+		)
 	}
 	scope := &EvalContext{
 		Inputs:    args,
@@ -700,7 +707,7 @@ func forEachInstancesFor(
 func evalForEach(expr lang.Expr, scope *EvalContext) (map[string]any, error) {
 	v, err := Eval(expr, scope)
 	if err != nil {
-		return nil, fmt.Errorf("@for-each: %w", err)
+		return nil, diagnostic.Context("@for-each", err)
 	}
 	switch x := v.(type) {
 	case map[string]any:
@@ -959,7 +966,7 @@ func evalBody(body lang.Expr, ec *EvalContext) (map[string]any, error) {
 		}
 		val, err := Eval(fld.Value, ec)
 		if err != nil {
-			return nil, fmt.Errorf("field %q: %w", fld.Key.Name, err)
+			return nil, diagnostic.Context(fmt.Sprintf("field %q", fld.Key.Name), err)
 		}
 		out[fld.Key.Name] = val
 	}

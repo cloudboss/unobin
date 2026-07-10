@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/spf13/cobra"
@@ -57,7 +58,7 @@ func doPin(
 	}
 	updated, action, err := pinFile(src, info.LibraryPath, version, revision)
 	if err != nil {
-		return fmt.Errorf("stack file %s: %w", configPath, err)
+		return diagnostic.Context(fmt.Sprintf("stack file %s", configPath), err)
 	}
 	if action == pinActionAlreadyPinned {
 		fmt.Fprintf(cmd.ErrOrStderr(),

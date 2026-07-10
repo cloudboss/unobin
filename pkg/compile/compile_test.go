@@ -1,6 +1,8 @@
 package compile
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +11,7 @@ import (
 
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/deps"
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/stretchr/testify/require"
@@ -36,13 +39,25 @@ func TestParseFactorySyntaxSourceFixtures(t *testing.T) {
 	)
 }
 
-func TestDecideSelectedUnobin(t *testing.T) {
+type selectedUnobinGolden struct {
+	Cases       []selectedUnobinCaseGolden `json:"cases"`
+	TextOutput  string                     `json:"text-output"`
+	Diagnostics []diagnostic.Diagnostic    `json:"diagnostics"`
+}
+
+type selectedUnobinCaseGolden struct {
+	Name       string `json:"name"`
+	ListOutput string `json:"list-output"`
+	Expected   string `json:"expected"`
+	Notice     string `json:"notice"`
+	Error      string `json:"error"`
+}
+
+func TestCompileNoticesGolden(t *testing.T) {
 	tests := []struct {
 		name       string
 		listOutput string
 		expected   string
-		wantNotice string
-		wantErr    string
 	}{
 		{
 			name:       "selected equals expected",
@@ -53,43 +68,77 @@ func TestDecideSelectedUnobin(t *testing.T) {
 			name:       "replaced module proceeds with a notice",
 			listOutput: "v0.0.0 replaced\n",
 			expected:   "v0.0.0",
-			wantNotice: "replaced",
 		},
 		{
 			name:       "replaced module proceeds even when the version differs",
 			listOutput: "v0.2.0 replaced\n",
 			expected:   "v0.1.0",
-			wantNotice: "replaced",
 		},
 		{
 			name:       "newer selection without replace is refused",
 			listOutput: "v0.2.0\n",
 			expected:   "v0.1.0",
-			wantErr:    "upgrade unobin to v0.2.0",
 		},
 		{
 			name:       "unreadable output is refused",
 			listOutput: "",
 			expected:   "v0.1.0",
-			wantErr:    "selected version",
 		},
 	}
+	result := selectedUnobinGolden{}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			notice, err := decideSelectedUnobin(tt.listOutput, tt.expected)
-			if tt.wantErr != "" {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-			if tt.wantNotice == "" {
-				require.Empty(t, notice)
-			} else {
-				require.Contains(t, notice, tt.wantNotice)
-			}
+		notice, err := decideSelectedUnobin(tt.listOutput, tt.expected)
+		result.Cases = append(result.Cases, selectedUnobinCaseGolden{
+			Name: tt.name, ListOutput: tt.listOutput, Expected: tt.expected,
+			Notice: notice, Error: compileErrorString(err),
 		})
 	}
+
+	reports := []diagnostic.Diagnostic{
+		{
+			Code: "unobin.compile.replaced-toolchain", Severity: diagnostic.SeverityInfo,
+			Message: "the project replacement runs instead",
+		},
+		{
+			Code: "unobin.compile.selected-toolchain", Severity: diagnostic.SeverityInfo,
+			Message: "the selected replacement runs instead",
+		},
+		{
+			Code: "unobin.compile.go-tool-output", Severity: diagnostic.SeverityInfo,
+			Message: "go tool output\n",
+		},
+		{
+			Code: "unobin.compile.built", Severity: diagnostic.SeverityInfo,
+			Message: "Built factory v0.1.0 (content-revision abc123)",
+		},
+		{
+			Code: "unobin.schema.extraction", Severity: diagnostic.SeverityWarning,
+			Message: "import 'library': output type unavailable",
+		},
+	}
+	var textOutput bytes.Buffer
+	textReporter := compileTextReporter{out: &textOutput}
+	collector := &diagnostic.Collector{}
+	for _, report := range reports {
+		textReporter.Report(report)
+		collector.Report(report)
+	}
+	result.TextOutput = textOutput.String()
+	result.Diagnostics = collector.Diagnostics()
+
+	got, err := json.MarshalIndent(result, "", "  ")
+	require.NoError(t, err)
+	got = append(got, '\n')
+	want, err := os.ReadFile("testdata/compile-notices.json")
+	require.NoError(t, err)
+	require.Equal(t, string(want), string(got))
+}
+
+func compileErrorString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
 
 type failingResolver struct{}
@@ -116,7 +165,9 @@ func TestWrapProjectLockSourcesRequiresUBProjectMarker(t *testing.T) {
 	projectLock.Deps["example.com/repo"] = &deps.ProjectLockDep{
 		Kind: deps.ProjectLockKindUB, Version: "v1.0.0", Commit: "c1", Hash: hash,
 	}
-	resolver := WrapProjectLockSources(staticSourceResolver{src: &resolve.Source{FS: fsys}}, projectLock)
+	resolver := WrapProjectLockSources(
+		staticSourceResolver{src: &resolve.Source{FS: fsys}}, projectLock,
+	)
 
 	_, err = resolver.Resolve(&resolve.RemoteImport{URL: "example.com/repo", Version: "v1.0.0"})
 

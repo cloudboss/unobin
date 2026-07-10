@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang"
 )
 
@@ -78,7 +79,9 @@ func (ls *localScope) force(name string, ctx *EvalContext) (any, error) {
 	}
 	expr, ok := ls.exprs[name]
 	if !ok {
-		return nil, fmt.Errorf("eval: local %q is not declared: %w", name, ErrEvalNotFound)
+		return nil, diagnostic.Context(
+			fmt.Sprintf("eval: local %q is not declared", name), ErrEvalNotFound,
+		)
 	}
 	if ls.forcing[name] {
 		return nil, fmt.Errorf("eval: local %q refers to itself through a cycle", name)
@@ -101,7 +104,9 @@ func evalLocal(p *lang.DotPath, ctx *EvalContext) (any, error) {
 	}
 	name := p.Segments[0].Name
 	if ctx.locals == nil {
-		return nil, fmt.Errorf("eval: local %q is not declared: %w", name, ErrEvalNotFound)
+		return nil, diagnostic.Context(
+			fmt.Sprintf("eval: local %q is not declared", name), ErrEvalNotFound,
+		)
 	}
 	base, err := ctx.locals.force(name, ctx)
 	if err != nil {

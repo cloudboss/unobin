@@ -21,6 +21,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/check"
 	"github.com/cloudboss/unobin/pkg/codegen"
 	"github.com/cloudboss/unobin/pkg/deps"
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/golibrary"
 	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -68,6 +69,8 @@ type Options struct {
 	// process streams.
 	Stdout io.Writer
 	Stderr io.Writer
+	// Reporter receives warnings and notices. Nil preserves text output.
+	Reporter diagnostic.Reporter
 	// TypeObserver, when set, receives every expression the stack's
 	// type checks infer, with its type. The residual-Unknown harness
 	// uses it; nil compiles without recording.
@@ -86,6 +89,29 @@ func (o Options) stderr() io.Writer {
 		return o.Stderr
 	}
 	return os.Stderr
+}
+
+func (o Options) reporter() diagnostic.Reporter {
+	if o.Reporter != nil {
+		return o.Reporter
+	}
+	return compileTextReporter{out: o.stderr()}
+}
+
+type compileTextReporter struct {
+	out io.Writer
+}
+
+func (r compileTextReporter) Report(d diagnostic.Diagnostic) {
+	if d.Code == "unobin.compile.built" {
+		_, _ = fmt.Fprintln(r.out, d.Message)
+		return
+	}
+	if d.Code == "unobin.compile.go-tool-output" {
+		_, _ = fmt.Fprint(r.out, d.Message)
+		return
+	}
+	_ = diagnostic.WriteText(r.out, d)
 }
 
 // ParseFactorySyntaxSource parses source and returns typed source plus source metadata.
@@ -250,9 +276,15 @@ func Run(opts Options) error {
 	// the line says, so it proceeds with a notice instead.
 	if project != nil && project.UnobinVersion != "" {
 		if replaceUnobinAbs != "" {
-			fmt.Fprintf(opts.stderr(),
-				"notice: the project pins unobin %s; the replacement at %s runs instead\n",
-				project.UnobinVersion, replaceUnobinAbs)
+			diagnostic.Report(opts.reporter(), diagnostic.Diagnostic{
+				Code:     "unobin.compile.replaced-toolchain",
+				Severity: diagnostic.SeverityInfo,
+				Message: fmt.Sprintf(
+					"the project pins unobin %s; the replacement at %s runs instead",
+					project.UnobinVersion,
+					replaceUnobinAbs,
+				),
+			})
 		} else if project.UnobinVersion != unobinVersion {
 			return fmt.Errorf(
 				"this project pins unobin %s but this CLI is %s; install unobin %s",
@@ -312,7 +344,7 @@ func Run(opts Options) error {
 		Resolver:                resolver,
 		Versions:                repoVersions,
 		SchemaCache:             schemas,
-		WarnOut:                 opts.stderr(),
+		Reporter:                opts.reporter(),
 		StackName:               name,
 		GeneratePackages:        true,
 		ValidateCompositeBodies: true,
@@ -418,7 +450,7 @@ func Run(opts Options) error {
 		}
 	}
 	if opts.Build {
-		return runGoBuild(opts.stdout(), opts.stderr(),
+		return runGoBuild(opts.stdout(), opts.stderr(), opts.reporter(),
 			opts.OutDir, name, opts.Version, unobinVersion)
 	}
 	return nil
@@ -439,7 +471,7 @@ func decideSelectedUnobin(listOutput, expected string) (string, error) {
 	selected := fields[0]
 	if len(fields) > 1 && fields[1] == "replaced" {
 		return fmt.Sprintf(
-			"notice: %s is replaced; the factory runs the replacement, not %s",
+			"%s is replaced; the factory runs the replacement, not %s",
 			toolchain.UnobinModulePath, expected), nil
 	}
 	if selected != expected {
@@ -454,25 +486,44 @@ func decideSelectedUnobin(listOutput, expected string) (string, error) {
 // verifySelectedUnobin asks the Go toolchain which unobin version the
 // tidied module graph selected and applies decideSelectedUnobin to it,
 // writing any notice to the error stream.
-func verifySelectedUnobin(stderr io.Writer, goBin, dir, expected string) error {
+func verifySelectedUnobin(
+	reporter diagnostic.Reporter,
+	goBin string,
+	dir string,
+	expected string,
+) error {
 	list := exec.Command(goBin, "list", "-m",
 		"-f", "{{.Version}}{{if .Replace}} replaced{{end}}", toolchain.UnobinModulePath)
 	list.Dir = dir
 	out, err := list.Output()
 	if err != nil {
-		return fmt.Errorf("go list -m %s failed: %w", toolchain.UnobinModulePath, err)
+		return diagnostic.Context(fmt.Sprintf(
+			"go list -m %s failed", toolchain.UnobinModulePath,
+		), err)
 	}
 	notice, err := decideSelectedUnobin(string(out), expected)
 	if err != nil {
 		return err
 	}
 	if notice != "" {
-		fmt.Fprintln(stderr, notice)
+		diagnostic.Report(reporter, diagnostic.Diagnostic{
+			Code:     "unobin.compile.selected-toolchain",
+			Severity: diagnostic.SeverityInfo,
+			Message:  notice,
+		})
 	}
 	return nil
 }
 
-func runGoBuild(stdout, stderr io.Writer, dir, binaryName, version, expectedUnobin string) error {
+func runGoBuild(
+	stdout io.Writer,
+	stderr io.Writer,
+	reporter diagnostic.Reporter,
+	dir string,
+	binaryName string,
+	version string,
+	expectedUnobin string,
+) error {
 	goBin, err := toolchain.Ensure(stderr)
 	if err != nil {
 		return err
@@ -483,10 +534,10 @@ func runGoBuild(stdout, stderr io.Writer, dir, binaryName, version, expectedUnob
 	tidy.Stdout = stdout
 	tidy.Stderr = stderr
 	if err := tidy.Run(); err != nil {
-		return fmt.Errorf("go mod tidy failed: %w", err)
+		return diagnostic.Context("go mod tidy failed", err)
 	}
 
-	if err := verifySelectedUnobin(stderr, goBin, dir, expectedUnobin); err != nil {
+	if err := verifySelectedUnobin(reporter, goBin, dir, expectedUnobin); err != nil {
 		return err
 	}
 
@@ -504,10 +555,15 @@ func runGoBuild(stdout, stderr io.Writer, dir, binaryName, version, expectedUnob
 	build.Stdout = stdout
 	build.Stderr = stderr
 	if err := build.Run(); err != nil {
-		return fmt.Errorf("go build failed: %w", err)
+		return diagnostic.Context("go build failed", err)
 	}
-	fmt.Fprintf(stderr, "Built %s %s (content-revision %s)\n",
-		binaryName, version, revision)
+	diagnostic.Report(reporter, diagnostic.Diagnostic{
+		Code:     "unobin.compile.built",
+		Severity: diagnostic.SeverityInfo,
+		Message: fmt.Sprintf(
+			"Built %s %s (content-revision %s)", binaryName, version, revision,
+		),
+	})
 	return nil
 }
 
@@ -570,7 +626,10 @@ func (r *dispatchResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, erro
 }
 
 // WrapProjectLockSources fetches project-lock remote imports by commit and verifies UB hashes.
-func WrapProjectLockSources(resolver resolve.Resolver, projectLock *deps.ProjectLock) resolve.Resolver {
+func WrapProjectLockSources(
+	resolver resolve.Resolver,
+	projectLock *deps.ProjectLock,
+) resolve.Resolver {
 	if projectLock == nil || len(projectLock.Deps) == 0 {
 		return resolver
 	}
@@ -630,7 +689,10 @@ func projectLockOwner(
 	return owner, entry, entry != nil
 }
 
-func (r *projectLockResolver) verifyUBHash(project deps.ProjectID, entry *deps.ProjectLockDep) error {
+func (r *projectLockResolver) verifyUBHash(
+	project deps.ProjectID,
+	entry *deps.ProjectLockDep,
+) error {
 	projectRef := &resolve.RemoteImport{
 		URL:           project.URL,
 		Subdir:        project.Subdir,
@@ -696,7 +758,7 @@ func (r *replaceResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error
 	}
 	info, err := os.Stat(target)
 	if err != nil {
-		return nil, fmt.Errorf("replace %s: %w", match.dep, err)
+		return nil, diagnostic.Context(fmt.Sprintf("replace %s", match.dep), err)
 	}
 	if !info.IsDir() {
 		return nil, fmt.Errorf("replace %s: %s is not a directory", match.dep, target)
@@ -711,7 +773,7 @@ func (r *replaceResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error
 		PackageSubdir: ri.Subdir,
 	}
 	if err := addReplacementModuleMetadata(src, match.suffix); err != nil {
-		return nil, fmt.Errorf("replace %s: %w", match.dep, err)
+		return nil, diagnostic.Context(fmt.Sprintf("replace %s", match.dep), err)
 	}
 	return src, nil
 }
@@ -847,14 +909,14 @@ func readProject(dir string) (*deps.Project, error) {
 func validateReplacementProject(dep deps.Dependency, path string) error {
 	info, err := os.Stat(path)
 	if err != nil {
-		return fmt.Errorf("replace %s: %w", dep, err)
+		return diagnostic.Context(fmt.Sprintf("replace %s", dep), err)
 	}
 	if !info.IsDir() {
 		return fmt.Errorf("replace %s: %s is not a directory", dep, path)
 	}
 	ok, err := deps.HasProjectMarker(os.DirFS(path))
 	if err != nil {
-		return fmt.Errorf("replace %s: %w", dep, err)
+		return diagnostic.Context(fmt.Sprintf("replace %s", dep), err)
 	}
 	if !ok {
 		return fmt.Errorf("replace %s: %s has no project.ub or go.mod", dep, path)
@@ -1189,14 +1251,6 @@ func ReadGoSchema(
 		return nil, nil, err
 	}
 	return goschema.Read(sourcePath, extra...)
-}
-
-// PrintSchemaWarnings emits each warning string to out prefixed with
-// the import alias the schema came from.
-func PrintSchemaWarnings(out io.Writer, alias string, warnings []string) {
-	for _, w := range warnings {
-		fmt.Fprintf(out, "warning: import %q: %s\n", alias, w)
-	}
 }
 
 // GoMajorMinor returns the running Go toolchain's `<major>.<minor>` so

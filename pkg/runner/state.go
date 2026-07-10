@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
@@ -76,7 +77,7 @@ func doStateGC(cmd *cobra.Command, info Info, configPath string, keep int) error
 	}
 	lock, err := store.Lock(context.Background())
 	if err != nil {
-		return fmt.Errorf("acquire lock: %w", err)
+		return diagnostic.Context("acquire lock", err)
 	}
 	defer func() { _ = lock.Unlock() }()
 
@@ -130,11 +131,11 @@ func newStateMoveCmd(info Info) *cobra.Command {
 func doStateMove(cmd *cobra.Command, info Info, configPath, fromText, toText string) error {
 	from, err := runtime.ParseEntryRef(fromText)
 	if err != nil {
-		return fmt.Errorf("state move: %w", err)
+		return diagnostic.Context("state move", err)
 	}
 	to, err := runtime.ParseEntryRef(toText)
 	if err != nil {
-		return fmt.Errorf("state move: %w", err)
+		return diagnostic.Context("state move", err)
 	}
 	parsed, err := parseFactory(info)
 	if err != nil {
@@ -146,7 +147,7 @@ func doStateMove(cmd *cobra.Command, info Info, configPath, fromText, toText str
 	}
 	lock, err := store.Lock(context.Background())
 	if err != nil {
-		return fmt.Errorf("acquire lock: %w", err)
+		return diagnostic.Context("acquire lock", err)
 	}
 	defer func() { _ = lock.Unlock() }()
 
@@ -199,7 +200,7 @@ func newStateRemoveCmd(info Info) *cobra.Command {
 func doStateRemove(cmd *cobra.Command, info Info, configPath, refText string) error {
 	ref, err := runtime.ParseEntryRef(refText)
 	if err != nil {
-		return fmt.Errorf("state remove: %w", err)
+		return diagnostic.Context("state remove", err)
 	}
 	store, err := loadStateStore(info, configPath)
 	if err != nil {
@@ -207,7 +208,7 @@ func doStateRemove(cmd *cobra.Command, info Info, configPath, refText string) er
 	}
 	lock, err := store.Lock(context.Background())
 	if err != nil {
-		return fmt.Errorf("acquire lock: %w", err)
+		return diagnostic.Context("acquire lock", err)
 	}
 	defer func() { _ = lock.Unlock() }()
 
@@ -333,7 +334,7 @@ func newStateShowCmd(info Info) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := runtime.ParseEntryRef(args[0])
 			if err != nil {
-				return fmt.Errorf("state show: %w", err)
+				return diagnostic.Context("state show", err)
 			}
 			store, err := loadStateStore(info, configPath)
 			if err != nil {

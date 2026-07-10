@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang"
 )
 
@@ -74,7 +75,7 @@ func triggerHashValue(n *Node, value any) any {
 func hashJSON(v any) (string, error) {
 	b, err := json.Marshal(v)
 	if err != nil {
-		return "", fmt.Errorf("trigger hash: %w", err)
+		return "", diagnostic.Context("trigger hash", err)
 	}
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:]), nil

@@ -3,10 +3,10 @@ package sourcecheck
 import (
 	"errors"
 	"fmt"
-	"io"
 	"testing/fstest"
 
 	"github.com/cloudboss/unobin/pkg/check"
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/cloudboss/unobin/pkg/runtime"
@@ -29,7 +29,7 @@ type Options struct {
 	Resolver    resolve.Resolver
 	Versions    map[string]string
 	SchemaCache *SchemaCache
-	WarnOut     io.Writer
+	Reporter    diagnostic.Reporter
 	Mode        Mode
 }
 
@@ -116,7 +116,9 @@ func checkCompositeEntries(entries []resolve.CompositeEntry, opts Options) error
 		_, err := CheckFactoryBody(entry.SyntaxBody, opts)
 		if err != nil {
 			bodyErrs = append(bodyErrs,
-				fmt.Errorf("%s composite %q: %w", entry.Kind, entry.Name, err))
+				diagnostic.Context(
+					fmt.Sprintf("%s composite %q", entry.Kind, entry.Name), err,
+				))
 		}
 	}
 	return errors.Join(bodyErrs...)
@@ -133,18 +135,19 @@ func analyzeFactoryImports(
 		Resolver:    opts.Resolver,
 		Versions:    opts.Versions,
 		SchemaCache: opts.SchemaCache,
-		WarnOut:     opts.WarnOut,
+		Reporter:    opts.Reporter,
 		Mode:        opts.Mode,
 		Body:        &body,
 	})
 }
 
-func printSchemaWarnings(out io.Writer, alias string, warnings []string) {
-	if out == nil {
-		return
-	}
+func reportSchemaWarnings(reporter diagnostic.Reporter, alias string, warnings []string) {
 	for _, warning := range warnings {
-		fmt.Fprintf(out, "warning: import %q: %s\n", alias, warning)
+		diagnostic.Report(reporter, diagnostic.Diagnostic{
+			Code:     "unobin.schema.extraction",
+			Severity: diagnostic.SeverityWarning,
+			Message:  fmt.Sprintf("import '%s': %s", alias, warning),
+		})
 	}
 }
 

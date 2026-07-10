@@ -3,6 +3,7 @@ package runner
 import (
 	"fmt"
 
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
@@ -37,7 +38,7 @@ func loadFactoryEnvelope(config *parsedStack, path string) (factoryEnvelope, err
 	}
 	val, err := runtime.Eval(pinObj, stackEvalContext(config))
 	if err != nil {
-		return factoryEnvelope{}, fmt.Errorf("stack file %s: %w", path, err)
+		return factoryEnvelope{}, diagnostic.Context(fmt.Sprintf("stack file %s", path), err)
 	}
 	m, ok := val.(map[string]any)
 	if !ok {

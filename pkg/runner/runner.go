@@ -18,6 +18,7 @@ import (
 
 	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/pkg/check"
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	ufs "github.com/cloudboss/unobin/pkg/fs"
 	"github.com/cloudboss/unobin/pkg/graphprint"
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -58,10 +59,6 @@ type Info struct {
 // Run builds the cobra command tree and executes it. The process exits
 // with status code 1 on error.
 func Run(info Info) {
-	if err := verifyLinkedUnobin(info.UnobinVersion); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
 	root := newRootCmd(info)
 	if err := root.Execute(); err != nil {
 		cmdout.PrintUnreportedError(root, err)
@@ -76,17 +73,77 @@ func newRootCmd(info Info) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+	applyCmd := newApplyCmd(info)
+	printGraphCmd := newPrintGraphCmd(info)
 	root.AddCommand(newVersionCmd(info))
 	root.AddCommand(newPlanCmd(info))
-	root.AddCommand(newApplyCmd(info))
+	root.AddCommand(applyCmd)
 	root.AddCommand(newRefreshCmd(info))
 	root.AddCommand(newValidateCmd(info))
 	root.AddCommand(newOutputCmd(info))
 	root.AddCommand(newSchemaCmd(info))
 	root.AddCommand(newStateCmd(info))
-	root.AddCommand(newPrintGraphCmd(info))
+	root.AddCommand(printGraphCmd)
 	root.AddCommand(newPinCmd(info))
+	wrapTextStartupChecks(root, info, map[*cobra.Command]bool{
+		applyCmd:      true,
+		printGraphCmd: true,
+	})
 	return root
+}
+
+func wrapTextStartupChecks(
+	command *cobra.Command,
+	info Info,
+	skip map[*cobra.Command]bool,
+) {
+	for _, child := range command.Commands() {
+		wrapTextStartupChecks(child, info, skip)
+	}
+	if skip[command] {
+		return
+	}
+	if command.RunE != nil {
+		run := command.RunE
+		command.RunE = func(cmd *cobra.Command, args []string) error {
+			if err := writeLinkedUnobinText(cmd, info.UnobinVersion); err != nil {
+				return err
+			}
+			return run(cmd, args)
+		}
+		return
+	}
+	if command.Run != nil {
+		run := command.Run
+		command.Run = nil
+		command.RunE = func(cmd *cobra.Command, args []string) error {
+			if err := writeLinkedUnobinText(cmd, info.UnobinVersion); err != nil {
+				return err
+			}
+			run(cmd, args)
+			return nil
+		}
+	}
+}
+
+func linkedUnobinDiagnostic(expected string) (diagnostic.Diagnostic, error) {
+	notice, err := linkedUnobinStatus(expected)
+	if err != nil || notice == "" {
+		return diagnostic.Diagnostic{}, err
+	}
+	return diagnostic.Diagnostic{
+		Code:     "unobin.factory.replaced-toolchain",
+		Severity: diagnostic.SeverityInfo,
+		Message:  notice,
+	}, nil
+}
+
+func writeLinkedUnobinText(cmd *cobra.Command, expected string) error {
+	d, err := linkedUnobinDiagnostic(expected)
+	if err != nil || d.Message == "" {
+		return err
+	}
+	return diagnostic.WriteText(cmd.ErrOrStderr(), d)
 }
 
 func newVersionCmd(info Info) *cobra.Command {
@@ -152,6 +209,9 @@ func newApplyCmd(info Info) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			format, err := ParseFormat(outputStr)
 			if err != nil {
+				return err
+			}
+			if err := writeLinkedUnobinText(cmd, info.UnobinVersion); err != nil {
 				return err
 			}
 			return doApplyPlan(cmd, info, args[0], parallelism, format, withUI)
@@ -560,10 +620,10 @@ func validateStateRefs(config *parsedStack, configPath string) error {
 		}
 		decoded, err := decodeRefConfig(bt.Configuration, sc.Backend)
 		if err != nil {
-			return fmt.Errorf("state: %w", err)
+			return diagnostic.Context("state", err)
 		}
 		if err := validateRefConfig(decoded); err != nil {
-			return fmt.Errorf("state: %w", err)
+			return diagnostic.Context("state", err)
 		}
 	}
 	if sc.Encrypter != nil {
@@ -573,10 +633,10 @@ func validateStateRefs(config *parsedStack, configPath string) error {
 		}
 		decoded, err := decodeRefConfig(et.Configuration, sc.Encrypter)
 		if err != nil {
-			return fmt.Errorf("encryption: %w", err)
+			return diagnostic.Context("encryption", err)
 		}
 		if err := validateRefConfig(decoded); err != nil {
-			return fmt.Errorf("encryption: %w", err)
+			return diagnostic.Context("encryption", err)
 		}
 	}
 	return nil
@@ -588,6 +648,12 @@ func newPrintGraphCmd(info Info) *cobra.Command {
 		Use:   "print-graph",
 		Short: "Print the factory's dependency graph",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if format != "plain" && format != "dot" {
+				return fmt.Errorf("unknown --format %q (want 'plain' or 'dot')", format)
+			}
+			if err := writeLinkedUnobinText(cmd, info.UnobinVersion); err != nil {
+				return err
+			}
 			return doPrintGraph(cmd, info, format)
 		},
 	}
@@ -834,7 +900,7 @@ func checkLibraryConfigInputConstraints(
 		}
 		entries, perr := lang.ParseSpecs(schema.Constraints)
 		if perr.Len() > 0 {
-			return fmt.Errorf("input %q: %w", field.name, perr.Err())
+			return diagnostic.Context(fmt.Sprintf("input %q", field.name), perr.Err())
 		}
 		errs := lang.CheckConstraintEntries(
 			entries,
@@ -843,7 +909,7 @@ func checkLibraryConfigInputConstraints(
 			lang.DisplayRooted,
 		)
 		if errs.Len() > 0 {
-			return fmt.Errorf("input %q: %w", field.name, errs.Err())
+			return diagnostic.Context(fmt.Sprintf("input %q", field.name), errs.Err())
 		}
 	}
 	return nil
@@ -932,7 +998,9 @@ func loadParallelism(config *parsedStack, path string) (int, error) {
 	}
 	val, err := runtime.Eval(stack.Parallelism, &runtime.EvalContext{})
 	if err != nil {
-		return 0, fmt.Errorf("stack file %s: parallelism: %w", path, err)
+		return 0, diagnostic.Context(fmt.Sprintf(
+			"stack file %s: parallelism", path,
+		), err)
 	}
 	n, ok := val.(int64)
 	if !ok {
@@ -958,7 +1026,7 @@ func loadStackInputs(config *parsedStack, path string) (map[string]any, error) {
 	}
 	val, err := runtime.Eval(stack.Factory.Inputs, stackEvalContext(config))
 	if err != nil {
-		return nil, fmt.Errorf("stack file %s: %w", path, err)
+		return nil, diagnostic.Context(fmt.Sprintf("stack file %s", path), err)
 	}
 	out, ok := val.(map[string]any)
 	if !ok {
@@ -1000,7 +1068,7 @@ func fillMissingEnvInputs(inputs map[string]any, decl *lang.ObjectLit) error {
 		}
 		value, err := parseEnvValueAs(env[eq+1:], typ)
 		if err != nil {
-			return fmt.Errorf("%s: %w", env[:eq], err)
+			return diagnostic.Context(env[:eq], err)
 		}
 		inputs[name] = value
 	}
