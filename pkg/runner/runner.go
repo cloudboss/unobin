@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/pkg/check"
 	ufs "github.com/cloudboss/unobin/pkg/fs"
 	"github.com/cloudboss/unobin/pkg/graphprint"
@@ -63,7 +64,7 @@ func Run(info Info) {
 	}
 	root := newRootCmd(info)
 	if err := root.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		cmdout.PrintUnreportedError(root, err)
 		os.Exit(1)
 	}
 }

@@ -1,0 +1,140 @@
+{
+  "documents": [
+    {
+      "format": "json",
+      "output": "{\"kind\":\"encoding-test\",\"format-version\":1,\"text\":\"<tag>&value>\",\"unicode\":\"snowman ☃\",\"invalid-utf8\":\"a\\ufffdb\",\"numbers\":[-2,3,1.25],\"values\":{\"a\":null,\"z\":true},\"bytes\":\"AAEC\",\"when\":\"2026-07-09T14:32:18.123456789+01:00\",\"empty-list\":[],\"empty-map\":{}}\n",
+      "error": ""
+    },
+    {
+      "format": "unobin",
+      "output": "{ kind: 'encoding-test', format-version: 1, text: '<tag>&value>', unicode: 'snowman ☃', invalid-utf8: 'a�b', numbers: [-2, 3, 1.25], values: { a: null, z: true }, bytes: 'AAEC', when: '2026-07-09T14:32:18.123456789+01:00', empty-list: [], empty-map: {} }\n",
+      "error": ""
+    },
+    {
+      "format": "text",
+      "output": "",
+      "error": "cmdout: format \"text\" is not a machine format"
+    },
+    {
+      "format": "unknown",
+      "output": "",
+      "error": "cmdout: format \"unknown\" is not a machine format"
+    }
+  ],
+  "invalid-values": [
+    {
+      "name": "NaN",
+      "json-error": "machine value $: number must be finite",
+      "unobin-error": "machine value $: number must be finite"
+    },
+    {
+      "name": "positive infinity",
+      "json-error": "machine value $: number must be finite",
+      "unobin-error": "machine value $: number must be finite"
+    },
+    {
+      "name": "negative infinity",
+      "json-error": "machine value $: number must be finite",
+      "unobin-error": "machine value $: number must be finite"
+    },
+    {
+      "name": "non-string map key",
+      "json-error": "machine value $: map key type int is not string",
+      "unobin-error": "machine value $: map key type int is not string"
+    },
+    {
+      "name": "invalid UTF-8 map key collision",
+      "json-error": "machine value $: map keys \"\\xfe\" and \"\\xff\" collide after invalid UTF-8 replacement",
+      "unobin-error": "machine value $: map keys \"\\xfe\" and \"\\xff\" collide after invalid UTF-8 replacement"
+    },
+    {
+      "name": "function",
+      "json-error": "machine value $: type func() is not supported",
+      "unobin-error": "machine value $: type func() is not supported"
+    },
+    {
+      "name": "channel",
+      "json-error": "machine value $: type chan int is not supported",
+      "unobin-error": "machine value $: type chan int is not supported"
+    },
+    {
+      "name": "complex",
+      "json-error": "machine value $: type complex128 is not supported",
+      "unobin-error": "machine value $: type complex128 is not supported"
+    },
+    {
+      "name": "json number",
+      "json-error": "machine value $: json.Number must be converted to int64 or float64",
+      "unobin-error": "machine value $: json.Number must be converted to int64 or float64"
+    },
+    {
+      "name": "duration",
+      "json-error": "machine value $: time.Duration must be converted to a public value",
+      "unobin-error": "machine value $: time.Duration must be converted to a public value"
+    },
+    {
+      "name": "JSON marshaler",
+      "json-error": "machine value $: type cmdout.jsonMarshaler implements format-specific marshaling",
+      "unobin-error": "machine value $: type cmdout.jsonMarshaler implements format-specific marshaling"
+    },
+    {
+      "name": "text marshaler",
+      "json-error": "machine value $: type cmdout.textMarshaler implements format-specific marshaling",
+      "unobin-error": "machine value $: type cmdout.textMarshaler implements format-specific marshaling"
+    },
+    {
+      "name": "Unobin marshaler",
+      "json-error": "machine value $: type cmdout.unobinMarshaler implements format-specific marshaling",
+      "unobin-error": "machine value $: type cmdout.unobinMarshaler implements format-specific marshaling"
+    },
+    {
+      "name": "map cycle",
+      "json-error": "machine value $[\"self\"]: cycles are not supported",
+      "unobin-error": "machine value $[\"self\"]: cycles are not supported"
+    },
+    {
+      "name": "slice cycle",
+      "json-error": "machine value $[0]: cycles are not supported",
+      "unobin-error": "machine value $[0]: cycles are not supported"
+    },
+    {
+      "name": "pointer cycle",
+      "json-error": "machine value $.Next: cycles are not supported",
+      "unobin-error": "machine value $.Next: cycles are not supported"
+    }
+  ],
+  "writes": [
+    {
+      "name": "success",
+      "output": "{\"kind\":\"encoding-test\",\"format-version\":1,\"text\":\"<tag>&value>\",\"unicode\":\"snowman ☃\",\"invalid-utf8\":\"a\\ufffdb\",\"numbers\":[-2,3,1.25],\"values\":{\"a\":null,\"z\":true},\"bytes\":\"AAEC\",\"when\":\"2026-07-09T14:32:18.123456789+01:00\",\"empty-list\":[],\"empty-map\":{}}\n",
+      "error": ""
+    },
+    {
+      "name": "short write",
+      "output": "{\"kind\":\"encoding-test\",\"format-version\":1,\"text\":\"<tag>&value>\",\"unicode\":\"snowman ☃\",\"invalid-utf8\":\"a\\ufffdb\",\"numbers\":[-2,3,1.25],\"values\":{\"a\":null,\"z\":true},\"bytes\":\"AAEC\",\"when\":\"2026-07-09T14:32:18.123456789+01:00\",\"empty-list\":[],\"empty-map\":{}}",
+      "error": "short write"
+    },
+    {
+      "name": "writer error",
+      "output": "",
+      "error": "writer failed"
+    },
+    {
+      "name": "encoding before write",
+      "output": "",
+      "error": "machine value $: number must be finite"
+    },
+    {
+      "name": "record success",
+      "output": "{ kind: 'encoding-test', format-version: 1, text: '<tag>&value>', unicode: 'snowman ☃', invalid-utf8: 'a�b', numbers: [-2, 3, 1.25], values: { a: null, z: true }, bytes: 'AAEC', when: '2026-07-09T14:32:18.123456789+01:00', empty-list: [], empty-map: {} }\n",
+      "error": ""
+    },
+    {
+      "name": "record writer error",
+      "output": "",
+      "error": "writer failed"
+    }
+  ],
+  "record-matches-document": true,
+  "deterministic": true
+}

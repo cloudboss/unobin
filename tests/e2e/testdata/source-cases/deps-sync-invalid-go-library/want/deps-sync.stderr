@@ -1,1 +1,1 @@
-Error: import "bad": library function must return *runtime.Library
+import "bad": library function must return *runtime.Library

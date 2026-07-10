@@ -1,1 +1,1 @@
-Error: import "lib": factory.ub:1:1: schema: factory.ub must declare factory
+import "lib": factory.ub:1:1: schema: factory.ub must declare factory

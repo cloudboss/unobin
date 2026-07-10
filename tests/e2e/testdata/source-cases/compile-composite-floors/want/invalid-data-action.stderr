@@ -1,1 +1,1 @@
-Error: import "lib": composite "lookup" (data-source): a data source composite must not contain actions
+import "lib": composite "lookup" (data-source): a data source composite must not contain actions

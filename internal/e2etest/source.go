@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	cmdroot "github.com/cloudboss/unobin/cmd/unobin/root"
+	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -318,6 +319,7 @@ func runRootCommand(ctx context.Context, workspace string, cmd Command) (Command
 	restoreEnv := setCommandEnv(cmd.Env)
 	defer restoreEnv()
 	err = root.Execute()
+	cmdout.PrintUnreportedError(root, err)
 	result := CommandResult{
 		Stdout: stdout.String(),
 		Stderr: stderr.String(),
@@ -337,8 +339,9 @@ func newSourceRootCommand() *cobra.Command {
 	resetSourceCommand(cmdroot.PrintGraphCmd)
 	resetSourceCommand(cmdroot.DepsCmd)
 	root := &cobra.Command{
-		Use:          "unobin",
-		SilenceUsage: true,
+		Use:           "unobin",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 	root.AddCommand(
 		cmdroot.VersionCmd,

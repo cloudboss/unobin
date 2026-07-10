@@ -1,1 +1,1 @@
-Error: factory.ub:19:52: resolve: @each.foo is not available
+factory.ub:19:52: resolve: @each.foo is not available

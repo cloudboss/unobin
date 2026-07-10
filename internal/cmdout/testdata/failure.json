@@ -1,0 +1,195 @@
+{
+  "codes": [
+    "unobin.command.invalid-args",
+    "unobin.command.io",
+    "unobin.command.failed",
+    "unobin.command.stdout-conflict"
+  ],
+  "failures": [
+    {
+      "name": "with diagnostics",
+      "error": "disk full",
+      "unwrap": "disk full",
+      "as-failure": true,
+      "code": "unobin.command.io",
+      "message": "could not write output",
+      "diagnostics": [
+        {
+          "code": "unobin.io",
+          "severity": "error",
+          "message": "write failed"
+        }
+      ],
+      "files": null
+    },
+    {
+      "name": "without cause",
+      "error": "flags conflict",
+      "unwrap": "",
+      "as-failure": true,
+      "code": "unobin.command.invalid-args",
+      "message": "flags conflict",
+      "diagnostics": null,
+      "files": null
+    },
+    {
+      "name": "with files",
+      "error": "disk full",
+      "unwrap": "disk full",
+      "as-failure": true,
+      "code": "unobin.command.io",
+      "message": "could not write output",
+      "diagnostics": [
+        {
+          "code": "unobin.io",
+          "severity": "error",
+          "message": "write failed"
+        }
+      ],
+      "files": [
+        {
+          "path": "build/go.mod",
+          "action": "unchanged"
+        },
+        {
+          "path": "build/main.go",
+          "action": "created"
+        }
+      ]
+    },
+    {
+      "name": "invalid files",
+      "error": "command failure files: file change 1 for \"build/main.go\": action \"created\" requires an absent path",
+      "unwrap": "file change 1 for \"build/main.go\": action \"created\" requires an absent path",
+      "as-failure": false,
+      "code": "",
+      "message": "",
+      "diagnostics": null,
+      "files": null
+    },
+    {
+      "name": "generic with files",
+      "error": "generic",
+      "unwrap": "generic",
+      "as-failure": true,
+      "code": "unobin.command.failed",
+      "message": "",
+      "diagnostics": null,
+      "files": [
+        {
+          "path": "created.ub",
+          "action": "created"
+        }
+      ]
+    },
+    {
+      "name": "nil files",
+      "error": "",
+      "unwrap": "",
+      "as-failure": false,
+      "code": "",
+      "message": "",
+      "diagnostics": null,
+      "files": null
+    },
+    {
+      "name": "wrapped failure",
+      "error": "command: disk full",
+      "unwrap": "disk full",
+      "as-failure": true,
+      "code": "unobin.command.io",
+      "message": "could not write output",
+      "diagnostics": [
+        {
+          "code": "unobin.io",
+          "severity": "error",
+          "message": "write failed"
+        }
+      ],
+      "files": [
+        {
+          "path": "build/go.mod",
+          "action": "unchanged"
+        },
+        {
+          "path": "build/main.go",
+          "action": "created"
+        }
+      ]
+    }
+  ],
+  "command-names": [
+    {
+      "path": "factory",
+      "name": ""
+    },
+    {
+      "path": "factory state",
+      "name": "state"
+    },
+    {
+      "path": "factory state snapshots",
+      "name": "state snapshots"
+    },
+    {
+      "path": "factory state snapshots gc",
+      "name": "state snapshots gc"
+    }
+  ],
+  "command-errors": [
+    {
+      "name": "write command error",
+      "format": "json",
+      "stdout": "{\"kind\":\"command-error\",\"format-version\":1,\"command\":\"compile\",\"code\":\"unobin.command.io\",\"message\":\"could not write output\",\"diagnostics\":[{\"code\":\"unobin.io\",\"severity\":\"error\",\"message\":\"disk full\"},{\"code\":\"unobin.io\",\"severity\":\"error\",\"message\":\"write failed\"},{\"code\":\"unobin.notice\",\"severity\":\"info\",\"message\":\"collected\"},{\"code\":\"unobin.schema\",\"severity\":\"error\",\"message\":\"unknown field size\",\"path\":\"factory.ub\",\"span\":{\"start\":{\"line\":3,\"column\":5,\"offset\":25}}}],\"files\":[{\"path\":\"build/go.mod\",\"action\":\"unchanged\"},{\"path\":\"build/main.go\",\"action\":\"created\"}]}\n",
+      "stderr": "",
+      "error": "disk full\nfactory.ub:3:5: schema: unknown field size",
+      "reported": true,
+      "cause-found": true
+    },
+    {
+      "name": "write command error",
+      "format": "unobin",
+      "stdout": "{ kind: 'command-error', format-version: 1, command: 'compile', code: 'unobin.command.io', message: 'could not write output', diagnostics: [{ code: 'unobin.io', severity: 'error', message: 'disk full' }, { code: 'unobin.io', severity: 'error', message: 'write failed' }, { code: 'unobin.notice', severity: 'info', message: 'collected' }, { code: 'unobin.schema', severity: 'error', message: 'unknown field size', path: 'factory.ub', span: { start: { line: 3, column: 5, offset: 25 } } }], files: [{ path: 'build/go.mod', action: 'unchanged' }, { path: 'build/main.go', action: 'created' }] }\n",
+      "stderr": "",
+      "error": "disk full\nfactory.ub:3:5: schema: unknown field size",
+      "reported": true,
+      "cause-found": true
+    },
+    {
+      "name": "write command error",
+      "format": "json",
+      "stdout": "{\"kind\":\"command-error\",\"format-version\":1,\"command\":\"compile\",\"code\":\"unobin.command.failed\",\"message\":\"compile failed\",\"diagnostics\":[{\"code\":\"unobin.error\",\"severity\":\"error\",\"message\":\"generic failure\"},{\"code\":\"unobin.notice\",\"severity\":\"info\",\"message\":\"collected\"}],\"files\":[]}\n",
+      "stderr": "",
+      "error": "generic failure",
+      "reported": true,
+      "cause-found": true
+    },
+    {
+      "name": "write command error",
+      "format": "json",
+      "stdout": "{\"kind\":\"command-error\",\"format-version\":1,\"command\":\"compile\",\"code\":\"unobin.command.invalid-args\",\"message\":\"flags conflict\",\"diagnostics\":[{\"code\":\"unobin.notice\",\"severity\":\"info\",\"message\":\"collected\"},{\"code\":\"unobin.schema\",\"severity\":\"error\",\"message\":\"unknown field size\",\"path\":\"factory.ub\",\"span\":{\"start\":{\"line\":3,\"column\":5,\"offset\":25}}}],\"files\":[]}\n",
+      "stderr": "",
+      "error": "factory.ub:3:5: schema: unknown field size",
+      "reported": true,
+      "cause-found": true
+    },
+    {
+      "name": "empty required collections",
+      "format": "json",
+      "stdout": "{\"kind\":\"command-error\",\"format-version\":1,\"command\":\"compile\",\"code\":\"unobin.command.invalid-args\",\"message\":\"flags conflict\",\"diagnostics\":[],\"files\":[]}\n",
+      "stderr": "",
+      "error": "flags conflict",
+      "reported": true,
+      "cause-found": true
+    },
+    {
+      "name": "response writer failure",
+      "format": "json",
+      "stdout": "",
+      "stderr": "writer failed\n",
+      "error": "writer failed",
+      "reported": false,
+      "cause-found": false
+    }
+  ]
+}

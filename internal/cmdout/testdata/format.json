@@ -1,0 +1,41 @@
+{
+  "help": "Output format: text, json, unobin.",
+  "cases": [
+    {
+      "input": "",
+      "format": "text",
+      "machine": false,
+      "error": ""
+    },
+    {
+      "input": "text",
+      "format": "text",
+      "machine": false,
+      "error": ""
+    },
+    {
+      "input": "json",
+      "format": "json",
+      "machine": true,
+      "error": ""
+    },
+    {
+      "input": "unobin",
+      "format": "unobin",
+      "machine": true,
+      "error": ""
+    },
+    {
+      "input": "yaml",
+      "format": "",
+      "machine": false,
+      "error": "--format: unknown 'yaml' (want text, json, unobin)"
+    },
+    {
+      "input": "JSON",
+      "format": "",
+      "machine": false,
+      "error": "--format: unknown 'JSON' (want text, json, unobin)"
+    }
+  ]
+}

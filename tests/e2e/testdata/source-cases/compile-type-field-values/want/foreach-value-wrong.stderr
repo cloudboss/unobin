@@ -1,1 +1,1 @@
-Error: factory.ub:19:53: type: type mismatch: expected string, got integer
+factory.ub:19:53: type: type mismatch: expected string, got integer

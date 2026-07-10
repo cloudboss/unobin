@@ -1,1 +1,1 @@
-Error: deps sync manages UB projects; use Go commands for Go modules
+deps sync manages UB projects; use Go commands for Go modules

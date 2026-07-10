@@ -1,1 +1,1 @@
-Error: import "lib": a factory cannot be imported
+import "lib": a factory cannot be imported

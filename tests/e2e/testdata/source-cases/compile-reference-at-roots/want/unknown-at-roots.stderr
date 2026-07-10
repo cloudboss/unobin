@@ -1,4 +1,4 @@
-Error: 3 errors:
+3 errors:
   factory.ub:18:23: resolve: @core names functions; call one, e.g. @core.length(...)
   factory.ub:21:52: resolve: @eech is not bound
   factory.ub:22:27: resolve: @rule is not bound

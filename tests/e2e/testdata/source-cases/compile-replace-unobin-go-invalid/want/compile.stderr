@@ -1,1 +1,1 @@
-Error: import "local": library function must return *runtime.Library
+import "local": library function must return *runtime.Library

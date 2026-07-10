@@ -1,1 +1,1 @@
-Error: unknown --format "yaml" (want 'plain' or 'dot')
+unknown --format "yaml" (want 'plain' or 'dot')

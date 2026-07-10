@@ -1,1 +1,1 @@
-Error: project marker ub/project-b/project.ub: ub/project-b/project.ub:1:10: schema: project must be an object
+project marker ub/project-b/project.ub: ub/project-b/project.ub:1:10: schema: project must be an object

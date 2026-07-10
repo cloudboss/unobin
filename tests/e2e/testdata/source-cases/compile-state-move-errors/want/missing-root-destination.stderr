@@ -1,1 +1,1 @@
-Error: factory.ub:18:13: resolve: state-moves[0] resource.old -> resource.missing: destination is not in this factory
+factory.ub:18:13: resolve: state-moves[0] resource.old -> resource.missing: destination is not in this factory

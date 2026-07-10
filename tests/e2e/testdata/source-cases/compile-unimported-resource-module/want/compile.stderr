@@ -1,1 +1,1 @@
-Error: factory.ub:3:42: resolve: library "greeter" is not imported
+factory.ub:3:42: resolve: library "greeter" is not imported

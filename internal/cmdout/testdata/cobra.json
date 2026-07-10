@@ -1,0 +1,149 @@
+{
+  "reported": [
+    {
+      "name": "reported",
+      "error": "cause",
+      "reported": true,
+      "cause-found": true,
+      "stderr": "",
+      "panicked": false,
+      "panic": ""
+    },
+    {
+      "name": "wrapped reported",
+      "error": "outer: cause",
+      "reported": true,
+      "cause-found": true,
+      "stderr": "",
+      "panicked": false,
+      "panic": ""
+    },
+    {
+      "name": "ordinary",
+      "error": "cause",
+      "reported": false,
+      "cause-found": true,
+      "stderr": "cause\n",
+      "panicked": false,
+      "panic": ""
+    },
+    {
+      "name": "nil",
+      "error": "",
+      "reported": false,
+      "cause-found": false,
+      "stderr": "",
+      "panicked": false,
+      "panic": ""
+    },
+    {
+      "name": "nil reported requirement",
+      "error": "",
+      "reported": false,
+      "cause-found": false,
+      "stderr": "",
+      "panicked": true,
+      "panic": "cmdout: reported error must not be nil"
+    }
+  ],
+  "runs": [
+    {
+      "name": "help remains text",
+      "args": [
+        "command",
+        "--help",
+        "--format",
+        "json"
+      ],
+      "stdout": "Exercise the command boundary\n\nUsage:\n  tool command [flags]\n\nFlags:\n      --fail            Fail after RunE begins.\n      --format string   Output format: text, json, unobin. (default \"text\")\n  -h, --help            help for command\n",
+      "stderr": "",
+      "error": "",
+      "reported": false
+    },
+    {
+      "name": "unknown flag remains text",
+      "args": [
+        "command",
+        "--format",
+        "json",
+        "--unknown"
+      ],
+      "stdout": "",
+      "stderr": "unknown flag: --unknown\n",
+      "error": "unknown flag: --unknown",
+      "reported": false
+    },
+    {
+      "name": "wrong positional count remains text",
+      "args": [
+        "command",
+        "--format",
+        "json",
+        "extra"
+      ],
+      "stdout": "",
+      "stderr": "unknown command \"extra\" for \"tool command\"\n",
+      "error": "unknown command \"extra\" for \"tool command\"",
+      "reported": false
+    },
+    {
+      "name": "unknown format is text",
+      "args": [
+        "command",
+        "--format",
+        "yaml"
+      ],
+      "stdout": "",
+      "stderr": "--format: unknown 'yaml' (want text, json, unobin)\n",
+      "error": "--format: unknown 'yaml' (want text, json, unobin)",
+      "reported": false
+    },
+    {
+      "name": "JSON application failure",
+      "args": [
+        "command",
+        "--format",
+        "json",
+        "--fail"
+      ],
+      "stdout": "{\"kind\":\"command-error\",\"format-version\":1,\"command\":\"command\",\"code\":\"unobin.command.failed\",\"message\":\"command failed\",\"diagnostics\":[{\"code\":\"unobin.error\",\"severity\":\"error\",\"message\":\"application failed\"}],\"files\":[]}\n",
+      "stderr": "",
+      "error": "application failed",
+      "reported": true
+    },
+    {
+      "name": "Unobin application failure",
+      "args": [
+        "command",
+        "--format",
+        "unobin",
+        "--fail"
+      ],
+      "stdout": "{ kind: 'command-error', format-version: 1, command: 'command', code: 'unobin.command.failed', message: 'command failed', diagnostics: [{ code: 'unobin.error', severity: 'error', message: 'application failed' }], files: [] }\n",
+      "stderr": "",
+      "error": "application failed",
+      "reported": true
+    },
+    {
+      "name": "text application failure",
+      "args": [
+        "command",
+        "--fail"
+      ],
+      "stdout": "",
+      "stderr": "application failed\n",
+      "error": "application failed",
+      "reported": false
+    },
+    {
+      "name": "text success",
+      "args": [
+        "command"
+      ],
+      "stdout": "ok\n",
+      "stderr": "",
+      "error": "",
+      "reported": false
+    }
+  ]
+}

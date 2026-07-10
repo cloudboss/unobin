@@ -1,1 +1,1 @@
-Error: project: dependency example.com/lib: v0.0.0-unobin-replaced is reserved for project replacements; add an exact project.replace entry
+project: dependency example.com/lib: v0.0.0-unobin-replaced is reserved for project replacements; add an exact project.replace entry

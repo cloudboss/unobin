@@ -1,1 +1,1 @@
-Error: no project-lock.ub found; run `unobin deps sync` first
+no project-lock.ub found; run `unobin deps sync` first
