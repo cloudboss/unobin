@@ -1,0 +1,255 @@
+{
+  "cases": [
+    {
+      "name": "nil",
+      "diagnostics": []
+    },
+    {
+      "name": "generic default code",
+      "diagnostics": [
+        {
+          "code": "unobin.error",
+          "severity": "error",
+          "message": "broken"
+        }
+      ]
+    },
+    {
+      "name": "generic selected code",
+      "diagnostics": [
+        {
+          "code": "unobin.io",
+          "severity": "error",
+          "message": "broken"
+        }
+      ]
+    },
+    {
+      "name": "unknown parse error",
+      "diagnostics": [
+        {
+          "code": "unobin.error",
+          "severity": "error",
+          "message": "unknown"
+        }
+      ]
+    },
+    {
+      "name": "parse error",
+      "diagnostics": [
+        {
+          "code": "unobin.parse",
+          "severity": "error",
+          "message": "parse"
+        }
+      ]
+    },
+    {
+      "name": "lex error",
+      "diagnostics": [
+        {
+          "code": "unobin.lex",
+          "severity": "error",
+          "message": "lex"
+        }
+      ]
+    },
+    {
+      "name": "schema error",
+      "diagnostics": [
+        {
+          "code": "unobin.schema",
+          "severity": "error",
+          "message": "schema"
+        }
+      ]
+    },
+    {
+      "name": "type error",
+      "diagnostics": [
+        {
+          "code": "unobin.type",
+          "severity": "error",
+          "message": "type"
+        }
+      ]
+    },
+    {
+      "name": "resolve error",
+      "diagnostics": [
+        {
+          "code": "unobin.resolve",
+          "severity": "error",
+          "message": "resolve"
+        }
+      ]
+    },
+    {
+      "name": "parse hint and mapped path",
+      "diagnostics": [
+        {
+          "code": "unobin.schema",
+          "severity": "error",
+          "message": "bad field",
+          "hint": "remove it",
+          "path": "mapped/absolute/source.ub",
+          "span": {
+            "start": {
+              "line": 2,
+              "column": 4,
+              "offset": 8
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "error list",
+      "diagnostics": [
+        {
+          "code": "unobin.lex",
+          "severity": "error",
+          "message": "first",
+          "path": "a.ub",
+          "span": {
+            "start": {
+              "line": 1,
+              "column": 2,
+              "offset": 1
+            }
+          }
+        },
+        {
+          "code": "unobin.type",
+          "severity": "error",
+          "message": "second",
+          "path": "b.ub",
+          "span": {
+            "start": {
+              "line": 2,
+              "column": 1,
+              "offset": 3
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "ordinary wrapper emits recognized descendant",
+      "diagnostics": [
+        {
+          "code": "unobin.parse",
+          "severity": "error",
+          "message": "inner parse"
+        }
+      ]
+    },
+    {
+      "name": "semantic context",
+      "diagnostics": [
+        {
+          "code": "unobin.schema",
+          "severity": "error",
+          "message": "import 'lib': bad schema"
+        }
+      ]
+    },
+    {
+      "name": "nested semantic context",
+      "diagnostics": [
+        {
+          "code": "unobin.error",
+          "severity": "error",
+          "message": "factory: import 'lib': unavailable"
+        }
+      ]
+    },
+    {
+      "name": "joined parse and generic errors",
+      "diagnostics": [
+        {
+          "code": "unobin.error",
+          "severity": "error",
+          "message": "disk failed"
+        },
+        {
+          "code": "unobin.parse",
+          "severity": "error",
+          "message": "parse failed"
+        }
+      ]
+    },
+    {
+      "name": "shared descendant same context",
+      "diagnostics": [
+        {
+          "code": "unobin.error",
+          "severity": "error",
+          "message": "shared"
+        }
+      ]
+    },
+    {
+      "name": "shared descendant distinct contexts",
+      "diagnostics": [
+        {
+          "code": "unobin.error",
+          "severity": "error",
+          "message": "first: shared"
+        },
+        {
+          "code": "unobin.error",
+          "severity": "error",
+          "message": "second: shared"
+        }
+      ]
+    },
+    {
+      "name": "self-referential error",
+      "diagnostics": [
+        {
+          "code": "unobin.error",
+          "severity": "error",
+          "message": "cycle"
+        }
+      ]
+    },
+    {
+      "name": "cycle beside ordinary leaf",
+      "diagnostics": [
+        {
+          "code": "unobin.error",
+          "severity": "error",
+          "message": "cycle"
+        },
+        {
+          "code": "unobin.error",
+          "severity": "error",
+          "message": "leaf"
+        }
+      ]
+    },
+    {
+      "name": "byte column from multibyte source",
+      "diagnostics": [
+        {
+          "code": "unobin.lex",
+          "severity": "error",
+          "message": "at x",
+          "path": "utf8.ub",
+          "span": {
+            "start": {
+              "line": 1,
+              "column": 3,
+              "offset": 2
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "context-nil": true,
+  "context-text": "loading stack: cause",
+  "context-unwrap": true,
+  "deterministic": true
+}

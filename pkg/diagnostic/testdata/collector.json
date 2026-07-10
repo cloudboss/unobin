@@ -1,0 +1,107 @@
+{
+  "empty-non-null": true,
+  "initially-errors": false,
+  "normalized": [
+    {
+      "code": "e",
+      "severity": "error",
+      "message": "error"
+    },
+    {
+      "code": "w",
+      "severity": "warning",
+      "message": "warning"
+    }
+  ],
+  "copy-preserved": [
+    {
+      "code": "w",
+      "severity": "warning",
+      "message": "warning"
+    }
+  ],
+  "has-errors": true,
+  "concurrent": [
+    {
+      "code": "test",
+      "severity": "info",
+      "message": "message-000"
+    },
+    {
+      "code": "test",
+      "severity": "info",
+      "message": "message-001"
+    },
+    {
+      "code": "test",
+      "severity": "info",
+      "message": "message-002"
+    },
+    {
+      "code": "test",
+      "severity": "info",
+      "message": "message-003"
+    },
+    {
+      "code": "test",
+      "severity": "info",
+      "message": "message-004"
+    },
+    {
+      "code": "test",
+      "severity": "info",
+      "message": "message-005"
+    },
+    {
+      "code": "test",
+      "severity": "info",
+      "message": "message-006"
+    },
+    {
+      "code": "test",
+      "severity": "info",
+      "message": "message-007"
+    },
+    {
+      "code": "test",
+      "severity": "info",
+      "message": "message-008"
+    },
+    {
+      "code": "test",
+      "severity": "info",
+      "message": "message-009"
+    },
+    {
+      "code": "test",
+      "severity": "info",
+      "message": "message-010"
+    },
+    {
+      "code": "test",
+      "severity": "info",
+      "message": "message-011"
+    },
+    {
+      "code": "test",
+      "severity": "info",
+      "message": "message-012"
+    },
+    {
+      "code": "test",
+      "severity": "info",
+      "message": "message-013"
+    },
+    {
+      "code": "test",
+      "severity": "info",
+      "message": "message-014"
+    },
+    {
+      "code": "test",
+      "severity": "info",
+      "message": "message-015"
+    }
+  ],
+  "concurrent-count": 16
+}

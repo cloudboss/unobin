@@ -1,0 +1,301 @@
+{
+  "severities": [
+    "error",
+    "warning",
+    "info"
+  ],
+  "tags": {
+    "Diagnostic.Code": [
+      "code",
+      "code"
+    ],
+    "Diagnostic.Hint": [
+      "hint,omitempty",
+      "hint,omitempty"
+    ],
+    "Diagnostic.Message": [
+      "message",
+      "message"
+    ],
+    "Diagnostic.Path": [
+      "path,omitempty",
+      "path,omitempty"
+    ],
+    "Diagnostic.Severity": [
+      "severity",
+      "severity"
+    ],
+    "Diagnostic.Span": [
+      "span,omitempty",
+      "span,omitempty"
+    ],
+    "Position.Column": [
+      "column",
+      "column"
+    ],
+    "Position.Line": [
+      "line",
+      "line"
+    ],
+    "Position.Offset": [
+      "offset",
+      "offset"
+    ],
+    "Span.End": [
+      "end,omitempty",
+      "end,omitempty"
+    ],
+    "Span.Start": [
+      "start",
+      "start"
+    ]
+  },
+  "normalized": [
+    {
+      "code": "z",
+      "severity": "error",
+      "message": "z",
+      "span": {
+        "start": {
+          "line": 1,
+          "column": 1,
+          "offset": 0
+        }
+      }
+    },
+    {
+      "code": "z",
+      "severity": "error",
+      "message": "z",
+      "span": {
+        "start": {
+          "line": 1,
+          "column": 1,
+          "offset": 0
+        },
+        "end": {
+          "line": 1,
+          "column": 2,
+          "offset": 1
+        }
+      }
+    },
+    {
+      "code": "a",
+      "severity": "error",
+      "message": "z",
+      "span": {
+        "start": {
+          "line": 1,
+          "column": 1,
+          "offset": 0
+        },
+        "end": {
+          "line": 1,
+          "column": 3,
+          "offset": 2
+        }
+      }
+    },
+    {
+      "code": "b",
+      "severity": "error",
+      "message": "a",
+      "hint": "a",
+      "span": {
+        "start": {
+          "line": 1,
+          "column": 1,
+          "offset": 0
+        },
+        "end": {
+          "line": 1,
+          "column": 3,
+          "offset": 2
+        }
+      }
+    },
+    {
+      "code": "b",
+      "severity": "error",
+      "message": "a",
+      "hint": "b",
+      "span": {
+        "start": {
+          "line": 1,
+          "column": 1,
+          "offset": 0
+        },
+        "end": {
+          "line": 1,
+          "column": 3,
+          "offset": 2
+        }
+      }
+    },
+    {
+      "code": "b",
+      "severity": "error",
+      "message": "b",
+      "span": {
+        "start": {
+          "line": 1,
+          "column": 1,
+          "offset": 0
+        },
+        "end": {
+          "line": 1,
+          "column": 3,
+          "offset": 2
+        }
+      }
+    },
+    {
+      "code": "a",
+      "severity": "error",
+      "message": "earlier",
+      "path": "a.ub",
+      "span": {
+        "start": {
+          "line": 1,
+          "column": 2,
+          "offset": 1
+        }
+      }
+    },
+    {
+      "code": "b",
+      "severity": "error",
+      "message": "error",
+      "path": "a.ub",
+      "span": {
+        "start": {
+          "line": 1,
+          "column": 6,
+          "offset": 5
+        }
+      }
+    },
+    {
+      "code": "b",
+      "severity": "warning",
+      "message": "warning",
+      "path": "a.ub",
+      "span": {
+        "start": {
+          "line": 1,
+          "column": 6,
+          "offset": 5
+        }
+      }
+    },
+    {
+      "code": "b",
+      "severity": "info",
+      "message": "info",
+      "path": "a.ub",
+      "span": {
+        "start": {
+          "line": 1,
+          "column": 6,
+          "offset": 5
+        }
+      }
+    },
+    {
+      "code": "b",
+      "severity": "warning",
+      "message": "positioned",
+      "hint": "hint",
+      "path": "a.ub",
+      "span": {
+        "start": {
+          "line": 2,
+          "column": 1,
+          "offset": 5
+        },
+        "end": {
+          "line": 2,
+          "column": 4,
+          "offset": 8
+        }
+      }
+    },
+    {
+      "code": "z",
+      "severity": "info",
+      "message": "unpositioned",
+      "path": "a.ub"
+    },
+    {
+      "code": "z",
+      "severity": "info",
+      "message": "last",
+      "path": "z.ub"
+    }
+  ],
+  "input-preserved": true,
+  "deterministic": true,
+  "empty-non-null": true,
+  "merged": [
+    {
+      "code": "b",
+      "severity": "warning",
+      "message": "positioned",
+      "hint": "hint",
+      "path": "a.ub",
+      "span": {
+        "start": {
+          "line": 2,
+          "column": 1,
+          "offset": 5
+        },
+        "end": {
+          "line": 2,
+          "column": 4,
+          "offset": 8
+        }
+      }
+    }
+  ],
+  "nil-report-discarded": true,
+  "forwarded": [
+    {
+      "code": "test",
+      "severity": "info",
+      "message": "forwarded"
+    }
+  ],
+  "text": [
+    {
+      "name": "warning",
+      "severity": "warning",
+      "output": "warning: message\n",
+      "error": ""
+    },
+    {
+      "name": "info",
+      "severity": "info",
+      "output": "notice: message\n",
+      "error": ""
+    },
+    {
+      "name": "error rejected",
+      "severity": "error",
+      "output": "",
+      "error": "diagnostic: text rendering rejects error severity"
+    },
+    {
+      "name": "unknown rejected",
+      "severity": "unknown",
+      "output": "",
+      "error": "diagnostic: unknown severity \"unknown\""
+    },
+    {
+      "name": "writer failure",
+      "severity": "info",
+      "output": "",
+      "error": "write failed"
+    }
+  ]
+}

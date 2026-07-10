@@ -1,0 +1,690 @@
+{
+  "actions": [
+    "created",
+    "updated",
+    "removed",
+    "unchanged"
+  ],
+  "tags": {
+    "action": [
+      "action",
+      "action"
+    ],
+    "path": [
+      "path",
+      "path"
+    ]
+  },
+  "sort": {
+    "input": [
+      {
+        "path": "z",
+        "action": "removed"
+      },
+      {
+        "path": "a",
+        "action": "updated"
+      },
+      {
+        "path": "a",
+        "action": "created"
+      }
+    ],
+    "output": [
+      {
+        "path": "a",
+        "action": "created"
+      },
+      {
+        "path": "a",
+        "action": "updated"
+      },
+      {
+        "path": "z",
+        "action": "removed"
+      }
+    ],
+    "input-preserved": true,
+    "copied": true,
+    "empty-non-null": true
+  },
+  "compose": [
+    {
+      "name": "empty",
+      "input": [],
+      "output": [],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "created",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "created"
+        }
+      ],
+      "output": [
+        {
+          "path": "file.ub",
+          "action": "created"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "updated",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "updated"
+        }
+      ],
+      "output": [
+        {
+          "path": "file.ub",
+          "action": "updated"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "removed",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "removed"
+        }
+      ],
+      "output": [
+        {
+          "path": "file.ub",
+          "action": "removed"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "unchanged",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "unchanged"
+        }
+      ],
+      "output": [
+        {
+          "path": "file.ub",
+          "action": "unchanged"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "created then updated",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "created"
+        },
+        {
+          "path": "file.ub",
+          "action": "updated"
+        }
+      ],
+      "output": [
+        {
+          "path": "file.ub",
+          "action": "created"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "created then unchanged",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "created"
+        },
+        {
+          "path": "file.ub",
+          "action": "unchanged"
+        }
+      ],
+      "output": [
+        {
+          "path": "file.ub",
+          "action": "created"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "created then removed",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "created"
+        },
+        {
+          "path": "file.ub",
+          "action": "removed"
+        }
+      ],
+      "output": [],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "created changed then removed",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "created"
+        },
+        {
+          "path": "file.ub",
+          "action": "updated"
+        },
+        {
+          "path": "file.ub",
+          "action": "removed"
+        }
+      ],
+      "output": [],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "updated repeatedly",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "updated"
+        },
+        {
+          "path": "file.ub",
+          "action": "updated"
+        },
+        {
+          "path": "file.ub",
+          "action": "unchanged"
+        }
+      ],
+      "output": [
+        {
+          "path": "file.ub",
+          "action": "updated"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "unchanged then updated",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "unchanged"
+        },
+        {
+          "path": "file.ub",
+          "action": "updated"
+        }
+      ],
+      "output": [
+        {
+          "path": "file.ub",
+          "action": "updated"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "unchanged repeatedly",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "unchanged"
+        },
+        {
+          "path": "file.ub",
+          "action": "unchanged"
+        }
+      ],
+      "output": [
+        {
+          "path": "file.ub",
+          "action": "unchanged"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "updated then removed",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "updated"
+        },
+        {
+          "path": "file.ub",
+          "action": "removed"
+        }
+      ],
+      "output": [
+        {
+          "path": "file.ub",
+          "action": "removed"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "unchanged then removed",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "unchanged"
+        },
+        {
+          "path": "file.ub",
+          "action": "removed"
+        }
+      ],
+      "output": [
+        {
+          "path": "file.ub",
+          "action": "removed"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "removed then created",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "removed"
+        },
+        {
+          "path": "file.ub",
+          "action": "created"
+        }
+      ],
+      "output": [
+        {
+          "path": "file.ub",
+          "action": "updated"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "created removed then recreated",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "created"
+        },
+        {
+          "path": "file.ub",
+          "action": "removed"
+        },
+        {
+          "path": "file.ub",
+          "action": "created"
+        }
+      ],
+      "output": [
+        {
+          "path": "file.ub",
+          "action": "created"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "created removed recreated then removed",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "created"
+        },
+        {
+          "path": "file.ub",
+          "action": "removed"
+        },
+        {
+          "path": "file.ub",
+          "action": "created"
+        },
+        {
+          "path": "file.ub",
+          "action": "removed"
+        }
+      ],
+      "output": [],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "unchanged removed then recreated",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "unchanged"
+        },
+        {
+          "path": "file.ub",
+          "action": "removed"
+        },
+        {
+          "path": "file.ub",
+          "action": "created"
+        }
+      ],
+      "output": [
+        {
+          "path": "file.ub",
+          "action": "updated"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "updated removed then recreated",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "updated"
+        },
+        {
+          "path": "file.ub",
+          "action": "removed"
+        },
+        {
+          "path": "file.ub",
+          "action": "created"
+        }
+      ],
+      "output": [
+        {
+          "path": "file.ub",
+          "action": "updated"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "removed recreated then updated",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "removed"
+        },
+        {
+          "path": "file.ub",
+          "action": "created"
+        },
+        {
+          "path": "file.ub",
+          "action": "updated"
+        }
+      ],
+      "output": [
+        {
+          "path": "file.ub",
+          "action": "updated"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "removed recreated then removed",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "removed"
+        },
+        {
+          "path": "file.ub",
+          "action": "created"
+        },
+        {
+          "path": "file.ub",
+          "action": "removed"
+        }
+      ],
+      "output": [
+        {
+          "path": "file.ub",
+          "action": "removed"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    },
+    {
+      "name": "unknown action",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "rewritten"
+        }
+      ],
+      "output": null,
+      "error": "file change 0 for \"file.ub\" has invalid action \"rewritten\"",
+      "input-preserved": true
+    },
+    {
+      "name": "create existing",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "updated"
+        },
+        {
+          "path": "file.ub",
+          "action": "created"
+        }
+      ],
+      "output": null,
+      "error": "file change 1 for \"file.ub\": action \"created\" requires an absent path",
+      "input-preserved": true
+    },
+    {
+      "name": "create unchanged existing",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "unchanged"
+        },
+        {
+          "path": "file.ub",
+          "action": "created"
+        }
+      ],
+      "output": null,
+      "error": "file change 1 for \"file.ub\": action \"created\" requires an absent path",
+      "input-preserved": true
+    },
+    {
+      "name": "create twice",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "created"
+        },
+        {
+          "path": "file.ub",
+          "action": "created"
+        }
+      ],
+      "output": null,
+      "error": "file change 1 for \"file.ub\": action \"created\" requires an absent path",
+      "input-preserved": true
+    },
+    {
+      "name": "update absent",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "removed"
+        },
+        {
+          "path": "file.ub",
+          "action": "updated"
+        }
+      ],
+      "output": null,
+      "error": "file change 1 for \"file.ub\": action \"updated\" requires a present path",
+      "input-preserved": true
+    },
+    {
+      "name": "leave absent unchanged",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "removed"
+        },
+        {
+          "path": "file.ub",
+          "action": "unchanged"
+        }
+      ],
+      "output": null,
+      "error": "file change 1 for \"file.ub\": action \"unchanged\" requires a present path",
+      "input-preserved": true
+    },
+    {
+      "name": "remove absent",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "removed"
+        },
+        {
+          "path": "file.ub",
+          "action": "removed"
+        }
+      ],
+      "output": null,
+      "error": "file change 1 for \"file.ub\": action \"removed\" requires a present path",
+      "input-preserved": true
+    },
+    {
+      "name": "remove after create and remove",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "created"
+        },
+        {
+          "path": "file.ub",
+          "action": "removed"
+        },
+        {
+          "path": "file.ub",
+          "action": "removed"
+        }
+      ],
+      "output": null,
+      "error": "file change 2 for \"file.ub\": action \"removed\" requires a present path",
+      "input-preserved": true
+    },
+    {
+      "name": "unchanged after create and remove",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "created"
+        },
+        {
+          "path": "file.ub",
+          "action": "removed"
+        },
+        {
+          "path": "file.ub",
+          "action": "unchanged"
+        }
+      ],
+      "output": null,
+      "error": "file change 2 for \"file.ub\": action \"unchanged\" requires a present path",
+      "input-preserved": true
+    },
+    {
+      "name": "update after create and remove",
+      "input": [
+        {
+          "path": "file.ub",
+          "action": "created"
+        },
+        {
+          "path": "file.ub",
+          "action": "removed"
+        },
+        {
+          "path": "file.ub",
+          "action": "updated"
+        }
+      ],
+      "output": null,
+      "error": "file change 2 for \"file.ub\": action \"updated\" requires a present path",
+      "input-preserved": true
+    },
+    {
+      "name": "multiple paths",
+      "input": [
+        {
+          "path": "z.ub",
+          "action": "created"
+        },
+        {
+          "path": "a.ub",
+          "action": "unchanged"
+        },
+        {
+          "path": "gone.ub",
+          "action": "created"
+        },
+        {
+          "path": "z.ub",
+          "action": "updated"
+        },
+        {
+          "path": "gone.ub",
+          "action": "removed"
+        }
+      ],
+      "output": [
+        {
+          "path": "a.ub",
+          "action": "unchanged"
+        },
+        {
+          "path": "z.ub",
+          "action": "created"
+        }
+      ],
+      "error": "",
+      "input-preserved": true
+    }
+  ]
+}

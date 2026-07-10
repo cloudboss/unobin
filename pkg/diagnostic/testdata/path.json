@@ -1,0 +1,74 @@
+{
+  "display": [
+    {
+      "name": "relative cleaned",
+      "output": "b.ub"
+    },
+    {
+      "name": "mapped descendant",
+      "output": "vendor/lib/file.ub"
+    },
+    {
+      "name": "longest mapped descendant",
+      "output": "special/file.ub"
+    },
+    {
+      "name": "logical file",
+      "output": "github.com/example/lib//logical.ub"
+    },
+    {
+      "name": "absolute user path",
+      "output": "<tmp>/absolute-user/child.ub"
+    },
+    {
+      "name": "resolved symlink alias",
+      "output": "linked/child.ub"
+    },
+    {
+      "name": "project fallback",
+      "output": "src/factory.ub"
+    },
+    {
+      "name": "hidden root",
+      "output": "secret.ub"
+    },
+    {
+      "name": "unrelated absolute",
+      "output": "file.ub"
+    },
+    {
+      "name": "component boundary",
+      "output": "vendor/library/file.ub"
+    },
+    {
+      "name": "equal mapping keeps order",
+      "output": "first/file.ub"
+    },
+    {
+      "name": "working directory absolute form",
+      "output": "requested-root/file.ub"
+    }
+  ],
+  "messages": [
+    {
+      "name": "mapped prefixes",
+      "output": "read vendor/lib/file.ub and special/deep.ub"
+    },
+    {
+      "name": "resolved symlink prefix",
+      "output": "open linked/child.ub: denied"
+    },
+    {
+      "name": "project prefix",
+      "output": "parse src/factory.ub: failed"
+    },
+    {
+      "name": "hidden prefix",
+      "output": "tool cache/deep/secret.ub: failed"
+    },
+    {
+      "name": "component boundary untouched",
+      "output": "open vendor/library/file.ub: failed"
+    }
+  ]
+}
