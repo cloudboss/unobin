@@ -1,4 +1,4 @@
-// Package graphprint renders a runtime DAG as either a plain
+// Package graphprint renders a runtime DAG as either a human-readable
 // indented listing or a Graphviz DOT document. Both unobin's stack
 // binaries (via pkg/runner) and the dev CLI (cmd/unobin/root/print-graph)
 // share these renderers so the two paths produce identical output for
@@ -13,10 +13,10 @@ import (
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
-// Plain writes the DAG to out as an indented listing: one node per
+// Text writes the DAG to out as an indented listing: one node per
 // stanza, with each outgoing edge prefixed by "->". Addresses are
 // sorted lexicographically so the output is stable across runs.
-func Plain(out io.Writer, dag *runtime.DAG) {
+func Text(out io.Writer, dag *runtime.DAG) {
 	addrs := sortedNodeAddresses(dag)
 	for i, a := range addrs {
 		if i > 0 {

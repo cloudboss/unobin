@@ -1,0 +1,15 @@
+action.deploy
+  -> library-config.aws
+
+library-config.aws
+
+output.url
+  -> action.deploy
+
+resource.app
+  -> input.region
+  -> resource.app/resource.server
+
+resource.app/resource.server
+  -> input.size
+  -> library-config.aws

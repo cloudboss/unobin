@@ -2,16 +2,19 @@ package root
 
 import (
 	"errors"
-	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 
+	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/pkg/check"
 	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/deps"
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/graphprint"
 	"github.com/cloudboss/unobin/pkg/resolve"
+	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sourcecheck"
 	"github.com/cloudboss/unobin/pkg/toolchain"
 	"github.com/spf13/cobra"
@@ -57,70 +60,111 @@ func init() {
 }
 
 func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
-	stackPath, err := compile.FactorySourcePath(cfg.stackPath)
+	format, err := graphprint.ParseFormat(cfg.format)
 	if err != nil {
 		return err
+	}
+	collector := &diagnostic.Collector{}
+	reporter := diagnostic.Reporter(collector)
+	toolOutput := io.Writer(io.Discard)
+	if !format.Machine() {
+		reporter = textDiagnosticReporter{out: cmd.ErrOrStderr()}
+		toolOutput = cmd.ErrOrStderr()
+	}
+	dag, name, err := buildSourceGraph(cfg, reporter, toolOutput)
+	if err != nil {
+		if format.Machine() {
+			return cmdout.WriteCommandError(
+				cmd, cmdout.Format(format), collector.Diagnostics(), err,
+			)
+		}
+		return err
+	}
+	out := cmd.OutOrStdout()
+	switch format {
+	case graphprint.FormatText:
+		graphprint.Text(out, dag)
+	case graphprint.FormatDOT:
+		graphprint.DOT(out, dag, name)
+	case graphprint.FormatJSON, graphprint.FormatUnobin:
+		return cmdout.WriteDocument(
+			out,
+			cmdout.Format(format),
+			graphprint.BuildDocument(dag, name, collector.Diagnostics()),
+		)
+	}
+	return nil
+}
+
+func buildSourceGraph(
+	cfg *printGraphConfig,
+	reporter diagnostic.Reporter,
+	toolOutput io.Writer,
+) (*runtime.DAG, string, error) {
+	stackPath, err := compile.FactorySourcePath(cfg.stackPath)
+	if err != nil {
+		return nil, "", err
 	}
 	src, err := os.ReadFile(stackPath)
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	sf, _, err := compile.ParseFactorySyntaxSource(stackPath, src)
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 
 	refs, errs := resolve.ExtractSyntaxBodyImports(sf.Factory.Body)
 	if len(errs) > 0 {
-		return errors.Join(errs...)
+		return nil, "", errors.Join(errs...)
 	}
 
 	projectDir, err := printGraphProjectDir(filepath.Dir(stackPath))
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	project, err := printGraphProject(projectDir)
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	var replaceMap map[deps.Dependency]string
 	if project != nil {
 		if err := deps.CheckReplacementSentinels(project); err != nil {
-			return err
+			return nil, "", err
 		}
 		replaceMap = project.Replace
 	}
 
 	projectLock, err := printGraphProjectLock(projectDir)
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	resolver, err := newCompileResolver(projectDir)
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	resolver = compile.WrapProjectLockSources(resolver, projectLock)
 	resolver, err = compile.WrapReplaces(resolver, projectDir, cfg.replaceUnobin, replaceMap)
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 
 	repoVersions, err := compile.ProjectLockVersions(projectDir)
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	repoVersions = printGraphReplacedVersions(
 		repoVersions, cfg.replaceUnobin != "", replaceMap)
 	replaceUnobin, err := printGraphUnobinReplace(projectDir, cfg.replaceUnobin, replaceMap)
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	schemaRoots := compile.UnobinSchemaRoots(
-		cmd.ErrOrStderr(), replaceUnobin, cliVersion())
+		toolOutput, replaceUnobin, cliVersion())
 	analysis, err := sourcecheck.AnalyzeImports(refs, sourcecheck.ImportAnalysisOptions{
 		Resolver:    resolver,
 		Versions:    repoVersions,
-		Reporter:    textDiagnosticReporter{out: cmd.ErrOrStderr()},
+		Reporter:    reporter,
 		SchemaCache: compile.NewSchemaCache(schemaRoots...),
 		Body:        &sf.Factory.Body,
 		Source: &resolve.Source{
@@ -129,7 +173,7 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 		},
 	})
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	libs := analysis.Libraries
 	checker := check.NewSyntaxWithLibraryConfigSchemas(
@@ -138,22 +182,9 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 		analysis.LibraryConfigSchemas,
 	)
 	if errs := checker.References(nil); errs.Len() > 0 {
-		return errs.Err()
+		return nil, "", errs.Err()
 	}
-
-	dag := checker.DAG()
-	out := cmd.OutOrStdout()
-	switch cfg.format {
-	case "text":
-		graphprint.Plain(out, dag)
-	case "dot":
-		graphprint.DOT(out, dag, compile.DeriveStackName(stackPath))
-	default:
-		return fmt.Errorf(
-			"--format: unknown '%s' (want text, json, unobin, dot)", cfg.format,
-		)
-	}
-	return nil
+	return checker.DAG(), compile.DeriveStackName(stackPath), nil
 }
 
 func printGraphProjectDir(sourceDir string) (string, error) {

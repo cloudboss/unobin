@@ -13,6 +13,12 @@
       "name": "print-graph",
       "args": ["print-graph", "-p", "stack/factory.ub"],
       "stdout": "want/print-graph.stdout"
+    },
+    {
+      "name": "print-graph-json",
+      "args": ["print-graph", "-p", "stack/factory.ub", "--format", "json"],
+      "stdout": "want/print-graph-json.stdout",
+      "normalize": "json"
     }
   ]
 }

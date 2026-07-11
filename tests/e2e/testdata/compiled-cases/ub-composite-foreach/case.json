@@ -11,6 +11,12 @@
       "stderr": "want/print-graph.stderr"
     },
     {
+      "name": "print-graph-json",
+      "args": ["print-graph", "--format", "json"],
+      "stdout": "want/print-graph-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "validate",
       "args": ["validate", "-c", "stacks/dev/dev.ub"],
       "stdout": "want/validate.stdout",

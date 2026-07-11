@@ -19,6 +19,12 @@
       "normalize": "json"
     },
     {
+      "name": "print-graph-json",
+      "args": ["print-graph", "-p", "factory.ub", "--format", "json"],
+      "stdout": "want/print-graph-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "compile",
       "args": ["compile", "-p", "factory.ub", "-o", "-"],
       "stdout": "want/compile.stdout",

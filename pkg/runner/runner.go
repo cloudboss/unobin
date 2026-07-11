@@ -871,43 +871,59 @@ func validateStateRefs(config *parsedStack, configPath string) error {
 }
 
 func newPrintGraphCmd(info Info) *cobra.Command {
-	var format string
+	var formatValue string
 	cmd := &cobra.Command{
 		Use:   "print-graph",
 		Short: "Print the factory's dependency graph",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if format != "text" && format != "dot" {
-				return fmt.Errorf(
-					"--format: unknown '%s' (want text, json, unobin, dot)", format,
-				)
-			}
-			if err := writeLinkedUnobinText(cmd, info.UnobinVersion); err != nil {
+			format, err := graphprint.ParseFormat(formatValue)
+			if err != nil {
 				return err
 			}
-			return doPrintGraph(cmd, info, format)
+			collector := &diagnostic.Collector{}
+			startupFormat := cmdout.FormatText
+			if format.Machine() {
+				startupFormat = cmdout.Format(format)
+			}
+			if err := checkLinkedUnobin(
+				cmd, info.UnobinVersion, startupFormat, collector,
+			); err != nil {
+				return err
+			}
+			return doPrintGraph(cmd, info, format, collector.Diagnostics())
 		},
 	}
-	cmd.Flags().StringVar(&format, "format", "text",
+	cmd.Flags().StringVar(&formatValue, "format", "text",
 		"Output format: text, json, unobin, dot.")
 	return cmd
 }
 
-func doPrintGraph(cmd *cobra.Command, info Info, format string) error {
+func doPrintGraph(
+	cmd *cobra.Command,
+	info Info,
+	format graphprint.Format,
+	diagnostics []diagnostic.Diagnostic,
+) error {
 	parsed, err := parseFactory(info)
 	if err != nil {
+		if format.Machine() {
+			return cmdout.WriteCommandError(cmd, cmdout.Format(format), diagnostics, err)
+		}
 		return err
 	}
 	dag := parsed.dag
 	out := cmd.OutOrStdout()
 	switch format {
-	case "text":
-		graphprint.Plain(out, dag)
-	case "dot":
+	case graphprint.FormatText:
+		graphprint.Text(out, dag)
+	case graphprint.FormatDOT:
 		graphprint.DOT(out, dag, info.FactoryName)
-	default:
-		return fmt.Errorf(
-			"--format: unknown '%s' (want text, json, unobin, dot)", format,
+	case graphprint.FormatJSON, graphprint.FormatUnobin:
+		return cmdout.WriteDocument(
+			out,
+			cmdout.Format(format),
+			graphprint.BuildDocument(dag, info.FactoryName, diagnostics),
 		)
 	}
 	return nil

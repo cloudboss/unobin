@@ -1,0 +1,1 @@
+{"kind":"command-error","format-version":1,"command":"print-graph","code":"unobin.command.failed","message":"print-graph failed","diagnostics":[{"code":"unobin.resolve","severity":"error","message":"unknown resource \"resource.missing\"","path":"factory.ub","span":{"start":{"line":2,"column":28,"offset":38}}}],"files":[]}

@@ -1,0 +1,82 @@
+{
+  "kind": "graph",
+  "format-version": 1,
+  "name": "test-stack",
+  "nodes": [
+    {
+      "address": "action.deploy",
+      "category": "action",
+      "binding": {
+        "library-path": null,
+        "alias": "ops",
+        "export": "run"
+      },
+      "composite": false
+    },
+    {
+      "address": "library-config.aws",
+      "category": "library-config",
+      "binding": null,
+      "composite": false
+    },
+    {
+      "address": "output.url",
+      "category": "output",
+      "binding": null,
+      "composite": false
+    },
+    {
+      "address": "resource.app",
+      "category": "resource",
+      "binding": {
+        "library-path": "example.com/net",
+        "alias": "net",
+        "export": "cluster"
+      },
+      "composite": true
+    },
+    {
+      "address": "resource.app/resource.server",
+      "category": "resource",
+      "binding": {
+        "library-path": "example.com/aws",
+        "alias": "aws",
+        "export": "instance"
+      },
+      "composite": false
+    }
+  ],
+  "edges": [
+    {
+      "from": "action.deploy",
+      "to": "library-config.aws"
+    },
+    {
+      "from": "output.url",
+      "to": "action.deploy"
+    },
+    {
+      "from": "resource.app",
+      "to": "input.region"
+    },
+    {
+      "from": "resource.app",
+      "to": "resource.app/resource.server"
+    },
+    {
+      "from": "resource.app/resource.server",
+      "to": "input.size"
+    },
+    {
+      "from": "resource.app/resource.server",
+      "to": "library-config.aws"
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "unobin.schema.extraction",
+      "severity": "warning",
+      "message": "import 'aws': schema unavailable"
+    }
+  ]
+}

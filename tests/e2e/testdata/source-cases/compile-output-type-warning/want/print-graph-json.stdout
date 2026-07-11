@@ -1,0 +1,1 @@
+{"kind":"graph","format-version":1,"name":"demo-factory","nodes":[{"address":"resource.x","category":"resource","binding":{"library-path":null,"alias":"partial","export":"thing"},"composite":false}],"edges":[],"diagnostics":[{"code":"unobin.schema.extraction","severity":"warning","message":"import 'partial': resource \"thing\": ThingOutput not found in reachable source"}]}

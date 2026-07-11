@@ -1,0 +1,11 @@
+digraph "test-stack" {
+  "action.deploy";
+  "library-config.aws";
+  "output.url";
+  "resource.app";
+  "resource.app/resource.server";
+  "action.deploy" -> "library-config.aws";
+  "output.url" -> "action.deploy";
+  "resource.app" -> "resource.app/resource.server";
+  "resource.app/resource.server" -> "library-config.aws";
+}

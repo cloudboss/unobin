@@ -17,6 +17,12 @@
       "stderr": "want/print-graph.stderr"
     },
     {
+      "name": "print-graph-json",
+      "args": ["print-graph", "--format", "json"],
+      "stdout": "want/print-graph-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "plan",
       "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "plan.ubp"],
       "stdout": "want/plan.stdout",

@@ -97,6 +97,17 @@
       "stderr": "want/print-graph-dot.stderr"
     },
     {
+      "name": "print-graph-json",
+      "args": ["print-graph", "--format", "json"],
+      "stdout": "want/print-graph-json.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "print-graph-unobin",
+      "args": ["print-graph", "--format", "unobin"],
+      "stdout": "want/print-graph-unobin.stdout"
+    },
+    {
       "name": "print-graph-unknown",
       "args": ["print-graph", "--format", "yaml"],
       "stderr": "want/print-graph-unknown.stderr",
