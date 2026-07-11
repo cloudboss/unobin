@@ -25,6 +25,12 @@
       "name": "compile",
       "args": ["compile", "-p", "factory.ub", "-o", "build"],
       "stderr": "want/compile.stderr"
+    },
+    {
+      "name": "compile-json",
+      "args": ["compile", "-p", "factory.ub", "-o", "build", "--format", "json"],
+      "stdout": "want/compile-json.stdout",
+      "normalize": "json"
     }
   ],
   "files": [

@@ -9,6 +9,13 @@
       "args": ["compile", "-p", "factory.ub", "-o", "-"],
       "stderr": "want/compile.stderr",
       "exitCode": 1
+    },
+    {
+      "name": "compile-json",
+      "args": ["compile", "-p", "factory.ub", "-o", "build", "--format", "json"],
+      "stdout": "want/compile-json.stdout",
+      "normalize": "json",
+      "exitCode": 1
     }
   ]
 }

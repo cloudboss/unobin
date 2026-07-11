@@ -1,10 +1,12 @@
 package root
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 
+	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/resolve"
@@ -69,11 +71,25 @@ func init() {
 }
 
 func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
-	replaceGoModules, err := parseReplaceFlags(cfg.replaceGoModule)
+	formatValue, err := cmd.Flags().GetString("format")
 	if err != nil {
 		return err
 	}
-	return compile.Run(compile.Options{
+	format, err := cmdout.ParseFormat(formatValue)
+	if err != nil {
+		return err
+	}
+	replaceGoModules, err := parseReplaceFlags(cfg.replaceGoModule)
+	if err != nil {
+		if format.Machine() {
+			return writeCompileCommandFailure(
+				cmd, format, &diagnostic.Collector{}, nil,
+				compilePathMapper(cfg, nil), cmdout.CodeInvalidArgs, err,
+			)
+		}
+		return err
+	}
+	options := compile.Options{
 		FactoryPath:      cfg.factoryPath,
 		OutDir:           cfg.outDir,
 		StackName:        cfg.stackName,
@@ -87,7 +103,46 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		NewResolver:      newCompileResolver,
 		Stdout:           cmd.OutOrStdout(),
 		Stderr:           cmd.ErrOrStderr(),
-	})
+	}
+	if !format.Machine() {
+		return compile.Run(options)
+	}
+	collector := &diagnostic.Collector{}
+	mapper := compilePathMapper(cfg, nil)
+	if cfg.outDir == "" {
+		return writeCompileCommandFailure(
+			cmd, format, collector, nil, mapper, cmdout.CodeInvalidArgs,
+			errors.New("--out is required (use `-` for stdout)"),
+		)
+	}
+	if cfg.outDir == "-" {
+		return writeCompileCommandFailure(
+			cmd, format, collector, nil, mapper, cmdout.CodeStdoutConflict, nil,
+		)
+	}
+	toolStdout := newBoundedToolOutput(maxCompileToolOutput)
+	toolStderr := newBoundedToolOutput(maxCompileToolOutput)
+	options.Stdout = toolStdout
+	options.Stderr = toolStderr
+	options.Reporter = collector
+	result, compileErr := compile.RunResult(options)
+	mapper = compilePathMapper(cfg, result)
+	reportCompileToolOutput(
+		collector, mapper, toolStdout, toolStderr, compileErr != nil,
+	)
+	if compileErr != nil {
+		return writeCompileCommandFailure(
+			cmd, format, collector, result, mapper,
+			compileErrorCode(compileErr), compileErr,
+		)
+	}
+	response, err := buildCompileCommandResult(result, mapper, collector.Diagnostics())
+	if err != nil {
+		return writeCompileCommandFailure(
+			cmd, format, collector, result, mapper, cmdout.CodeFailed, err,
+		)
+	}
+	return cmdout.WriteDocument(cmd.OutOrStdout(), format, response)
 }
 
 // newCompileResolver constructs the resolver the compile, print-graph,

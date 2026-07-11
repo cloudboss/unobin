@@ -1,0 +1,52 @@
+{
+  "limit": 1048576,
+  "cases": [
+    {
+      "name": "fits",
+      "writes": [
+        5
+      ],
+      "output": "hello"
+    },
+    {
+      "name": "ascii truncation",
+      "writes": [
+        6
+      ],
+      "output": "hello[output truncated after 5 bytes]"
+    },
+    {
+      "name": "rune truncation",
+      "writes": [
+        5
+      ],
+      "output": "ab[output truncated after 4 bytes]"
+    },
+    {
+      "name": "chunked truncation",
+      "writes": [
+        2,
+        4
+      ],
+      "output": "abcde[output truncated after 5 bytes]"
+    }
+  ],
+  "success": [
+    {
+      "code": "unobin.compile.go-tool-output",
+      "severity": "info",
+      "message": "go tool stdout:\nbuild/generated.go\n"
+    }
+  ],
+  "failure": [
+    {
+      "code": "unobin.external-tool",
+      "severity": "error",
+      "message": "go tool stdout:\nbuild/generated.go\n"
+    }
+  ],
+  "error-codes": [
+    "unobin.command.io",
+    "unobin.command.failed"
+  ]
+}

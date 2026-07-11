@@ -1,0 +1,1 @@
+{"kind":"compile-result","format-version":1,"factory":{"content-revision":"012345abcdef"},"diagnostics":[{"code":"unobin.compile.built","severity":"info","message":"Built demo v1.0.0 (content-revision 012345abcdef)"}]}

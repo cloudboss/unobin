@@ -1,0 +1,1 @@
+{"kind":"command-error","format-version":1,"command":"compile","code":"unobin.command.stdout-conflict","message":"compile stdout is reserved for the machine response","diagnostics":[],"files":[]}

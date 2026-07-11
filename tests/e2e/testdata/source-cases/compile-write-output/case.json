@@ -19,6 +19,31 @@
     {
       "name": "compile",
       "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "compile-json-unchanged",
+      "args": ["compile", "-p", "factory.ub", "-o", "build", "--format", "json"],
+      "stdout": "want/compile-json-unchanged.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "compile-unobin-unchanged",
+      "args": ["compile", "-p", "factory.ub", "-o", "build", "--format", "unobin"],
+      "stdout": "want/compile-unobin-unchanged.stdout"
+    },
+    {
+      "name": "compile-json-partial",
+      "args": ["compile", "-p", "factory.ub", "-o", "blocked", "--format", "json"],
+      "stdout": "want/compile-json-partial.stdout",
+      "normalize": "json",
+      "exitCode": 1
+    },
+    {
+      "name": "compile-json-stdout-conflict",
+      "args": ["compile", "-p", "factory.ub", "-o", "-", "--format", "json"],
+      "stdout": "want/compile-json-stdout-conflict.stdout",
+      "normalize": "json",
+      "exitCode": 1
     }
   ],
   "files": [

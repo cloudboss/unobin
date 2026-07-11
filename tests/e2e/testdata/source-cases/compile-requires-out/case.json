@@ -9,6 +9,32 @@
       "args": ["compile", "-p", "factory.ub"],
       "stderr": "want/compile.stderr",
       "exitCode": 1
+    },
+    {
+      "name": "compile-json",
+      "args": ["compile", "-p", "factory.ub", "--format", "json"],
+      "stdout": "want/compile-json.stdout",
+      "normalize": "json",
+      "exitCode": 1
+    },
+    {
+      "name": "compile-json-invalid-replace",
+      "args": [
+        "compile", "-p", "factory.ub", "-o", "build",
+        "--replace-go-module", "broken", "--format", "json"
+      ],
+      "stdout": "want/compile-json-invalid-replace.stdout",
+      "normalize": "json",
+      "exitCode": 1
+    },
+    {
+      "name": "compile-invalid-format-precedence",
+      "args": [
+        "compile", "-p", "factory.ub", "-o", "build",
+        "--replace-go-module", "broken", "--format", "yaml"
+      ],
+      "stderr": "want/compile-invalid-format-precedence.stderr",
+      "exitCode": 1
     }
   ]
 }

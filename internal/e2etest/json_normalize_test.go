@@ -56,6 +56,7 @@ func TestNormalizeJSONFixtures(t *testing.T) {
 		"bad-timestamp",
 		"bad-elapsed",
 		"bad-ui-url",
+		"built-diagnostic",
 		"extra-value",
 	}
 	for _, name := range cases {

@@ -250,6 +250,9 @@ func (n *jsonNormalizer) normalizeDynamic(root *jsonNode) error {
 	if err := normalizeElapsedField(root); err != nil {
 		return err
 	}
+	if err := normalizeCompileDiagnosticRevisions(root); err != nil {
+		return err
+	}
 	switch kind {
 	case "state-snapshots":
 		if err := n.normalizeStateSnapshots(root); err != nil {
@@ -265,6 +268,33 @@ func (n *jsonNormalizer) normalizeDynamic(root *jsonNode) error {
 		if err := normalizeRunViewURL(root); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func normalizeCompileDiagnosticRevisions(root *jsonNode) error {
+	diagnostics, ok := jsonField(root, "diagnostics")
+	if !ok {
+		return nil
+	}
+	if diagnostics.kind != jsonArray {
+		return errors.New("diagnostics must be an array")
+	}
+	for index, value := range diagnostics.array {
+		if value.kind != jsonObject {
+			return fmt.Errorf("diagnostics[%d] must be an object", index)
+		}
+		code, ok := jsonField(value, "code")
+		if !ok || code.kind != jsonString || code.text != "unobin.compile.built" {
+			continue
+		}
+		message, ok := jsonField(value, "message")
+		if !ok || message.kind != jsonString {
+			return fmt.Errorf("diagnostics[%d].message must be a string", index)
+		}
+		message.text = contentRevisionTextRE.ReplaceAllString(
+			message.text, "content-revision <revision>",
+		)
 	}
 	return nil
 }

@@ -32,6 +32,9 @@ func (m PathMapper) Display(path string) string {
 		return appendDisplayPath(match.display, match.relative)
 	}
 	if relative, ok := bestRelative(clean, pathAliases(m.ProjectDir, m.WorkingDir)); ok {
+		if relative == "" {
+			return "."
+		}
 		return filepath.ToSlash(relative)
 	}
 	for _, hidden := range m.HiddenRoots {

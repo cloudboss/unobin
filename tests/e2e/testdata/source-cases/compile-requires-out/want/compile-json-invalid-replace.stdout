@@ -1,0 +1,1 @@
+{"kind":"command-error","format-version":1,"command":"compile","code":"unobin.command.invalid-args","message":"compile arguments are invalid","diagnostics":[{"code":"unobin.error","severity":"error","message":"--replace-go-module \"broken\": expected module-path=local-path"}],"files":[]}

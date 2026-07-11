@@ -18,6 +18,43 @@
         "$REPO_ROOT"
       ],
       "stderr": "want/compile.stderr"
+    },
+    {
+      "name": "compile-json",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "build",
+        "--build",
+        "--replace-unobin",
+        "$REPO_ROOT",
+        "--format",
+        "json"
+      ],
+      "stdout": "want/compile-json.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "compile-json-tool-failure",
+      "args": [
+        "compile",
+        "-p",
+        "factory.ub",
+        "-o",
+        "broken-build",
+        "--name",
+        "bad name",
+        "--build",
+        "--replace-unobin",
+        "$REPO_ROOT",
+        "--format",
+        "json"
+      ],
+      "stdout": "want/compile-json-tool-failure.stdout",
+      "normalize": "json",
+      "exitCode": 1
     }
   ]
 }

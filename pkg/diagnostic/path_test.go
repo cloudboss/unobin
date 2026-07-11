@@ -75,6 +75,7 @@ func TestPathMapperGolden(t *testing.T) {
 		{name: "logical file", path: filepath.Join(root, "logical.ub")},
 		{name: "absolute user path", path: filepath.Join(absoluteUser, "child.ub")},
 		{name: "resolved symlink alias", path: filepath.Join(real, "child.ub")},
+		{name: "project root", path: project},
 		{name: "project fallback", path: filepath.Join(project, "src", "factory.ub")},
 		{name: "hidden root", path: filepath.Join(hidden, "deep", "secret.ub")},
 		{name: "unrelated absolute", path: filepath.Join(root, "elsewhere", "file.ub")},

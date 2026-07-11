@@ -1,0 +1,1 @@
+{"kind":"command-error","format-version":1,"command":"compile","code":"unobin.command.io","message":"compile I/O failed","diagnostics":[{"code":"unobin.io","severity":"error","message":"file exists","path":"blocked/go.mod"}],"files":[{"path":"blocked/go.mod","action":"unchanged"},{"path":"blocked/main.go","action":"created"}]}

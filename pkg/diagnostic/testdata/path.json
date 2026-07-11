@@ -25,6 +25,10 @@
       "output": "linked/child.ub"
     },
     {
+      "name": "project root",
+      "output": "."
+    },
+    {
       "name": "project fallback",
       "output": "src/factory.ub"
     },
