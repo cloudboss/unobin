@@ -1,0 +1,1 @@
+{"kind":"check-result","format-version":1,"ok":false,"target":{"path":"factory.ub","type":"factory"},"diagnostics":[{"code":"unobin.type","severity":"error","message":"type mismatch: expected integer, got string","path":"factory.ub","span":{"start":{"line":21,"column":16,"offset":442}}}]}

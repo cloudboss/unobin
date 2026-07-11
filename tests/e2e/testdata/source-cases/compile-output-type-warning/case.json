@@ -13,6 +13,12 @@
   ],
   "commands": [
     {
+      "name": "check-json",
+      "args": ["check", "-p", "factory.ub", "--format", "json"],
+      "stdout": "want/check-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "compile",
       "args": ["compile", "-p", "factory.ub", "-o", "-"],
       "stdout": "want/compile.stdout",

@@ -1,0 +1,1 @@
+{ kind: 'validation-result', format-version: 1, ok: true, target: { path: 'stacks/dev.ub', type: 'stack' }, diagnostics: [{ code: 'unobin.factory.replaced-toolchain', severity: 'info', message: 'github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced' }] }

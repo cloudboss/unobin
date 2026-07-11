@@ -30,6 +30,12 @@
       "stdout": "want/check.stdout"
     },
     {
+      "name": "check-json",
+      "args": ["check", "-p", "factory.ub", "--format", "json"],
+      "stdout": "want/check-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "print-graph",
       "args": ["print-graph", "-p", "factory.ub"],
       "stdout": "want/print-graph.stdout"

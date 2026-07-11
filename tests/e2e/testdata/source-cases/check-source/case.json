@@ -12,10 +12,22 @@
       "stderr": "want/empty.stderr"
     },
     {
+      "name": "check-valid-factory-json",
+      "dir": "valid-factory",
+      "args": ["check", "-p", "factory.ub", "--format", "json"],
+      "stdout": "want/check-valid-factory-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "check-valid-library-dir",
       "args": ["check", "-p", "valid-library-dir/lib"],
       "stdout": "want/check-valid-library-dir.stdout",
       "stderr": "want/empty.stderr"
+    },
+    {
+      "name": "check-valid-library-unobin",
+      "args": ["check", "-p", "valid-library-dir/lib", "--format", "unobin"],
+      "stdout": "want/check-valid-library-unobin.stdout"
     },
     {
       "name": "check-library-missing-import",
@@ -40,6 +52,29 @@
         "$REPO_ROOT"
       ],
       "stderr": "want/check-factory-go-type-error.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "check-factory-go-type-error-json",
+      "dir": "factory-go-type-error",
+      "args": [
+        "check",
+        "-p",
+        "factory.ub",
+        "--replace-unobin",
+        "$REPO_ROOT",
+        "--format",
+        "json"
+      ],
+      "stdout": "want/check-factory-go-type-error-json.stdout",
+      "normalize": "json",
+      "exitCode": 1
+    },
+    {
+      "name": "check-missing-json",
+      "args": ["check", "-p", "missing.ub", "--format", "json"],
+      "stdout": "want/check-missing-json.stdout",
+      "normalize": "json",
       "exitCode": 1
     }
   ]

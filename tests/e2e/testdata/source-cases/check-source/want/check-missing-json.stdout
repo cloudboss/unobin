@@ -1,0 +1,1 @@
+{"kind":"command-error","format-version":1,"command":"check","code":"unobin.command.io","message":"could not inspect check target","diagnostics":[{"code":"unobin.io","severity":"error","message":"stat missing.ub: no such file or directory","path":"missing.ub"}],"files":[]}

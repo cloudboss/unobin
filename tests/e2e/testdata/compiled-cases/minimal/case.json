@@ -45,6 +45,17 @@
       "stderr": "want/validate.stderr"
     },
     {
+      "name": "validate-json",
+      "args": ["validate", "-c", "stacks/dev.ub", "--format", "json"],
+      "stdout": "want/validate-json.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "validate-unobin",
+      "args": ["validate", "-c", "stacks/dev.ub", "--format", "unobin"],
+      "stdout": "want/validate-unobin.stdout"
+    },
+    {
       "name": "schema-template",
       "args": ["schema", "template"],
       "stdout": "want/schema-template.stdout",

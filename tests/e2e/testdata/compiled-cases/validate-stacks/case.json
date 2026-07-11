@@ -60,6 +60,29 @@
       "skipPin": true
     },
     {
+      "name": "validate-bad-syntax-json",
+      "args": [
+        "validate",
+        "--allow-version-mismatch",
+        "-c",
+        "stacks/bad-syntax.ub",
+        "--format",
+        "json"
+      ],
+      "stdout": "want/validate-bad-syntax-json.stdout",
+      "normalize": "json",
+      "exitCode": 1,
+      "skipPin": true
+    },
+    {
+      "name": "validate-missing-json",
+      "args": ["validate", "-c", "stacks/missing.ub", "--format", "json"],
+      "stdout": "want/validate-missing-json.stdout",
+      "normalize": "json",
+      "exitCode": 1,
+      "skipPin": true
+    },
+    {
       "name": "validate-unwrapped-stack",
       "args": ["validate", "--allow-version-mismatch", "-c", "stacks/unwrapped.ub"],
       "stderr": "want/validate-unwrapped-stack.stderr",

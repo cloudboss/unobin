@@ -75,12 +75,13 @@ func newRootCmd(info Info) *cobra.Command {
 	}
 	versionCmd := newVersionCmd(info)
 	applyCmd := newApplyCmd(info)
+	validateCmd := newValidateCmd(info)
 	printGraphCmd := newPrintGraphCmd(info)
 	root.AddCommand(versionCmd)
 	root.AddCommand(newPlanCmd(info))
 	root.AddCommand(applyCmd)
 	root.AddCommand(newRefreshCmd(info))
-	root.AddCommand(newValidateCmd(info))
+	root.AddCommand(validateCmd)
 	root.AddCommand(newOutputCmd(info))
 	root.AddCommand(newSchemaCmd(info))
 	root.AddCommand(newStateCmd(info))
@@ -89,6 +90,7 @@ func newRootCmd(info Info) *cobra.Command {
 	wrapTextStartupChecks(root, info, map[*cobra.Command]bool{
 		versionCmd:    true,
 		applyCmd:      true,
+		validateCmd:   true,
 		printGraphCmd: true,
 	})
 	return root
@@ -197,6 +199,11 @@ type factoryVersionResult struct {
 	FormatVersion int                     `json:"format-version" ub:"format-version"`
 	Factory       factoryIdentity         `json:"factory"        ub:"factory"`
 	Diagnostics   []diagnostic.Diagnostic `json:"diagnostics"    ub:"diagnostics"`
+}
+
+type targetDescriptor struct {
+	Path string `json:"path" ub:"path"`
+	Type string `json:"type" ub:"type"`
 }
 
 func addStandardFormatFlag(command *cobra.Command) {
@@ -635,14 +642,70 @@ func newValidateCmd(info Info) *cobra.Command {
 		Short: "Check factory source and stack file without reading state or resources",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config, err := parseStackFile(configPath)
+			formatValue, err := cmd.Flags().GetString("format")
 			if err != nil {
 				return err
 			}
-			if err := verifyFactoryEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
+			format, err := cmdout.ParseFormat(formatValue)
+			if err != nil {
 				return err
 			}
-			return doValidate(cmd, info, config, configPath)
+			collector := &diagnostic.Collector{}
+			if err := checkLinkedUnobin(cmd, info.UnobinVersion, format, collector); err != nil {
+				return err
+			}
+			target, targetErr := validationTarget(configPath)
+			if targetErr != nil {
+				if format.Machine() {
+					return cmdout.WriteCommandError(
+						cmd,
+						format,
+						collector.Diagnostics(),
+						validationCommandFailure(configPath, targetErr),
+					)
+				}
+				return targetErr
+			}
+			config, err := parseStackFile(configPath)
+			if err == nil {
+				err = verifyFactoryEnvelope(
+					info, config, configPath, allowVersionMismatch,
+				)
+			}
+			if err == nil {
+				err = validateStack(info, config, configPath)
+			}
+			if format == cmdout.FormatText {
+				if err != nil {
+					return err
+				}
+				_, err := fmt.Fprintln(cmd.OutOrStdout(), "OK")
+				return err
+			}
+			diagnostics := diagnostic.Merge(
+				collector.Diagnostics(),
+				diagnostic.FromError(err, diagnostic.ConvertOptions{
+					Path: validationPathMapper(configPath).Display,
+				}),
+			)
+			ok := !hasDiagnosticErrors(diagnostics)
+			if writeErr := cmdout.WriteDocument(
+				cmd.OutOrStdout(),
+				format,
+				validationResult{
+					Kind:          "validation-result",
+					FormatVersion: 1,
+					OK:            ok,
+					Target:        target,
+					Diagnostics:   diagnostics,
+				},
+			); writeErr != nil {
+				return writeErr
+			}
+			if !ok {
+				return cmdout.Reported(errValidationNegative)
+			}
+			return nil
 		},
 	}
 	addStandardFormatFlag(cmd)
@@ -653,7 +716,77 @@ func newValidateCmd(info Info) *cobra.Command {
 	return cmd
 }
 
+type validationResult struct {
+	Kind          string                  `json:"kind"           ub:"kind"`
+	FormatVersion int                     `json:"format-version" ub:"format-version"`
+	OK            bool                    `json:"ok"             ub:"ok"`
+	Target        targetDescriptor        `json:"target"         ub:"target"`
+	Diagnostics   []diagnostic.Diagnostic `json:"diagnostics"    ub:"diagnostics"`
+}
+
+var errValidationNegative = errors.New("validation found errors")
+
+func validationTarget(path string) (targetDescriptor, error) {
+	if path == "" {
+		return targetDescriptor{Path: "", Type: "stack"}, nil
+	}
+	if _, err := os.Stat(path); err != nil {
+		return targetDescriptor{}, err
+	}
+	return targetDescriptor{Path: filepath.ToSlash(filepath.Clean(path)), Type: "stack"}, nil
+}
+
+func validationCommandFailure(path string, err error) error {
+	var pathError *os.PathError
+	if errors.As(err, &pathError) {
+		return cmdout.FailWithDiagnostics(
+			cmdout.CodeIO,
+			"could not inspect validation target",
+			nil,
+			[]diagnostic.Diagnostic{{
+				Code:     "unobin.io",
+				Severity: diagnostic.SeverityError,
+				Message:  err.Error(),
+				Path:     filepath.ToSlash(filepath.Clean(path)),
+			}},
+		)
+	}
+	return cmdout.Fail(cmdout.CodeFailed, "validate failed", err)
+}
+
+func validationPathMapper(path string) diagnostic.PathMapper {
+	workingDir, _ := os.Getwd()
+	absolute := path
+	if !filepath.IsAbs(absolute) {
+		absolute = filepath.Join(workingDir, absolute)
+	}
+	return diagnostic.PathMapper{
+		WorkingDir: workingDir,
+		Mappings: []diagnostic.PathMapping{{
+			AbsoluteRoot: absolute,
+			DisplayRoot:  filepath.ToSlash(filepath.Clean(path)),
+		}},
+	}
+}
+
+func hasDiagnosticErrors(diagnostics []diagnostic.Diagnostic) bool {
+	for _, report := range diagnostics {
+		if report.Severity == diagnostic.SeverityError {
+			return true
+		}
+	}
+	return false
+}
+
 func doValidate(cmd *cobra.Command, info Info, config *parsedStack, configPath string) error {
+	if err := validateStack(info, config, configPath); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintln(cmd.OutOrStdout(), "OK")
+	return err
+}
+
+func validateStack(info Info, config *parsedStack, configPath string) error {
 	parsed, err := parseFactory(info)
 	if err != nil {
 		return err
@@ -692,7 +825,6 @@ func doValidate(cmd *cobra.Command, info Info, config *parsedStack, configPath s
 	if err := demand.CheckLibraryConfigs(); err != nil {
 		return err
 	}
-	fmt.Fprintln(cmd.OutOrStdout(), "OK")
 	return nil
 }
 

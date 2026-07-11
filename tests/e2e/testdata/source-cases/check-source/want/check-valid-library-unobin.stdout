@@ -1,0 +1,1 @@
+{ kind: 'check-result', format-version: 1, ok: true, target: { path: 'valid-library-dir/lib', type: 'library' }, diagnostics: [] }
