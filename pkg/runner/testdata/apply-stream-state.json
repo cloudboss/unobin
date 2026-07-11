@@ -1,0 +1,148 @@
+{
+  "cases": [
+    {
+      "name": "duplicate UI",
+      "error": "apply stream: UI record already emitted",
+      "encoding": true,
+      "writing": false,
+      "next": 2,
+      "ui": true,
+      "outputs": false,
+      "terminal": false,
+      "written-bytes": 118,
+      "prepared": ""
+    },
+    {
+      "name": "invalid public output",
+      "error": "machine value $.Value: type func() is not supported",
+      "encoding": true,
+      "writing": false,
+      "next": 2,
+      "ui": true,
+      "outputs": false,
+      "terminal": false,
+      "written-bytes": 118,
+      "prepared": ""
+    },
+    {
+      "name": "diagnostic after output",
+      "error": "apply stream: diagnostic after output record",
+      "encoding": true,
+      "writing": false,
+      "next": 3,
+      "ui": true,
+      "outputs": true,
+      "terminal": false,
+      "written-bytes": 266,
+      "prepared": ""
+    },
+    {
+      "name": "event after output",
+      "error": "apply stream: event after output record",
+      "encoding": true,
+      "writing": false,
+      "next": 3,
+      "ui": true,
+      "outputs": true,
+      "terminal": false,
+      "written-bytes": 266,
+      "prepared": ""
+    },
+    {
+      "name": "error after output",
+      "error": "apply stream: error after output record",
+      "encoding": true,
+      "writing": false,
+      "next": 3,
+      "ui": true,
+      "outputs": true,
+      "terminal": false,
+      "written-bytes": 266,
+      "prepared": ""
+    },
+    {
+      "name": "second terminal",
+      "error": "apply stream: terminal record already emitted",
+      "encoding": true,
+      "writing": false,
+      "next": 4,
+      "ui": true,
+      "outputs": true,
+      "terminal": true,
+      "written-bytes": 492,
+      "prepared": ""
+    },
+    {
+      "name": "invalid event stage",
+      "error": "apply stream: unsupported event stage \"queued\"",
+      "encoding": true,
+      "writing": false,
+      "next": 1,
+      "ui": false,
+      "outputs": false,
+      "terminal": false,
+      "written-bytes": 0,
+      "prepared": ""
+    },
+    {
+      "name": "unclassified execute failure",
+      "error": "apply stream: execute failure has no step or interruption",
+      "encoding": true,
+      "writing": false,
+      "next": 1,
+      "ui": false,
+      "outputs": false,
+      "terminal": false,
+      "written-bytes": 0,
+      "prepared": ""
+    },
+    {
+      "name": "write failure",
+      "error": "writer failed",
+      "encoding": false,
+      "writing": true,
+      "next": 1,
+      "ui": false,
+      "outputs": false,
+      "terminal": false,
+      "written-bytes": 0,
+      "prepared": ""
+    },
+    {
+      "name": "short write",
+      "error": "short write",
+      "encoding": false,
+      "writing": true,
+      "next": 1,
+      "ui": false,
+      "outputs": false,
+      "terminal": false,
+      "written-bytes": 0,
+      "prepared": ""
+    },
+    {
+      "name": "preflight masks sensitive output",
+      "error": "",
+      "encoding": false,
+      "writing": false,
+      "next": 1,
+      "ui": false,
+      "outputs": false,
+      "terminal": false,
+      "written-bytes": 0,
+      "prepared": "secret=\u003csensitive\u003e sensitive=true"
+    },
+    {
+      "name": "preflight output failure",
+      "error": "machine value $.Value: type func() is not supported",
+      "encoding": true,
+      "writing": false,
+      "next": 0,
+      "ui": false,
+      "outputs": false,
+      "terminal": false,
+      "written-bytes": 0,
+      "prepared": ""
+    }
+  ]
+}
