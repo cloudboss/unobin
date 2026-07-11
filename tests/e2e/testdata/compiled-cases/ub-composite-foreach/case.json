@@ -36,9 +36,9 @@
     },
     {
       "name": "output",
-      "args": ["output", "--json", "-c", "stacks/dev/dev.ub"],
+      "args": ["output", "--format", "json", "-c", "stacks/dev/dev.ub"],
       "stdout": "want/output.json",
-      "stderr": "want/output.stderr"
+      "normalize": "json"
     }
   ],
   "files": [

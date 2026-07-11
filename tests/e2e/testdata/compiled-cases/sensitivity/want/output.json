@@ -1,5 +1,1 @@
-{
-  "library-token": "\u003csensitive\u003e",
-  "public-name": "deploy",
-  "token": "\u003csensitive\u003e"
-}
+{"kind":"outputs","format-version":1,"factory":{"name":"sensitivity","version":"v0.0.0","content-revision":"<revision>","library-path":"example.com/unobin/e2e/sensitivity"},"stack":"dev","outputs":{"library-token":"<sensitive>","public-name":"deploy","token":"<sensitive>"},"sensitive":["library-token","token"],"diagnostics":[{"code":"unobin.factory.replaced-toolchain","severity":"info","message":"github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced"}]}

@@ -174,9 +174,9 @@
     },
     {
       "name": "output-json",
-      "args": ["output", "--json", "-c", "stacks/dev.ub"],
+      "args": ["output", "--format", "json", "-c", "stacks/dev.ub"],
       "stdout": "want/output.json",
-      "stderr": "want/output.stderr"
+      "normalize": "json"
     },
     {
       "name": "state-pull-payload-format",

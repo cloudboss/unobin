@@ -1,5 +1,1 @@
-{
-  "read-content": "two",
-  "read-size": 3,
-  "recorded": "read:two"
-}
+{"kind":"outputs","format-version":1,"factory":{"name":"data-action-deferred","version":"v0.0.0","content-revision":"<revision>","library-path":"example.com/unobin/e2e/data-action-deferred"},"stack":"dev","outputs":{"read-content":"two","read-size":3,"recorded":"read:two"},"sensitive":[],"diagnostics":[{"code":"unobin.factory.replaced-toolchain","severity":"info","message":"github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced"}]}

@@ -18,9 +18,9 @@
     },
     {
       "name": "output-defaults",
-      "args": ["output", "--json", "-c", "stacks/valid/defaults.ub"],
+      "args": ["output", "--format", "json", "-c", "stacks/valid/defaults.ub"],
       "stdout": "want/output-defaults.json",
-      "stderr": "want/output-defaults.stderr"
+      "normalize": "json"
     },
     {
       "name": "plan-nulls",
@@ -36,9 +36,9 @@
     },
     {
       "name": "output-nulls",
-      "args": ["output", "--json", "-c", "stacks/valid/nulls.ub"],
+      "args": ["output", "--format", "json", "-c", "stacks/valid/nulls.ub"],
       "stdout": "want/output-nulls.json",
-      "stderr": "want/output-nulls.stderr"
+      "normalize": "json"
     },
     {
       "name": "plan-type-mismatch-string",

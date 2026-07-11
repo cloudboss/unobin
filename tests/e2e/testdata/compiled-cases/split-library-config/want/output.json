@@ -1,3 +1,1 @@
-{
-  "region": "us-west-2"
-}
+{"kind":"outputs","format-version":1,"factory":{"name":"split-library-config","version":"v0.0.0","content-revision":"<revision>","library-path":"example.com/unobin/e2e/split-library-config"},"stack":"dev","outputs":{"region":"us-west-2"},"sensitive":[],"diagnostics":[{"code":"unobin.factory.replaced-toolchain","severity":"info","message":"github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced"}]}

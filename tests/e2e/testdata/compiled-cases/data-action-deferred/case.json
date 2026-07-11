@@ -24,9 +24,9 @@
     },
     {
       "name": "output-create",
-      "args": ["output", "--json", "-c", "stacks/create/dev.ub"],
+      "args": ["output", "--format", "json", "-c", "stacks/create/dev.ub"],
       "stdout": "want/output-create.json",
-      "stderr": "want/output-create.stderr"
+      "normalize": "json"
     },
     {
       "name": "plan-noop",
@@ -48,9 +48,9 @@
     },
     {
       "name": "output-update",
-      "args": ["output", "--json", "-c", "stacks/update/dev.ub"],
+      "args": ["output", "--format", "json", "-c", "stacks/update/dev.ub"],
       "stdout": "want/output-update.json",
-      "stderr": "want/output-update.stderr"
+      "normalize": "json"
     }
   ],
   "files": [

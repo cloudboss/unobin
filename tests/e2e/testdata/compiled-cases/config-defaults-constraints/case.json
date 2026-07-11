@@ -24,9 +24,9 @@
     },
     {
       "name": "output-valid",
-      "args": ["output", "--json", "-c", "stacks/valid/dev.ub"],
+      "args": ["output", "--format", "json", "-c", "stacks/valid/dev.ub"],
       "stdout": "want/output-valid.json",
-      "stderr": "want/output-valid.stderr"
+      "normalize": "json"
     },
     {
       "name": "plan-root-invalid",

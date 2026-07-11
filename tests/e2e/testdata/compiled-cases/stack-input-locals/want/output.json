@@ -1,5 +1,1 @@
-{
-  "name": "app-us-east-1",
-  "region": "us-east-1",
-  "team": "core"
-}
+{"kind":"outputs","format-version":1,"factory":{"name":"stack-input-locals","version":"v0.0.0","content-revision":"<revision>","library-path":"example.com/unobin/e2e/stack-input-locals"},"stack":"dev","outputs":{"name":"app-us-east-1","region":"us-east-1","team":"core"},"sensitive":[],"diagnostics":[{"code":"unobin.factory.replaced-toolchain","severity":"info","message":"github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced"}]}

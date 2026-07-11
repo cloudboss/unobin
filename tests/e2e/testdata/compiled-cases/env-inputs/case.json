@@ -32,9 +32,9 @@
     },
     {
       "name": "output-env-json",
-      "args": ["output", "--json", "-c", "stacks/dev.ub"],
+      "args": ["output", "--format", "json", "-c", "stacks/dev.ub"],
       "stdout": "want/output-env.json",
-      "stderr": "want/output-env.stderr"
+      "normalize": "json"
     },
     {
       "name": "plan-invalid-env",

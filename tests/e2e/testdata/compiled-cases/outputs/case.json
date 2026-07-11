@@ -36,20 +36,35 @@
     },
     {
       "name": "output-prod-json",
-      "args": ["output", "--json", "-c", "stacks/prod.ub"],
+      "args": ["output", "--format", "json", "-c", "stacks/prod.ub"],
       "stdout": "want/output-prod.json",
-      "stderr": "want/output-prod-json.stderr"
+      "normalize": "json"
     },
     {
       "name": "output-prod-json-name",
-      "args": ["output", "--json", "-c", "stacks/prod.ub", "said"],
+      "args": ["output", "--format", "json", "-c", "stacks/prod.ub", "said"],
       "stdout": "want/output-prod-name.json",
-      "stderr": "want/output-prod-json-name.stderr"
+      "normalize": "json"
     },
     {
       "name": "output-prod-unknown",
       "args": ["output", "-c", "stacks/prod.ub", "missing"],
       "stderr": "want/output-prod-unknown.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "output-prod-unknown-json",
+      "args": [
+        "output", "--format", "json", "-c", "stacks/prod.ub", "missing"
+      ],
+      "stdout": "want/output-prod-unknown-json.stdout",
+      "normalize": "json",
+      "exitCode": 1
+    },
+    {
+      "name": "output-json-alias-rejected",
+      "args": ["output", "--json", "-c", "stacks/prod.ub"],
+      "stderr": "want/output-json-alias-rejected.stderr",
       "exitCode": 1
     },
     {
@@ -66,15 +81,15 @@
     },
     {
       "name": "output-staging-json",
-      "args": ["output", "--json", "-c", "stacks/staging.ub"],
+      "args": ["output", "--format", "json", "-c", "stacks/staging.ub"],
       "stdout": "want/output-staging.json",
-      "stderr": "want/output-staging-json.stderr"
+      "normalize": "json"
     },
     {
       "name": "output-prod-json-after-staging",
-      "args": ["output", "--json", "-c", "stacks/prod.ub"],
+      "args": ["output", "--format", "json", "-c", "stacks/prod.ub"],
       "stdout": "want/output-prod-after-staging.json",
-      "stderr": "want/output-prod-json-after-staging.stderr"
+      "normalize": "json"
     }
   ],
   "deterministic": true

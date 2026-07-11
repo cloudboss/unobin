@@ -1,5 +1,1 @@
-{
-  "archived-content": "archived",
-  "archived-path": "files/archive.txt",
-  "direct-content": "direct"
-}
+{"kind":"outputs","format-version":1,"factory":{"name":"config-defaults-constraints","version":"v0.0.0","content-revision":"<revision>","library-path":"example.com/unobin/e2e/config-defaults-constraints"},"stack":"dev","outputs":{"archived-content":"archived","archived-path":"files/archive.txt","direct-content":"direct"},"sensitive":[],"diagnostics":[{"code":"unobin.factory.replaced-toolchain","severity":"info","message":"github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced"}]}

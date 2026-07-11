@@ -1033,27 +1033,29 @@ func doPrintGraph(
 }
 
 func newOutputCmd(info Info) *cobra.Command {
-	var (
-		asJSON     bool
-		configPath string
-	)
+	var configPath string
 	cmd := &cobra.Command{
 		Use:   "output [name]",
 		Short: "Print factory outputs from the current state",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config, err := parseStackFile(configPath)
+			format, collector, err := beginCommandResult(cmd, info)
 			if err != nil {
 				return err
 			}
-			return doOutput(cmd, info, config, configPath, args, asJSON)
+			config, err := parseStackFile(configPath)
+			if err != nil {
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+			}
+			return doOutputWithFormat(
+				cmd, info, config, configPath, args, format, collector.Diagnostics(),
+			)
 		},
 	}
+	ownStartupCheck(cmd)
 	addStandardFormatFlag(cmd)
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
 		"Path to a stack file identifying the stack.")
-	cmd.Flags().BoolVar(&asJSON, "json", false,
-		"Emit outputs as JSON instead of plain text.")
 	return cmd
 }
 
@@ -1639,40 +1641,42 @@ func normalizeJSONNumbers(v any) any {
 	return v
 }
 
-func doOutput(
-	cmd *cobra.Command, info Info, config *parsedStack, configPath string,
-	args []string, asJSON bool,
+func doOutputWithFormat(
+	cmd *cobra.Command,
+	info Info,
+	config *parsedStack,
+	configPath string,
+	args []string,
+	format cmdout.Format,
+	diagnostics []diagnostic.Diagnostic,
 ) error {
+	fail := func(err error) error {
+		return commandResultFailure(cmd, format, diagnostics, err)
+	}
 	enc, err := loadEncrypter(config, configPath)
 	if err != nil {
-		return err
+		return fail(err)
 	}
-	store, err := loadStore(info, config, configPath, stackName(configPath), enc)
+	stack := stackName(configPath)
+	store, err := loadStore(info, config, configPath, stack, enc)
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	snap, err := store.Current()
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	parsed, err := parseFactory(info)
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	sensitive := rootSensitiveOutputs(parsed)
-	masked := func(k string, v any) any {
-		if sensitive[k] {
-			return sensitivePlaceholder
-		}
-		return v
-	}
 	if len(args) == 0 {
-		if asJSON {
-			out := make(map[string]any, len(snap.Outputs))
-			for k, v := range snap.Outputs {
-				out[k] = masked(k, v)
-			}
-			return writeJSON(cmd.OutOrStdout(), out)
+		if format.Machine() {
+			return cmdout.WriteDocument(
+				cmd.OutOrStdout(), format,
+				buildOutputsResult(info, stack, snap.Outputs, sensitive, diagnostics),
+			)
 		}
 		for _, k := range sortedMapKeys(snap.Outputs) {
 			value := lang.RenderPretty(snap.Outputs[k])
@@ -1686,25 +1690,18 @@ func doOutput(
 	name := args[0]
 	val, ok := snap.Outputs[name]
 	if !ok {
-		return fmt.Errorf("no output %q", name)
+		return fail(fmt.Errorf("no output %q", name))
 	}
-	if asJSON {
-		return writeJSON(cmd.OutOrStdout(), masked(name, val))
+	if format.Machine() {
+		return cmdout.WriteDocument(
+			cmd.OutOrStdout(), format,
+			buildOutputResult(info, stack, name, val, sensitive[name], diagnostics),
+		)
 	}
 	if sensitive[name] {
 		fmt.Fprintln(cmd.OutOrStdout(), sensitivePlaceholder)
 		return nil
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "%s\n", lang.RenderPretty(val))
-	return nil
-}
-
-func writeJSON(out io.Writer, v any) error {
-	b, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return err
-	}
-	_, _ = out.Write(b)
-	_, _ = out.Write([]byte{'\n'})
 	return nil
 }

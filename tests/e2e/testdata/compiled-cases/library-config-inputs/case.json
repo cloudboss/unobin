@@ -18,9 +18,9 @@
     },
     {
       "name": "output-default",
-      "args": ["output", "--json", "-c", "stacks/dev.ub"],
+      "args": ["output", "--format", "json", "-c", "stacks/dev.ub"],
       "stdout": "want/output-default.json",
-      "stderr": "want/output-default.stderr"
+      "normalize": "json"
     },
     {
       "name": "plan-env-override",
@@ -39,9 +39,9 @@
     },
     {
       "name": "output-env-override",
-      "args": ["output", "--json", "-c", "stacks/env.ub"],
+      "args": ["output", "--format", "json", "-c", "stacks/env.ub"],
       "stdout": "want/output-env-override.json",
-      "stderr": "want/output-env-override.stderr"
+      "normalize": "json"
     },
     {
       "name": "plan-bad-config",

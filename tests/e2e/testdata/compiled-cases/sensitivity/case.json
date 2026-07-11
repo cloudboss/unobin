@@ -24,9 +24,17 @@
     },
     {
       "name": "output-json",
-      "args": ["output", "--json", "-c", "stacks/dev.ub"],
+      "args": ["output", "--format", "json", "-c", "stacks/dev.ub"],
       "stdout": "want/output.json",
-      "stderr": "want/output.stderr"
+      "normalize": "json"
+    },
+    {
+      "name": "output-token-json",
+      "args": [
+        "output", "token", "--format", "json", "-c", "stacks/dev.ub"
+      ],
+      "stdout": "want/output-token-json.stdout",
+      "normalize": "json"
     },
     {
       "name": "state-show-record",

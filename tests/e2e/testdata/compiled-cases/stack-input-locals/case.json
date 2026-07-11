@@ -24,9 +24,9 @@
     },
     {
       "name": "output",
-      "args": ["output", "--json", "-c", "stacks/dev.ub"],
+      "args": ["output", "--format", "json", "-c", "stacks/dev.ub"],
       "stdout": "want/output.json",
-      "stderr": "want/output.stderr"
+      "normalize": "json"
     }
   ],
   "deterministic": true

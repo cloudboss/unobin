@@ -1,5 +1,1 @@
-{
-  "cluster": "prod-us-east-1",
-  "first": "cfg-hello from prod-us-east-1",
-  "second": "cfg-cfg-hello from prod-us-east-1"
-}
+{"kind":"outputs","format-version":1,"factory":{"name":"locals-action-output","version":"v0.0.0","content-revision":"<revision>","library-path":"example.com/unobin/e2e/locals-action-output"},"stack":"dev","outputs":{"cluster":"prod-us-east-1","first":"cfg-hello from prod-us-east-1","second":"cfg-cfg-hello from prod-us-east-1"},"sensitive":[],"diagnostics":[{"code":"unobin.factory.replaced-toolchain","severity":"info","message":"github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced"}]}
