@@ -1,23 +1,41 @@
 package ui
 
 import (
+	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"runtime"
 	"time"
 )
 
-// OpenBrowser tries to open url in the operator's browser and reports
-// whether a command appeared to succeed. $BROWSER wins, then the
-// platform opener, then a short list of common browsers.
-func OpenBrowser(url string) bool {
-	for _, args := range browserCommands() {
-		cmd := exec.Command(args[0], append(args[1:], url)...)
-		if cmd.Start() == nil && appearsSuccessful(cmd, 3*time.Second) {
-			return true
+// OpenBrowserContext tries to open url in the operator's browser. $BROWSER
+// wins, then the platform opener, then a short list of common browsers.
+func OpenBrowserContext(ctx context.Context, url string) error {
+	return openBrowserContext(ctx, url, browserCommands(), 3*time.Second)
+}
+
+func openBrowserContext(
+	ctx context.Context,
+	url string,
+	commands [][]string,
+	successWait time.Duration,
+) error {
+	for _, args := range commands {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		commandArgs := append([]string{}, args[1:]...)
+		commandArgs = append(commandArgs, url)
+		cmd := exec.Command(args[0], commandArgs...)
+		if cmd.Start() == nil && appearsSuccessfulContext(ctx, cmd, successWait) == nil {
+			return nil
+		}
+		if err := ctx.Err(); err != nil {
+			return err
 		}
 	}
-	return false
+	return errors.New("no browser command succeeded")
 }
 
 func browserCommands() [][]string {
@@ -43,16 +61,28 @@ func browserCommands() [][]string {
 	)
 }
 
-// appearsSuccessful reports whether the command exits cleanly within
-// the timeout or is still running when it expires, which is how a
-// browser that stays in the foreground looks.
-func appearsSuccessful(cmd *exec.Cmd, timeout time.Duration) bool {
+// appearsSuccessfulContext reports nil when the command exits cleanly within
+// the timeout or is still running when it expires, which is how a browser
+// that stays in the foreground looks.
+func appearsSuccessfulContext(
+	ctx context.Context,
+	cmd *exec.Cmd,
+	timeout time.Duration,
+) error {
 	errc := make(chan error, 1)
 	go func() { errc <- cmd.Wait() }()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
 	select {
-	case <-time.After(timeout):
-		return true
+	case <-ctx.Done():
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		<-errc
+		return ctx.Err()
+	case <-timer.C:
+		return nil
 	case err := <-errc:
-		return err == nil
+		return err
 	}
 }

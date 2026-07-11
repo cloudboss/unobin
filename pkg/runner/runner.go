@@ -489,7 +489,7 @@ func startRunView(
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(), "Run view: %s\n", view.URL())
 	go func() {
-		if !ui.OpenBrowser(view.URL()) {
+		if ui.OpenBrowserContext(context.Background(), view.URL()) != nil {
 			fmt.Fprintln(cmd.ErrOrStderr(),
 				"No browser opened; use the run view URL to watch.")
 		}

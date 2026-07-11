@@ -1,0 +1,29 @@
+{
+  "cases": [
+    {
+      "name": "successful command",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "name": "fallback command",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "name": "foreground browser",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "name": "context deadline",
+      "ok": false,
+      "error": "context deadline exceeded"
+    },
+    {
+      "name": "all commands fail",
+      "ok": false,
+      "error": "no browser command succeeded"
+    }
+  ]
+}
