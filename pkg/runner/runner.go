@@ -76,6 +76,7 @@ func newRootCmd(info Info) *cobra.Command {
 	versionCmd := newVersionCmd(info)
 	applyCmd := newApplyCmd(info)
 	validateCmd := newValidateCmd(info)
+	schemaCmd, schemaShowCmd := newSchemaCmd(info)
 	printGraphCmd := newPrintGraphCmd(info)
 	root.AddCommand(versionCmd)
 	root.AddCommand(newPlanCmd(info))
@@ -83,7 +84,7 @@ func newRootCmd(info Info) *cobra.Command {
 	root.AddCommand(newRefreshCmd(info))
 	root.AddCommand(validateCmd)
 	root.AddCommand(newOutputCmd(info))
-	root.AddCommand(newSchemaCmd(info))
+	root.AddCommand(schemaCmd)
 	root.AddCommand(newStateCmd(info))
 	root.AddCommand(printGraphCmd)
 	root.AddCommand(newPinCmd(info))
@@ -91,6 +92,8 @@ func newRootCmd(info Info) *cobra.Command {
 		versionCmd:    true,
 		applyCmd:      true,
 		validateCmd:   true,
+		schemaCmd:     true,
+		schemaShowCmd: true,
 		printGraphCmd: true,
 	})
 	return root
@@ -1356,7 +1359,11 @@ func parseEnvValueAs(raw string, typ lang.TypeExpr) (any, error) {
 		value = raw
 	}
 	if !envValueMatchesType(value, typ) {
-		return nil, fmt.Errorf("expected %s, got %s", printType(typ), lang.TypeMessage(value))
+		typeText, err := lang.FormatTypeExpr(typ)
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("expected %s, got %s", typeText, lang.TypeMessage(value))
 	}
 	return value, nil
 }

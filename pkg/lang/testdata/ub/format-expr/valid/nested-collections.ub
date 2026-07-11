@@ -1,0 +1,1 @@
+{ outer: [{ 'quoted key': { inner: [null, 3, false] } }] }

@@ -74,6 +74,17 @@
       "stderr": "want/schema-show.stderr"
     },
     {
+      "name": "schema-show-json",
+      "args": ["schema", "show", "--format", "json"],
+      "stdout": "want/schema-show-json.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "schema-show-unobin",
+      "args": ["schema", "show", "--format", "unobin"],
+      "stdout": "want/schema-show-unobin.stdout"
+    },
+    {
       "name": "print-graph",
       "args": ["print-graph"],
       "stdout": "want/print-graph.stdout",

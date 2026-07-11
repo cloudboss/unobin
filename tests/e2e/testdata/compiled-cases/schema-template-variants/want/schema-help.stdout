@@ -1,0 +1,14 @@
+Inspect the factory schema
+
+Usage:
+  schema-template-variants schema [flags]
+  schema-template-variants schema [command]
+
+Available Commands:
+  show        Print the factory's input declarations
+  template    Print a starter stack file for this factory
+
+Flags:
+  -h, --help   help for schema
+
+Use "schema-template-variants schema [command] --help" for more information about a command.

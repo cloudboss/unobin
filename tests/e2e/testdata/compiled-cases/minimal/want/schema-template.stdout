@@ -7,7 +7,7 @@ stack: {
       ]
     }
     inputs: {
-      e2e-config: null  # type: ?
+      e2e-config: null  # type: library-config('example.com/unobin/e2elib')
     }
   }
 

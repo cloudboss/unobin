@@ -50,14 +50,29 @@ func TestFormatTypeExpressionFixtures(t *testing.T) {
 			if err != nil {
 				return "", []string{err.Error()}
 			}
-			out, err := Format(&File{Body: &ObjectLit{Fields: []*Field{{
-				Key:   FieldKey{Kind: FieldIdent, Name: "t"},
-				Value: te,
-			}}}})
+			out, err := FormatTypeExpr(te)
 			if err != nil {
 				return "", []string{err.Error()}
 			}
-			return strings.TrimPrefix(string(out), "t: "), nil
+			return out + "\n", nil
+		},
+		ubtest.Idempotent(),
+		ubtest.Repeat(5),
+	)
+}
+
+func TestFormatExpressionFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/format-expr/valid",
+		func(name string, src []byte) (string, []string) {
+			expr, err := ParseExpr(name+".ub", bytes.TrimSpace(src))
+			if err != nil {
+				return "", []string{err.Error()}
+			}
+			out, err := FormatExpr(expr)
+			if err != nil {
+				return "", []string{err.Error()}
+			}
+			return out + "\n", nil
 		},
 		ubtest.Idempotent(),
 		ubtest.Repeat(5),

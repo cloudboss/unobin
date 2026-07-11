@@ -37,6 +37,24 @@ func Format(file *File) ([]byte, error) {
 	return FormatWith(file, FormatOptions{})
 }
 
+// FormatExpr renders one expression without a field key or trailing newline.
+func FormatExpr(expr Expr) (string, error) {
+	w := formatter{maxColumn: DefaultMaxColumn, canonicalExpr: true}
+	if err := w.writeExpr(expr, ""); err != nil {
+		return "", err
+	}
+	return w.buf.String(), nil
+}
+
+// FormatTypeExpr renders one type expression without a field key or trailing newline.
+func FormatTypeExpr(expr TypeExpr) (string, error) {
+	w := formatter{maxColumn: DefaultMaxColumn, canonicalExpr: true}
+	if err := w.writeTypeExpr(expr, ""); err != nil {
+		return "", err
+	}
+	return w.buf.String(), nil
+}
+
 // FormatWith renders a parsed File with the supplied options. Zero
 // values fall back to their package defaults.
 func FormatWith(file *File, opts FormatOptions) ([]byte, error) {
@@ -56,12 +74,13 @@ func FormatWith(file *File, opts FormatOptions) ([]byte, error) {
 }
 
 type formatter struct {
-	buf         strings.Builder
-	comments    []Comment
-	cIdx        int
-	lastLine    int
-	maxColumn   int
-	wrapStrings bool
+	buf           strings.Builder
+	comments      []Comment
+	cIdx          int
+	lastLine      int
+	maxColumn     int
+	wrapStrings   bool
+	canonicalExpr bool
 }
 
 const fmtStep = "  "
@@ -160,6 +179,9 @@ func (w *formatter) fitsAtColumn(e Expr, column int) bool {
 // fall between the two fields so a run of comment-only lines does not
 // look like a blank.
 func (w *formatter) hasBlankLineBetween(prev, next *Field) bool {
+	if w.canonicalExpr {
+		return false
+	}
 	cursorLine := fieldEndLine(prev)
 	nextOff := next.S.Start.Offset
 	for k := w.cIdx; k < len(w.comments); k++ {
@@ -439,7 +461,7 @@ func (w *formatter) objectInlineWidth(o *ObjectLit) int {
 	if w.hasCommentInSpan(o.S.Start.Offset, o.S.End.Offset) {
 		return -1
 	}
-	if authorExpandedObject(o) {
+	if !w.canonicalExpr && authorExpandedObject(o) {
 		return -1
 	}
 	if len(o.Fields) == 0 {
@@ -466,7 +488,7 @@ func (w *formatter) arrayInlineWidth(a *ArrayLit) int {
 	if w.hasCommentInSpan(a.S.Start.Offset, a.S.End.Offset) {
 		return -1
 	}
-	if authorExpandedArray(a) {
+	if !w.canonicalExpr && authorExpandedArray(a) {
 		return -1
 	}
 	if len(a.Elements) == 0 {
@@ -1868,6 +1890,9 @@ func (w *formatter) flushTrailingOnLine(line int) {
 // sibling value, a comment, or a collection's closing delimiter) and
 // the line the next token starts on.
 func (w *formatter) maybeBlankLine(nextLine int) {
+	if w.canonicalExpr {
+		return
+	}
 	if w.lastLine > 0 && nextLine-w.lastLine > 1 {
 		w.buf.WriteByte('\n')
 	}

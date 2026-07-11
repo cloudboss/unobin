@@ -1,0 +1,1 @@
+{ base-dir: '.', event-log-path: 'events.ndjson', nested: { label: 'nested' } }

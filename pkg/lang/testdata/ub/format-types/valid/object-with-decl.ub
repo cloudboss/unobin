@@ -1,0 +1,4 @@
+object({
+  name: { type: string, pattern: '^[a-z]+$' },
+  size: { type: integer, default: 3, minimum: 1 },
+})

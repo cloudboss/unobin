@@ -2,16 +2,27 @@ factory: {
   inputs: {
     greeting: {
       type:        string
+      default:     'hello'
       description: 'Text to write'
+      @sensitive:  true
     }
     count:   { type: integer }
     enabled: { type: boolean }
     tags:    { type: list(string) }
   }
 
+  constraints: [
+    {
+      kind:    predicate
+      when:    true
+      require: true
+      message: 'Schema output excludes constraints'
+    },
+  ]
+
   outputs: {
     endpoint: { value: input.greeting, description: 'Public endpoint URL' }
     token:    { value: input.greeting, @sensitive: true }
-    plain:    { value: input.greeting }
+    plain:    { value: input.count }
   }
 }

@@ -67,6 +67,7 @@ func isValidUnobinSourceFile(path string) bool {
 	slash := filepath.ToSlash(path)
 	if strings.HasPrefix(slash, "../internal/ubtest/") ||
 		strings.Contains(slash, "/pkg/lang/testdata/ub/types/") ||
+		strings.Contains(slash, "/pkg/lang/testdata/ub/format-expr/") ||
 		strings.Contains(slash, "/pkg/lang/testdata/ub/format-types/") {
 		return false
 	}

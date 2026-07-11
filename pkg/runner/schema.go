@@ -6,17 +6,46 @@ import (
 	"io"
 	"strings"
 
+	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/pkg/backends"
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/encrypters"
 	ufs "github.com/cloudboss/unobin/pkg/fs"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/spf13/cobra"
 )
 
-func newSchemaCmd(info Info) *cobra.Command {
+type schemaInput struct {
+	Name        string  `json:"name"        ub:"name"`
+	Type        string  `json:"type"        ub:"type"`
+	Default     *string `json:"default"     ub:"default"`
+	Description string  `json:"description" ub:"description"`
+	Sensitive   bool    `json:"sensitive"   ub:"sensitive"`
+}
+
+type schemaOutput struct {
+	Name        string `json:"name"        ub:"name"`
+	Description string `json:"description" ub:"description"`
+	Sensitive   bool   `json:"sensitive"   ub:"sensitive"`
+}
+
+type schemaResult struct {
+	Kind          string                  `json:"kind"           ub:"kind"`
+	FormatVersion int                     `json:"format-version" ub:"format-version"`
+	Factory       factoryIdentity         `json:"factory"        ub:"factory"`
+	Inputs        []schemaInput           `json:"inputs"         ub:"inputs"`
+	Outputs       []schemaOutput          `json:"outputs"        ub:"outputs"`
+	Diagnostics   []diagnostic.Diagnostic `json:"diagnostics"    ub:"diagnostics"`
+}
+
+func newSchemaCmd(info Info) (*cobra.Command, *cobra.Command) {
 	cmd := &cobra.Command{
 		Use:   "schema",
-		Short: "Print the factory's input declarations",
+		Short: "Inspect the factory schema",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
+		},
 	}
 	show := &cobra.Command{
 		Use:   "show",
@@ -40,61 +69,128 @@ func newSchemaCmd(info Info) *cobra.Command {
 		"Write the template to this file instead of stdout.")
 	cmd.AddCommand(show)
 	cmd.AddCommand(tmpl)
-	return cmd
+	return cmd, show
 }
 
 func doSchema(cmd *cobra.Command, info Info) error {
-	parsed, err := parseFactory(info)
+	formatValue, err := cmd.Flags().GetString("format")
 	if err != nil {
 		return err
 	}
-	out := cmd.OutOrStdout()
-	inputs := parsed.inputs()
-	if len(inputs) == 0 {
-		fmt.Fprintln(out, "No inputs declared.")
-		printOutputSchema(out, parsed)
-		return nil
+	format, err := cmdout.ParseFormat(formatValue)
+	if err != nil {
+		return err
 	}
-	for _, input := range inputs {
-		typeStr := printType(input.typeExpr)
-		defaultStr := ""
-		if input.defaultExpr != nil {
-			defaultStr = printType(input.defaultExpr)
-		}
-		fmt.Fprintf(out, "%s: %s", input.name, typeStr)
-		if defaultStr != "" {
-			fmt.Fprintf(out, "  default: %s", defaultStr)
-		}
-		if input.description != "" {
-			fmt.Fprintf(out, "  -- %s", input.description)
-		}
-		fmt.Fprintln(out)
+	collector := &diagnostic.Collector{}
+	if err := checkLinkedUnobin(cmd, info.UnobinVersion, format, collector); err != nil {
+		return err
 	}
-	printOutputSchema(out, parsed)
-	return nil
+	parsed, err := parseFactory(info)
+	if err != nil {
+		if format.Machine() {
+			return cmdout.WriteCommandError(cmd, format, collector.Diagnostics(), err)
+		}
+		return err
+	}
+	result, err := buildSchemaResult(info, parsed, collector.Diagnostics())
+	if err != nil {
+		if format.Machine() {
+			return cmdout.WriteCommandError(cmd, format, collector.Diagnostics(), err)
+		}
+		return err
+	}
+	if format == cmdout.FormatText {
+		return writeSchemaText(cmd.OutOrStdout(), result)
+	}
+	return cmdout.WriteDocument(cmd.OutOrStdout(), format, result)
 }
 
-// printOutputSchema lists the factory's declared outputs: each name
-// with its sensitivity marker and declared description. Values are
-// runtime results, so only the metadata prints here.
-func printOutputSchema(out io.Writer, parsed *parsedFactory) {
-	outputs := parsed.outputs()
-	if len(outputs) == 0 {
-		return
+func buildSchemaResult(
+	info Info,
+	parsed *parsedFactory,
+	diagnostics []diagnostic.Diagnostic,
+) (schemaResult, error) {
+	result := schemaResult{
+		Kind:          "schema",
+		FormatVersion: 1,
+		Factory:       factoryIdentityFor(info),
+		Inputs:        []schemaInput{},
+		Outputs:       []schemaOutput{},
+		Diagnostics:   diagnostic.Normalize(diagnostics),
 	}
-	sensitive := parsed.sensitiveOutputs()
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "outputs:")
-	for _, output := range outputs {
-		fmt.Fprintf(out, "  %s", output.name)
-		if sensitive[output.name] {
-			fmt.Fprint(out, " (sensitive)")
+	sensitiveInputs := lang.SensitiveInputs(parsed.inputBlock())
+	for _, input := range parsed.inputs() {
+		typeText, err := lang.FormatTypeExpr(input.typeExpr)
+		if err != nil {
+			return schemaResult{}, err
 		}
-		if d := lang.OutputDescription(output.body); d != "" {
-			fmt.Fprintf(out, "  -- %s", d)
+		item := schemaInput{
+			Name:        input.name,
+			Type:        typeText,
+			Description: input.description,
+			Sensitive:   sensitiveInputs[input.name],
 		}
-		fmt.Fprintln(out)
+		if input.defaultExpr != nil {
+			defaultText, err := lang.FormatExpr(input.defaultExpr)
+			if err != nil {
+				return schemaResult{}, err
+			}
+			item.Default = &defaultText
+		}
+		result.Inputs = append(result.Inputs, item)
 	}
+	sensitiveOutputs := rootSensitiveOutputs(parsed)
+	for _, output := range parsed.outputs() {
+		result.Outputs = append(result.Outputs, schemaOutput{
+			Name:        output.name,
+			Description: lang.OutputDescription(output.body),
+			Sensitive:   sensitiveOutputs[output.name],
+		})
+	}
+	return result, nil
+}
+
+func writeSchemaText(out io.Writer, result schemaResult) error {
+	var buf strings.Builder
+	if len(result.Inputs) == 0 {
+		buf.WriteString("inputs: none\n")
+	} else {
+		buf.WriteString("inputs:\n")
+		for _, input := range result.Inputs {
+			fmt.Fprintf(&buf, "  %s: %s", input.Name, indentSchemaExpr(input.Type))
+			if input.Default != nil {
+				fmt.Fprintf(&buf, "  default: %s", indentSchemaExpr(*input.Default))
+			}
+			if input.Sensitive {
+				buf.WriteString("  (sensitive)")
+			}
+			if input.Description != "" {
+				fmt.Fprintf(&buf, "  -- %s", input.Description)
+			}
+			buf.WriteByte('\n')
+		}
+	}
+	if len(result.Outputs) == 0 {
+		buf.WriteString("outputs: none\n")
+	} else {
+		buf.WriteString("outputs:\n")
+		for _, output := range result.Outputs {
+			fmt.Fprintf(&buf, "  %s", output.Name)
+			if output.Sensitive {
+				buf.WriteString("  (sensitive)")
+			}
+			if output.Description != "" {
+				fmt.Fprintf(&buf, "  -- %s", output.Description)
+			}
+			buf.WriteByte('\n')
+		}
+	}
+	_, err := io.WriteString(out, buf.String())
+	return err
+}
+
+func indentSchemaExpr(value string) string {
+	return strings.ReplaceAll(value, "\n", "\n  ")
 }
 
 func doSchemaTemplate(cmd *cobra.Command, info Info, outPath string) error {
@@ -103,7 +199,9 @@ func doSchemaTemplate(cmd *cobra.Command, info Info, outPath string) error {
 		return err
 	}
 	var buf bytes.Buffer
-	renderSchemaTemplate(&buf, parsed, info)
+	if err := renderSchemaTemplate(&buf, parsed, info); err != nil {
+		return err
+	}
 	formatted, err := lang.Canonicalize("stack.ub", buf.Bytes())
 	if err != nil {
 		return err
@@ -119,11 +217,13 @@ func doSchemaTemplate(cmd *cobra.Command, info Info, outPath string) error {
 // Canonicalize owns indentation and alignment, so the draft spells only
 // the structure, with line breaks marking the blocks that stay
 // expanded.
-func renderSchemaTemplate(out io.Writer, parsed *parsedFactory, info Info) {
+func renderSchemaTemplate(out io.Writer, parsed *parsedFactory, info Info) error {
 	fmt.Fprintln(out, "stack: {")
 	fmt.Fprintln(out, "factory: {")
 	fmt.Fprint(out, renderPinBlock(info.LibraryPath, info.FactoryVersion, info.ContentRevision))
-	renderInputsTemplate(out, parsed)
+	if err := renderInputsTemplate(out, parsed); err != nil {
+		return err
+	}
 	fmt.Fprintln(out, "}")
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "state: "+backends.LocalName+" {")
@@ -132,25 +232,34 @@ func renderSchemaTemplate(out io.Writer, parsed *parsedFactory, info Info) {
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "encryption: "+encrypters.NoopName+" {}")
 	fmt.Fprintln(out, "}")
+	return nil
 }
 
 // renderInputsTemplate scaffolds the factory.inputs block: one
 // placeholder line per declared input, with its description and type
 // alongside.
-func renderInputsTemplate(out io.Writer, parsed *parsedFactory) {
+func renderInputsTemplate(out io.Writer, parsed *parsedFactory) error {
 	inputs := parsed.inputs()
 	if len(inputs) == 0 {
-		return
+		return nil
 	}
 	fmt.Fprintln(out, "inputs: {")
 	for _, input := range inputs {
+		typeText, err := lang.FormatTypeExpr(input.typeExpr)
+		if err != nil {
+			return err
+		}
 		if input.description != "" {
 			fmt.Fprintf(out, "# %s\n", input.description)
 		}
 		fmt.Fprintf(out, "%s: %s  # type: %s\n",
-			input.name, placeholderForType(input.typeExpr), printType(input.typeExpr))
+			input.name,
+			placeholderForType(input.typeExpr),
+			strings.ReplaceAll(typeText, "\n", "\n# "),
+		)
 	}
 	fmt.Fprintln(out, "}")
+	return nil
 }
 
 func placeholderForType(e lang.Expr) string {
@@ -188,90 +297,4 @@ func placeholderForType(e lang.Expr) string {
 		}
 	}
 	return "null"
-}
-
-// printType renders a parsed type expression back to its source form
-// (e.g., `optional(list(string))`). It stays separate from lang.Render
-// because Render formats evaluated Go values rather than AST nodes.
-func printType(e lang.Expr) string {
-	switch v := e.(type) {
-	case *lang.TypeAtomic:
-		return v.Name
-	case *lang.TypeList:
-		return "list(" + printType(v.Elem) + ")"
-	case *lang.TypeMap:
-		return "map(" + printType(v.Elem) + ")"
-	case *lang.TypeTuple:
-		args := make([]string, len(v.Elements))
-		for i, elem := range v.Elements {
-			args[i] = printType(elem)
-		}
-		return "tuple(" + strings.Join(args, ", ") + ")"
-	case *lang.TypeObject:
-		fields := make([]string, len(v.Fields))
-		for i, field := range v.Fields {
-			fields[i] = field.Name + ": " + printTypeObjectField(field)
-		}
-		out := "object({ " + strings.Join(fields, ", ") + " })"
-		if v.Open {
-			return "open(" + out + ")"
-		}
-		return out
-	case *lang.TypeOptional:
-		return "optional(" + printType(v.Elem) + ")"
-	case *lang.Ident:
-		return v.Name
-	case *lang.Call:
-		args := make([]string, len(v.Args))
-		for i, a := range v.Args {
-			args[i] = printType(a)
-		}
-		callee := ""
-		if v.Callee != nil {
-			callee = v.Callee.Name
-		}
-		return callee + "(" + strings.Join(args, ", ") + ")"
-	case *lang.NumberLit:
-		return v.Value
-	case *lang.StringLit:
-		return "'" + v.Value + "'"
-	case *lang.BoolLit:
-		if v.Value {
-			return "true"
-		}
-		return "false"
-	case *lang.NullLit:
-		return "null"
-	case *lang.ArrayLit:
-		args := make([]string, len(v.Elements))
-		for i, el := range v.Elements {
-			args[i] = printType(el)
-		}
-		return "[" + strings.Join(args, ", ") + "]"
-	case *lang.ObjectLit:
-		fields := make([]string, 0, len(v.Fields))
-		for _, field := range v.Fields {
-			fields = append(fields, printTypeField(field))
-		}
-		return "{ " + strings.Join(fields, ", ") + " }"
-	}
-	return "?"
-}
-
-func printTypeField(field *lang.Field) string {
-	name := field.Key.Name
-	if field.Key.Kind == lang.FieldString {
-		name = "'" + field.Key.String + "'"
-	}
-	return name + ": " + printType(field.Value)
-}
-
-func printTypeObjectField(field *lang.TypeObjectField) string {
-	if field.Type != nil {
-		return printType(field.Type)
-	}
-	if field.Decl != nil {
-		return printType(field.Decl)
-	}
-	return "?"
 }

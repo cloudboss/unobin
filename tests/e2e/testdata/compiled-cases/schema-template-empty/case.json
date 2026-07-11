@@ -14,6 +14,12 @@
       "args": ["schema", "show"],
       "stdout": "want/schema-show.stdout",
       "stderr": "want/schema-show.stderr"
+    },
+    {
+      "name": "schema-show-json",
+      "args": ["schema", "show", "--format", "json"],
+      "stdout": "want/schema-show-json.stdout",
+      "normalize": "json"
     }
   ]
 }

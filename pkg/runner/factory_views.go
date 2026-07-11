@@ -8,7 +8,7 @@ import (
 
 type factoryInputDecl struct {
 	name        string
-	typeExpr    lang.Expr
+	typeExpr    lang.TypeExpr
 	description string
 	defaultExpr lang.Expr
 }

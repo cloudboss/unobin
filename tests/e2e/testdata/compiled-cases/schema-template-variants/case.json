@@ -17,6 +17,40 @@
       "stderr": "want/schema-show.stderr"
     },
     {
+      "name": "schema-show-json",
+      "args": ["schema", "show", "--format", "json"],
+      "stdout": "want/schema-show-json.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "schema-show-unobin",
+      "args": ["schema", "show", "--format", "unobin"],
+      "stdout": "want/schema-show-unobin.stdout"
+    },
+    {
+      "name": "schema-bare",
+      "args": ["schema"],
+      "stdout": "want/schema-help.stdout"
+    },
+    {
+      "name": "schema-unknown-child",
+      "args": ["schema", "unknown"],
+      "stderr": "want/schema-unknown-child.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "schema-show-wrong-args",
+      "args": ["schema", "show", "extra"],
+      "stderr": "want/schema-show-wrong-args.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "schema-template-format",
+      "args": ["schema", "template", "--format", "json"],
+      "stderr": "want/schema-template-format.stderr",
+      "exitCode": 1
+    },
+    {
       "name": "schema-template-file",
       "args": ["schema", "template", "-o", "work/dev.ub"],
       "stderr": "want/schema-template-file.stderr"
