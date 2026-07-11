@@ -20,8 +20,7 @@ Developer and compiled `print-graph` commands additionally accept `dot`. DOT is 
 payload format, not a versioned machine contract, and its application errors are
 text on stderr.
 
-An unsupported format has no valid machine encoding. It is an application-owned
-text error on stderr, for example:
+An unsupported format is reported as text on stderr, for example:
 
 ```text
 --format: unknown 'yaml' (want text, json, unobin)
@@ -29,46 +28,46 @@ text error on stderr, for example:
 
 Graph errors also list `dot`.
 
-The following payload and protocol commands intentionally have no `--format`:
+The following payload and protocol commands use command-specific output:
 
 - `unobin fmt` writes formatted source, changed paths, or files.
 - `factory schema template` writes a `.ub` stack skeleton or a requested file.
 - `factory state pull` writes a raw decrypted JSON snapshot that may contain
   sensitive values.
 - `unobin lsp` owns stdio for the language-server protocol.
-- Help and shell completion remain Cobra text or protocol output.
+- Help remains text, and shell completion retains its protocol output.
 
-For those commands, `--format` is an unknown-flag error from Cobra.
+For those commands, `--format` produces a plain-text unknown-flag error.
 
-## Output ownership
+## When machine output takes effect
 
-Cobra owns output until a command's `RunE` function starts. It always renders
-help, usage, completion, unknown commands, unknown or malformed flags, missing
-flag values, missing required flags, and positional-argument errors as text. Help
-goes to stdout. Cobra invocation errors go to stderr.
+Arguments and flags are parsed and validated before the format selected by
+`--format` takes effect. Help, usage, unknown commands, unknown or malformed
+flags, missing flag values, missing required flags, and positional-argument
+errors are therefore text. Help goes to stdout. Invocation errors go to stderr.
+Shell completion retains its protocol output.
 
-Application ownership begins in `RunE`. Source, state, provider, backend,
-resolver, dependency, and external-tool failures therefore use the selected
-machine contract.
+After invocation validation succeeds, source, state, provider, backend, resolver,
+dependency, and external-tool failures use the selected machine contract.
 
 | Situation | stdout | stderr | Exit |
 | --- | --- | --- | --- |
-| Help or successful completion | Cobra text or protocol | Empty | 0 |
-| Cobra invocation error | Empty unless Cobra produced protocol output | Bare text | 1 |
+| Help or successful shell completion | Text or completion protocol | Empty | 0 |
+| Invocation error | Empty unless the invocation is a completion request | Bare text | 1 |
 | Successful text command | Result or payload | Warnings, notices, and progress | 0 |
 | Failed text command | Any command-specific partial output | Bare error and diagnostics | 1 |
-| Successful single-document machine command | One result document | Empty after `RunE` starts | 0 |
-| Negative machine result | One result with `ok: false` | Empty after `RunE` starts | 1 |
-| Machine operation failure | One `command-error` document | Empty after `RunE` starts | 1 |
-| Machine apply | A versioned JSON Lines or Unobin record stream | Empty after `RunE` starts | 0 or 1 |
+| Successful single-document machine command | One result document | Empty | 0 |
+| Negative machine result | One result with `ok: false` | Empty | 1 |
+| Machine operation failure | One `command-error` document | Empty | 1 |
+| Machine apply | A versioned JSON Lines or Unobin record stream | Empty | 0 or 1 |
 | Response encoding or stdout write failure | May be malformed or truncated | Bare response-channel error if the process survives | 1 or signal status |
 
-Root errors are bare `err.Error()` text with one newline. They never have Cobra's
-`Error: ` prefix and do not print usage.
+Plain-text invocation errors contain the error message followed by one newline.
 
-The last row is the only application-owned exception to machine stdout-only
-behavior. A closed stdout can also terminate the process through SIGPIPE before
-stderr is written.
+After invocation validation succeeds, machine output uses stdout. Response
+encoding or stdout write failures may report a bare response-channel error on
+stderr if the process survives. A closed stdout can also terminate the process
+through SIGPIPE before stderr is written.
 
 ## Encoding and values
 
@@ -517,7 +516,7 @@ before applying again; do not blindly retry the same plan.
 ## Exit status
 
 - 0: successful commands and help, including results with warnings.
-- 1: Cobra invocation errors, text application failures, `command-error`, negative
+- 1: invocation errors, text application failures, `command-error`, negative
   results such as `ok: false`, handled interrupts, and `apply-error`.
 - Platform signal status: abrupt termination, including default SIGPIPE behavior.
 
