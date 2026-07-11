@@ -5,6 +5,12 @@
   "build": true,
   "commands": [
     {
+      "name": "plan-json",
+      "args": ["plan", "-c", "stacks/dev.ub", "-o", "sensitive.ubp", "--format", "json"],
+      "stdout": "want/plan-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "plan",
       "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "sensitive.ubp"],
       "stdout": "want/plan.stdout",

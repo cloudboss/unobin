@@ -114,10 +114,34 @@
       "exitCode": 1
     },
     {
+      "name": "plan-json-no-output",
+      "args": ["plan", "-c", "stacks/dev.ub", "--format", "json"],
+      "stdout": "want/plan-json-no-output.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-unobin-no-output",
+      "args": ["plan", "-c", "stacks/dev.ub", "--format", "unobin"],
+      "stdout": "want/plan-unobin-no-output.stdout"
+    },
+    {
+      "name": "plan-json-write-failure",
+      "args": ["plan", "-c", "stacks/dev.ub", "-o", ".", "--format", "json"],
+      "stdout": "want/plan-json-write-failure.stdout",
+      "normalize": "json",
+      "exitCode": 1
+    },
+    {
       "name": "plan-create",
       "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "plan.ubp"],
       "stdout": "want/plan-create.stdout",
       "stderr": "want/plan-create.stderr"
+    },
+    {
+      "name": "plan-json-updated",
+      "args": ["plan", "-c", "stacks/dev.ub", "-o", "plan.ubp", "--format", "json"],
+      "stdout": "want/plan-json-updated.stdout",
+      "normalize": "json"
     },
     {
       "name": "apply-create",

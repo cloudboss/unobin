@@ -5,6 +5,7 @@ package runner
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +20,7 @@ import (
 	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/pkg/check"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
-	ufs "github.com/cloudboss/unobin/pkg/fs"
+	"github.com/cloudboss/unobin/pkg/filechange"
 	"github.com/cloudboss/unobin/pkg/graphprint"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
@@ -74,12 +75,13 @@ func newRootCmd(info Info) *cobra.Command {
 		SilenceErrors: true,
 	}
 	versionCmd := newVersionCmd(info)
+	planCmd := newPlanCmd(info)
 	applyCmd := newApplyCmd(info)
 	validateCmd := newValidateCmd(info)
 	schemaCmd, schemaShowCmd := newSchemaCmd(info)
 	printGraphCmd := newPrintGraphCmd(info)
 	root.AddCommand(versionCmd)
-	root.AddCommand(newPlanCmd(info))
+	root.AddCommand(planCmd)
 	root.AddCommand(applyCmd)
 	root.AddCommand(newRefreshCmd(info))
 	root.AddCommand(validateCmd)
@@ -90,6 +92,7 @@ func newRootCmd(info Info) *cobra.Command {
 	root.AddCommand(newPinCmd(info))
 	wrapTextStartupChecks(root, info, map[*cobra.Command]bool{
 		versionCmd:    true,
+		planCmd:       true,
 		applyCmd:      true,
 		validateCmd:   true,
 		schemaCmd:     true,
@@ -213,6 +216,26 @@ func addStandardFormatFlag(command *cobra.Command) {
 	command.Flags().String("format", "text", cmdout.FormatHelp())
 }
 
+func commandFormat(command *cobra.Command) (cmdout.Format, error) {
+	value, err := command.Flags().GetString("format")
+	if err != nil {
+		return "", err
+	}
+	return cmdout.ParseFormat(value)
+}
+
+func commandResultFailure(
+	command *cobra.Command,
+	format cmdout.Format,
+	diagnostics []diagnostic.Diagnostic,
+	err error,
+) error {
+	if format.Machine() {
+		return cmdout.WriteCommandError(command, format, diagnostics, err)
+	}
+	return err
+}
+
 func newVersionCmd(info Info) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "version",
@@ -267,14 +290,25 @@ func newPlanCmd(info Info) *cobra.Command {
 		Short: "Show what apply would do",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config, err := parseStackFile(configPath)
+			format, err := commandFormat(cmd)
 			if err != nil {
 				return err
 			}
-			if err := verifyFactoryEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
+			collector := &diagnostic.Collector{}
+			if err := checkLinkedUnobin(cmd, info.UnobinVersion, format, collector); err != nil {
 				return err
 			}
-			return doPlan(cmd, info, config, configPath, outPath, parallelism, destroy, ascii)
+			config, err := parseStackFile(configPath)
+			if err != nil {
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+			}
+			if err := verifyFactoryEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+			}
+			return doPlanWithFormat(
+				cmd, info, config, configPath, outPath, parallelism, destroy, ascii,
+				format, collector.Diagnostics(),
+			)
 		},
 	}
 	addStandardFormatFlag(cmd)
@@ -1022,9 +1056,23 @@ func doPlan(
 	cmd *cobra.Command, info Info, config *parsedStack,
 	configPath, outPath string, parallelismOverride int, destroy, ascii bool,
 ) error {
+	return doPlanWithFormat(
+		cmd, info, config, configPath, outPath, parallelismOverride, destroy, ascii,
+		cmdout.FormatText, nil,
+	)
+}
+
+func doPlanWithFormat(
+	cmd *cobra.Command, info Info, config *parsedStack,
+	configPath, outPath string, parallelismOverride int, destroy, ascii bool,
+	format cmdout.Format, diagnostics []diagnostic.Diagnostic,
+) error {
+	fail := func(err error) error {
+		return commandResultFailure(cmd, format, diagnostics, err)
+	}
 	parsed, err := parseFactory(info)
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	dag := parsed.dag
 	inputs, err := buildInputs(
@@ -1035,19 +1083,19 @@ func doPlan(
 		info.LibraryConfigSchemas,
 	)
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	enc, err := loadEncrypter(config, configPath)
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	store, err := loadStore(info, config, configPath, stackName(configPath), enc)
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	parallelism, err := loadParallelism(config, configPath)
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	if parallelismOverride > 0 {
 		parallelism = parallelismOverride
@@ -1068,24 +1116,54 @@ func doPlan(
 	}
 	plan, err := exec.Plan(context.Background())
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	sc, err := parseStateConfig(config, configPath)
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	plan.Backend = toRuntimeStateRef(sc.Backend)
-	printPlan(cmd.OutOrStdout(), plan, ascii)
-	if outPath != "" {
-		sealed, err := runtime.SealPlan(plan, enc)
-		if err != nil {
-			return err
-		}
-		if err := ufs.WriteFileAtomic(outPath, sealed, 0o600); err != nil {
-			return err
-		}
+	if format == cmdout.FormatText {
+		printPlan(cmd.OutOrStdout(), plan, ascii)
+		_, _, err := writePlanArtifact(outPath, plan, enc)
+		return err
 	}
-	return nil
+	digest, file, err := writePlanArtifact(outPath, plan, enc)
+	if err != nil {
+		if file != nil {
+			err = cmdout.WithFiles(err, []filechange.Change{*file})
+		}
+		return fail(err)
+	}
+	result, err := buildPlanSummary(info, plan, digest, file, diagnostics)
+	if err != nil {
+		return fail(err)
+	}
+	return cmdout.WriteDocument(cmd.OutOrStdout(), format, result)
+}
+
+func writePlanArtifact(
+	path string,
+	plan *runtime.Plan,
+	enc sdkencrypt.Encrypter,
+) (*string, *filechange.Change, error) {
+	if path == "" {
+		return nil, nil, nil
+	}
+	sealed, err := runtime.SealPlan(plan, enc)
+	if err != nil {
+		return nil, nil, err
+	}
+	digestBytes := sha256.Sum256(sealed)
+	digest := fmt.Sprintf("sha256:%x", digestBytes)
+	change, err := filechange.WriteFile(path, sealed, 0o600)
+	if err != nil {
+		if change.Action == "" {
+			return nil, nil, err
+		}
+		return nil, &change, err
+	}
+	return &digest, &change, nil
 }
 
 func buildInputs(

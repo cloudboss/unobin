@@ -1,0 +1,11 @@
+stack: {
+  factory: {
+    inputs: { message: 'hello' }
+  }
+
+  state: local {
+    path: '.state'
+  }
+
+  encryption: noop {}
+}

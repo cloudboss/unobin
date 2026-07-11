@@ -12,6 +12,14 @@
       "stderr": "want/validate.stderr"
     },
     {
+      "name": "plan-json",
+      "args": [
+        "plan", "-c", "stacks/dev/dev.ub", "-o", "move.ubp", "--format", "json"
+      ],
+      "stdout": "want/plan-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "plan",
       "args": ["plan", "--ascii", "-c", "stacks/dev/dev.ub", "-o", "move.ubp"],
       "stdout": "want/plan.stdout",

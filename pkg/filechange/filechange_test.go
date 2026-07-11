@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,8 +16,14 @@ type filechangeGolden struct {
 	Actions []Action               `json:"actions"`
 	Tags    map[string][2]string   `json:"tags"`
 	Writes  []Change               `json:"writes"`
+	Failure writeFailureGolden     `json:"failure"`
 	Sort    sortGolden             `json:"sort"`
 	Compose []filechangeCaseGolden `json:"compose"`
+}
+
+type writeFailureGolden struct {
+	Change Change `json:"change"`
+	Error  string `json:"error"`
 }
 
 type sortGolden struct {
@@ -56,6 +63,11 @@ func TestFilechangeContractGolden(t *testing.T) {
 		change.Path = filepath.Base(change.Path)
 		writes = append(writes, change)
 	}
+	blockedPath := filepath.Join(dir, "blocked")
+	require.NoError(t, os.Mkdir(blockedPath, 0o755))
+	failedChange, writeErr := WriteFile(blockedPath, []byte("content\n"), 0o644)
+	require.Error(t, writeErr)
+	failedChange.Path = filepath.Base(failedChange.Path)
 
 	result := filechangeGolden{
 		Actions: []Action{
@@ -69,6 +81,10 @@ func TestFilechangeContractGolden(t *testing.T) {
 			"path":   {path.Tag.Get("json"), path.Tag.Get("ub")},
 		},
 		Writes: writes,
+		Failure: writeFailureGolden{
+			Change: failedChange,
+			Error:  strings.ReplaceAll(filepath.ToSlash(writeErr.Error()), filepath.ToSlash(dir), "$TMP"),
+		},
 		Sort: sortGolden{
 			Input:          sortInput,
 			Output:         sorted,

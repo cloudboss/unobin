@@ -1,0 +1,26 @@
+[
+  {
+    "name": "missing plan",
+    "error": "plan summary: plan is required"
+  },
+  {
+    "name": "digest without file",
+    "error": "plan summary: plan digest and artifact file must both be present"
+  },
+  {
+    "name": "file without digest",
+    "error": "plan summary: plan digest and artifact file must both be present"
+  },
+  {
+    "name": "invalid file action",
+    "error": "file change 0 for \"dev.ubp\" has invalid action \"rewritten\""
+  },
+  {
+    "name": "unsupported decision",
+    "error": "plan summary: unsupported decision \"future\""
+  },
+  {
+    "name": "nil step",
+    "error": "plan summary: nil step"
+  }
+]

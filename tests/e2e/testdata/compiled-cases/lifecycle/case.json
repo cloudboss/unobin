@@ -11,6 +11,12 @@
       "stderr": "want/validate.stderr"
     },
     {
+      "name": "plan-create-json",
+      "args": ["plan", "-c", "stacks/create/dev.ub", "-o", "create.ubp", "--format", "json"],
+      "stdout": "want/plan-create-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "plan-create",
       "args": ["plan", "--ascii", "-c", "stacks/create/dev.ub", "-o", "create.ubp"],
       "stdout": "want/plan-create.stdout",
@@ -23,10 +29,22 @@
       "stderr": "want/apply-create.stderr"
     },
     {
+      "name": "plan-noop-json",
+      "args": ["plan", "-c", "stacks/noop/dev.ub", "-o", "noop.ubp", "--format", "json"],
+      "stdout": "want/plan-noop-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "plan-noop",
       "args": ["plan", "--ascii", "-c", "stacks/noop/dev.ub", "-o", "noop.ubp"],
       "stdout": "want/plan-noop.stdout",
       "stderr": "want/plan-noop.stderr"
+    },
+    {
+      "name": "plan-update-json",
+      "args": ["plan", "-c", "stacks/update/dev.ub", "-o", "update.ubp", "--format", "json"],
+      "stdout": "want/plan-update-json.stdout",
+      "normalize": "json"
     },
     {
       "name": "plan-update",
@@ -41,6 +59,12 @@
       "stderr": "want/apply-update.stderr"
     },
     {
+      "name": "plan-replace-json",
+      "args": ["plan", "-c", "stacks/replace/dev.ub", "-o", "replace.ubp", "--format", "json"],
+      "stdout": "want/plan-replace-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "plan-replace",
       "args": ["plan", "--ascii", "-c", "stacks/replace/dev.ub", "-o", "replace.ubp"],
       "stdout": "want/plan-replace.stdout",
@@ -51,6 +75,15 @@
       "args": ["apply", "--output", "unobin", "replace.ubp"],
       "stdout": "want/apply-replace.stdout",
       "stderr": "want/apply-replace.stderr"
+    },
+    {
+      "name": "plan-destroy-json",
+      "args": [
+        "plan", "--destroy", "-c", "stacks/replace/dev.ub", "-o", "destroy.ubp",
+        "--format", "json"
+      ],
+      "stdout": "want/plan-destroy-json.stdout",
+      "normalize": "json"
     },
     {
       "name": "plan-destroy",

@@ -29,6 +29,13 @@
       "action": "updated"
     }
   ],
+  "failure": {
+    "change": {
+      "path": "blocked",
+      "action": "unchanged"
+    },
+    "error": "rename $TMP/.blocked.tmp $TMP/blocked: file exists"
+  },
   "sort": {
     "input": [
       {
