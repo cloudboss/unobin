@@ -1,0 +1,6 @@
+{"kind":"factory-version","format-version":1,"factory":{"name":"demo","version":"v1","content-revision":"012345abcdef","library-path":"/repo/root/demo"},"diagnostics":[{"code":"notice","severity":"info","message":"repo /repo/root and work /tmp/work"}]}
+{"kind":"state-snapshots","format-version":1,"current":"revision-b","snapshots":[{"revision":"revision-a","current":false},{"revision":"revision-b","current":true}]}
+{"kind":"state-gc-result","format-version":1,"current":"revision-a","failed-revision":null}
+{"kind":"apply-ui","format-version":1,"timestamp":"2026-07-10T12:34:56.123456789Z","url":"http://127.0.0.1:4321/0123456789abcdef0123456789abcdef/"}
+{"kind":"apply-result","format-version":1,"timestamp":"2026-07-10T12:34:57Z","started-at":"2026-07-10T12:34:56Z","finished-at":"2026-07-10T12:34:57Z","elapsed":"1s","state-rev":"revision-c","plan-digest":"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}
+{"kind":"compile-result","format-version":1,"content-revision":null}

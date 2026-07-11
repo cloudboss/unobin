@@ -1,8 +1,11 @@
 package root
 
 import (
+	"fmt"
 	"runtime/debug"
 
+	"github.com/cloudboss/unobin/internal/cmdout"
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/spf13/cobra"
 )
 
@@ -13,11 +16,45 @@ var (
 	VersionCmd = &cobra.Command{
 		Use:   "version",
 		Short: "Print the unobin version",
-		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Println(cliVersion())
-		},
+		Args:  cobra.NoArgs,
+		RunE:  runVersion,
 	}
 )
+
+type versionResult struct {
+	Kind          string                  `json:"kind"           ub:"kind"`
+	FormatVersion int                     `json:"format-version" ub:"format-version"`
+	Name          string                  `json:"name"           ub:"name"`
+	Version       string                  `json:"version"        ub:"version"`
+	Diagnostics   []diagnostic.Diagnostic `json:"diagnostics"    ub:"diagnostics"`
+}
+
+func init() {
+	VersionCmd.Flags().String("format", "text", cmdout.FormatHelp())
+}
+
+func runVersion(cmd *cobra.Command, _ []string) error {
+	formatValue, err := cmd.Flags().GetString("format")
+	if err != nil {
+		return err
+	}
+	format, err := cmdout.ParseFormat(formatValue)
+	if err != nil {
+		return err
+	}
+	version := cliVersion()
+	if format == cmdout.FormatText {
+		_, err := fmt.Fprintln(cmd.OutOrStdout(), version)
+		return err
+	}
+	return cmdout.WriteDocument(cmd.OutOrStdout(), format, versionResult{
+		Kind:          "version",
+		FormatVersion: 1,
+		Name:          "unobin",
+		Version:       version,
+		Diagnostics:   diagnostic.Normalize(nil),
+	})
+}
 
 // readBuildInfo is swapped by tests to exercise cliVersion without a
 // real build.

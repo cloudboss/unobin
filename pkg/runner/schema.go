@@ -17,20 +17,28 @@ func newSchemaCmd(info Info) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "schema",
 		Short: "Print the factory's input declarations",
+	}
+	show := &cobra.Command{
+		Use:   "show",
+		Short: "Print the factory's input declarations",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return doSchema(cmd, info)
 		},
 	}
+	addStandardFormatFlag(show)
 	var outPath string
 	tmpl := &cobra.Command{
 		Use:   "template",
 		Short: "Print a starter stack file for this factory",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return doSchemaTemplate(cmd, info, outPath)
 		},
 	}
 	tmpl.Flags().StringVarP(&outPath, "out", "o", "",
 		"Write the template to this file instead of stdout.")
+	cmd.AddCommand(show)
 	cmd.AddCommand(tmpl)
 	return cmd
 }

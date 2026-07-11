@@ -20,10 +20,12 @@ func newPinCmd(info Info) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pin",
 		Short: "Add this binary's identity to a stack file",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return doPin(cmd, info, configPath, versionOverride, contentRevisionOverride)
 		},
 	}
+	addStandardFormatFlag(cmd)
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
 		"Path to the stack file to pin into.")
 	cmd.Flags().StringVar(&versionOverride, "version", "",

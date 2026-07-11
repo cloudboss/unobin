@@ -20,6 +20,7 @@ var (
 	CheckCmd = &cobra.Command{
 		Use:   "check",
 		Short: "Check Unobin source without compiling it",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCheck(cmd, checkCfg)
 		},
@@ -32,6 +33,7 @@ type checkConfig struct {
 }
 
 func init() {
+	addFormatFlag(CheckCmd)
 	CheckCmd.Flags().StringVarP(&checkCfg.path, "path", "p", ".",
 		"Path to a Unobin source file or directory.")
 	CheckCmd.Flags().StringVar(&checkCfg.replaceUnobin, "replace-unobin", "",

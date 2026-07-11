@@ -56,10 +56,12 @@ func newStateGCCmd(info Info) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "gc",
 		Short: "Delete old snapshot revisions, keeping the most recent ones",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return doStateGC(cmd, info, configPath, keep)
 		},
 	}
+	addStandardFormatFlag(cmd)
 	cmd.Flags().IntVar(&keep, "keep", 10,
 		"Number of recent snapshot revisions to keep. The current revision"+
 			" is always kept in addition to these.")
@@ -124,6 +126,7 @@ func newStateMoveCmd(info Info) *cobra.Command {
 			return doStateMove(cmd, info, configPath, args[0], args[1])
 		},
 	}
+	addStandardFormatFlag(cmd)
 	addConfigFlag(cmd, &configPath)
 	return cmd
 }
@@ -193,6 +196,7 @@ func newStateRemoveCmd(info Info) *cobra.Command {
 			return doStateRemove(cmd, info, configPath, args[0])
 		},
 	}
+	addStandardFormatFlag(cmd)
 	addConfigFlag(cmd, &configPath)
 	return cmd
 }
@@ -245,6 +249,7 @@ func newStateForceUnlockCmd(info Info) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "force-unlock",
 		Short: "Remove the stack's lock without checking who holds it",
+		Args:  cobra.NoArgs,
 		Long: "Use this only when a previous run died without releasing the lock. " +
 			"Make sure no apply or refresh is running against this stack first.",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -259,6 +264,7 @@ func newStateForceUnlockCmd(info Info) *cobra.Command {
 			return nil
 		},
 	}
+	addStandardFormatFlag(cmd)
 	addConfigFlag(cmd, &configPath)
 	return cmd
 }
@@ -268,6 +274,7 @@ func newStateListCmd(info Info) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List current state entries",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			store, err := loadStateStore(info, configPath)
 			if err != nil {
@@ -291,6 +298,7 @@ func newStateListCmd(info Info) *cobra.Command {
 			return nil
 		},
 	}
+	addStandardFormatFlag(cmd)
 	addConfigFlag(cmd, &configPath)
 	return cmd
 }
@@ -300,6 +308,7 @@ func newStateSnapshotsListCmd(info Info) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List snapshot revisions, marking the current one with *",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			store, err := loadStateStore(info, configPath)
 			if err != nil {
@@ -321,6 +330,7 @@ func newStateSnapshotsListCmd(info Info) *cobra.Command {
 			return nil
 		},
 	}
+	addStandardFormatFlag(cmd)
 	addConfigFlag(cmd, &configPath)
 	return cmd
 }
@@ -353,6 +363,7 @@ func newStateShowCmd(info Info) *cobra.Command {
 			return fmt.Errorf("no entry at %s", ref.String())
 		},
 	}
+	addStandardFormatFlag(cmd)
 	addConfigFlag(cmd, &configPath)
 	return cmd
 }

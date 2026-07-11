@@ -1,0 +1,110 @@
+{
+  "commands": [
+    {
+      "path": "version",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "check",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "compile",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "deps list",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "deps sync",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "deps get",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "deps verify",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "deps clean",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "generate factory",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "generate golibrary",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "generate ublibrary",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "print-graph",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin, dot."
+      }
+    },
+    {
+      "path": "fmt",
+      "payload": true,
+      "format": null
+    },
+    {
+      "path": "lsp",
+      "payload": true,
+      "format": null
+    }
+  ]
+}

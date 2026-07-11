@@ -1,0 +1,16 @@
+{
+  "cases": [
+    {
+      "value": "",
+      "error": ""
+    },
+    {
+      "value": "json",
+      "error": ""
+    },
+    {
+      "value": "yaml",
+      "error": "commands[0].normalize: unknown value \"yaml\" (want json)"
+    }
+  ]
+}

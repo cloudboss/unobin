@@ -1,0 +1,142 @@
+{
+  "commands": [
+    {
+      "path": "version",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "validate",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "schema show",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "plan",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "apply",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "refresh",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "output",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "print-graph",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin, dot."
+      }
+    },
+    {
+      "path": "pin",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "state list",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "state show",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "state move",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "state remove",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "state snapshots list",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "state snapshots gc",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "state force-unlock",
+      "payload": false,
+      "format": {
+        "default": "text",
+        "help": "Output format: text, json, unobin."
+      }
+    },
+    {
+      "path": "schema template",
+      "payload": true,
+      "format": null
+    },
+    {
+      "path": "state pull",
+      "payload": true,
+      "format": null
+    }
+  ]
+}

@@ -22,6 +22,7 @@ var (
 	PrintGraphCmd = &cobra.Command{
 		Use:   "print-graph",
 		Short: "Print a factory's dependency graph without compiling it",
+		Args:  cobra.NoArgs,
 		Long: `Print a factory's dependency graph from its source.
 
 Imports are resolved in memory; composite call sites are expanded
@@ -48,8 +49,8 @@ type printGraphConfig struct {
 func init() {
 	PrintGraphCmd.Flags().StringVarP(&printGraphCfg.stackPath, "path", "p", ".",
 		"Path to the factory source file or directory.")
-	PrintGraphCmd.Flags().StringVar(&printGraphCfg.format, "format", "plain",
-		"Output format: 'plain' for an indented text listing, 'dot' for Graphviz.")
+	PrintGraphCmd.Flags().StringVar(&printGraphCfg.format, "format", "text",
+		"Output format: text, json, unobin, dot.")
 	PrintGraphCmd.Flags().StringVar(&printGraphCfg.replaceUnobin, "replace-unobin", "",
 		"Local path to substitute for github.com/cloudboss/unobin so the "+
 			"resolver reads from a working tree.")
@@ -143,12 +144,14 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	dag := checker.DAG()
 	out := cmd.OutOrStdout()
 	switch cfg.format {
-	case "plain":
+	case "text":
 		graphprint.Plain(out, dag)
 	case "dot":
 		graphprint.DOT(out, dag, compile.DeriveStackName(stackPath))
 	default:
-		return fmt.Errorf("unknown --format %q (want 'plain' or 'dot')", cfg.format)
+		return fmt.Errorf(
+			"--format: unknown '%s' (want text, json, unobin, dot)", cfg.format,
+		)
 	}
 	return nil
 }

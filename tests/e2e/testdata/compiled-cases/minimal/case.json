@@ -12,8 +12,31 @@
     },
     {
       "name": "version-help",
-      "args": ["version", "--help"],
+      "args": ["version", "--format", "json", "--help"],
       "stdout": "want/version-help.stdout"
+    },
+    {
+      "name": "version-json",
+      "args": ["version", "--format", "json"],
+      "stdout": "want/version-json.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "version-unobin",
+      "args": ["version", "--format", "unobin"],
+      "stdout": "want/version-unobin.stdout"
+    },
+    {
+      "name": "version-unknown-format",
+      "args": ["version", "--format", "yaml"],
+      "stderr": "want/version-unknown-format.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "version-wrong-args",
+      "args": ["version", "extra", "--format", "json"],
+      "stderr": "want/version-wrong-args.stderr",
+      "exitCode": 1
     },
     {
       "name": "validate",
@@ -26,6 +49,12 @@
       "args": ["schema", "template"],
       "stdout": "want/schema-template.stdout",
       "stderr": "want/schema-template.stderr"
+    },
+    {
+      "name": "schema-template-payload-format",
+      "args": ["schema", "template", "--format", "json"],
+      "stderr": "want/payload-format.stderr",
+      "exitCode": 1
     },
     {
       "name": "schema-show",
@@ -68,6 +97,12 @@
       "args": ["output", "--json", "-c", "stacks/dev.ub"],
       "stdout": "want/output.json",
       "stderr": "want/output.stderr"
+    },
+    {
+      "name": "state-pull-payload-format",
+      "args": ["state", "pull", "--format", "json"],
+      "stderr": "want/payload-format.stderr",
+      "exitCode": 1
     }
   ],
   "deterministic": true

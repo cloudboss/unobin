@@ -48,8 +48,10 @@ func runSourceCase(t *testing.T, cfg config, executable string, c SourceCase) {
 			t.Fatalf("%s: %v", cmd.Name, err)
 		}
 		logProgress(t, "%s: command %s done: exit %d", c.Name, cmd.Name, got.ExitCode)
-		got = normalizeCommandResult(got, cfg.repoRoot)
-		got = normalizeWorkspaceResult(got, workspace)
+		got, err = normalizeCaseCommandResult(got, cmd, cfg.repoRoot, workspace)
+		if err != nil {
+			t.Fatalf("%s: normalize output: %v", cmd.Name, err)
+		}
 		if err := compareCommandGoldens(c.Dir, cmd, got, *update); err != nil {
 			t.Fatal(err)
 		}
@@ -338,6 +340,7 @@ func newSourceRootCommand() *cobra.Command {
 	resetSourceCommand(cmdroot.FmtCmd)
 	resetSourceCommand(cmdroot.PrintGraphCmd)
 	resetSourceCommand(cmdroot.DepsCmd)
+	resetSourceCommand(cmdroot.LSPCmd)
 	root := &cobra.Command{
 		Use:           "unobin",
 		SilenceUsage:  true,
@@ -351,6 +354,7 @@ func newSourceRootCommand() *cobra.Command {
 		cmdroot.FmtCmd,
 		cmdroot.PrintGraphCmd,
 		cmdroot.DepsCmd,
+		cmdroot.LSPCmd,
 	)
 	return root
 }

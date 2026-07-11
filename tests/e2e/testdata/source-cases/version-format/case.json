@@ -1,0 +1,53 @@
+{
+  "name": "version-format",
+  "rootPath": ".",
+  "executor": "process",
+  "cliVersion": "v0.0.0",
+  "commands": [
+    {
+      "name": "text",
+      "args": ["version"],
+      "stdout": "want/text.stdout"
+    },
+    {
+      "name": "json",
+      "args": ["version", "--format", "json"],
+      "stdout": "want/json.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "unobin",
+      "args": ["version", "--format", "unobin"],
+      "stdout": "want/unobin.stdout"
+    },
+    {
+      "name": "help",
+      "args": ["version", "--format", "json", "--help"],
+      "stdout": "want/help.stdout"
+    },
+    {
+      "name": "unknown-format",
+      "args": ["version", "--format", "yaml"],
+      "stderr": "want/unknown-format.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "wrong-args",
+      "args": ["version", "extra", "--format", "json"],
+      "stderr": "want/wrong-args.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "fmt-payload-format",
+      "args": ["fmt", "--format", "json"],
+      "stderr": "want/payload-format.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "lsp-payload-format",
+      "args": ["lsp", "--format", "json"],
+      "stderr": "want/payload-format.stderr",
+      "exitCode": 1
+    }
+  ]
+}

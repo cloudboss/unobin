@@ -32,6 +32,26 @@ func normalizeCommandResult(result CommandResult, repoRoot string) CommandResult
 	return result
 }
 
+func normalizeCaseCommandResult(
+	result CommandResult,
+	command Command,
+	repoRoot string,
+	workspace string,
+) (CommandResult, error) {
+	if command.Normalize == "json" {
+		stdout, err := normalizeJSONOutput(result.Stdout, repoRoot, workspace)
+		if err != nil {
+			return CommandResult{}, err
+		}
+		result.Stdout = stdout
+		result.Stderr = normalizeDynamicText(result.Stderr, repoRoot)
+		result.Stderr = normalizeWorkspaceText(result.Stderr, workspace)
+		return result, nil
+	}
+	result = normalizeCommandResult(result, repoRoot)
+	return normalizeWorkspaceResult(result, workspace), nil
+}
+
 func normalizeWorkspaceResult(result CommandResult, workspace string) CommandResult {
 	result.Stdout = normalizeWorkspaceText(result.Stdout, workspace)
 	result.Stderr = normalizeWorkspaceText(result.Stderr, workspace)

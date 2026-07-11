@@ -73,9 +73,10 @@ func newRootCmd(info Info) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+	versionCmd := newVersionCmd(info)
 	applyCmd := newApplyCmd(info)
 	printGraphCmd := newPrintGraphCmd(info)
-	root.AddCommand(newVersionCmd(info))
+	root.AddCommand(versionCmd)
 	root.AddCommand(newPlanCmd(info))
 	root.AddCommand(applyCmd)
 	root.AddCommand(newRefreshCmd(info))
@@ -86,6 +87,7 @@ func newRootCmd(info Info) *cobra.Command {
 	root.AddCommand(printGraphCmd)
 	root.AddCommand(newPinCmd(info))
 	wrapTextStartupChecks(root, info, map[*cobra.Command]bool{
+		versionCmd:    true,
 		applyCmd:      true,
 		printGraphCmd: true,
 	})
@@ -139,22 +141,106 @@ func linkedUnobinDiagnostic(expected string) (diagnostic.Diagnostic, error) {
 }
 
 func writeLinkedUnobinText(cmd *cobra.Command, expected string) error {
+	return checkLinkedUnobin(cmd, expected, cmdout.FormatText, nil)
+}
+
+func checkLinkedUnobin(
+	cmd *cobra.Command,
+	expected string,
+	format cmdout.Format,
+	collector *diagnostic.Collector,
+) error {
 	d, err := linkedUnobinDiagnostic(expected)
-	if err != nil || d.Message == "" {
+	if err != nil {
+		if format.Machine() {
+			var collected []diagnostic.Diagnostic
+			if collector != nil {
+				collected = collector.Diagnostics()
+			}
+			return cmdout.WriteCommandError(cmd, format, collected, err)
+		}
 		return err
+	}
+	if d.Message == "" {
+		return nil
+	}
+	if format.Machine() {
+		diagnostic.Report(collector, d)
+		return nil
 	}
 	return diagnostic.WriteText(cmd.ErrOrStderr(), d)
 }
 
+type factoryIdentity struct {
+	Name            string  `json:"name"             ub:"name"`
+	Version         string  `json:"version"          ub:"version"`
+	ContentRevision string  `json:"content-revision" ub:"content-revision"`
+	LibraryPath     *string `json:"library-path"     ub:"library-path"`
+}
+
+func factoryIdentityFor(info Info) factoryIdentity {
+	var libraryPath *string
+	if info.LibraryPath != "" {
+		value := info.LibraryPath
+		libraryPath = &value
+	}
+	return factoryIdentity{
+		Name:            info.FactoryName,
+		Version:         info.FactoryVersion,
+		ContentRevision: info.ContentRevision,
+		LibraryPath:     libraryPath,
+	}
+}
+
+type factoryVersionResult struct {
+	Kind          string                  `json:"kind"           ub:"kind"`
+	FormatVersion int                     `json:"format-version" ub:"format-version"`
+	Factory       factoryIdentity         `json:"factory"        ub:"factory"`
+	Diagnostics   []diagnostic.Diagnostic `json:"diagnostics"    ub:"diagnostics"`
+}
+
+func addStandardFormatFlag(command *cobra.Command) {
+	command.Flags().String("format", "text", cmdout.FormatHelp())
+}
+
 func newVersionCmd(info Info) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print factory identity",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Fprintf(cmd.OutOrStdout(), "%s %s (content-revision %s)\n",
-				info.FactoryName, info.FactoryVersion, info.ContentRevision)
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			formatValue, err := cmd.Flags().GetString("format")
+			if err != nil {
+				return err
+			}
+			format, err := cmdout.ParseFormat(formatValue)
+			if err != nil {
+				return err
+			}
+			collector := &diagnostic.Collector{}
+			if err := checkLinkedUnobin(cmd, info.UnobinVersion, format, collector); err != nil {
+				return err
+			}
+			if format == cmdout.FormatText {
+				_, err := fmt.Fprintf(
+					cmd.OutOrStdout(),
+					"%s %s (content-revision %s)\n",
+					info.FactoryName,
+					info.FactoryVersion,
+					info.ContentRevision,
+				)
+				return err
+			}
+			return cmdout.WriteDocument(cmd.OutOrStdout(), format, factoryVersionResult{
+				Kind:          "factory-version",
+				FormatVersion: 1,
+				Factory:       factoryIdentityFor(info),
+				Diagnostics:   collector.Diagnostics(),
+			})
 		},
 	}
+	cmd.Flags().String("format", "text", cmdout.FormatHelp())
+	return cmd
 }
 
 func newPlanCmd(info Info) *cobra.Command {
@@ -169,6 +255,7 @@ func newPlanCmd(info Info) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "plan",
 		Short: "Show what apply would do",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config, err := parseStackFile(configPath)
 			if err != nil {
@@ -180,6 +267,7 @@ func newPlanCmd(info Info) *cobra.Command {
 			return doPlan(cmd, info, config, configPath, outPath, parallelism, destroy, ascii)
 		},
 	}
+	addStandardFormatFlag(cmd)
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
 		"Path to a stack file for inputs and state settings.")
 	cmd.Flags().StringVarP(&outPath, "out", "o", "",
@@ -217,6 +305,7 @@ func newApplyCmd(info Info) *cobra.Command {
 			return doApplyPlan(cmd, info, args[0], parallelism, format, withUI)
 		},
 	}
+	addStandardFormatFlag(cmd)
 	cmd.Flags().IntVar(&parallelism, "parallelism", 0,
 		"Override the in-flight cap baked into the plan."+
 			" Zero (the default) uses the value the plan was computed with.")
@@ -468,6 +557,7 @@ func newRefreshCmd(info Info) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "refresh",
 		Short: "Update state to match what each resource currently reports",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config, err := parseStackFile(configPath)
 			if err != nil {
@@ -479,6 +569,7 @@ func newRefreshCmd(info Info) *cobra.Command {
 			return doRefresh(cmd, info, config, configPath)
 		},
 	}
+	addStandardFormatFlag(cmd)
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
 		"Path to a stack file for inputs and state settings.")
 	cmd.Flags().BoolVar(&allowVersionMismatch, "allow-version-mismatch", false,
@@ -542,6 +633,7 @@ func newValidateCmd(info Info) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Check factory source and stack file without reading state or resources",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config, err := parseStackFile(configPath)
 			if err != nil {
@@ -553,6 +645,7 @@ func newValidateCmd(info Info) *cobra.Command {
 			return doValidate(cmd, info, config, configPath)
 		},
 	}
+	addStandardFormatFlag(cmd)
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
 		"Path to a stack file to validate alongside the factory source.")
 	cmd.Flags().BoolVar(&allowVersionMismatch, "allow-version-mismatch", false,
@@ -647,9 +740,12 @@ func newPrintGraphCmd(info Info) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "print-graph",
 		Short: "Print the factory's dependency graph",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if format != "plain" && format != "dot" {
-				return fmt.Errorf("unknown --format %q (want 'plain' or 'dot')", format)
+			if format != "text" && format != "dot" {
+				return fmt.Errorf(
+					"--format: unknown '%s' (want text, json, unobin, dot)", format,
+				)
 			}
 			if err := writeLinkedUnobinText(cmd, info.UnobinVersion); err != nil {
 				return err
@@ -657,9 +753,8 @@ func newPrintGraphCmd(info Info) *cobra.Command {
 			return doPrintGraph(cmd, info, format)
 		},
 	}
-	cmd.Flags().StringVar(&format, "format", "plain",
-		"Output format: 'plain' for an indented text listing,"+
-			" 'dot' for Graphviz.")
+	cmd.Flags().StringVar(&format, "format", "text",
+		"Output format: text, json, unobin, dot.")
 	return cmd
 }
 
@@ -671,12 +766,14 @@ func doPrintGraph(cmd *cobra.Command, info Info, format string) error {
 	dag := parsed.dag
 	out := cmd.OutOrStdout()
 	switch format {
-	case "plain":
+	case "text":
 		graphprint.Plain(out, dag)
 	case "dot":
 		graphprint.DOT(out, dag, info.FactoryName)
 	default:
-		return fmt.Errorf("unknown --format %q (want 'plain' or 'dot')", format)
+		return fmt.Errorf(
+			"--format: unknown '%s' (want text, json, unobin, dot)", format,
+		)
 	}
 	return nil
 }
@@ -698,6 +795,7 @@ func newOutputCmd(info Info) *cobra.Command {
 			return doOutput(cmd, info, config, configPath, args, asJSON)
 		},
 	}
+	addStandardFormatFlag(cmd)
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
 		"Path to a stack file identifying the stack.")
 	cmd.Flags().BoolVar(&asJSON, "json", false,

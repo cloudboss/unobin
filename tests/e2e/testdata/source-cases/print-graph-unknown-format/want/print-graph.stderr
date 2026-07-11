@@ -1,1 +1,1 @@
-unknown --format "yaml" (want 'plain' or 'dot')
+--format: unknown 'yaml' (want text, json, unobin, dot)

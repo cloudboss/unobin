@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/spf13/cobra"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -16,6 +17,7 @@ var (
 	UblibraryCmd = &cobra.Command{
 		Use:   "ublibrary",
 		Short: "Scaffold a new UB library",
+		Args:  cobra.NoArgs,
 		Long: `Scaffold a new UB library directory.
 
 The generated directory contains one starter resource composite export
@@ -39,6 +41,7 @@ type ublibraryConfig struct {
 }
 
 func init() {
+	UblibraryCmd.Flags().String("format", "text", cmdout.FormatHelp())
 	UblibraryCmd.Flags().StringVarP(&ublibraryCfg.output, "output", "o", "",
 		"Output directory for the generated library")
 	UblibraryCmd.Flags().StringVar(&ublibraryCfg.typeName, "type", "example",

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/spf13/cobra"
 	"golang.org/x/mod/semver"
 
@@ -22,6 +23,7 @@ var (
 	FactoryCmd = &cobra.Command{
 		Use:   "factory",
 		Short: "Scaffold a new factory",
+		Args:  cobra.NoArgs,
 		Long: `Scaffold a new factory directory.
 
 The generated directory contains a factory.ub source file with empty
@@ -44,6 +46,7 @@ type factoryConfig struct {
 }
 
 func init() {
+	FactoryCmd.Flags().String("format", "text", cmdout.FormatHelp())
 	FactoryCmd.Flags().StringVarP(&factoryCfg.output, "output", "o", "",
 		"Output directory for the generated factory")
 	FactoryCmd.Flags().BoolVar(&factoryCfg.force, "force", false,

@@ -45,6 +45,7 @@ var (
 	depsListCmd = &cobra.Command{
 		Use:   "list",
 		Short: "List the project-lock dependencies",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDepsList(cmd, depsListCfg)
 		},
@@ -54,6 +55,7 @@ var (
 	depsVerifyCmd = &cobra.Command{
 		Use:   "verify",
 		Short: "Check the cached dependencies against project-lock",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDepsVerify(cmd, depsVerifyCfg)
 		},
@@ -62,6 +64,7 @@ var (
 	depsCleanCmd = &cobra.Command{
 		Use:   "clean",
 		Short: "Remove the cached dependency sources",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDepsClean(cmd)
 		},
@@ -113,6 +116,11 @@ const (
 )
 
 func init() {
+	addFormatFlag(depsSyncCmd)
+	addFormatFlag(depsListCmd)
+	addFormatFlag(depsVerifyCmd)
+	addFormatFlag(depsCleanCmd)
+	addFormatFlag(depsGetCmd)
 	depsSyncCmd.Flags().StringVarP(&depsSyncCfg.stackPath, "path", "p", ".", depsPathHelp)
 	depsSyncCmd.Flags().StringVar(&depsSyncCfg.replaceUnobin, "replace-unobin", "", depsReplaceHelp)
 	depsListCmd.Flags().StringVarP(&depsListCfg.stackPath, "path", "p", ".", depsPathHelp)

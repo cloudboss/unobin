@@ -1,0 +1,8 @@
+Print the unobin version
+
+Usage:
+  unobin version [flags]
+
+Flags:
+      --format string   Output format: text, json, unobin. (default "text")
+  -h, --help            help for version

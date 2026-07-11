@@ -16,6 +16,7 @@ var (
 	CompileCmd = &cobra.Command{
 		Use:   "compile",
 		Short: "Generate a factory binary's main.go from factory source",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCompile(cmd, compileCfg)
 		},
@@ -35,6 +36,7 @@ type compileConfig struct {
 }
 
 func init() {
+	addFormatFlag(CompileCmd)
 	CompileCmd.Flags().StringVarP(&compileCfg.factoryPath, "path", "p", ".",
 		"Path to the factory source file or directory.")
 

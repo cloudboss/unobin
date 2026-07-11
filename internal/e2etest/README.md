@@ -188,6 +188,8 @@ Each command has these fields:
 - `dir`: working directory relative to the workspace.
 - `env`: extra environment variables.
 - `stdout` and `stderr`: golden paths relative to the case directory.
+- `normalize`: set to `json` when stdout is a JSON document or JSON Lines stream with approved
+  dynamic contract fields. The harness validates and normalizes it structurally.
 - `exitCode`: expected exit code. Omit for success.
 - `skipPin`: compiled cases only; disables automatic stack pinning.
 - `tamperPlanFiles`: compiled cases only; flips plan bytes before the command.

@@ -4,4 +4,5 @@ Usage:
   minimal version [flags]
 
 Flags:
-  -h, --help   help for version
+      --format string   Output format: text, json, unobin. (default "text")
+  -h, --help            help for version

@@ -77,6 +77,7 @@ type Command struct {
 	Env             map[string]string `json:"env"`
 	Stdout          string            `json:"stdout"`
 	Stderr          string            `json:"stderr"`
+	Normalize       string            `json:"normalize"`
 	ExitCode        int               `json:"exitCode"`
 	SkipPin         bool              `json:"skipPin"`
 	TamperPlanFiles []string          `json:"tamperPlanFiles"`
@@ -392,6 +393,9 @@ func validateCommands(commands []Command) error {
 		}
 		if err := checkRelPath(prefix+".stderr", cmd.Stderr); err != nil {
 			return err
+		}
+		if cmd.Normalize != "" && cmd.Normalize != "json" {
+			return fmt.Errorf("%s.normalize: unknown value %q (want json)", prefix, cmd.Normalize)
 		}
 		for j, path := range cmd.TamperPlanFiles {
 			field := fmt.Sprintf("%s.tamperPlanFiles[%d]", prefix, j)

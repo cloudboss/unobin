@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/pkg/gogen"
 	"github.com/cloudboss/unobin/pkg/gogen/tf"
 	"github.com/spf13/cobra"
@@ -15,14 +16,15 @@ var (
 	GolibraryCmd = &cobra.Command{
 		Use:   "golibrary",
 		Short: "Generate a Go library skeleton from a TF provider schema",
-		Long: `Generate a Go library from a Terraform provider schema.
-
-The generated Go library contains typed structs with ub tags and
-CRUD method stubs for every resource in the provider.
-
-Examples:
-  unobin generate golibrary --from tf --provider random --go-module-path example.com/libraries/random
-  unobin generate golibrary --from tf --provider aws -o ./aws-library --go-module-path example.com/libraries/aws`,
+		Args:  cobra.NoArgs,
+		Long: "Generate a Go library from a Terraform provider schema.\n\n" +
+			"The generated Go library contains typed structs with ub tags and\n" +
+			"CRUD method stubs for every resource in the provider.\n\n" +
+			"Examples:\n" +
+			"  unobin generate golibrary --from tf --provider random " +
+			"--go-module-path example.com/libraries/random\n" +
+			"  unobin generate golibrary --from tf --provider aws -o ./aws-library " +
+			"--go-module-path example.com/libraries/aws",
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGenerate(cmd, golibraryCfg)
@@ -43,6 +45,7 @@ type golibraryConfig struct {
 }
 
 func init() {
+	GolibraryCmd.Flags().String("format", "text", cmdout.FormatHelp())
 	GolibraryCmd.Flags().StringVar(&golibraryCfg.from, "from", "tf",
 		"Schema source")
 	GolibraryCmd.Flags().StringVar(&golibraryCfg.provider, "provider", "",

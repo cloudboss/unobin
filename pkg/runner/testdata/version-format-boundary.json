@@ -1,0 +1,41 @@
+{
+  "cases": [
+    {
+      "name": "JSON startup mismatch",
+      "args": [
+        "version",
+        "--format",
+        "json"
+      ],
+      "stdout": "{\"kind\":\"command-error\",\"format-version\":1,\"command\":\"version\",\"code\":\"unobin.command.failed\",\"message\":\"version failed\",\"diagnostics\":[{\"code\":\"unobin.error\",\"severity\":\"error\",\"message\":\"this factory was compiled against github.com/cloudboss/unobin v0.1.0 but links v0.2.0; rebuild it with the matching unobin\"}],\"files\":[]}\n",
+      "stderr": "",
+      "error": "this factory was compiled against github.com/cloudboss/unobin v0.1.0 but links v0.2.0; rebuild it with the matching unobin",
+      "reported": true,
+      "read-calls": 1
+    },
+    {
+      "name": "text startup mismatch",
+      "args": [
+        "version"
+      ],
+      "stdout": "",
+      "stderr": "this factory was compiled against github.com/cloudboss/unobin v0.1.0 but links v0.2.0; rebuild it with the matching unobin\n",
+      "error": "this factory was compiled against github.com/cloudboss/unobin v0.1.0 but links v0.2.0; rebuild it with the matching unobin",
+      "reported": false,
+      "read-calls": 1
+    },
+    {
+      "name": "unsupported format wins",
+      "args": [
+        "version",
+        "--format",
+        "yaml"
+      ],
+      "stdout": "",
+      "stderr": "--format: unknown 'yaml' (want text, json, unobin)\n",
+      "error": "--format: unknown 'yaml' (want text, json, unobin)",
+      "reported": false,
+      "read-calls": 0
+    }
+  ]
+}

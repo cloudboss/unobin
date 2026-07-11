@@ -1,0 +1,6 @@
+{"kind":"factory-version","format-version":1,"factory":{"name":"demo","version":"v1","content-revision":"<revision>","library-path":"<repo>/demo"},"diagnostics":[{"code":"notice","severity":"info","message":"repo <repo> and work <workspace>"}]}
+{"kind":"state-snapshots","format-version":1,"current":"<revision-1>","snapshots":[{"revision":"<revision-2>","current":false},{"revision":"<revision-1>","current":true}]}
+{"kind":"state-gc-result","format-version":1,"current":"<revision-2>","failed-revision":null}
+{"kind":"apply-ui","format-version":1,"timestamp":"<timestamp>","url":"<run-view>"}
+{"kind":"apply-result","format-version":1,"timestamp":"<timestamp>","started-at":"<timestamp>","finished-at":"<timestamp>","elapsed":"<elapsed>","state-rev":"<revision>","plan-digest":"sha256:<digest>"}
+{"kind":"compile-result","format-version":1,"content-revision":null}

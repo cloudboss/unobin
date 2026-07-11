@@ -54,7 +54,10 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 			t.Fatalf("%s: %v", cmd.Name, err)
 		}
 		logProgress(t, "%s: command %s done: exit %d", c.Name, cmd.Name, got.ExitCode)
-		got = normalizeCommandResult(got, cfg.repoRoot)
+		got, err = normalizeCaseCommandResult(got, cmd, cfg.repoRoot, workspace)
+		if err != nil {
+			t.Fatalf("%s: normalize output: %v", cmd.Name, err)
+		}
 		if err := compareCommandGoldens(c.Dir, cmd, got, *update); err != nil {
 			t.Fatal(err)
 		}
