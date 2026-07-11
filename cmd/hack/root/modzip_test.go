@@ -69,7 +69,7 @@ func TestModZipCommandCreatesValidModuleZip(t *testing.T) {
 
 	zr, err := zip.OpenReader(out)
 	require.NoError(t, err)
-	defer zr.Close()
+	t.Cleanup(func() { require.NoError(t, zr.Close()) })
 
 	names := make([]string, 0, len(zr.File))
 	for _, file := range zr.File {
