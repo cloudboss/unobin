@@ -3,6 +3,7 @@ package filechange
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 
@@ -25,6 +26,42 @@ func WriteFile(path string, content []byte, mode fs.FileMode) (Change, error) {
 	}
 	change := observedChange(path, before, after)
 	return change, writeErr
+}
+
+// Observe runs mutate once and reports the resulting actions for paths.
+func Observe(paths []string, mutate func() error) ([]Change, error) {
+	if mutate == nil {
+		return []Change{}, errors.New("file change observer requires a mutation")
+	}
+	unique := make([]string, 0, len(paths))
+	before := make(map[string]fileSnapshot, len(paths))
+	for _, path := range paths {
+		if _, ok := before[path]; ok {
+			continue
+		}
+		snapshot, err := snapshotFile(path)
+		if err != nil {
+			return []Change{}, fmt.Errorf("observe %q before mutation: %w", path, err)
+		}
+		unique = append(unique, path)
+		before[path] = snapshot
+	}
+	mutationErr := mutate()
+	changes := make([]Change, 0, len(unique))
+	var observationErrs []error
+	for _, path := range unique {
+		after, err := snapshotFile(path)
+		if err != nil {
+			observationErrs = append(observationErrs,
+				fmt.Errorf("observe %q after mutation: %w", path, err))
+			continue
+		}
+		change := observedChange(path, before[path], after)
+		if change.Path != "" {
+			changes = append(changes, change)
+		}
+	}
+	return Sort(changes), errors.Join(mutationErr, errors.Join(observationErrs...))
 }
 
 type fileSnapshot struct {

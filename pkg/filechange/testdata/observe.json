@@ -1,0 +1,62 @@
+{
+  "cases": [
+    {
+      "name": "created files",
+      "changes": [
+        {
+          "path": "a.txt",
+          "action": "created"
+        },
+        {
+          "path": "b.txt",
+          "action": "created"
+        }
+      ],
+      "error": "",
+      "mutation-runs": 1
+    },
+    {
+      "name": "updated and removed files",
+      "changes": [
+        {
+          "path": "a.txt",
+          "action": "updated"
+        },
+        {
+          "path": "b.txt",
+          "action": "removed"
+        }
+      ],
+      "error": "",
+      "mutation-runs": 1
+    },
+    {
+      "name": "unchanged and absent files",
+      "changes": [
+        {
+          "path": "a.txt",
+          "action": "unchanged"
+        }
+      ],
+      "error": "",
+      "mutation-runs": 1
+    },
+    {
+      "name": "partial failure",
+      "changes": [
+        {
+          "path": "a.txt",
+          "action": "created"
+        }
+      ],
+      "error": "mutation failed",
+      "mutation-runs": 1
+    },
+    {
+      "name": "failure without changes",
+      "changes": [],
+      "error": "mutation failed",
+      "mutation-runs": 1
+    }
+  ]
+}
