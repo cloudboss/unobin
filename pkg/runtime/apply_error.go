@@ -16,7 +16,8 @@ type ApplyError struct {
 	Address        string
 	Kind           NodeKind
 	Decision       Decision
-	Library        string
+	Alias          string
+	LibraryPath    string
 	Elapsed        time.Duration
 	Err            error
 	SkippedCount   int

@@ -128,7 +128,7 @@ func renderApplyError(out io.Writer, ae *runtime.ApplyError, format Format) {
 			Kind:      "apply-error",
 			Address:   ae.Address,
 			Decision:  string(ae.Decision),
-			Library:   ae.Library,
+			Library:   ae.Alias,
 			Elapsed:   formatDuration(ae.Elapsed),
 			Err:       ae.Err.Error(),
 			Skipped:   ae.SkippedCount,
@@ -142,8 +142,8 @@ func renderApplyError(out io.Writer, ae *runtime.ApplyError, format Format) {
 	fmt.Fprintln(out)
 	fmt.Fprintf(out, "Failed: %s (%s) after %s\n",
 		ae.Address, ae.Decision, formatDuration(ae.Elapsed))
-	if ae.Library != "" {
-		fmt.Fprintf(out, "  Library: %s\n", ae.Library)
+	if ae.Alias != "" {
+		fmt.Fprintf(out, "  Library: %s\n", ae.Alias)
 	}
 	fmt.Fprintf(out, "  Error:  %v\n", ae.Err)
 	fmt.Fprintln(out)

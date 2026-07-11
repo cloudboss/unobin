@@ -21,6 +21,7 @@ type applyLockCaseGolden struct {
 	ResultNonNull      bool   `json:"result-non-null"`
 	WrittenRevision    bool   `json:"written-revision"`
 	Error              string `json:"error"`
+	FailureStage       string `json:"failure-stage"`
 	UnlockError        bool   `json:"unlock-error"`
 	UnderlyingUnlocked bool   `json:"underlying-unlocked"`
 }
@@ -45,10 +46,12 @@ func applyUnlockFailure(t *testing.T) applyLockCaseGolden {
 	executor, plan := emptyApplyExecutor(t, wrapped)
 	result, err := executor.ApplyPlan(context.Background(), plan)
 	var unlockError *StateUnlockError
+	failure, _ := AsApplyFailure(err)
 	return applyLockCaseGolden{
 		Name: "unlock after state write", ResultNonNull: result != nil,
 		WrittenRevision: result != nil && result.WrittenRev != "",
-		Error:           runtimeErrorString(err), UnlockError: errors.As(err, &unlockError),
+		Error:           runtimeErrorString(err), FailureStage: string(failure.Stage),
+		UnlockError:        errors.As(err, &unlockError),
 		UnderlyingUnlocked: wrapped.unlocked,
 	}
 }
@@ -59,10 +62,12 @@ func applyCurrentRevisionFailure(t *testing.T) applyLockCaseGolden {
 	executor, plan := emptyApplyExecutor(t, store)
 	result, err := executor.ApplyPlan(context.Background(), plan)
 	var unlockError *StateUnlockError
+	failure, _ := AsApplyFailure(err)
 	return applyLockCaseGolden{
 		Name: "current revision failure", ResultNonNull: result != nil,
 		WrittenRevision: result != nil && result.WrittenRev != "",
-		Error:           runtimeErrorString(err), UnlockError: errors.As(err, &unlockError),
+		Error:           runtimeErrorString(err), FailureStage: string(failure.Stage),
+		UnlockError:        errors.As(err, &unlockError),
 		UnderlyingUnlocked: store.unlocked,
 	}
 }

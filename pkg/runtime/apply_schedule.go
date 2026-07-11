@@ -170,13 +170,15 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 		}
 		elapsed := time.Since(startedAt[r.step.Address])
 		if r.err != nil {
-			library := ""
+			alias := ""
+			libraryPath := ""
 			if n, ok := e.DAG.Nodes[templateAddress(r.step.Address)]; ok {
-				library = n.Alias
+				alias = n.Alias
+				libraryPath = n.LibraryPath
 			}
 			// A panic recovered at a CRUD boundary cannot know its own
 			// import alias; name it here, where the failing node is known.
-			blameLibrary(r.err, library)
+			blameLibrary(r.err, alias)
 			emit(ApplyEvent{
 				Address: r.step.Address, Kind: r.step.Kind, Composite: r.step.Composite,
 				Decision: r.step.Decision,
@@ -185,12 +187,13 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 			failedAddrs[r.step.Address] = true
 			if firstErr == nil {
 				firstFail = &ApplyError{
-					Address:  r.step.Address,
-					Kind:     r.step.Kind,
-					Decision: r.step.Decision,
-					Library:  library,
-					Elapsed:  elapsed,
-					Err:      r.err,
+					Address:     r.step.Address,
+					Kind:        r.step.Kind,
+					Decision:    r.step.Decision,
+					Alias:       alias,
+					LibraryPath: libraryPath,
+					Elapsed:     elapsed,
+					Err:         r.err,
 				}
 				firstErr = firstFail
 			}

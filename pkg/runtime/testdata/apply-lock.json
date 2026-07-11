@@ -5,6 +5,7 @@
       "result-non-null": true,
       "written-revision": true,
       "error": "release lock: unlock failed",
+      "failure-stage": "finalize",
       "unlock-error": true,
       "underlying-unlocked": true
     },
@@ -13,6 +14,7 @@
       "result-non-null": false,
       "written-revision": false,
       "error": "current revision: current failed",
+      "failure-stage": "setup",
       "unlock-error": false,
       "underlying-unlocked": true
     }

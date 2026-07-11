@@ -143,7 +143,8 @@ func TestApplyErrorEnvelope(t *testing.T) {
 	ae := &runtime.ApplyError{
 		Address:        "resource.aws.vpc.main",
 		Decision:       runtime.DecisionCreate,
-		Library:        "aws",
+		Alias:          "aws",
+		LibraryPath:    "example.com/aws",
 		Elapsed:        400 * time.Millisecond,
 		Err:            errors.New("InvalidVpcID.NotFound"),
 		SkippedCount:   3,

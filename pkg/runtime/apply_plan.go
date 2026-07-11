@@ -21,35 +21,50 @@ import (
 // computed against. The stack's lock is held for the duration.
 func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (result *ExecResult, err error) {
 	if e.Store == nil {
-		return nil, errors.New("executor: Store is required")
+		return nil, NewApplyFailure(
+			ApplyFailureSetup, errors.New("executor: Store is required"),
+		)
 	}
 	if pf.Factory.Name != e.Factory.Name ||
 		pf.Factory.Version != e.Factory.Version ||
 		pf.Factory.ContentRevision != e.Factory.ContentRevision {
-		return nil, fmt.Errorf(
+		return nil, NewApplyFailure(ApplyFailureSetup, fmt.Errorf(
 			"plan was computed for %s %s (content-revision %s), this binary is %s %s (content-revision %s)",
 			pf.Factory.Name, pf.Factory.Version, pf.Factory.ContentRevision,
-			e.Factory.Name, e.Factory.Version, e.Factory.ContentRevision)
+			e.Factory.Name, e.Factory.Version, e.Factory.ContentRevision))
 	}
 
 	release, err := AcquireStateLock(ctx, e.Store)
 	if err != nil {
-		return nil, err
+		return nil, NewApplyFailure(ApplyFailureSetup, err)
 	}
-	defer func() { err = release(err) }()
+	defer func() {
+		unlockErr := release(nil)
+		if unlockErr == nil {
+			return
+		}
+		failure, ok := AsApplyFailure(err)
+		if !ok {
+			err = NewApplyFailure(ApplyFailureFinalize, errors.Join(err, unlockErr))
+			return
+		}
+		err = NewApplyFailure(failure.Stage, errors.Join(failure.Cause, unlockErr))
+	}()
 
 	currentRev, err := checkedCurrentRevision(e.Store)
 	if err != nil {
-		return nil, err
+		return nil, NewApplyFailure(ApplyFailureSetup, err)
 	}
 	if currentRev != pf.StateRev {
-		return nil, fmt.Errorf("state-rev drift: plan was computed against %q, "+
-			"current is %q; must rerun the plan", pf.StateRev, currentRev)
+		return nil, NewApplyFailure(ApplyFailureSetup, fmt.Errorf(
+			"state-rev drift: plan was computed against %q, "+
+				"current is %q; must rerun the plan", pf.StateRev, currentRev,
+		))
 	}
 
 	rs, err := e.initRun()
 	if err != nil {
-		return nil, err
+		return nil, NewApplyFailure(ApplyFailureSetup, err)
 	}
 	e.prepareApplySnapshot(rs)
 	// The apply subcommand is invoked with only the plan file, so the
@@ -60,15 +75,15 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (result *ExecRes
 		rs.eval.Inputs = pf.Inputs
 	}
 	if err := e.applyPlannedEntryMoves(rs, pf.StateMoves); err != nil {
-		return nil, err
+		return nil, NewApplyFailure(ApplyFailureSetup, err)
 	}
 	if len(pf.StateMoves) > 0 {
 		if _, err := e.persist(rs); err != nil {
-			return nil, err
+			return nil, NewApplyFailure(ApplyFailureSetup, err)
 		}
 	}
 	if err := e.seedPriorInternalConfigurations(rs.prior, rs.eval.Inputs); err != nil {
-		return nil, err
+		return nil, NewApplyFailure(ApplyFailureSetup, err)
 	}
 
 	// Composite scopes seed from the plan: each composite step carries
@@ -86,7 +101,10 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (result *ExecRes
 		}
 		boundary, ok := e.DAG.Nodes[templateAddress(step.Address)]
 		if !ok {
-			return nil, fmt.Errorf("composite %q: not in DAG", step.Address)
+			return nil, NewApplyFailure(
+				ApplyFailureSetup,
+				fmt.Errorf("composite %q: not in DAG", step.Address),
+			)
 		}
 		rs.composites[step.Address] = &EvalContext{
 			Inputs:    step.Inputs,
@@ -99,7 +117,7 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (result *ExecRes
 	}
 
 	if err := e.runApplySchedule(ctx, rs, pf); err != nil {
-		return nil, err
+		return nil, NewApplyFailure(ApplyFailureExecute, err)
 	}
 	pruneStateEntries(rs.next, pf.Steps)
 	// A destroy leaves nothing to read outputs from, so reconciliation
@@ -108,14 +126,14 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (result *ExecRes
 	if !pf.Destroy {
 		e.reconcileChangedOutputs(ctx, rs, pf)
 		if err := e.evalPlanOutputs(rs); err != nil {
-			return nil, err
+			return nil, NewApplyFailure(ApplyFailureFinalize, err)
 		}
 	}
 	rs.next.Outputs = rs.outputs
 
 	rev, err := e.persist(rs)
 	if err != nil {
-		return nil, err
+		return nil, NewApplyFailure(ApplyFailureFinalize, err)
 	}
 	return &ExecResult{
 		Outputs:    rs.outputs,

@@ -14,7 +14,7 @@ import (
 func TestApplyErrorPopulatesFailureFields(t *testing.T) {
 	libs := map[string]*Library{
 		"slow": {
-			Name: "slow",
+			Name: "slow", LibraryPath: "example.com/slow",
 			Resources: map[string]ResourceRegistration{
 				"fail": MakeResource[slowFailResource, any, any](),
 			},
@@ -38,7 +38,8 @@ func TestApplyErrorPopulatesFailureFields(t *testing.T) {
 	assert.Equal(t, "resource.boom", ae.Address)
 	assert.Equal(t, NodeResource, ae.Kind)
 	assert.Equal(t, DecisionCreate, ae.Decision)
-	assert.Equal(t, "slow", ae.Library)
+	assert.Equal(t, "slow", ae.Alias)
+	assert.Equal(t, "example.com/slow", ae.LibraryPath)
 	assert.NotNil(t, ae.Err)
 	assert.Contains(t, ae.Err.Error(), "slow-fail")
 }

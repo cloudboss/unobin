@@ -1,0 +1,38 @@
+{
+  "cases": [
+    {
+      "name": "wrapped setup",
+      "stage": "setup",
+      "error": "outer: read plan: setup failed",
+      "as-failure": true,
+      "cause-found": true,
+      "apply-error": false,
+      "unlock-error": false,
+      "alias": "",
+      "library-path": ""
+    },
+    {
+      "name": "step failure",
+      "stage": "execute",
+      "error": "outer: resource.greeting: provider failed",
+      "as-failure": true,
+      "cause-found": true,
+      "apply-error": true,
+      "unlock-error": false,
+      "alias": "local",
+      "library-path": "example.com/local"
+    },
+    {
+      "name": "joined finalization",
+      "stage": "finalize",
+      "error": "outer: persist failed\nrelease lock: unlock failed",
+      "as-failure": true,
+      "cause-found": true,
+      "apply-error": false,
+      "unlock-error": true,
+      "alias": "",
+      "library-path": ""
+    }
+  ],
+  "nil-cause-panic": "runtime: apply failure cause is required"
+}
