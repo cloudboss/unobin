@@ -435,7 +435,7 @@ func Run(opts Options) error {
 		return err
 	}
 
-	err = codegen.WriteSource(opts.OutDir, in,
+	_, err = codegen.WriteSource(opts.OutDir, in,
 		opts.GoVersion, unobinVersion, analysis.GoModules, replaces)
 	if err != nil {
 		return err

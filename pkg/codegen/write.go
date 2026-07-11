@@ -1,10 +1,13 @@
 package codegen
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
+
+	"github.com/cloudboss/unobin/pkg/filechange"
 )
 
 // Replaces maps a library path to a local filesystem path to substitute
@@ -30,26 +33,46 @@ func WriteSource(
 	goVersion, unobinVersion string,
 	importVersions map[string]string,
 	replaces Replaces,
-) error {
+) ([]filechange.Change, error) {
+	changes := []filechange.Change{}
 	source, err := Generate(in)
 	if err != nil {
-		return err
+		return changes, err
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
+		return changes, err
 	}
-	if err := os.WriteFile(filepath.Join(dir, "main.go"), source, 0o644); err != nil {
-		return err
+	change, err := filechange.WriteFile(filepath.Join(dir, "main.go"), source, 0o644)
+	changes = appendFileChange(changes, change)
+	if err != nil {
+		return finishWriteSource(changes, err)
 	}
 	goModules, err := modulesForGoMod(in.GoImports, in.GoModules, importVersions)
 	if err != nil {
-		return err
+		return finishWriteSource(changes, err)
 	}
 	lib, err := renderGoMod(in.FactoryName, goVersion, unobinVersion, goModules, replaces)
 	if err != nil {
-		return err
+		return finishWriteSource(changes, err)
 	}
-	return os.WriteFile(filepath.Join(dir, "go.mod"), lib, 0o644)
+	change, err = filechange.WriteFile(filepath.Join(dir, "go.mod"), lib, 0o644)
+	changes = appendFileChange(changes, change)
+	return finishWriteSource(changes, err)
+}
+
+func appendFileChange(changes []filechange.Change, change filechange.Change) []filechange.Change {
+	if change.Path == "" {
+		return changes
+	}
+	return append(changes, change)
+}
+
+func finishWriteSource(
+	changes []filechange.Change,
+	err error,
+) ([]filechange.Change, error) {
+	composed, composeErr := filechange.Compose(changes)
+	return composed, errors.Join(err, composeErr)
 }
 
 func modulesForGoMod(

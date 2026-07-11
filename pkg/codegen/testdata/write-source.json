@@ -1,0 +1,70 @@
+{
+  "cases": [
+    {
+      "name": "created",
+      "changes": [
+        {
+          "path": "go.mod",
+          "action": "created"
+        },
+        {
+          "path": "main.go",
+          "action": "created"
+        }
+      ],
+      "error": ""
+    },
+    {
+      "name": "unchanged",
+      "changes": [
+        {
+          "path": "go.mod",
+          "action": "unchanged"
+        },
+        {
+          "path": "main.go",
+          "action": "unchanged"
+        }
+      ],
+      "error": ""
+    },
+    {
+      "name": "updated",
+      "changes": [
+        {
+          "path": "go.mod",
+          "action": "updated"
+        },
+        {
+          "path": "main.go",
+          "action": "updated"
+        }
+      ],
+      "error": ""
+    },
+    {
+      "name": "failure after main",
+      "changes": [
+        {
+          "path": "main.go",
+          "action": "created"
+        }
+      ],
+      "error": "codegen: no version for import \"remote\" (example.com/remote)"
+    },
+    {
+      "name": "go mod write failure",
+      "changes": [
+        {
+          "path": "go.mod",
+          "action": "unchanged"
+        },
+        {
+          "path": "main.go",
+          "action": "created"
+        }
+      ],
+      "error": "rename $OUT/.go.mod.tmp $OUT/go.mod: file exists"
+    }
+  ]
+}

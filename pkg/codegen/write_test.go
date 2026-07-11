@@ -1,17 +1,21 @@
 package codegen
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/cloudboss/unobin/internal/ubtest"
+	"github.com/cloudboss/unobin/pkg/filechange"
 	"github.com/stretchr/testify/require"
 )
 
 func TestWriteSourceLaysOutFiles(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "stack-out")
 
-	err := WriteSource(dir, Input{
+	_, err := WriteSource(dir, Input{
 		Body:        "description: 'x'\n",
 		FactoryName: "demo",
 		GoImports: map[string]string{
@@ -36,7 +40,7 @@ func TestWriteSourceLaysOutFiles(t *testing.T) {
 
 func TestWriteSourceSkipsInternalUnobinImports(t *testing.T) {
 	dir := t.TempDir()
-	err := WriteSource(dir, Input{
+	_, err := WriteSource(dir, Input{
 		Body:        "description: 'x'\n",
 		FactoryName: "demo",
 		GoImports: map[string]string{
@@ -56,7 +60,7 @@ func TestWriteSourceSkipsInternalUnobinImports(t *testing.T) {
 
 func TestWriteSourceIncludesExternalImports(t *testing.T) {
 	dir := t.TempDir()
-	err := WriteSource(dir, Input{
+	_, err := WriteSource(dir, Input{
 		Body:        "description: 'x'\n",
 		FactoryName: "demo",
 		GoImports: map[string]string{
@@ -77,7 +81,7 @@ func TestWriteSourceIncludesExternalImports(t *testing.T) {
 
 func TestWriteSourceUsesGoModulesForGoMod(t *testing.T) {
 	dir := t.TempDir()
-	err := WriteSource(dir, Input{
+	_, err := WriteSource(dir, Input{
 		Body:        "description: 'x'\n",
 		FactoryName: "demo",
 		GoImports: map[string]string{
@@ -105,7 +109,7 @@ require (
 
 func TestWriteSourceRejectsMissingVersion(t *testing.T) {
 	dir := t.TempDir()
-	err := WriteSource(dir, Input{
+	_, err := WriteSource(dir, Input{
 		Body:        "description: 'x'\n",
 		FactoryName: "demo",
 		GoImports: map[string]string{
@@ -118,7 +122,7 @@ func TestWriteSourceRejectsMissingVersion(t *testing.T) {
 
 func TestWriteSourceRequiresGoVersion(t *testing.T) {
 	dir := t.TempDir()
-	err := WriteSource(dir, Input{
+	_, err := WriteSource(dir, Input{
 		Body:        "description: 'x'",
 		FactoryName: "demo",
 		GoImports: map[string]string{
@@ -133,7 +137,7 @@ func TestWriteSourceRequiresGoVersion(t *testing.T) {
 
 func TestWriteSourceWritesReplaceDirectives(t *testing.T) {
 	dir := t.TempDir()
-	err := WriteSource(dir, Input{
+	_, err := WriteSource(dir, Input{
 		Body:        "description: 'x'\n",
 		FactoryName: "demo",
 		GoImports: map[string]string{
@@ -150,4 +154,86 @@ func TestWriteSourceWritesReplaceDirectives(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(modBytes),
 		"github.com/cloudboss/unobin => /local/checkout/unobin")
+}
+
+type writeSourceGolden struct {
+	Cases []writeSourceCaseGolden `json:"cases"`
+}
+
+type writeSourceCaseGolden struct {
+	Name    string              `json:"name"`
+	Changes []filechange.Change `json:"changes"`
+	Error   string              `json:"error"`
+}
+
+func TestWriteSourceChangesGolden(t *testing.T) {
+	body := ubtest.ReadValidFixture(t, "testdata/ub/write-source", "minimal")
+	result := writeSourceGolden{}
+	dir := filepath.Join(t.TempDir(), "out")
+	input := testMainInput(t, body, "demo")
+	changes, err := writeSource(t, dir, input)
+	result.Cases = append(result.Cases,
+		writeSourceGoldenCase("created", dir, changes, err))
+	changes, err = writeSource(t, dir, input)
+	result.Cases = append(result.Cases,
+		writeSourceGoldenCase("unchanged", dir, changes, err))
+	input.FactoryName = "renamed"
+	changes, err = writeSource(t, dir, input)
+	result.Cases = append(result.Cases,
+		writeSourceGoldenCase("updated", dir, changes, err))
+
+	missingVersionDir := filepath.Join(t.TempDir(), "out")
+	missingVersion := testMainInput(t, body, "missing-version")
+	missingVersion.GoImports = map[string]string{"remote": "example.com/remote"}
+	changes, err = WriteSource(
+		missingVersionDir, missingVersion, "1.26", "v0.1.0", map[string]string{}, nil,
+	)
+	result.Cases = append(result.Cases, writeSourceGoldenCase(
+		"failure after main", missingVersionDir, changes, err,
+	))
+
+	blockedDir := filepath.Join(t.TempDir(), "out")
+	require.NoError(t, os.MkdirAll(filepath.Join(blockedDir, "go.mod"), 0o755))
+	changes, err = WriteSource(
+		blockedDir, testMainInput(t, body, "blocked"),
+		"1.26", "v0.1.0", map[string]string{}, nil,
+	)
+	result.Cases = append(result.Cases, writeSourceGoldenCase(
+		"go mod write failure", blockedDir, changes, err,
+	))
+
+	got, err := json.MarshalIndent(result, "", "  ")
+	require.NoError(t, err)
+	got = append(got, '\n')
+	want, err := os.ReadFile("testdata/write-source.json")
+	require.NoError(t, err)
+	require.Equal(t, string(want), string(got))
+}
+
+func writeSource(
+	t *testing.T,
+	dir string,
+	input Input,
+) ([]filechange.Change, error) {
+	t.Helper()
+	return WriteSource(dir, input, "1.26", "v0.1.0", map[string]string{}, nil)
+}
+
+func writeSourceGoldenCase(
+	name string,
+	dir string,
+	changes []filechange.Change,
+	err error,
+) writeSourceCaseGolden {
+	for index := range changes {
+		rel, relErr := filepath.Rel(dir, changes[index].Path)
+		if relErr == nil {
+			changes[index].Path = filepath.ToSlash(rel)
+		}
+	}
+	message := ""
+	if err != nil {
+		message = strings.ReplaceAll(filepath.ToSlash(err.Error()), filepath.ToSlash(dir), "$OUT")
+	}
+	return writeSourceCaseGolden{Name: name, Changes: changes, Error: message}
 }
