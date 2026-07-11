@@ -1,0 +1,1 @@
+{"kind":"dependency-get-result","format-version":1,"dependency":"github.com/x/core//lib","version":"v1.2.0","indirect":false,"project-file":"project.ub","lock-file":"project-lock.ub","direct":1,"selected":1,"files":[{"path":"project-lock.ub","action":"created"},{"path":"project.ub","action":"created"}],"diagnostics":[]}

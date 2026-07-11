@@ -14,6 +14,17 @@
       "name": "deps-verify",
       "args": ["deps", "verify", "-p", "factory.ub"],
       "stderr": "want/deps-verify.stderr"
+    },
+    {
+      "name": "deps-verify-json",
+      "args": ["deps", "verify", "-p", "factory.ub", "--format", "json"],
+      "stdout": "want/deps-verify-json.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "deps-verify-unobin",
+      "args": ["deps", "verify", "-p", "factory.ub", "--format", "unobin"],
+      "stdout": "want/deps-verify-unobin.stdout"
     }
   ]
 }

@@ -19,9 +19,26 @@
   ],
   "commands": [
     {
+      "name": "deps-get-json",
+      "args": [
+        "deps",
+        "get",
+        "github.com/x/core//lib@v1.2.0",
+        "--format",
+        "json"
+      ],
+      "stdout": "want/deps-get-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "deps-get",
       "args": ["deps", "get", "github.com/x/core//lib@v1.2.0"],
       "stderr": "want/deps-get.stderr"
+    },
+    {
+      "name": "deps-get-unobin",
+      "args": ["deps", "get", "github.com/x/core//lib@v1.2.0", "--format", "unobin"],
+      "stdout": "want/deps-get-unobin.stdout"
     }
   ],
   "files": [

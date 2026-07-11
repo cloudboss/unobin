@@ -1,0 +1,1 @@
+{"kind":"command-error","format-version":1,"command":"deps sync","code":"unobin.command.failed","message":"deps sync failed","diagnostics":[{"code":"unobin.schema","severity":"error","message":"resource hello: meta key \"@trigger\" is not allowed","path":"factory.ub","span":{"start":{"line":4,"column":7,"offset":57}}}],"files":[]}

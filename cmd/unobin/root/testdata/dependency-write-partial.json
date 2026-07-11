@@ -1,0 +1,14 @@
+{
+  "project-file": "project.ub",
+  "lock-file": "project-lock.ub",
+  "direct": 0,
+  "indirect": 0,
+  "selected": 0,
+  "files": [
+    {
+      "path": "project.ub",
+      "action": "created"
+    }
+  ],
+  "error": "rename $TMP/project-lock.ub.tmp $TMP/project-lock.ub: file exists"
+}

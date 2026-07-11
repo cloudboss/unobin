@@ -1,0 +1,1 @@
+{"kind":"command-error","format-version":1,"command":"deps verify","code":"unobin.command.failed","message":"deps verify failed","diagnostics":[{"code":"unobin.error","severity":"error","message":"expected UB project marker"}],"files":[]}

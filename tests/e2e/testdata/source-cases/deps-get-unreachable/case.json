@@ -33,6 +33,13 @@
       "args": ["deps", "get", "github.com/x/other@v1.0.0"],
       "stderr": "want/deps-get.stderr",
       "exitCode": 1
+    },
+    {
+      "name": "deps-get-json",
+      "args": ["deps", "get", "github.com/x/other@v1.0.0", "--format", "json"],
+      "stdout": "want/deps-get-json.stdout",
+      "normalize": "json",
+      "exitCode": 1
     }
   ]
 }

@@ -15,6 +15,13 @@
       "args": ["deps", "verify", "-p", "factory.ub"],
       "stderr": "want/deps-verify.stderr",
       "exitCode": 1
+    },
+    {
+      "name": "deps-verify-json",
+      "args": ["deps", "verify", "-p", "factory.ub", "--format", "json"],
+      "stdout": "want/deps-verify-json.stdout",
+      "normalize": "json",
+      "exitCode": 1
     }
   ]
 }

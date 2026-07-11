@@ -1,0 +1,28 @@
+{
+  "changes": [
+    {
+      "path": "project.ub",
+      "action": "created"
+    },
+    {
+      "path": "project.ub",
+      "action": "unchanged"
+    },
+    {
+      "path": "project.ub",
+      "action": "updated"
+    },
+    {
+      "path": "project-lock.ub",
+      "action": "created"
+    },
+    {
+      "path": "project-lock.ub",
+      "action": "unchanged"
+    },
+    {
+      "path": "project-lock.ub",
+      "action": "updated"
+    }
+  ]
+}

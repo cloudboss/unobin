@@ -1,0 +1,1 @@
+{"kind":"command-error","format-version":1,"command":"deps get","code":"unobin.command.failed","message":"deps get failed","diagnostics":[{"code":"unobin.error","severity":"error","message":"github.com/x/other is not imported directly or transitively by this project"}],"files":[]}

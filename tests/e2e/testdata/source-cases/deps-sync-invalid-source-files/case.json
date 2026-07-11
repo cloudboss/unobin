@@ -11,6 +11,14 @@
       "exitCode": 1
     },
     {
+      "name": "invalid-meta-json",
+      "dir": "invalid-meta",
+      "args": ["deps", "sync", "-p", "factory.ub", "--format", "json"],
+      "stdout": "want/invalid-meta-json.stdout",
+      "normalize": "json",
+      "exitCode": 1
+    },
+    {
       "name": "untyped-file",
       "dir": "untyped-file",
       "args": ["deps", "sync", "-p", "."],

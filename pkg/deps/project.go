@@ -8,6 +8,7 @@ import (
 
 	"golang.org/x/mod/semver"
 
+	"github.com/cloudboss/unobin/pkg/filechange"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/toolchain"
@@ -165,7 +166,25 @@ func encodeStringBlock(
 // WriteProject serializes m as canonical project.ub source and atomically
 // replaces the file at path.
 func WriteProject(path string, m *Project) error {
-	return lang.WriteCanonical(path, EncodeProject(m))
+	_, err := WriteProjectChange(path, m)
+	return err
+}
+
+// WriteProjectChange writes project.ub and reports its resulting file action.
+func WriteProjectChange(path string, project *Project) (filechange.Change, error) {
+	source := EncodeProject(project)
+	canonical, err := lang.Canonicalize(ProjectFileName, source)
+	if err != nil {
+		return filechange.Change{}, err
+	}
+	change, write, err := pendingFileChange(path, canonical)
+	if err != nil || !write {
+		return change, err
+	}
+	if err := lang.WriteCanonical(path, source); err != nil {
+		return filechange.Change{}, err
+	}
+	return change, nil
 }
 
 func parseProjectBody(f *syntax.File) (*Project, error) {

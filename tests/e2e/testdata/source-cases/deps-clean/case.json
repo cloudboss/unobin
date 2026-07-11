@@ -4,10 +4,23 @@
   "executor": "root",
   "commands": [
     {
+      "name": "deps-clean-json-existing",
+      "args": ["deps", "clean", "--format", "json"],
+      "env": { "UNOBIN_CACHE_ROOT": "$WORKSPACE/cache/unobin" },
+      "stdout": "want/deps-clean-json-existing.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "deps-clean",
       "args": ["deps", "clean"],
       "env": { "UNOBIN_CACHE_ROOT": "$WORKSPACE/cache/unobin" },
       "stderr": "want/deps-clean.stderr"
+    },
+    {
+      "name": "deps-clean-unobin-missing",
+      "args": ["deps", "clean", "--format", "unobin"],
+      "env": { "UNOBIN_CACHE_ROOT": "$WORKSPACE/cache/unobin" },
+      "stdout": "want/deps-clean-unobin-missing.stdout"
     }
   ],
   "absentFiles": ["cache/unobin/imports"]

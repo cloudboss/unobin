@@ -1,0 +1,1 @@
+{"kind":"dependency-verify-result","format-version":1,"ok":false,"checked":1,"mismatches":[{"id":"github.com/x/hello//ub","expected-hash":"sha256:f36cf312aece6e19dce1819890ecbe0704fcbc4686e0434f59573e42d3f52bf9","actual-hash":"sha256:81b74f2a922689e3225a0489e86c7d3c996502772f751ec164659311304639fc","message":"content hash differs from project-lock.ub"}],"diagnostics":[]}

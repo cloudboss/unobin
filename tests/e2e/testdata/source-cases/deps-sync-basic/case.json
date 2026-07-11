@@ -16,9 +16,20 @@
   ],
   "commands": [
     {
+      "name": "deps-sync-json",
+      "args": ["deps", "sync", "-p", "factory.ub", "--format", "json"],
+      "stdout": "want/deps-sync-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "deps-sync",
       "args": ["deps", "sync", "-p", "factory.ub"],
       "stderr": "want/deps-sync.stderr"
+    },
+    {
+      "name": "deps-sync-unobin",
+      "args": ["deps", "sync", "-p", "factory.ub", "--format", "unobin"],
+      "stdout": "want/deps-sync-unobin.stdout"
     }
   ],
   "files": [

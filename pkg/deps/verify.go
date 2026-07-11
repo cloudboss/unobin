@@ -8,14 +8,23 @@ import (
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
-// Verify re-fetches every ub-kind dependency in project-lock at its pinned commit
-// and checks the content hash against the recorded one. A mismatch means
-// the source changed under a pinned commit. Go dependencies are skipped:
-// their integrity rides the generated go.sum, not a content hash here. It
-// returns one message per dependency whose hash no longer matches, in id
-// order.
-func Verify(projectLock *ProjectLock, resolver resolve.Resolver) ([]string, error) {
-	var mismatches []string
+// VerifyMismatch describes one dependency whose pinned content hash changed.
+type VerifyMismatch struct {
+	ID           string `json:"id"            ub:"id"`
+	ExpectedHash string `json:"expected-hash" ub:"expected-hash"`
+	ActualHash   string `json:"actual-hash"   ub:"actual-hash"`
+	Message      string `json:"message"       ub:"message"`
+}
+
+// VerifyResult records the UB dependencies checked and every mismatch.
+type VerifyResult struct {
+	Checked    int              `json:"checked"    ub:"checked"`
+	Mismatches []VerifyMismatch `json:"mismatches" ub:"mismatches"`
+}
+
+// Verify checks every UB dependency's pinned content hash.
+func Verify(projectLock *ProjectLock, resolver resolve.Resolver) (*VerifyResult, error) {
+	result := &VerifyResult{Mismatches: []VerifyMismatch{}}
 	for _, id := range projectLock.SortedIDs() {
 		entry := projectLock.Deps[id]
 		if entry.Kind != ProjectLockKindUB {
@@ -37,12 +46,17 @@ func Verify(projectLock *ProjectLock, resolver resolve.Resolver) ([]string, erro
 		if err != nil {
 			return nil, fmt.Errorf("verify %s: %w", id, err)
 		}
+		result.Checked++
 		if hash != entry.Hash {
-			mismatches = append(mismatches,
-				fmt.Sprintf("%s: hash mismatch (selected %s, got %s)", id, entry.Hash, hash))
+			result.Mismatches = append(result.Mismatches, VerifyMismatch{
+				ID:           id,
+				ExpectedHash: entry.Hash,
+				ActualHash:   hash,
+				Message:      "content hash differs from project-lock.ub",
+			})
 		}
 	}
-	return mismatches, nil
+	return result, nil
 }
 
 func requireUBProjectMarker(fsys fs.FS) error {

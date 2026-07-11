@@ -1,1 +1,6 @@
-project: { requires: {} }
+project: {
+  requires: {
+    'github.com/x/core//lib': { version: 'v1.0.0' }
+    'github.com/x/hello//ub': { version: 'v2.0.0', indirect: true }
+  }
+}

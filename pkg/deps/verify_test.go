@@ -1,58 +1,78 @@
 package deps
 
 import (
+	"encoding/json"
+	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
-func TestVerifyHashesUBProjectRootWhenResolverHashEmpty(t *testing.T) {
+type verifyGolden struct {
+	Cases []verifyGoldenCase `json:"cases"`
+}
+
+type verifyGoldenCase struct {
+	Name   string        `json:"name"`
+	Result *VerifyResult `json:"result"`
+	Error  string        `json:"error,omitempty"`
+}
+
+func TestVerifyGolden(t *testing.T) {
 	fsys := mapFS(map[string]string{
 		ProjectFileName: ubtest.ReadValidFixture(
 			t, "testdata/ub/verify", "empty-project"),
 		"ub/helloer/library.ub": ubtest.ReadValidFixture(
 			t, "testdata/ub/verify", "helloer-library"),
 	})
-	hash := hashProject(t, fsys)
-	projectLock := NewProjectLock()
-	projectLock.ToolchainVersion = "dev"
-	projectLock.Deps["github.com/scratch/repo"] = &ProjectLockDep{
-		Kind:    ProjectLockKindUB,
-		Version: "v0.8.0",
-		Commit:  "c1",
-		Hash:    hash,
-	}
-	r := &fakeResolver{sources: map[string]*resolve.Source{
+	actualHash := hashProject(t, fsys)
+	resolver := &fakeResolver{sources: map[string]*resolve.Source{
 		srcKey("github.com/scratch/repo", "", "c1"): {Commit: "c1", FS: fsys},
 	}}
 
-	mismatches, err := Verify(projectLock, r)
-
-	require.NoError(t, err)
-	require.Empty(t, mismatches)
-}
-
-func TestVerifySkipsGoEntries(t *testing.T) {
-	projectLock := NewProjectLock()
-	projectLock.Deps["github.com/x/golib"] = &ProjectLockDep{Kind: ProjectLockKindGo, Version: "v1.0.0", Commit: "c1"}
-	// An empty resolver: if Verify tried to fetch the go entry it would
-	// error, so an empty result proves go entries are skipped.
-	r := &fakeResolver{sources: map[string]*resolve.Source{}}
-	mismatches, err := Verify(projectLock, r)
-	require.NoError(t, err)
-	assert.Empty(t, mismatches)
-}
-
-func TestVerifyResolveError(t *testing.T) {
-	projectLock := NewProjectLock()
-	projectLock.Deps["github.com/x/y//lib"] = &ProjectLockDep{
-		Kind: ProjectLockKindUB, Version: "v1.0.0", Commit: "c1", Hash: "h1",
+	result := verifyGolden{}
+	for _, test := range []struct {
+		name     string
+		lock     *ProjectLock
+		resolver resolve.Resolver
+	}{
+		{name: "match", lock: verifyProjectLock(actualHash), resolver: resolver},
+		{name: "mismatch", lock: verifyProjectLock("sha256:expected"), resolver: resolver},
+		{
+			name: "resolve-error",
+			lock: verifyProjectLock("sha256:expected"),
+			resolver: &fakeResolver{
+				sources: map[string]*resolve.Source{},
+			},
+		},
+	} {
+		got, err := Verify(test.lock, test.resolver)
+		entry := verifyGoldenCase{Name: test.name, Result: got}
+		if err != nil {
+			entry.Error = err.Error()
+		}
+		result.Cases = append(result.Cases, entry)
 	}
-	r := &fakeResolver{sources: map[string]*resolve.Source{}}
-	_, err := Verify(projectLock, r)
-	require.Error(t, err)
+
+	body, err := json.MarshalIndent(result, "", "  ")
+	require.NoError(t, err)
+	body = append(body, '\n')
+	want, err := os.ReadFile("testdata/verify.json")
+	require.NoError(t, err)
+	require.Equal(t, string(want), string(body))
+}
+
+func verifyProjectLock(hash string) *ProjectLock {
+	projectLock := NewProjectLock()
+	projectLock.ToolchainVersion = "dev"
+	projectLock.Deps["github.com/scratch/repo"] = &ProjectLockDep{
+		Kind: ProjectLockKindUB, Version: "v0.8.0", Commit: "c1", Hash: hash,
+	}
+	projectLock.Deps["github.com/x/golib"] = &ProjectLockDep{
+		Kind: ProjectLockKindGo, Version: "v1.0.0", Commit: "go1",
+	}
+	return projectLock
 }

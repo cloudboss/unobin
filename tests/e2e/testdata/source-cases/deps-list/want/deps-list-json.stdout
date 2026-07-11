@@ -1,0 +1,1 @@
+{"kind":"dependency-list","format-version":1,"dependencies":[{"id":"github.com/x/core//lib","kind":"go","version":"v1.0.0","indirect":true},{"id":"github.com/x/hello//ub","kind":"ub","version":"v2.0.0","indirect":true}],"diagnostics":[]}

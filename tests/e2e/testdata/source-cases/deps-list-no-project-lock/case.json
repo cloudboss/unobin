@@ -8,6 +8,13 @@
       "args": ["deps", "list", "-p", "factory.ub"],
       "stderr": "want/deps-list.stderr",
       "exitCode": 1
+    },
+    {
+      "name": "deps-list-json",
+      "args": ["deps", "list", "-p", "factory.ub", "--format", "json"],
+      "stdout": "want/deps-list-json.stdout",
+      "normalize": "json",
+      "exitCode": 1
     }
   ]
 }

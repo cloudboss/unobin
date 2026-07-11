@@ -26,6 +26,12 @@
   ],
   "commands": [
     {
+      "name": "deps-sync-json",
+      "args": ["deps", "sync", "--format", "json"],
+      "stdout": "want/deps-sync-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "deps-sync",
       "args": ["deps", "sync"],
       "stderr": "want/deps-sync.stderr"

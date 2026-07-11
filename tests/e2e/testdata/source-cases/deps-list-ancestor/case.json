@@ -7,6 +7,12 @@
       "name": "deps-list",
       "args": ["deps", "list", "-p", "factory.ub"],
       "stdout": "want/deps-list.stdout"
+    },
+    {
+      "name": "deps-list-json",
+      "args": ["deps", "list", "-p", "factory.ub", "--format", "json"],
+      "stdout": "want/deps-list-json.stdout",
+      "normalize": "json"
     }
   ]
 }

@@ -29,6 +29,12 @@
   ],
   "commands": [
     {
+      "name": "deps-get-json",
+      "args": ["deps", "get", "github.com/x/std@v0.2.0", "--format", "json"],
+      "stdout": "want/deps-get-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "deps-get",
       "args": ["deps", "get", "github.com/x/std@v0.2.0"],
       "stderr": "want/deps-get.stderr"

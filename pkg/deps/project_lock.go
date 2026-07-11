@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/filechange"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 )
@@ -135,15 +136,32 @@ func parseProjectLockBody(f *syntax.File) (*ProjectLock, error) {
 // WriteProjectLock serializes projectLock as canonical project-lock.ub source
 // and atomically replaces the file at path.
 func WriteProjectLock(path string, projectLock *ProjectLock) error {
+	_, err := WriteProjectLockChange(path, projectLock)
+	return err
+}
+
+// WriteProjectLockChange writes project-lock.ub and reports its resulting file action.
+func WriteProjectLockChange(
+	path string,
+	projectLock *ProjectLock,
+) (filechange.Change, error) {
 	b, err := EncodeProjectLock(projectLock)
 	if err != nil {
-		return err
+		return filechange.Change{}, err
 	}
-	return writeProjectLockBytes(path, b)
+	change, write, err := pendingFileChange(path, b)
+	if err != nil || !write {
+		return change, err
+	}
+	if err := writeProjectLockBytes(path, b); err != nil {
+		return filechange.Change{}, err
+	}
+	return change, nil
 }
 
 func writeProjectLockBytes(path string, b []byte) error {
 	tmp := path + ".tmp"
+	defer os.Remove(tmp)
 	if err := os.WriteFile(tmp, b, 0o644); err != nil {
 		return err
 	}

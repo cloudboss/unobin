@@ -1,0 +1,1 @@
+{"kind":"command-error","format-version":1,"command":"deps sync","code":"unobin.command.failed","message":"deps sync failed","diagnostics":[{"code":"unobin.error","severity":"error","message":"lock write failed"}],"files":[{"path":"project.ub","action":"created"}]}
