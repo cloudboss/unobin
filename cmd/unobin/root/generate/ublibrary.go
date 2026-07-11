@@ -9,6 +9,7 @@ import (
 	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/spf13/cobra"
 
+	"github.com/cloudboss/unobin/pkg/filechange"
 	"github.com/cloudboss/unobin/pkg/lang"
 )
 
@@ -53,34 +54,66 @@ func init() {
 }
 
 func runUblibrary(cmd *cobra.Command, cfg *ublibraryConfig) error {
+	format, err := commandFormat(cmd)
+	if err != nil {
+		return err
+	}
+	output, err := generateUBLibrary(cfg)
+	if err != nil {
+		return commandFailure(cmd, format, output, err)
+	}
+	if format.Machine() {
+		return cmdout.WriteDocument(cmd.OutOrStdout(), format, ubLibraryGenerationResult{
+			Kind:          "ub-library-generation-result",
+			FormatVersion: 1,
+			OutputDir:     output.OutDir,
+			Type:          cfg.typeName,
+			Files:         output.Files,
+			Diagnostics:   diagnostics(),
+		})
+	}
+	for _, change := range output.Files {
+		fmt.Fprintf(cmd.OutOrStdout(), "Created %s\n", change.Path)
+	}
+	return nil
+}
+
+func generateUBLibrary(cfg *ublibraryConfig) (*generationOutput, error) {
 	if cfg.output == "" {
-		return fmt.Errorf("--output must not be empty")
+		return nil, fmt.Errorf("--output must not be empty")
 	}
 	if err := validateUblibraryTypeName(cfg.typeName); err != nil {
-		return err
+		return nil, err
 	}
+	outDir := filepath.Clean(cfg.output)
 
-	if _, err := os.Stat(cfg.output); err == nil {
+	if _, err := os.Stat(outDir); err == nil {
 		if !cfg.force {
-			return fmt.Errorf("output directory %q already exists; pass --force to overwrite",
-				cfg.output)
+			return nil, fmt.Errorf(
+				"output directory %q already exists; pass --force to overwrite", outDir,
+			)
 		}
 	} else if !os.IsNotExist(err) {
-		return err
+		return nil, err
 	}
 
-	if err := os.MkdirAll(cfg.output, 0o755); err != nil {
-		return err
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return nil, err
 	}
 
-	typePath := filepath.Join(cfg.output, cfg.typeName+".ub")
-	if err := lang.WriteCanonical(typePath, []byte(renderCompositeStub(cfg.typeName))); err != nil {
-		return err
+	typePath := filepath.Join(outDir, cfg.typeName+".ub")
+	source, err := lang.Canonicalize(typePath, []byte(renderCompositeStub(cfg.typeName)))
+	if err != nil {
+		return nil, err
 	}
-
-	out := cmd.OutOrStdout()
-	fmt.Fprintf(out, "Created %s\n", typePath)
-	return nil
+	change, err := filechange.WriteFile(typePath, source, 0o644)
+	if err != nil {
+		return nil, err
+	}
+	return &generationOutput{
+		OutDir: outDir,
+		Files:  []filechange.Change{change},
+	}, nil
 }
 
 func validateUblibraryTypeName(name string) error {

@@ -4,10 +4,57 @@
   "executor": "root",
   "commands": [
     {
+      "name": "generate-ublibrary-reserved-json",
+      "args": [
+        "generate",
+        "ublibrary",
+        "-o",
+        "reserved",
+        "--type",
+        "project",
+        "--format",
+        "json"
+      ],
+      "stdout": "want/reserved-json.stdout",
+      "normalize": "json",
+      "exitCode": 1
+    },
+    {
       "name": "generate-ublibrary",
       "args": ["generate", "ublibrary", "-o", "generated", "--type", "greeting"],
       "stdout": "want/stdout",
       "stderr": "want/stderr"
+    },
+    {
+      "name": "generate-ublibrary-json-unchanged",
+      "args": [
+        "generate",
+        "ublibrary",
+        "-o",
+        "generated",
+        "--type",
+        "greeting",
+        "--force",
+        "--format",
+        "json"
+      ],
+      "stdout": "want/generate-json-unchanged.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "generate-ublibrary-unobin-unchanged",
+      "args": [
+        "generate",
+        "ublibrary",
+        "-o",
+        "generated",
+        "--type",
+        "greeting",
+        "--force",
+        "--format",
+        "unobin"
+      ],
+      "stdout": "want/generate-unobin-unchanged.stdout"
     }
   ],
   "files": [

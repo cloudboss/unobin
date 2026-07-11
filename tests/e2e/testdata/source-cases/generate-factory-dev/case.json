@@ -8,6 +8,17 @@
       "args": ["generate", "factory", "-o", "generated"],
       "stdout": "want/stdout",
       "stderr": "want/stderr"
+    },
+    {
+      "name": "generate-factory-json-unchanged",
+      "args": ["generate", "factory", "-o", "generated", "--force", "--format", "json"],
+      "stdout": "want/generate-json-unchanged.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "generate-factory-unobin-unchanged",
+      "args": ["generate", "factory", "-o", "generated", "--force", "--format", "unobin"],
+      "stdout": "want/generate-unobin-unchanged.stdout"
     }
   ],
   "files": [

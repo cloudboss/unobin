@@ -1,0 +1,95 @@
+{
+  "runs": [
+    {
+      "out-dir": "$OUT",
+      "module-path": "example.com/testmod",
+      "resources": 1,
+      "data-sources": 1,
+      "files": [
+        {
+          "path": "data/image_dsrc.go",
+          "action": "created"
+        },
+        {
+          "path": "go.mod",
+          "action": "created"
+        },
+        {
+          "path": "library.go",
+          "action": "created"
+        },
+        {
+          "path": "resources/s3_bucket_rsrc.go",
+          "action": "created"
+        }
+      ]
+    },
+    {
+      "out-dir": "$OUT",
+      "module-path": "example.com/testmod",
+      "resources": 1,
+      "data-sources": 1,
+      "files": [
+        {
+          "path": "data/image_dsrc.go",
+          "action": "unchanged"
+        },
+        {
+          "path": "go.mod",
+          "action": "unchanged"
+        },
+        {
+          "path": "library.go",
+          "action": "unchanged"
+        },
+        {
+          "path": "resources/s3_bucket_rsrc.go",
+          "action": "unchanged"
+        }
+      ]
+    },
+    {
+      "out-dir": "$OUT",
+      "module-path": "example.com/testmod",
+      "resources": 0,
+      "data-sources": 1,
+      "files": [
+        {
+          "path": "data/image_dsrc.go",
+          "action": "unchanged"
+        },
+        {
+          "path": "go.mod",
+          "action": "unchanged"
+        },
+        {
+          "path": "library.go",
+          "action": "updated"
+        },
+        {
+          "path": "resources/s3_bucket_rsrc.go",
+          "action": "removed"
+        }
+      ]
+    }
+  ],
+  "partial": {
+    "output": {
+      "out-dir": "$OUT",
+      "module-path": "example.com/partial",
+      "resources": 1,
+      "data-sources": 0,
+      "files": [
+        {
+          "path": "resources/s3_bucket_rsrc.go",
+          "action": "created"
+        },
+        {
+          "path": "library.go",
+          "action": "created"
+        }
+      ]
+    },
+    "error": "write go.mod: rename $OUT/.go.mod.tmp $OUT/go.mod: file exists"
+  }
+}

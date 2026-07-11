@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -13,6 +14,7 @@ import (
 type filechangeGolden struct {
 	Actions []Action               `json:"actions"`
 	Tags    map[string][2]string   `json:"tags"`
+	Writes  []Change               `json:"writes"`
 	Sort    sortGolden             `json:"sort"`
 	Compose []filechangeCaseGolden `json:"compose"`
 }
@@ -45,6 +47,15 @@ func TestFilechangeContractGolden(t *testing.T) {
 	}
 	sortBefore := append([]Change(nil), sortInput...)
 	sorted := Sort(sortInput)
+	dir := t.TempDir()
+	writePath := filepath.Join(dir, "generated.go")
+	writes := make([]Change, 0, 3)
+	for _, content := range [][]byte{[]byte("first\n"), []byte("first\n"), []byte("second\n")} {
+		change, err := WriteFile(writePath, content, 0o644)
+		require.NoError(t, err)
+		change.Path = filepath.Base(change.Path)
+		writes = append(writes, change)
+	}
 
 	result := filechangeGolden{
 		Actions: []Action{
@@ -57,6 +68,7 @@ func TestFilechangeContractGolden(t *testing.T) {
 			"action": {action.Tag.Get("json"), action.Tag.Get("ub")},
 			"path":   {path.Tag.Get("json"), path.Tag.Get("ub")},
 		},
+		Writes: writes,
 		Sort: sortGolden{
 			Input:          sortInput,
 			Output:         sorted,

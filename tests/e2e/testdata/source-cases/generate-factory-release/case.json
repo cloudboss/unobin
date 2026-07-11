@@ -5,8 +5,14 @@
   "cliVersion": "v0.3.0",
   "commands": [
     {
+      "name": "generate-factory-json",
+      "args": ["generate", "factory", "-o", "generated", "--format", "json"],
+      "stdout": "want/generate-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "generate-factory",
-      "args": ["generate", "factory", "-o", "generated"],
+      "args": ["generate", "factory", "-o", "generated", "--force"],
       "stdout": "want/stdout",
       "stderr": "want/stderr"
     }

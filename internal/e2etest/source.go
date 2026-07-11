@@ -12,7 +12,9 @@ import (
 	"testing"
 
 	cmdroot "github.com/cloudboss/unobin/cmd/unobin/root"
+	cmdgenerate "github.com/cloudboss/unobin/cmd/unobin/root/generate"
 	"github.com/cloudboss/unobin/internal/cmdout"
+	"github.com/cloudboss/unobin/pkg/gogen"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -198,7 +200,17 @@ func rootCommandRunner(workspace string, c SourceCase) (rootCommandFunc, func(),
 			CacheRoot: filepath.Join(workspace, "cache", "unobin"),
 		}, nil
 	})
+	restoreGoLibraryAdapter := func() {}
+	if c.GoLibrary != nil {
+		source := *c.GoLibrary
+		restoreGoLibraryAdapter = cmdgenerate.SetGoLibraryAdapterForTest(
+			func(_, _ string) gogen.SchemaAdapter {
+				return sourceGoLibraryAdapter{source: source}
+			},
+		)
+	}
 	cleanup := func() {
+		restoreGoLibraryAdapter()
 		restoreRemoteResolver()
 		restoreTags()
 		restoreResolver()
@@ -207,6 +219,52 @@ func rootCommandRunner(workspace string, c SourceCase) (rootCommandFunc, func(),
 		return runRootCommandWithVersion(ctx, workspace, cmd, c.CLIVersion)
 	}
 	return runRoot, cleanup, nil
+}
+
+type sourceGoLibraryAdapter struct {
+	source GoLibrarySource
+}
+
+func (a sourceGoLibraryAdapter) Name() string {
+	return a.source.Name
+}
+
+func (a sourceGoLibraryAdapter) FetchResources(
+	context.Context,
+	[]string,
+) ([]gogen.ResourceSchema, error) {
+	resources := make([]gogen.ResourceSchema, 0, len(a.source.Resources))
+	for _, name := range a.source.Resources {
+		resources = append(resources, gogen.ResourceSchema{
+			GoName: name, CloudType: "test_" + strings.ToLower(name),
+		})
+	}
+	return resources, nil
+}
+
+func (a sourceGoLibraryAdapter) FetchDataSources(
+	context.Context,
+	[]string,
+) ([]gogen.DataSourceSchema, error) {
+	dataSources := make([]gogen.DataSourceSchema, 0, len(a.source.DataSources))
+	for _, name := range a.source.DataSources {
+		dataSources = append(dataSources, gogen.DataSourceSchema{
+			GoName: name, CloudType: "test_" + strings.ToLower(name),
+		})
+	}
+	return dataSources, nil
+}
+
+func (a sourceGoLibraryAdapter) FetchConfiguration(
+	context.Context,
+) (*gogen.ConfigurationSchema, error) {
+	if !a.source.Configuration {
+		return nil, nil
+	}
+	return &gogen.ConfigurationSchema{
+		GoName: "ProviderConfig",
+		Fields: []gogen.Field{{Name: "Region", GoType: "string", Required: true}},
+	}, nil
 }
 
 func runRootCommandWithVersion(

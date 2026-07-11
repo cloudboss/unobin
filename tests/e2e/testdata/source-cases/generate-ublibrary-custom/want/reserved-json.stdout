@@ -1,0 +1,1 @@
+{"kind":"command-error","format-version":1,"command":"generate ublibrary","code":"unobin.command.failed","message":"generate ublibrary failed","diagnostics":[{"code":"unobin.error","severity":"error","message":"--type \"project\" is reserved; choose another type name"}],"files":[]}

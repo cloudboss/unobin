@@ -10,5 +10,5 @@
       "action": "created"
     }
   ],
-  "error": "rename $TMP/project-lock.ub.tmp $TMP/project-lock.ub: file exists"
+  "error": "rename $TMP/.project-lock.ub.tmp $TMP/project-lock.ub: file exists"
 }

@@ -177,14 +177,7 @@ func WriteProjectChange(path string, project *Project) (filechange.Change, error
 	if err != nil {
 		return filechange.Change{}, err
 	}
-	change, write, err := pendingFileChange(path, canonical)
-	if err != nil || !write {
-		return change, err
-	}
-	if err := lang.WriteCanonical(path, source); err != nil {
-		return filechange.Change{}, err
-	}
-	return change, nil
+	return filechange.WriteFile(path, canonical, 0o644)
 }
 
 func parseProjectBody(f *syntax.File) (*Project, error) {

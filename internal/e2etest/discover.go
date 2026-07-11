@@ -50,9 +50,17 @@ type SourceCase struct {
 	Build       bool                `json:"build"`
 	Remotes     []RemoteSource      `json:"remotes"`
 	Tags        map[string][]string `json:"tags"`
+	GoLibrary   *GoLibrarySource    `json:"goLibrary"`
 	Commands    []Command           `json:"commands"`
 	Files       []FileCheck         `json:"files"`
 	AbsentFiles []string            `json:"absentFiles"`
+}
+
+type GoLibrarySource struct {
+	Name          string   `json:"name"`
+	Resources     []string `json:"resources"`
+	DataSources   []string `json:"dataSources"`
+	Configuration bool     `json:"configuration"`
 }
 
 // RemoteSource describes a fake remote repository used by source-root cases.

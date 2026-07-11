@@ -1,0 +1,63 @@
+{
+  "name": "generate-golibrary",
+  "rootPath": ".",
+  "executor": "root",
+  "goLibrary": {
+    "name": "demo",
+    "resources": ["Bucket"],
+    "dataSources": ["Image", "Network"],
+    "configuration": true
+  },
+  "commands": [
+    {
+      "name": "generate-json",
+      "args": [
+        "generate", "golibrary",
+        "--from", "tf",
+        "--provider", "hashicorp/demo",
+        "--go-module-path", "example.com/demo",
+        "--format", "json"
+      ],
+      "stdout": "want/generate-json.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "generate-unobin",
+      "args": [
+        "generate", "golibrary",
+        "--from", "tf",
+        "--provider", "hashicorp/demo",
+        "--go-module-path", "example.com/demo",
+        "--format", "unobin"
+      ],
+      "stdout": "want/generate-unobin.stdout"
+    },
+    {
+      "name": "generate-text",
+      "args": [
+        "generate", "golibrary",
+        "--from", "tf",
+        "--provider", "hashicorp/demo",
+        "--go-module-path", "example.com/demo"
+      ],
+      "stderr": "want/generate-text.stderr"
+    },
+    {
+      "name": "generate-missing-provider-json",
+      "args": [
+        "generate", "golibrary",
+        "--from", "tf",
+        "--go-module-path", "example.com/demo",
+        "--format", "json"
+      ],
+      "stdout": "want/generate-missing-provider-json.stdout",
+      "normalize": "json",
+      "exitCode": 1
+    }
+  ],
+  "files": [
+    { "path": "demo-library/go.mod", "want": "want/go.mod" },
+    { "path": "demo-library/library.go", "want": "want/library.go" },
+    { "path": "demo-library/configuration.go", "want": "want/configuration.go" }
+  ]
+}

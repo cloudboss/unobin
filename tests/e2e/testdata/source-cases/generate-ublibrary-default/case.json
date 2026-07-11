@@ -4,8 +4,14 @@
   "executor": "root",
   "commands": [
     {
+      "name": "generate-ublibrary-json",
+      "args": ["generate", "ublibrary", "-o", "generated", "--format", "json"],
+      "stdout": "want/generate-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "generate-ublibrary",
-      "args": ["generate", "ublibrary", "-o", "generated"],
+      "args": ["generate", "ublibrary", "-o", "generated", "--force"],
       "stdout": "want/stdout",
       "stderr": "want/stderr"
     }

@@ -35,6 +35,17 @@ var (
 	}
 )
 
+// SetGoLibraryAdapterForTest replaces schema adapter construction and returns a restore function.
+func SetGoLibraryAdapterForTest(
+	adapter func(provider, version string) gogen.SchemaAdapter,
+) func() {
+	previous := newGoLibraryAdapter
+	newGoLibraryAdapter = func(cfg *golibraryConfig) gogen.SchemaAdapter {
+		return adapter(cfg.provider, cfg.providerVersion)
+	}
+	return func() { newGoLibraryAdapter = previous }
+}
+
 type golibraryConfig struct {
 	from            string
 	provider        string
@@ -63,18 +74,26 @@ func init() {
 }
 
 func runGenerate(cmd *cobra.Command, cfg *golibraryConfig) error {
+	format, err := commandFormat(cmd)
+	if err != nil {
+		return err
+	}
 	if strings.ToLower(cfg.from) == "tf" && len(cfg.provider) == 0 {
-		return fmt.Errorf("--provider is required when --from is 'tf'")
+		return commandFailure(
+			cmd, format, nil, fmt.Errorf("--provider is required when --from is 'tf'"),
+		)
 	}
 	if len(cfg.goModulePath) == 0 {
-		return fmt.Errorf("--go-module-path must not be empty")
+		return commandFailure(
+			cmd, format, nil, fmt.Errorf("--go-module-path must not be empty"),
+		)
 	}
 
 	replaceUnobin := cfg.replaceUnobin
 	if len(replaceUnobin) != 0 {
 		abs, err := filepath.Abs(replaceUnobin)
 		if err != nil {
-			return err
+			return commandFailure(cmd, format, nil, err)
 		}
 		replaceUnobin = abs
 	}
@@ -90,7 +109,24 @@ func runGenerate(cmd *cobra.Command, cfg *golibraryConfig) error {
 		From:          cfg.from,
 	})
 	if err != nil {
-		return err
+		var partial *generationOutput
+		if out != nil {
+			partial = &generationOutput{OutDir: out.OutDir, Files: out.Files}
+		}
+		return commandFailure(cmd, format, partial, err)
+	}
+	if format.Machine() {
+		return cmdout.WriteDocument(cmd.OutOrStdout(), format, goLibraryGenerationResult{
+			Kind:          "go-library-generation-result",
+			FormatVersion: 1,
+			OutputDir:     out.OutDir,
+			ModulePath:    out.ModulePath,
+			Provider:      cfg.provider,
+			Resources:     out.Resources,
+			DataSources:   out.DataSources,
+			Files:         out.Files,
+			Diagnostics:   diagnostics(),
+		})
 	}
 
 	fmt.Fprintf(

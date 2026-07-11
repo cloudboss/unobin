@@ -3,7 +3,6 @@ package deps
 import (
 	"fmt"
 	"io/fs"
-	"os"
 	"slices"
 	"strings"
 
@@ -149,23 +148,7 @@ func WriteProjectLockChange(
 	if err != nil {
 		return filechange.Change{}, err
 	}
-	change, write, err := pendingFileChange(path, b)
-	if err != nil || !write {
-		return change, err
-	}
-	if err := writeProjectLockBytes(path, b); err != nil {
-		return filechange.Change{}, err
-	}
-	return change, nil
-}
-
-func writeProjectLockBytes(path string, b []byte) error {
-	tmp := path + ".tmp"
-	defer os.Remove(tmp)
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return filechange.WriteFile(path, b, 0o644)
 }
 
 // EncodeProjectLock serializes projectLock as canonical project-lock.ub source.

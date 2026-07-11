@@ -15,6 +15,20 @@
       "path"
     ]
   },
+  "writes": [
+    {
+      "path": "generated.go",
+      "action": "created"
+    },
+    {
+      "path": "generated.go",
+      "action": "unchanged"
+    },
+    {
+      "path": "generated.go",
+      "action": "updated"
+    }
+  ],
   "sort": {
     "input": [
       {
