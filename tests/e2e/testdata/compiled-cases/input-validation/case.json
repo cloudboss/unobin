@@ -12,9 +12,9 @@
     },
     {
       "name": "apply-defaults",
-      "args": ["apply", "--output", "unobin", "defaults.ubp"],
+      "args": ["apply", "--format", "json", "defaults.ubp"],
       "stdout": "want/apply-defaults.stdout",
-      "stderr": "want/apply-defaults.stderr"
+      "normalize": "json"
     },
     {
       "name": "output-defaults",
@@ -30,9 +30,9 @@
     },
     {
       "name": "apply-nulls",
-      "args": ["apply", "--output", "unobin", "nulls.ubp"],
+      "args": ["apply", "--format", "json", "nulls.ubp"],
       "stdout": "want/apply-nulls.stdout",
-      "stderr": "want/apply-nulls.stderr"
+      "normalize": "json"
     },
     {
       "name": "output-nulls",

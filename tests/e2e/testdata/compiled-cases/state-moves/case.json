@@ -27,9 +27,9 @@
     },
     {
       "name": "apply",
-      "args": ["apply", "--output", "unobin", "move.ubp"],
+      "args": ["apply", "--format", "json", "move.ubp"],
       "stdout": "want/apply.stdout",
-      "stderr": "want/apply.stderr",
+      "normalize": "json",
       "exitCode": 1
     }
   ],

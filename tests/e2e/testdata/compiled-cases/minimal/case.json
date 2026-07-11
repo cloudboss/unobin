@@ -168,9 +168,9 @@
     },
     {
       "name": "apply-create",
-      "args": ["apply", "--output", "unobin", "plan.ubp"],
+      "args": ["apply", "--output", "json", "plan.ubp"],
       "stdout": "want/apply-create.stdout",
-      "stderr": "want/apply-create.stderr"
+      "normalize": "json"
     },
     {
       "name": "output-json",

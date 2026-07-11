@@ -12,9 +12,9 @@
     },
     {
       "name": "apply-create",
-      "args": ["apply", "--output", "unobin", "create.ubp"],
+      "args": ["apply", "--format", "json", "create.ubp"],
       "stdout": "want/apply-create.stdout",
-      "stderr": "want/apply-create.stderr"
+      "normalize": "json"
     },
     {
       "name": "plan-noop",

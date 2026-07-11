@@ -12,9 +12,9 @@
     },
     {
       "name": "apply-default",
-      "args": ["apply", "--output", "unobin", "default.ubp"],
+      "args": ["apply", "--format", "json", "default.ubp"],
       "stdout": "want/apply-default.stdout",
-      "stderr": "want/apply-default.stderr"
+      "normalize": "json"
     },
     {
       "name": "output-default",
@@ -33,9 +33,9 @@
     },
     {
       "name": "apply-env-override",
-      "args": ["apply", "--output", "unobin", "env.ubp"],
+      "args": ["apply", "--format", "json", "env.ubp"],
       "stdout": "want/apply-env-override.stdout",
-      "stderr": "want/apply-env-override.stderr"
+      "normalize": "json"
     },
     {
       "name": "output-env-override",

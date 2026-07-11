@@ -218,11 +218,8 @@ func (s *applyStream) Result(result *runtime.ExecResult) error {
 	if err := s.terminalAllowed(); err != nil {
 		return err
 	}
-	if result == nil {
-		return applyEncodingError(errors.New("apply stream: result is required"))
-	}
-	if result.WrittenRev == "" {
-		return applyEncodingError(errors.New("apply stream: result state revision is required"))
+	if err := validateApplyResult(result); err != nil {
+		return applyEncodingError(err)
 	}
 	err := s.write(func(sequence int64, timestamp string, finished time.Time) any {
 		return applyResultRecord{
@@ -237,6 +234,16 @@ func (s *applyStream) Result(result *runtime.ExecResult) error {
 		s.terminal = true
 	}
 	return err
+}
+
+func validateApplyResult(result *runtime.ExecResult) error {
+	if result == nil {
+		return errors.New("apply stream: result is required")
+	}
+	if result.WrittenRev == "" {
+		return errors.New("apply stream: result state revision is required")
+	}
+	return nil
 }
 
 func (s *applyStream) Error(failure *runtime.ApplyFailure) error {

@@ -24,9 +24,9 @@
     },
     {
       "name": "apply-create",
-      "args": ["apply", "--output", "unobin", "create.ubp"],
+      "args": ["apply", "--format", "json", "create.ubp"],
       "stdout": "want/apply-create.stdout",
-      "stderr": "want/apply-create.stderr"
+      "normalize": "json"
     },
     {
       "name": "plan-noop-json",
@@ -54,9 +54,9 @@
     },
     {
       "name": "apply-update",
-      "args": ["apply", "--output", "unobin", "update.ubp"],
+      "args": ["apply", "--format", "json", "update.ubp"],
       "stdout": "want/apply-update.stdout",
-      "stderr": "want/apply-update.stderr"
+      "normalize": "json"
     },
     {
       "name": "plan-replace-json",
@@ -72,9 +72,9 @@
     },
     {
       "name": "apply-replace",
-      "args": ["apply", "--output", "unobin", "replace.ubp"],
+      "args": ["apply", "--format", "json", "replace.ubp"],
       "stdout": "want/apply-replace.stdout",
-      "stderr": "want/apply-replace.stderr"
+      "normalize": "json"
     },
     {
       "name": "plan-destroy-json",
@@ -93,9 +93,9 @@
     },
     {
       "name": "apply-destroy",
-      "args": ["apply", "--output", "unobin", "destroy.ubp"],
+      "args": ["apply", "--format", "json", "destroy.ubp"],
       "stdout": "want/apply-destroy.stdout",
-      "stderr": "want/apply-destroy.stderr"
+      "normalize": "json"
     }
   ],
   "planSummaries": [

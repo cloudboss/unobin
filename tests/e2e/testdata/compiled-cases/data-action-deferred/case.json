@@ -18,9 +18,9 @@
     },
     {
       "name": "apply-create",
-      "args": ["apply", "--output", "unobin", "create.ubp"],
+      "args": ["apply", "--format", "json", "create.ubp"],
       "stdout": "want/apply-create.stdout",
-      "stderr": "want/apply-create.stderr"
+      "normalize": "json"
     },
     {
       "name": "output-create",
@@ -42,9 +42,9 @@
     },
     {
       "name": "apply-update",
-      "args": ["apply", "--output", "unobin", "update.ubp"],
+      "args": ["apply", "--format", "json", "update.ubp"],
       "stdout": "want/apply-update.stdout",
-      "stderr": "want/apply-update.stderr"
+      "normalize": "json"
     },
     {
       "name": "output-update",

@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "name": "defaults to text",
+      "format": "text",
+      "deprecated": false,
+      "conflict": "",
+      "error": ""
+    },
+    {
+      "name": "explicit format",
+      "format": "json",
+      "deprecated": false,
+      "conflict": "",
+      "error": ""
+    },
+    {
+      "name": "deprecated output",
+      "format": "unobin",
+      "deprecated": true,
+      "conflict": "",
+      "error": ""
+    },
+    {
+      "name": "both flags conflict",
+      "format": "json",
+      "deprecated": false,
+      "conflict": "--format and --output cannot be used together",
+      "error": ""
+    },
+    {
+      "name": "invalid format wins",
+      "format": "",
+      "deprecated": false,
+      "conflict": "",
+      "error": "--format: unknown 'yaml' (want text, json, unobin)"
+    },
+    {
+      "name": "invalid output follows valid format",
+      "format": "",
+      "deprecated": false,
+      "conflict": "",
+      "error": "--output: unknown \"bogus\" (want text, json, or unobin)"
+    },
+    {
+      "name": "invalid output",
+      "format": "",
+      "deprecated": false,
+      "conflict": "",
+      "error": "--output: unknown \"bogus\" (want text, json, or unobin)"
+    },
+    {
+      "name": "text format conflict",
+      "format": "text",
+      "deprecated": false,
+      "conflict": "--format and --output cannot be used together",
+      "error": ""
+    }
+  ]
+}

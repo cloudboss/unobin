@@ -2,8 +2,6 @@ package runner
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"os"
 	"os/signal"
 	"sync"
@@ -150,20 +148,4 @@ func (c *applySignalController) interrupt() {
 	c.signalCause = runtime.ErrInterrupted
 	c.mu.Unlock()
 	c.cancel(runtime.ErrInterrupted)
-}
-
-func applySignalContext(stderr io.Writer) (context.Context, <-chan struct{}, func()) {
-	controller := newSystemApplySignalController(context.Background())
-	noticesDone := make(chan struct{})
-	go func() {
-		defer close(noticesDone)
-		for notice := range controller.Notices() {
-			fmt.Fprintln(stderr, notice.Message)
-		}
-	}()
-	stop := func() {
-		controller.Stop()
-		<-noticesDone
-	}
-	return controller.Context(), controller.Drain(), stop
 }

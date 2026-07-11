@@ -18,9 +18,9 @@
     },
     {
       "name": "apply-valid",
-      "args": ["apply", "--output", "unobin", "valid.ubp"],
+      "args": ["apply", "--format", "json", "valid.ubp"],
       "stdout": "want/apply-valid.stdout",
-      "stderr": "want/apply-valid.stderr"
+      "normalize": "json"
     },
     {
       "name": "output-valid",

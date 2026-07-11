@@ -13,9 +13,9 @@
     },
     {
       "name": "apply",
-      "args": ["apply", "--output", "unobin", "plan.ubp"],
+      "args": ["apply", "--format", "json", "plan.ubp"],
       "stdout": "want/apply.stdout",
-      "stderr": "want/apply.stderr"
+      "normalize": "json"
     }
   ],
   "stateSummary": "want/state-summary.json",

@@ -26,9 +26,9 @@
     },
     {
       "name": "apply-env",
-      "args": ["apply", "--output", "unobin", "env.ubp"],
+      "args": ["apply", "--format", "json", "env.ubp"],
       "stdout": "want/apply-env.stdout",
-      "stderr": "want/apply-env.stderr"
+      "normalize": "json"
     },
     {
       "name": "output-env-json",

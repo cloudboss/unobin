@@ -18,9 +18,9 @@
     },
     {
       "name": "apply",
-      "args": ["apply", "--output", "unobin", "sensitive.ubp"],
+      "args": ["apply", "--format", "json", "sensitive.ubp"],
       "stdout": "want/apply.stdout",
-      "stderr": "want/apply.stderr"
+      "normalize": "json"
     },
     {
       "name": "output-json",

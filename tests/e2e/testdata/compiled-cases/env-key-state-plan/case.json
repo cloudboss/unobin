@@ -27,10 +27,10 @@
     },
     {
       "name": "apply-encrypted",
-      "args": ["apply", "--output", "unobin", "plan.ubp"],
+      "args": ["apply", "--format", "json", "plan.ubp"],
       "env": { "UB_STATE_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" },
       "stdout": "want/apply-encrypted.stdout",
-      "stderr": "want/apply-encrypted.stderr"
+      "normalize": "json"
     },
     {
       "name": "state-list-wrong-key",

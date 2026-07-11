@@ -1,0 +1,4 @@
+{"kind":"command-diagnostic","format-version":1,"sequence":1,"timestamp":"<timestamp>","diagnostic":{"code":"unobin.factory.replaced-toolchain","severity":"info","message":"github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced"}}
+{"kind":"apply-event","format-version":1,"sequence":2,"timestamp":"<timestamp>","stage":"start","decision":"destroy","address":"resource.doc"}
+{"kind":"apply-event","format-version":1,"sequence":3,"timestamp":"<timestamp>","stage":"done","decision":"destroy","address":"resource.doc","elapsed":"<elapsed>"}
+{"kind":"apply-result","format-version":1,"sequence":4,"timestamp":"<timestamp>","started-at":"<timestamp>","finished-at":"<timestamp>","elapsed":"<elapsed>","state-rev":"<revision>","output-count":0}

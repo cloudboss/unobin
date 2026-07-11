@@ -1,3 +1,15 @@
-{ kind: 'apply-output', name: 'library-token', value: '<sensitive>' }
-{ kind: 'apply-output', name: 'public-name', value: 'deploy' }
-{ kind: 'apply-output', name: 'token', value: '<sensitive>' }
+{"kind":"command-diagnostic","format-version":1,"sequence":1,"timestamp":"<timestamp>","diagnostic":{"code":"unobin.factory.replaced-toolchain","severity":"info","message":"github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced"}}
+{"kind":"apply-event","format-version":1,"sequence":2,"timestamp":"<timestamp>","stage":"start","decision":"eval","address":"library-config.e2e"}
+{"kind":"apply-event","format-version":1,"sequence":3,"timestamp":"<timestamp>","stage":"done","decision":"eval","address":"library-config.e2e","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":4,"timestamp":"<timestamp>","stage":"start","decision":"rerun","address":"action.go-secret"}
+{"kind":"apply-event","format-version":1,"sequence":5,"timestamp":"<timestamp>","stage":"done","decision":"rerun","address":"action.go-secret","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":6,"timestamp":"<timestamp>","stage":"start","decision":"rerun","address":"action.record"}
+{"kind":"apply-event","format-version":1,"sequence":7,"timestamp":"<timestamp>","stage":"done","decision":"rerun","address":"action.record","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":8,"timestamp":"<timestamp>","stage":"start","decision":"rerun","address":"action.record-local"}
+{"kind":"apply-event","format-version":1,"sequence":9,"timestamp":"<timestamp>","stage":"done","decision":"rerun","address":"action.record-local","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":10,"timestamp":"<timestamp>","stage":"start","decision":"rerun","address":"action.record-output-local"}
+{"kind":"apply-event","format-version":1,"sequence":11,"timestamp":"<timestamp>","stage":"done","decision":"rerun","address":"action.record-output-local","elapsed":"<elapsed>"}
+{"kind":"apply-output","format-version":1,"sequence":12,"timestamp":"<timestamp>","name":"library-token","value":"<sensitive>","sensitive":true}
+{"kind":"apply-output","format-version":1,"sequence":13,"timestamp":"<timestamp>","name":"public-name","value":"deploy","sensitive":false}
+{"kind":"apply-output","format-version":1,"sequence":14,"timestamp":"<timestamp>","name":"token","value":"<sensitive>","sensitive":true}
+{"kind":"apply-result","format-version":1,"sequence":15,"timestamp":"<timestamp>","started-at":"<timestamp>","finished-at":"<timestamp>","elapsed":"<elapsed>","state-rev":"<revision>","output-count":3}

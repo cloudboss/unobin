@@ -24,8 +24,34 @@
       "exitCode": 1
     },
     {
+      "name": "apply-missing-plan-json",
+      "args": ["apply", "--format", "json", "missing.ubp"],
+      "stdout": "want/apply-missing-plan-json.stdout",
+      "normalize": "json",
+      "exitCode": 1
+    },
+    {
+      "name": "apply-conflicting-formats",
+      "args": ["apply", "--format", "json", "--output", "unobin", "empty.ubp"],
+      "stdout": "want/apply-conflicting-formats.stdout",
+      "normalize": "json",
+      "exitCode": 1
+    },
+    {
+      "name": "apply-invalid-format-precedence",
+      "args": ["apply", "--format", "yaml", "--output", "bogus", "empty.ubp"],
+      "stderr": "want/apply-invalid-format-precedence.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "apply-invalid-output-precedence",
+      "args": ["apply", "--format", "json", "--output", "bogus", "empty.ubp"],
+      "stderr": "want/apply-invalid-output-precedence.stderr",
+      "exitCode": 1
+    },
+    {
       "name": "apply-requires-plan",
-      "args": ["apply"],
+      "args": ["apply", "--format", "json"],
       "stderr": "want/apply-requires-plan.stderr",
       "exitCode": 1
     }

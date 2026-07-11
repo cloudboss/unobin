@@ -1,3 +1,13 @@
-{ kind: 'apply-output', name: 'read-content', value: 'two' }
-{ kind: 'apply-output', name: 'read-size', value: 3 }
-{ kind: 'apply-output', name: 'recorded', value: 'read:two' }
+{"kind":"command-diagnostic","format-version":1,"sequence":1,"timestamp":"<timestamp>","diagnostic":{"code":"unobin.factory.replaced-toolchain","severity":"info","message":"github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced"}}
+{"kind":"apply-event","format-version":1,"sequence":2,"timestamp":"<timestamp>","stage":"start","decision":"eval","address":"library-config.e2e"}
+{"kind":"apply-event","format-version":1,"sequence":3,"timestamp":"<timestamp>","stage":"done","decision":"eval","address":"library-config.e2e","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":4,"timestamp":"<timestamp>","stage":"start","decision":"update","address":"resource.doc"}
+{"kind":"apply-event","format-version":1,"sequence":5,"timestamp":"<timestamp>","stage":"done","decision":"update","address":"resource.doc","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":6,"timestamp":"<timestamp>","stage":"start","decision":"read","address":"data-source.read-back"}
+{"kind":"apply-event","format-version":1,"sequence":7,"timestamp":"<timestamp>","stage":"done","decision":"read","address":"data-source.read-back","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":8,"timestamp":"<timestamp>","stage":"start","decision":"rerun","address":"action.capture"}
+{"kind":"apply-event","format-version":1,"sequence":9,"timestamp":"<timestamp>","stage":"done","decision":"rerun","address":"action.capture","elapsed":"<elapsed>"}
+{"kind":"apply-output","format-version":1,"sequence":10,"timestamp":"<timestamp>","name":"read-content","value":"two","sensitive":false}
+{"kind":"apply-output","format-version":1,"sequence":11,"timestamp":"<timestamp>","name":"read-size","value":3,"sensitive":false}
+{"kind":"apply-output","format-version":1,"sequence":12,"timestamp":"<timestamp>","name":"recorded","value":"read:two","sensitive":false}
+{"kind":"apply-result","format-version":1,"sequence":13,"timestamp":"<timestamp>","started-at":"<timestamp>","finished-at":"<timestamp>","elapsed":"<elapsed>","state-rev":"<revision>","output-count":3}

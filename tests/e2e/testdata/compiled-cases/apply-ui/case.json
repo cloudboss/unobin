@@ -19,10 +19,27 @@
       },
       "stdout": "want/apply-ui.stdout",
       "stderr": "want/apply-ui.stderr"
+    },
+    {
+      "name": "plan-json-ui",
+      "args": ["plan", "-c", "stacks/dev.ub", "-o", "plan-json.ubp", "--format", "json"],
+      "stdout": "want/plan-json-ui.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "apply-ui-json",
+      "args": ["apply", "--ui", "--format", "json", "plan-json.ubp"],
+      "env": {
+        "BROWSER": "$WORKSPACE/files/capture-run-view",
+        "RUN_VIEW_GRAPH": "$WORKSPACE/run-view-graph-json.json"
+      },
+      "stdout": "want/apply-ui-json.stdout",
+      "normalize": "json"
     }
   ],
   "files": [
-    { "path": "run-view-graph.json", "want": "want/run-view-graph.json" }
+    { "path": "run-view-graph.json", "want": "want/run-view-graph.json" },
+    { "path": "run-view-graph-json.json", "want": "want/run-view-graph-json.json" }
   ],
   "deterministic": true
 }

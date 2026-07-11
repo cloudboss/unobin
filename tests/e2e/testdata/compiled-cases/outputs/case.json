@@ -18,9 +18,9 @@
     },
     {
       "name": "apply-prod",
-      "args": ["apply", "--output", "unobin", "prod.ubp"],
+      "args": ["apply", "--format", "json", "prod.ubp"],
       "stdout": "want/apply-prod.stdout",
-      "stderr": "want/apply-prod.stderr"
+      "normalize": "json"
     },
     {
       "name": "output-prod-text",
@@ -75,9 +75,9 @@
     },
     {
       "name": "apply-staging",
-      "args": ["apply", "--output", "unobin", "staging.ubp"],
+      "args": ["apply", "--format", "json", "staging.ubp"],
       "stdout": "want/apply-staging.stdout",
-      "stderr": "want/apply-staging.stderr"
+      "normalize": "json"
     },
     {
       "name": "output-staging-json",

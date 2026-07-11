@@ -1,1 +1,5 @@
-{ kind: 'apply-output', name: 'content', value: 'current' }
+{"kind":"command-diagnostic","format-version":1,"sequence":1,"timestamp":"<timestamp>","diagnostic":{"code":"unobin.factory.replaced-toolchain","severity":"info","message":"github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced"}}
+{"kind":"apply-event","format-version":1,"sequence":2,"timestamp":"<timestamp>","stage":"start","decision":"eval","address":"library-config.new"}
+{"kind":"apply-event","format-version":1,"sequence":3,"timestamp":"<timestamp>","stage":"done","decision":"eval","address":"library-config.new","elapsed":"<elapsed>"}
+{"kind":"apply-output","format-version":1,"sequence":4,"timestamp":"<timestamp>","name":"content","value":"current","sensitive":false}
+{"kind":"apply-result","format-version":1,"sequence":5,"timestamp":"<timestamp>","started-at":"<timestamp>","finished-at":"<timestamp>","elapsed":"<elapsed>","state-rev":"<revision>","output-count":1}

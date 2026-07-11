@@ -25,7 +25,6 @@ import (
 	"github.com/cloudboss/unobin/pkg/runtime"
 	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
-	"github.com/cloudboss/unobin/pkg/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -361,16 +360,12 @@ func newApplyCmd(info Info) *cobra.Command {
 		Short: "Run a previously computed plan",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			format, err := ParseFormat(outputStr)
-			if err != nil {
-				return err
-			}
-			if err := writeLinkedUnobinText(cmd, info.UnobinVersion); err != nil {
-				return err
-			}
-			return doApplyPlan(cmd, info, args[0], parallelism, format, withUI)
+			return runApplyCommand(
+				cmd, info, args[0], parallelism, outputStr, withUI,
+			)
 		},
 	}
+	ownStartupCheck(cmd)
 	addStandardFormatFlag(cmd)
 	cmd.Flags().IntVar(&parallelism, "parallelism", 0,
 		"Override the in-flight cap baked into the plan."+
@@ -382,124 +377,16 @@ func newApplyCmd(info Info) *cobra.Command {
 	return cmd
 }
 
-func doApplyPlan(
-	cmd *cobra.Command, info Info, planPath string, parallelismOverride int, format Format,
-	withUI bool,
-) error {
-	sealed, err := os.ReadFile(planPath)
-	if err != nil {
-		return err
-	}
-	var enc sdkencrypt.Encrypter
-	pf, err := runtime.OpenPlan(sealed, func(ref *runtime.StateRef) (sdkencrypt.Encrypter, error) {
-		e, err := resolveEncrypter(fromRuntimeStateRef(ref))
-		if err != nil {
-			return nil, err
-		}
-		enc = e
-		return e, nil
-	})
-	if err != nil {
-		return err
-	}
-	parsed, err := parseFactory(info)
-	if err != nil {
-		return err
-	}
-	dag := parsed.dag
-	store, err := resolveBackend(fromRuntimeStateRef(pf.Backend),
-		info.FactoryName, pf.Stack, enc)
-	if err != nil {
-		return err
-	}
-	ctx, drain, stop := applySignalContext(cmd.ErrOrStderr())
-	defer stop()
-	parallelism := pf.Parallelism
-	if parallelismOverride > 0 {
-		parallelism = parallelismOverride
-	}
-	events := make(chan runtime.ApplyEvent, len(pf.Steps)*3+16)
-	rendererEvents := events
-	var view *ui.Server
-	if withUI {
-		if view, err = startRunView(cmd, info, pf, dag); err != nil {
-			return err
-		}
-		defer func() {
-			view.WaitServed(uiLingerTimeout)
-			view.Close()
-		}()
-		rendererEvents = make(chan runtime.ApplyEvent, cap(events))
-		go teeApplyEvents(events, rendererEvents, view)
-	}
-	rendererDone := make(chan struct{})
-	go func() {
-		defer close(rendererDone)
-		consumeApplyEvents(rendererEvents, cmd.ErrOrStderr(), format)
-	}()
-	exec := &runtime.Executor{
-		SyntaxSource: parsed.syntaxBody,
-		DAG:          dag,
-		Libraries:    info.Libraries,
-		Store:        store,
-		Factory: state.FactoryInfo{
-			Name:            info.FactoryName,
-			Version:         info.FactoryVersion,
-			ContentRevision: info.ContentRevision,
-		},
-		Parallelism: parallelism,
-		Drain:       drain,
-		Events:      events,
-	}
-	res, err := exec.ApplyPlan(ctx, pf)
-	close(events)
-	<-rendererDone
-	if view != nil {
-		view.Complete(err == nil, runViewMessage(err))
-	}
-	if err != nil {
-		if ae, ok := errors.AsType[*runtime.ApplyError](err); ok {
-			renderApplyError(cmd.ErrOrStderr(), ae, format)
-		}
-		return err
-	}
-	return writeApplyOutputs(cmd.OutOrStdout(), format, res.Outputs, rootSensitiveOutputs(parsed))
-}
-
 // uiLingerTimeout is how long apply keeps the run view up after the
 // run ends when no browser has received the result yet, so a tab
 // that is still opening can load the final state.
 var uiLingerTimeout = 10 * time.Second
 
-// startRunView serves the live browser view for an apply, announcing
-// its URL on stderr and opening a browser in the background so the
-// run is not delayed.
-func startRunView(
-	cmd *cobra.Command, info Info, pf *runtime.PlanFile, dag *runtime.DAG,
-) (*ui.Server, error) {
-	view, err := ui.Start(ui.Config{
-		Factory: info.FactoryName,
-		Stack:   pf.Stack,
-		Graph:   runtime.PlanGraph(pf, dag),
-	})
-	if err != nil {
-		return nil, err
-	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "Run view: %s\n", view.URL())
-	go func() {
-		if ui.OpenBrowserContext(context.Background(), view.URL()) != nil {
-			fmt.Fprintln(cmd.ErrOrStderr(),
-				"No browser opened; use the run view URL to watch.")
-		}
-	}()
-	return view, nil
-}
-
 // teeApplyEvents forwards each event to the run view before passing
 // it along to the renderer. The view never blocks, so the renderer
 // stays the only consumer that can slow the stream down.
 func teeApplyEvents(
-	in <-chan runtime.ApplyEvent, out chan<- runtime.ApplyEvent, view *ui.Server,
+	in <-chan runtime.ApplyEvent, out chan<- runtime.ApplyEvent, view applyRunView,
 ) {
 	defer close(out)
 	for ev := range in {

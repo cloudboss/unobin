@@ -1,0 +1,139 @@
+{
+  "cases": [
+    {
+      "name": "success",
+      "stdout": "{\"kind\":\"apply-event\",\"format-version\":1,\"sequence\":1,\"timestamp\":\"2026-07-09T14:32:18.1Z\",\"stage\":\"start\",\"decision\":\"create\",\"address\":\"resource.visible\"}\n{\"kind\":\"apply-event\",\"format-version\":1,\"sequence\":2,\"timestamp\":\"2026-07-09T14:32:18.2Z\",\"stage\":\"done\",\"decision\":\"create\",\"address\":\"resource.visible\",\"elapsed\":\"1.0s\"}\n{\"kind\":\"apply-output\",\"format-version\":1,\"sequence\":3,\"timestamp\":\"2026-07-09T14:32:18.3Z\",\"name\":\"a-first\",\"value\":\"value\",\"sensitive\":false}\n{\"kind\":\"apply-output\",\"format-version\":1,\"sequence\":4,\"timestamp\":\"2026-07-09T14:32:18.4Z\",\"name\":\"z-last\",\"value\":true,\"sensitive\":false}\n{\"kind\":\"apply-result\",\"format-version\":1,\"sequence\":5,\"timestamp\":\"2026-07-09T14:32:18.5Z\",\"started-at\":\"2026-07-09T14:32:18Z\",\"finished-at\":\"2026-07-09T14:32:18.5Z\",\"elapsed\":\"500ms\",\"state-rev\":\"written-revision\",\"output-count\":2}\n",
+      "error": "",
+      "reported": false,
+      "records": 5,
+      "terminals": 1,
+      "terminal-last": true,
+      "producer-done": true,
+      "view-events": [
+        "start:resource.visible",
+        "done:resource.visible"
+      ],
+      "view-ok": true,
+      "view-message": ""
+    },
+    {
+      "name": "browser failure",
+      "stdout": "{\"kind\":\"command-diagnostic\",\"format-version\":1,\"sequence\":1,\"timestamp\":\"2026-07-09T14:32:18.1Z\",\"diagnostic\":{\"code\":\"unobin.ui.browser-open\",\"severity\":\"warning\",\"message\":\"No browser opened; use the run view URL to watch.\"}}\n{\"kind\":\"apply-result\",\"format-version\":1,\"sequence\":2,\"timestamp\":\"2026-07-09T14:32:18.2Z\",\"started-at\":\"2026-07-09T14:32:18Z\",\"finished-at\":\"2026-07-09T14:32:18.2Z\",\"elapsed\":\"200ms\",\"state-rev\":\"written-revision\",\"output-count\":0}\n",
+      "error": "",
+      "reported": false,
+      "records": 2,
+      "terminals": 1,
+      "terminal-last": true,
+      "producer-done": true,
+      "view-events": [],
+      "view-ok": true,
+      "view-message": ""
+    },
+    {
+      "name": "browser timeout",
+      "stdout": "{\"kind\":\"command-diagnostic\",\"format-version\":1,\"sequence\":1,\"timestamp\":\"2026-07-09T14:32:18.1Z\",\"diagnostic\":{\"code\":\"unobin.ui.browser-open\",\"severity\":\"warning\",\"message\":\"Browser open timed out after 5s; use the run view URL to watch.\"}}\n{\"kind\":\"apply-result\",\"format-version\":1,\"sequence\":2,\"timestamp\":\"2026-07-09T14:32:18.2Z\",\"started-at\":\"2026-07-09T14:32:18Z\",\"finished-at\":\"2026-07-09T14:32:18.2Z\",\"elapsed\":\"200ms\",\"state-rev\":\"written-revision\",\"output-count\":0}\n",
+      "error": "",
+      "reported": false,
+      "records": 2,
+      "terminals": 1,
+      "terminal-last": true,
+      "producer-done": true,
+      "view-events": [],
+      "view-ok": true,
+      "view-message": ""
+    },
+    {
+      "name": "step failure",
+      "stdout": "{\"kind\":\"apply-error\",\"format-version\":1,\"sequence\":1,\"timestamp\":\"2026-07-09T14:32:18.1Z\",\"started-at\":\"2026-07-09T14:32:18Z\",\"finished-at\":\"2026-07-09T14:32:18.1Z\",\"elapsed\":\"100ms\",\"stage\":\"execute\",\"code\":\"unobin.apply.step-failed\",\"message\":\"update failed for resource.bad\",\"state-rev\":\"current-revision\",\"diagnostics\":[{\"code\":\"unobin.error\",\"severity\":\"error\",\"message\":\"provider failed\"}],\"address\":\"resource.bad\",\"decision\":\"update\",\"library\":\"example.com/local\",\"skipped\":0,\"succeeded\":0}\n",
+      "error": "resource.bad: provider failed",
+      "reported": true,
+      "records": 1,
+      "terminals": 1,
+      "terminal-last": true,
+      "producer-done": true,
+      "view-events": [
+        "fail:resource.bad"
+      ],
+      "view-ok": false,
+      "view-message": ""
+    },
+    {
+      "name": "interruption",
+      "stdout": "{\"kind\":\"command-diagnostic\",\"format-version\":1,\"sequence\":1,\"timestamp\":\"2026-07-09T14:32:18.1Z\",\"diagnostic\":{\"code\":\"unobin.apply.drain-requested\",\"severity\":\"info\",\"message\":\"Interrupted; letting in-flight steps finish. Press Ctrl-C again or send SIGTERM to abort.\"}}\n{\"kind\":\"apply-error\",\"format-version\":1,\"sequence\":2,\"timestamp\":\"2026-07-09T14:32:18.2Z\",\"started-at\":\"2026-07-09T14:32:18Z\",\"finished-at\":\"2026-07-09T14:32:18.2Z\",\"elapsed\":\"200ms\",\"stage\":\"execute\",\"code\":\"unobin.apply.interrupted\",\"message\":\"apply interrupted\",\"state-rev\":\"current-revision\",\"diagnostics\":[]}\n",
+      "error": "apply: interrupted",
+      "reported": true,
+      "records": 2,
+      "terminals": 1,
+      "terminal-last": true,
+      "producer-done": true,
+      "view-events": [],
+      "view-ok": false,
+      "view-message": ""
+    },
+    {
+      "name": "revision read failure",
+      "stdout": "{\"kind\":\"apply-error\",\"format-version\":1,\"sequence\":1,\"timestamp\":\"2026-07-09T14:32:18.1Z\",\"started-at\":\"2026-07-09T14:32:18Z\",\"finished-at\":\"2026-07-09T14:32:18.1Z\",\"elapsed\":\"100ms\",\"stage\":\"finalize\",\"code\":\"unobin.apply.finalize-failed\",\"message\":\"apply finalization failed\",\"state-rev\":null,\"diagnostics\":[{\"code\":\"unobin.error\",\"severity\":\"error\",\"message\":\"current revision: revision failed\"},{\"code\":\"unobin.error\",\"severity\":\"error\",\"message\":\"persist failed\"}]}\n",
+      "error": "persist failed\ncurrent revision: revision failed",
+      "reported": true,
+      "records": 1,
+      "terminals": 1,
+      "terminal-last": true,
+      "producer-done": true,
+      "view-events": [],
+      "view-ok": false,
+      "view-message": ""
+    },
+    {
+      "name": "encoding cancellation drain",
+      "stdout": "{\"kind\":\"apply-error\",\"format-version\":1,\"sequence\":1,\"timestamp\":\"2026-07-09T14:32:18.1Z\",\"started-at\":\"2026-07-09T14:32:18Z\",\"finished-at\":\"2026-07-09T14:32:18.1Z\",\"elapsed\":\"100ms\",\"stage\":\"finalize\",\"code\":\"unobin.apply.finalize-failed\",\"message\":\"apply finalization failed\",\"state-rev\":\"current-revision\",\"diagnostics\":[{\"code\":\"unobin.error\",\"severity\":\"error\",\"message\":\"apply stream: unsupported event stage \\\"queued\\\"\"}]}\n",
+      "error": "apply stream: unsupported event stage \"queued\"",
+      "reported": true,
+      "records": 1,
+      "terminals": 1,
+      "terminal-last": true,
+      "producer-done": true,
+      "view-events": [],
+      "view-ok": false,
+      "view-message": ""
+    },
+    {
+      "name": "invalid result before outputs",
+      "stdout": "{\"kind\":\"apply-error\",\"format-version\":1,\"sequence\":1,\"timestamp\":\"2026-07-09T14:32:18.1Z\",\"started-at\":\"2026-07-09T14:32:18Z\",\"finished-at\":\"2026-07-09T14:32:18.1Z\",\"elapsed\":\"100ms\",\"stage\":\"finalize\",\"code\":\"unobin.apply.finalize-failed\",\"message\":\"apply finalization failed\",\"state-rev\":\"current-revision\",\"diagnostics\":[{\"code\":\"unobin.error\",\"severity\":\"error\",\"message\":\"apply stream: result state revision is required\"}]}\n",
+      "error": "apply stream: result state revision is required",
+      "reported": true,
+      "records": 1,
+      "terminals": 1,
+      "terminal-last": true,
+      "producer-done": true,
+      "view-events": [],
+      "view-ok": false,
+      "view-message": ""
+    },
+    {
+      "name": "encoding failure",
+      "stdout": "{\"kind\":\"apply-error\",\"format-version\":1,\"sequence\":1,\"timestamp\":\"2026-07-09T14:32:18.1Z\",\"started-at\":\"2026-07-09T14:32:18Z\",\"finished-at\":\"2026-07-09T14:32:18.1Z\",\"elapsed\":\"100ms\",\"stage\":\"finalize\",\"code\":\"unobin.apply.finalize-failed\",\"message\":\"apply finalization failed\",\"state-rev\":\"current-revision\",\"diagnostics\":[{\"code\":\"unobin.error\",\"severity\":\"error\",\"message\":\"machine value $.Value: type func() is not supported\"}]}\n",
+      "error": "machine value $.Value: type func() is not supported",
+      "reported": true,
+      "records": 1,
+      "terminals": 1,
+      "terminal-last": true,
+      "producer-done": true,
+      "view-events": [],
+      "view-ok": false,
+      "view-message": ""
+    },
+    {
+      "name": "write failure",
+      "stdout": "",
+      "error": "writer failed",
+      "reported": false,
+      "records": 0,
+      "terminals": 0,
+      "terminal-last": false,
+      "producer-done": true,
+      "view-events": [],
+      "view-ok": false,
+      "view-message": ""
+    }
+  ]
+}
