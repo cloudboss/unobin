@@ -1,0 +1,125 @@
+{
+  "cases": [
+    {
+      "name": "partial deletion",
+      "result": {
+        "kind": "state-gc-result",
+        "format-version": 1,
+        "factory": {
+          "name": "appdeploy",
+          "version": "",
+          "content-revision": "",
+          "library-path": null
+        },
+        "stack": "dev",
+        "ok": false,
+        "deleted": 1,
+        "kept": 2,
+        "current": "rev-3",
+        "failed-revision": "rev-2",
+        "diagnostics": [
+          {
+            "code": "unobin.error",
+            "severity": "error",
+            "message": "delete failed"
+          }
+        ]
+      },
+      "error": "delete failed",
+      "diagnostics": [
+        {
+          "code": "unobin.error",
+          "severity": "error",
+          "message": "delete failed"
+        }
+      ],
+      "deletes": [
+        "rev-1",
+        "rev-2"
+      ],
+      "unlock-calls": 1
+    },
+    {
+      "name": "first deletion fails",
+      "result": null,
+      "error": "delete failed",
+      "diagnostics": [
+        {
+          "code": "unobin.error",
+          "severity": "error",
+          "message": "delete failed"
+        }
+      ],
+      "deletes": [
+        "rev-1"
+      ],
+      "unlock-calls": 1
+    },
+    {
+      "name": "current failure",
+      "result": null,
+      "error": "current revision: current failed",
+      "diagnostics": [
+        {
+          "code": "unobin.error",
+          "severity": "error",
+          "message": "current revision: current failed"
+        }
+      ],
+      "deletes": [],
+      "unlock-calls": 1
+    },
+    {
+      "name": "unlock after deletion",
+      "result": {
+        "kind": "state-gc-result",
+        "format-version": 1,
+        "factory": {
+          "name": "appdeploy",
+          "version": "",
+          "content-revision": "",
+          "library-path": null
+        },
+        "stack": "dev",
+        "ok": false,
+        "deleted": 1,
+        "kept": 1,
+        "current": "rev-2",
+        "failed-revision": null,
+        "diagnostics": [
+          {
+            "code": "unobin.state.unlock",
+            "severity": "error",
+            "message": "release lock: unlock failed"
+          }
+        ]
+      },
+      "error": "release lock: unlock failed",
+      "diagnostics": [
+        {
+          "code": "unobin.state.unlock",
+          "severity": "error",
+          "message": "release lock: unlock failed"
+        }
+      ],
+      "deletes": [
+        "rev-1"
+      ],
+      "unlock-calls": 1
+    },
+    {
+      "name": "unlock without deletion",
+      "result": null,
+      "error": "release lock: unlock failed",
+      "diagnostics": [
+        {
+          "code": "unobin.state.unlock",
+          "severity": "error",
+          "message": "release lock: unlock failed"
+        }
+      ],
+      "deletes": [],
+      "unlock-calls": 1
+    }
+  ]
+}

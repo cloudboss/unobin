@@ -2,7 +2,7 @@ package runner
 
 // sensitivePlaceholder is the literal renderers print in place of a
 // masked value.
-const sensitivePlaceholder = "***"
+const sensitivePlaceholder = "<sensitive>"
 
 func rootSensitiveOutputs(parsed *parsedFactory) map[string]bool {
 	if parsed == nil {

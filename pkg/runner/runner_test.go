@@ -350,7 +350,7 @@ func TestPrintPlanMasksSensitiveInput(t *testing.T) {
 	buf := &bytes.Buffer{}
 	printPlan(buf, plan, false)
 	out := buf.String()
-	require.Contains(t, out, "password: ***")
+	require.Contains(t, out, "password: <sensitive>")
 	require.NotContains(t, out, "shh")
 	require.Contains(t, out, `name: 'tok'`)
 }
@@ -372,7 +372,7 @@ func TestPrintPlanMasksSensitiveDrift(t *testing.T) {
 	buf := &bytes.Buffer{}
 	printPlan(buf, plan, false)
 	out := buf.String()
-	require.Contains(t, out, "value: *** -> ***")
+	require.Contains(t, out, "value: <sensitive> -> <sensitive>")
 	require.NotContains(t, out, "old-secret")
 	require.NotContains(t, out, "new-secret")
 }

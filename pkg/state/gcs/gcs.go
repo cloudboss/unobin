@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/user"
 	"path"
-	"slices"
 	"strings"
 	"time"
 
@@ -187,8 +186,7 @@ func (s *Store) List() ([]string, error) {
 			out = append(out, rev)
 		}
 	}
-	slices.Sort(out)
-	return out, nil
+	return sdkstate.SortRevisions(out), nil
 }
 
 func (s *Store) Delete(rev string) error {

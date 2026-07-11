@@ -1,0 +1,98 @@
+{
+  "cases": [
+    {
+      "name": "move after committed set error",
+      "result": {
+        "kind": "state-move-result",
+        "format-version": 1,
+        "factory": {
+          "name": "appdeploy",
+          "version": "",
+          "content-revision": "",
+          "library-path": null
+        },
+        "stack": "dev",
+        "ok": false,
+        "from": "action.old",
+        "to": "action.new",
+        "moved": 1,
+        "state-rev": "revision",
+        "diagnostics": [
+          {
+            "code": "unobin.error",
+            "severity": "error",
+            "message": "set current failed"
+          }
+        ]
+      },
+      "result-non-null": true,
+      "revision-current": true,
+      "error": "set current failed",
+      "diagnostics": [
+        {
+          "code": "unobin.error",
+          "severity": "error",
+          "message": "set current failed"
+        }
+      ],
+      "current-entries": [
+        "action.new"
+      ],
+      "unlock-calls": 1
+    },
+    {
+      "name": "remove after unlock error",
+      "result": {
+        "kind": "state-remove-result",
+        "format-version": 1,
+        "factory": {
+          "name": "appdeploy",
+          "version": "",
+          "content-revision": "",
+          "library-path": null
+        },
+        "stack": "dev",
+        "ok": false,
+        "address": "action.old",
+        "state-rev": "revision",
+        "diagnostics": [
+          {
+            "code": "unobin.state.unlock",
+            "severity": "error",
+            "message": "release lock: unlock failed"
+          }
+        ]
+      },
+      "result-non-null": true,
+      "revision-current": true,
+      "error": "release lock: unlock failed",
+      "diagnostics": [
+        {
+          "code": "unobin.state.unlock",
+          "severity": "error",
+          "message": "release lock: unlock failed"
+        }
+      ],
+      "current-entries": [],
+      "unlock-calls": 1
+    },
+    {
+      "name": "remove before commit error",
+      "result": null,
+      "result-non-null": false,
+      "revision-current": false,
+      "error": "set current failed",
+      "diagnostics": [
+        {
+          "code": "unobin.error",
+          "severity": "error",
+          "message": "set current failed"
+        }
+      ],
+      "current-entries": [
+        "action.old"
+      ],
+      "unlock-calls": 1
+    }
+  ]
+}

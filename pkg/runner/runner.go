@@ -110,7 +110,7 @@ func wrapTextStartupChecks(
 	for _, child := range command.Commands() {
 		wrapTextStartupChecks(child, info, skip)
 	}
-	if skip[command] {
+	if skip[command] || command.Annotations[ownsStartupCheckAnnotation] == "true" {
 		return
 	}
 	if command.RunE != nil {
@@ -234,6 +234,30 @@ func commandResultFailure(
 		return cmdout.WriteCommandError(command, format, diagnostics, err)
 	}
 	return err
+}
+
+const ownsStartupCheckAnnotation = "unobin.owns-startup-check"
+
+func ownStartupCheck(command *cobra.Command) {
+	if command.Annotations == nil {
+		command.Annotations = map[string]string{}
+	}
+	command.Annotations[ownsStartupCheckAnnotation] = "true"
+}
+
+func beginCommandResult(
+	command *cobra.Command,
+	info Info,
+) (cmdout.Format, *diagnostic.Collector, error) {
+	format, err := commandFormat(command)
+	if err != nil {
+		return "", nil, err
+	}
+	collector := &diagnostic.Collector{}
+	if err := checkLinkedUnobin(command, info.UnobinVersion, format, collector); err != nil {
+		return "", nil, err
+	}
+	return format, collector, nil
 }
 
 func newVersionCmd(info Info) *cobra.Command {
@@ -603,16 +627,23 @@ func newRefreshCmd(info Info) *cobra.Command {
 		Short: "Update state to match what each resource currently reports",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config, err := parseStackFile(configPath)
+			format, collector, err := beginCommandResult(cmd, info)
 			if err != nil {
 				return err
 			}
-			if err := verifyFactoryEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
-				return err
+			config, err := parseStackFile(configPath)
+			if err != nil {
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
 			}
-			return doRefresh(cmd, info, config, configPath)
+			if err := verifyFactoryEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+			}
+			return doRefreshWithFormat(
+				cmd, info, config, configPath, format, collector.Diagnostics(),
+			)
 		},
 	}
+	ownStartupCheck(cmd)
 	addStandardFormatFlag(cmd)
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
 		"Path to a stack file for inputs and state settings.")
@@ -621,10 +652,20 @@ func newRefreshCmd(info Info) *cobra.Command {
 	return cmd
 }
 
-func doRefresh(cmd *cobra.Command, info Info, config *parsedStack, configPath string) error {
+func doRefreshWithFormat(
+	cmd *cobra.Command,
+	info Info,
+	config *parsedStack,
+	configPath string,
+	format cmdout.Format,
+	diagnostics []diagnostic.Diagnostic,
+) error {
+	fail := func(err error) error {
+		return commandResultFailure(cmd, format, diagnostics, err)
+	}
 	parsed, err := parseFactory(info)
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	dag := parsed.dag
 	inputs, err := buildInputs(
@@ -635,15 +676,16 @@ func doRefresh(cmd *cobra.Command, info Info, config *parsedStack, configPath st
 		info.LibraryConfigSchemas,
 	)
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	enc, err := loadEncrypter(config, configPath)
 	if err != nil {
-		return err
+		return fail(err)
 	}
-	store, err := loadStore(info, config, configPath, stackName(configPath), enc)
+	stack := stackName(configPath)
+	store, err := loadStore(info, config, configPath, stack, enc)
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	exec := &runtime.Executor{
 		SyntaxSource: parsed.syntaxBody,
@@ -658,13 +700,40 @@ func doRefresh(cmd *cobra.Command, info Info, config *parsedStack, configPath st
 		},
 	}
 	res, err := exec.Refresh(context.Background())
-	if err != nil {
-		return err
+	if format == cmdout.FormatText {
+		if err != nil {
+			return err
+		}
+		out := cmd.OutOrStdout()
+		fmt.Fprintf(out, "Refreshed %d, removed %d.\n", res.Refreshed, res.Dropped)
+		if res.WrittenRev != "" {
+			fmt.Fprintf(out, "State rev: %s\n", res.WrittenRev)
+		}
+		return nil
 	}
-	out := cmd.OutOrStdout()
-	fmt.Fprintf(out, "Refreshed %d, removed %d.\n", res.Refreshed, res.Dropped)
+	if err != nil && (res == nil || res.WrittenRev == "") {
+		return stateCommandFailure(cmd, format, diagnostics, err)
+	}
+	if res == nil {
+		return stateCommandFailure(cmd, format, diagnostics, err)
+	}
+	var revision *string
 	if res.WrittenRev != "" {
-		fmt.Fprintf(out, "State rev: %s\n", res.WrittenRev)
+		value := res.WrittenRev
+		revision = &value
+	}
+	resultDiagnostics := diagnostics
+	if err != nil {
+		resultDiagnostics = diagnostic.Merge(diagnostics, stateErrorDiagnostics(err))
+	}
+	document := buildRefreshResult(
+		info, stack, err == nil, res.Refreshed, res.Dropped, revision, resultDiagnostics,
+	)
+	if writeErr := cmdout.WriteDocument(cmd.OutOrStdout(), format, document); writeErr != nil {
+		return writeErr
+	}
+	if err != nil {
+		return cmdout.Reported(err)
 	}
 	return nil
 }

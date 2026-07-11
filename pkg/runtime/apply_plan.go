@@ -19,7 +19,7 @@ import (
 // bodies come from the plan. The plan's stack identity must match the
 // Executor's, and the prior state's rev must match what the plan was
 // computed against. The stack's lock is held for the duration.
-func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, error) {
+func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (result *ExecResult, err error) {
 	if e.Store == nil {
 		return nil, errors.New("executor: Store is required")
 	}
@@ -32,13 +32,16 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (*ExecResult, er
 			e.Factory.Name, e.Factory.Version, e.Factory.ContentRevision)
 	}
 
-	lock, err := e.Store.Lock(ctx)
+	release, err := AcquireStateLock(ctx, e.Store)
 	if err != nil {
-		return nil, diagnostic.Context("acquire lock", err)
+		return nil, err
 	}
-	defer func() { _ = lock.Unlock() }()
+	defer func() { err = release(err) }()
 
-	currentRev, _ := e.Store.CurrentRev()
+	currentRev, err := checkedCurrentRevision(e.Store)
+	if err != nil {
+		return nil, err
+	}
 	if currentRev != pf.StateRev {
 		return nil, fmt.Errorf("state-rev drift: plan was computed against %q, "+
 			"current is %q; must rerun the plan", pf.StateRev, currentRev)

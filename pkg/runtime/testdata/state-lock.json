@@ -1,0 +1,34 @@
+{
+  "cases": [
+    {
+      "name": "success",
+      "error": "",
+      "unlock-error": false,
+      "unlock-calls": 1
+    },
+    {
+      "name": "acquire failure",
+      "error": "acquire lock: lock unavailable",
+      "unlock-error": false,
+      "unlock-calls": 0
+    },
+    {
+      "name": "operation failure",
+      "error": "operation failed",
+      "unlock-error": false,
+      "unlock-calls": 1
+    },
+    {
+      "name": "unlock failure",
+      "error": "release lock: unlock failed",
+      "unlock-error": true,
+      "unlock-calls": 1
+    },
+    {
+      "name": "operation and unlock failure",
+      "error": "operation failed\nrelease lock: unlock failed",
+      "unlock-error": true,
+      "unlock-calls": 1
+    }
+  ]
+}

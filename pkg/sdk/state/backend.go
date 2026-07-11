@@ -18,6 +18,7 @@ type Backend interface {
 	Get(rev string) (*Snapshot, error)
 	Write(snap *Snapshot) (string, error)
 	SetCurrent(rev string) error
+	// List returns snapshot revisions from oldest to newest.
 	List() ([]string, error)
 	Delete(rev string) error
 	Lock(ctx context.Context) (Lock, error)

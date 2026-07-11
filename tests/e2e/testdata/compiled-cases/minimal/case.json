@@ -39,6 +39,17 @@
       "exitCode": 1
     },
     {
+      "name": "pin-json",
+      "args": ["pin", "-c", "stacks/dev.ub", "--format", "json"],
+      "stdout": "want/pin-json.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "pin-unobin-unchanged",
+      "args": ["pin", "-c", "stacks/dev.ub", "--format", "unobin"],
+      "stdout": "want/pin-unobin-unchanged.stdout"
+    },
+    {
       "name": "validate",
       "args": ["validate", "-c", "stacks/dev.ub"],
       "stdout": "want/validate.stdout",
@@ -112,6 +123,18 @@
       "args": ["print-graph", "--format", "yaml"],
       "stderr": "want/print-graph-unknown.stderr",
       "exitCode": 1
+    },
+    {
+      "name": "state-list-empty-json",
+      "args": ["state", "list", "-c", "stacks/dev.ub", "--format", "json"],
+      "stdout": "want/state-list-empty-json.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "state-snapshots-empty-json",
+      "args": ["state", "snapshots", "list", "-c", "stacks/dev.ub", "--format", "json"],
+      "stdout": "want/state-snapshots-empty-json.stdout",
+      "normalize": "json"
     },
     {
       "name": "plan-json-no-output",

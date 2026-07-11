@@ -1,0 +1,20 @@
+{
+  "cases": [
+    {
+      "name": "unlock after state write",
+      "result-non-null": true,
+      "written-revision": true,
+      "error": "release lock: unlock failed",
+      "unlock-error": true,
+      "underlying-unlocked": true
+    },
+    {
+      "name": "current revision failure",
+      "result-non-null": false,
+      "written-revision": false,
+      "error": "current revision: current failed",
+      "unlock-error": false,
+      "underlying-unlocked": true
+    }
+  ]
+}

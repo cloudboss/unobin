@@ -6,7 +6,7 @@ category: action
 schema-version: 0
 trigger-hash: be50edad1db1dd908c34f5df6efb122c9c18e133e37e0b7a78c446d40d6aedbb
 inputs:
-  message: ***
+  message: <sensitive>
   name: 'deploy'
 outputs:
   count: 1

@@ -1,14 +1,14 @@
   (rerun)   action.go-secret
       label: 'deploy'
-      value: ***
+      value: <sensitive>
   (rerun)   action.record
-      message: ***
+      message: <sensitive>
       name: 'deploy'
   (rerun)   action.record-local
-      message: ***
+      message: <sensitive>
       name: 'deploy'
   (rerun)   action.record-output-local
-      message: ***
+      message: <sensitive>
       name: 'output-local'
 
 Plan: 0 to create, 0 to update, 0 to replace, 0 to destroy, 4 to rerun.

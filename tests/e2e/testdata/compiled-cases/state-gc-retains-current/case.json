@@ -23,6 +23,23 @@
       "args": ["state", "snapshots", "list", "-c", "stacks/dev.ub"],
       "stdout": "want/snapshots-list-after.stdout",
       "stderr": "want/snapshots-list-after.stderr"
+    },
+    {
+      "name": "snapshots-gc-json",
+      "args": [
+        "state", "snapshots", "gc", "--keep", "1", "-c", "stacks/dev.ub",
+        "--format", "json"
+      ],
+      "stdout": "want/snapshots-gc-json.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "snapshots-list-final-json",
+      "args": [
+        "state", "snapshots", "list", "-c", "stacks/dev.ub", "--format", "json"
+      ],
+      "stdout": "want/snapshots-list-final-json.stdout",
+      "normalize": "json"
     }
   ],
   "stateSummary": "want/state-summary.json",

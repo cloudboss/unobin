@@ -1,3 +1,3 @@
-{ kind: 'apply-output', name: 'library-token', value: '***' }
+{ kind: 'apply-output', name: 'library-token', value: '<sensitive>' }
 { kind: 'apply-output', name: 'public-name', value: 'deploy' }
-{ kind: 'apply-output', name: 'token', value: '***' }
+{ kind: 'apply-output', name: 'token', value: '<sensitive>' }

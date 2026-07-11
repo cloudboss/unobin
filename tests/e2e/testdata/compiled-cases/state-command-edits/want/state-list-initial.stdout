@@ -1,2 +1,3 @@
 action.bye (e2e.echo)
 action.old (e2e.echo)
+action.temp (e2e.echo)

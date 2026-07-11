@@ -37,6 +37,21 @@
         "prefixed": "bye",
         "text": "bye"
       }
+    },
+    {
+      "address": "action.temp",
+      "entry-kind": "action",
+      "category": "action",
+      "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "echo" },
+      "inputs": {
+        "text": "temporary",
+        "upper": false
+      },
+      "outputs": {
+        "length": 9,
+        "prefixed": "temporary",
+        "text": "temporary"
+      }
     }
   ],
   "outputs": {

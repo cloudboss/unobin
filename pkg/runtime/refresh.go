@@ -26,15 +26,34 @@ type RefreshResult struct {
 // entries, plus stack-level outputs, carry forward unchanged. No
 // resource writes happen. The stack's lock is held for the
 // duration.
-func (e *Executor) Refresh(ctx context.Context) (*RefreshResult, error) {
+func (e *Executor) Refresh(ctx context.Context) (result *RefreshResult, err error) {
 	if e.Store == nil {
 		return nil, errors.New("executor: Store is required")
 	}
-	lock, err := e.Store.Lock(ctx)
+	release, err := AcquireStateLock(ctx, e.Store)
 	if err != nil {
-		return nil, diagnostic.Context("acquire lock", err)
+		return nil, err
 	}
-	defer func() { _ = lock.Unlock() }()
+	startingRevision, err := checkedCurrentRevision(e.Store)
+	if err != nil {
+		return nil, release(err)
+	}
+	res := &RefreshResult{}
+	defer func() {
+		err = release(err)
+		if err == nil {
+			return
+		}
+		currentRevision, currentErr := checkedCurrentRevision(e.Store)
+		if currentErr != nil {
+			err = errors.Join(err, currentErr)
+			return
+		}
+		if currentRevision != startingRevision {
+			res.WrittenRev = currentRevision
+			result = res
+		}
+	}()
 
 	rs, err := e.initRun()
 	if err != nil {
@@ -47,7 +66,6 @@ func (e *Executor) Refresh(ctx context.Context) (*RefreshResult, error) {
 		return nil, err
 	}
 
-	res := &RefreshResult{}
 	type leafResult struct {
 		idx     int
 		updated *state.Entry

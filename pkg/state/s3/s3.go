@@ -216,7 +216,7 @@ func (s *Store) List() ([]string, error) {
 			}
 		}
 	}
-	return out, nil
+	return sdkstate.SortRevisions(out), nil
 }
 
 // Delete removes the snapshot with the given rev. Removing a rev that

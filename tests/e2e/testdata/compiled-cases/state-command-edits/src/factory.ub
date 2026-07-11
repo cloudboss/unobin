@@ -26,6 +26,14 @@ factory: {
     bye: e2e.echo {
       text: 'bye'
     }
+
+    other: e2e.echo {
+      text: 'hello'
+    }
+
+    temp: e2e.echo {
+      text: 'temporary'
+    }
   }
 
   outputs: {

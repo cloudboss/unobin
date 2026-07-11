@@ -12,10 +12,22 @@
       "stderr": "want/state-list-initial.stderr"
     },
     {
+      "name": "state-list-initial-json",
+      "args": ["state", "list", "-c", "stacks/dev.ub", "--format", "json"],
+      "stdout": "want/state-list-initial-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "state-show-old",
       "args": ["state", "show", "action.old", "-c", "stacks/dev.ub"],
       "stdout": "want/state-show-old.stdout",
       "stderr": "want/state-show-old.stderr"
+    },
+    {
+      "name": "state-show-old-json",
+      "args": ["state", "show", "action.old", "-c", "stacks/dev.ub", "--format", "json"],
+      "stdout": "want/state-show-old-json.stdout",
+      "normalize": "json"
     },
     {
       "name": "state-pull-initial",
@@ -30,6 +42,12 @@
       "stderr": "want/state-snapshots-list-initial.stderr"
     },
     {
+      "name": "state-snapshots-list-initial-json",
+      "args": ["state", "snapshots", "list", "-c", "stacks/dev.ub", "--format", "json"],
+      "stdout": "want/state-snapshots-list-initial-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "state-move-legacy-ref",
       "args": ["state", "move", "e2e.echo@action.old", "e2e.echo@action.hi", "-c", "stacks/dev.ub"],
       "stderr": "want/state-move-legacy-ref.stderr",
@@ -39,6 +57,16 @@
       "name": "state-move-missing",
       "args": ["state", "move", "action.missing", "action.hi", "-c", "stacks/dev.ub"],
       "stderr": "want/state-move-missing.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "state-move-missing-json",
+      "args": [
+        "state", "move", "action.missing", "action.hi", "-c", "stacks/dev.ub",
+        "--format", "json"
+      ],
+      "stdout": "want/state-move-missing-json.stdout",
+      "normalize": "json",
       "exitCode": 1
     },
     {
@@ -72,6 +100,32 @@
       "stderr": "want/state-list-after-move.stderr"
     },
     {
+      "name": "state-move-hi-to-other-json",
+      "args": [
+        "state", "move", "action.hi", "action.other", "-c", "stacks/dev.ub",
+        "--format", "json"
+      ],
+      "stdout": "want/state-move-hi-to-other-json.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "state-move-other-to-hi-json",
+      "args": [
+        "state", "move", "action.other", "action.hi", "-c", "stacks/dev.ub",
+        "--format", "json"
+      ],
+      "stdout": "want/state-move-other-to-hi-json.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "state-remove-temp-json",
+      "args": [
+        "state", "remove", "action.temp", "-c", "stacks/dev.ub", "--format", "json"
+      ],
+      "stdout": "want/state-remove-temp-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "state-remove-bye",
       "args": ["state", "remove", "action.bye", "-c", "stacks/dev.ub"],
       "stdout": "want/state-remove-bye.stdout",
@@ -90,10 +144,28 @@
       "exitCode": 1
     },
     {
+      "name": "state-show-old-absent-json",
+      "args": [
+        "state", "show", "action.old", "-c", "stacks/dev.ub", "--format", "json"
+      ],
+      "stdout": "want/state-show-old-absent-json.stdout",
+      "normalize": "json",
+      "exitCode": 1
+    },
+    {
       "name": "state-snapshots-gc",
       "args": ["state", "snapshots", "gc", "--keep", "1", "-c", "stacks/dev.ub"],
       "stdout": "want/state-snapshots-gc.stdout",
       "stderr": "want/state-snapshots-gc.stderr"
+    },
+    {
+      "name": "state-snapshots-gc-json",
+      "args": [
+        "state", "snapshots", "gc", "--keep", "1", "-c", "stacks/dev.ub",
+        "--format", "json"
+      ],
+      "stdout": "want/state-snapshots-gc-json.stdout",
+      "normalize": "json"
     },
     {
       "name": "state-snapshots-list-final",

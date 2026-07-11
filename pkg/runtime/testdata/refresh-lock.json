@@ -1,0 +1,26 @@
+{
+  "cases": [
+    {
+      "name": "after state write",
+      "result-non-null": true,
+      "refreshed": 1,
+      "removed": 0,
+      "written-revision": true,
+      "current-matches": true,
+      "error": "release lock: unlock failed",
+      "unlock-error": true,
+      "underlying-unlocked": true
+    },
+    {
+      "name": "without state write",
+      "result-non-null": true,
+      "refreshed": 0,
+      "removed": 0,
+      "written-revision": false,
+      "current-matches": false,
+      "error": "release lock: unlock failed",
+      "unlock-error": true,
+      "underlying-unlocked": true
+    }
+  ]
+}

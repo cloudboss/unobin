@@ -222,7 +222,7 @@ func (s *Store) List() ([]string, error) {
 			out = append(out, before)
 		}
 	}
-	return out, nil
+	return sdkstate.SortRevisions(out), nil
 }
 
 // Delete removes the snapshot with the given rev. Removing a rev that

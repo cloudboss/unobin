@@ -6,6 +6,12 @@
   "stateLocks": ["dev"],
   "commands": [
     {
+      "name": "force-unlock-json",
+      "args": ["state", "force-unlock", "-c", "stacks/dev.ub", "--format", "json"],
+      "stdout": "want/force-unlock-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "force-unlock",
       "args": ["state", "force-unlock", "-c", "stacks/dev.ub"],
       "stdout": "want/force-unlock.stdout",

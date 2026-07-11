@@ -126,7 +126,7 @@ func TestApplyOutputEnvelopesMasksSensitive(t *testing.T) {
 	var buf bytes.Buffer
 	require.NoError(t, writeApplyOutputs(&buf, FormatUnobin, outputs, sensitive))
 	assert.Equal(t,
-		"{ kind: 'apply-output', name: 'password', value: '***' }\n"+
+		"{ kind: 'apply-output', name: 'password', value: '<sensitive>' }\n"+
 			"{ kind: 'apply-output', name: 'vpc-id', value: 'vpc-abc123' }\n",
 		buf.String())
 }
@@ -136,7 +136,7 @@ func TestApplyOutputsTextMasksSensitive(t *testing.T) {
 	sensitive := map[string]bool{"password": true}
 	var buf bytes.Buffer
 	require.NoError(t, writeApplyOutputs(&buf, FormatText, outputs, sensitive))
-	assert.Equal(t, "password: ***\n", buf.String())
+	assert.Equal(t, "password: <sensitive>\n", buf.String())
 }
 
 func TestApplyErrorEnvelope(t *testing.T) {

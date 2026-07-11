@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
@@ -58,9 +59,16 @@ func newStateGCCmd(info Info) *cobra.Command {
 		Short: "Delete old snapshot revisions, keeping the most recent ones",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doStateGC(cmd, info, configPath, keep)
+			format, collector, err := beginCommandResult(cmd, info)
+			if err != nil {
+				return err
+			}
+			return doStateGCWithFormat(
+				cmd, info, configPath, keep, format, collector.Diagnostics(),
+			)
 		},
 	}
+	ownStartupCheck(cmd)
 	addStandardFormatFlag(cmd)
 	cmd.Flags().IntVar(&keep, "keep", 10,
 		"Number of recent snapshot revisions to keep. The current revision"+
@@ -69,32 +77,97 @@ func newStateGCCmd(info Info) *cobra.Command {
 	return cmd
 }
 
-func doStateGC(cmd *cobra.Command, info Info, configPath string, keep int) error {
-	if keep < 0 {
-		return fmt.Errorf("--keep must not be negative")
+func doStateGCWithFormat(
+	cmd *cobra.Command,
+	info Info,
+	configPath string,
+	keep int,
+	format cmdout.Format,
+	diagnostics []diagnostic.Diagnostic,
+) error {
+	result, err := gcState(info, configPath, keep)
+	if !format.Machine() {
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "Deleted %d snapshot(s), kept %d.\n",
+			result.Deleted, result.Kept)
+		return nil
 	}
-	store, err := loadStateStore(info, configPath)
+	if result == nil {
+		return stateCommandFailure(cmd, format, diagnostics, err)
+	}
+	resultDiagnostics := diagnostics
 	if err != nil {
-		return err
+		resultDiagnostics = diagnostic.Merge(diagnostics, stateErrorDiagnostics(err))
 	}
-	lock, err := store.Lock(context.Background())
+	document := buildStateGCResult(
+		info, result.Stack, err == nil, result.Deleted, result.Kept,
+		result.Current, result.FailedRevision, resultDiagnostics,
+	)
+	if writeErr := cmdout.WriteDocument(cmd.OutOrStdout(), format, document); writeErr != nil {
+		return writeErr
+	}
 	if err != nil {
-		return diagnostic.Context("acquire lock", err)
+		return cmdout.Reported(err)
 	}
-	defer func() { _ = lock.Unlock() }()
+	return nil
+}
 
-	revs, err := store.List()
-	if err != nil {
-		return err
+type stateGCMutation struct {
+	Stack          string
+	Deleted        int
+	Kept           int
+	Current        *string
+	FailedRevision *string
+}
+
+func gcState(
+	info Info,
+	configPath string,
+	keep int,
+) (result *stateGCMutation, err error) {
+	if keep < 0 {
+		return nil, fmt.Errorf("--keep must not be negative")
 	}
-	current, err := store.CurrentRev()
-	if err != nil && !errors.Is(err, state.ErrNoCurrent) {
-		return err
+	metadata, err := loadStateMetadata(info, configPath)
+	if err != nil {
+		return nil, err
+	}
+	return gcStateMetadata(metadata, keep)
+}
+
+func gcStateMetadata(
+	metadata stateMetadata,
+	keep int,
+) (result *stateGCMutation, err error) {
+	release, err := runtime.AcquireStateLock(context.Background(), metadata.Store)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		operationErr := err
+		err = release(err)
+		if operationErr == nil && err != nil && result != nil && result.Deleted == 0 {
+			result = nil
+		}
+	}()
+
+	revs, err := metadata.Store.List()
+	if err != nil {
+		return nil, err
+	}
+	if revs == nil {
+		revs = []string{}
+	}
+	current, err := currentStateRevision(metadata.Store)
+	if err != nil {
+		return nil, err
 	}
 
 	keepSet := map[string]bool{}
-	if current != "" {
-		keepSet[current] = true
+	if current != nil {
+		keepSet[*current] = true
 	}
 	cutoff := max(len(revs)-keep, 0)
 	for _, r := range revs[cutoff:] {
@@ -106,14 +179,22 @@ func doStateGC(cmd *cobra.Command, info Info, configPath string, keep int) error
 		if keepSet[r] {
 			continue
 		}
-		if err := store.Delete(r); err != nil {
-			return err
+		if err := metadata.Store.Delete(r); err != nil {
+			if deleted > 0 {
+				failedRevision := r
+				result = &stateGCMutation{
+					Stack: metadata.Stack, Deleted: deleted, Kept: len(revs) - deleted,
+					Current: current, FailedRevision: &failedRevision,
+				}
+			}
+			return result, err
 		}
 		deleted++
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "Deleted %d snapshot(s), kept %d.\n",
-		deleted, len(revs)-deleted)
-	return nil
+	return &stateGCMutation{
+		Stack: metadata.Stack, Deleted: deleted, Kept: len(revs) - deleted,
+		Current: current,
+	}, nil
 }
 
 func newStateMoveCmd(info Info) *cobra.Command {
@@ -123,67 +204,161 @@ func newStateMoveCmd(info Info) *cobra.Command {
 		Short: "Move a state entry to a new address",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doStateMove(cmd, info, configPath, args[0], args[1])
+			format, collector, err := beginCommandResult(cmd, info)
+			if err != nil {
+				return err
+			}
+			return doStateMoveWithFormat(
+				cmd, info, configPath, args[0], args[1], format, collector.Diagnostics(),
+			)
 		},
 	}
+	ownStartupCheck(cmd)
 	addStandardFormatFlag(cmd)
 	addConfigFlag(cmd, &configPath)
 	return cmd
 }
 
-func doStateMove(cmd *cobra.Command, info Info, configPath, fromText, toText string) error {
+func doStateMoveWithFormat(
+	cmd *cobra.Command,
+	info Info,
+	configPath string,
+	fromText string,
+	toText string,
+	format cmdout.Format,
+	diagnostics []diagnostic.Diagnostic,
+) error {
+	result, err := moveState(info, configPath, fromText, toText)
+	if !format.Machine() {
+		if err != nil {
+			return err
+		}
+		out := cmd.OutOrStdout()
+		if result.Moved == 1 {
+			fmt.Fprintf(out, "Moved %s to %s.\n", result.From, result.To)
+		} else {
+			fmt.Fprintf(out, "Moved %s to %s (%d entries).\n",
+				result.From, result.To, result.Moved)
+		}
+		return nil
+	}
+	if result == nil {
+		return stateCommandFailure(cmd, format, diagnostics, err)
+	}
+	resultDiagnostics := diagnostics
+	if err != nil {
+		resultDiagnostics = diagnostic.Merge(diagnostics, stateErrorDiagnostics(err))
+	}
+	document, buildErr := buildStateMoveResult(
+		info, result.Stack, err == nil, result.From, result.To, result.Moved,
+		result.StateRev, resultDiagnostics,
+	)
+	if buildErr != nil {
+		return stateCommandFailure(cmd, format, diagnostics, buildErr)
+	}
+	if writeErr := cmdout.WriteDocument(cmd.OutOrStdout(), format, document); writeErr != nil {
+		return writeErr
+	}
+	if err != nil {
+		return cmdout.Reported(err)
+	}
+	return nil
+}
+
+type stateMoveMutation struct {
+	Stack    string
+	From     string
+	To       string
+	Moved    int
+	StateRev string
+}
+
+func moveState(
+	info Info,
+	configPath string,
+	fromText string,
+	toText string,
+) (result *stateMoveMutation, err error) {
 	from, err := runtime.ParseEntryRef(fromText)
 	if err != nil {
-		return diagnostic.Context("state move", err)
+		return nil, diagnostic.Context("state move", err)
 	}
 	to, err := runtime.ParseEntryRef(toText)
 	if err != nil {
-		return diagnostic.Context("state move", err)
+		return nil, diagnostic.Context("state move", err)
 	}
 	parsed, err := parseFactory(info)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	store, err := loadStateStore(info, configPath)
+	metadata, err := loadStateMetadata(info, configPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	lock, err := store.Lock(context.Background())
-	if err != nil {
-		return diagnostic.Context("acquire lock", err)
-	}
-	defer func() { _ = lock.Unlock() }()
+	return moveStateMetadata(metadata, parsed.dag, info.Libraries, from, to)
+}
 
-	snap, err := store.Current()
+func moveStateMetadata(
+	metadata stateMetadata,
+	dag *runtime.DAG,
+	libraries map[string]*runtime.Library,
+	from runtime.EntryRef,
+	to runtime.EntryRef,
+) (result *stateMoveMutation, err error) {
+	release, err := runtime.AcquireStateLock(context.Background(), metadata.Store)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	startingRevision, err := currentStateRevision(metadata.Store)
+	if err != nil {
+		return nil, release(err)
+	}
+	movedCount := 0
+	defer func() {
+		err = release(err)
+		if err == nil || result != nil {
+			return
+		}
+		current, currentErr := currentStateRevision(metadata.Store)
+		if currentErr != nil {
+			err = errors.Join(err, currentErr)
+			return
+		}
+		if !sameOptionalString(startingRevision, current) && current != nil {
+			result = &stateMoveMutation{
+				Stack: metadata.Stack, From: from.String(), To: to.String(),
+				Moved: movedCount, StateRev: *current,
+			}
+		}
+	}()
+
+	snap, err := metadata.Store.Current()
+	if err != nil {
+		return nil, err
 	}
 	next, moved, err := runtime.ApplyEntryMoves(
 		snap,
-		parsed.dag,
-		info.Libraries,
+		dag,
+		libraries,
 		[]runtime.EntryMoveSpec{{From: from, To: to}},
 		runtime.EntryMoveStrict,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	movedCount = len(moved)
 
-	rev, err := store.Write(next)
+	rev, err := metadata.Store.Write(next)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if err := store.SetCurrent(rev); err != nil {
-		return err
+	if err := metadata.Store.SetCurrent(rev); err != nil {
+		return nil, err
 	}
-	out := cmd.OutOrStdout()
-	if len(moved) == 1 {
-		fmt.Fprintf(out, "Moved %s to %s.\n", from.String(), to.String())
-	} else {
-		fmt.Fprintf(out, "Moved %s to %s (%d entries).\n",
-			from.String(), to.String(), len(moved))
-	}
-	return nil
+	return &stateMoveMutation{
+		Stack: metadata.Stack, From: from.String(), To: to.String(),
+		Moved: len(moved), StateRev: rev,
+	}, nil
 }
 
 func newStateRemoveCmd(info Info) *cobra.Command {
@@ -193,32 +368,113 @@ func newStateRemoveCmd(info Info) *cobra.Command {
 		Short: "Remove a state entry without touching the underlying resource",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doStateRemove(cmd, info, configPath, args[0])
+			format, collector, err := beginCommandResult(cmd, info)
+			if err != nil {
+				return err
+			}
+			return doStateRemoveWithFormat(
+				cmd, info, configPath, args[0], format, collector.Diagnostics(),
+			)
 		},
 	}
+	ownStartupCheck(cmd)
 	addStandardFormatFlag(cmd)
 	addConfigFlag(cmd, &configPath)
 	return cmd
 }
 
-func doStateRemove(cmd *cobra.Command, info Info, configPath, refText string) error {
+func doStateRemoveWithFormat(
+	cmd *cobra.Command,
+	info Info,
+	configPath string,
+	refText string,
+	format cmdout.Format,
+	diagnostics []diagnostic.Diagnostic,
+) error {
+	result, err := removeState(info, configPath, refText)
+	if !format.Machine() {
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "Removed %s.\n", result.Address)
+		return nil
+	}
+	if result == nil {
+		return stateCommandFailure(cmd, format, diagnostics, err)
+	}
+	resultDiagnostics := diagnostics
+	if err != nil {
+		resultDiagnostics = diagnostic.Merge(diagnostics, stateErrorDiagnostics(err))
+	}
+	document, buildErr := buildStateRemoveResult(
+		info, result.Stack, err == nil, result.Address, result.StateRev, resultDiagnostics,
+	)
+	if buildErr != nil {
+		return stateCommandFailure(cmd, format, diagnostics, buildErr)
+	}
+	if writeErr := cmdout.WriteDocument(cmd.OutOrStdout(), format, document); writeErr != nil {
+		return writeErr
+	}
+	if err != nil {
+		return cmdout.Reported(err)
+	}
+	return nil
+}
+
+type stateRemoveMutation struct {
+	Stack    string
+	Address  string
+	StateRev string
+}
+
+func removeState(
+	info Info,
+	configPath string,
+	refText string,
+) (result *stateRemoveMutation, err error) {
 	ref, err := runtime.ParseEntryRef(refText)
 	if err != nil {
-		return diagnostic.Context("state remove", err)
+		return nil, diagnostic.Context("state remove", err)
 	}
-	store, err := loadStateStore(info, configPath)
+	metadata, err := loadStateMetadata(info, configPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	lock, err := store.Lock(context.Background())
-	if err != nil {
-		return diagnostic.Context("acquire lock", err)
-	}
-	defer func() { _ = lock.Unlock() }()
+	return removeStateMetadata(metadata, ref)
+}
 
-	snap, err := store.Current()
+func removeStateMetadata(
+	metadata stateMetadata,
+	ref runtime.EntryRef,
+) (result *stateRemoveMutation, err error) {
+	release, err := runtime.AcquireStateLock(context.Background(), metadata.Store)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	startingRevision, err := currentStateRevision(metadata.Store)
+	if err != nil {
+		return nil, release(err)
+	}
+	defer func() {
+		err = release(err)
+		if err == nil || result != nil {
+			return
+		}
+		current, currentErr := currentStateRevision(metadata.Store)
+		if currentErr != nil {
+			err = errors.Join(err, currentErr)
+			return
+		}
+		if !sameOptionalString(startingRevision, current) && current != nil {
+			result = &stateRemoveMutation{
+				Stack: metadata.Stack, Address: ref.String(), StateRev: *current,
+			}
+		}
+	}()
+
+	snap, err := metadata.Store.Current()
+	if err != nil {
+		return nil, err
 	}
 	idx := -1
 	for i, e := range snap.Entries {
@@ -229,19 +485,20 @@ func doStateRemove(cmd *cobra.Command, info Info, configPath, refText string) er
 		}
 	}
 	if idx < 0 {
-		return fmt.Errorf("no entry at %s", ref.String())
+		return nil, fmt.Errorf("no entry at %s", ref.String())
 	}
 	snap.Entries = append(snap.Entries[:idx], snap.Entries[idx+1:]...)
 
-	rev, err := store.Write(snap)
+	rev, err := metadata.Store.Write(snap)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if err := store.SetCurrent(rev); err != nil {
-		return err
+	if err := metadata.Store.SetCurrent(rev); err != nil {
+		return nil, err
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "Removed %s.\n", ref.String())
-	return nil
+	return &stateRemoveMutation{
+		Stack: metadata.Stack, Address: ref.String(), StateRev: rev,
+	}, nil
 }
 
 func newStateForceUnlockCmd(info Info) *cobra.Command {
@@ -253,17 +510,30 @@ func newStateForceUnlockCmd(info Info) *cobra.Command {
 		Long: "Use this only when a previous run died without releasing the lock. " +
 			"Make sure no apply or refresh is running against this stack first.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store, err := loadStateStore(info, configPath)
+			format, collector, err := beginCommandResult(cmd, info)
 			if err != nil {
 				return err
 			}
-			if err := store.ForceUnlock(); err != nil {
-				return err
+			metadata, err := loadStateMetadata(info, configPath)
+			if err != nil {
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+			}
+			if err := metadata.Store.ForceUnlock(); err != nil {
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+			}
+			if format.Machine() {
+				return cmdout.WriteDocument(
+					cmd.OutOrStdout(), format,
+					buildStateForceUnlockResult(
+						info, metadata.Stack, collector.Diagnostics(),
+					),
+				)
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "Lock cleared.")
 			return nil
 		},
 	}
+	ownStartupCheck(cmd)
 	addStandardFormatFlag(cmd)
 	addConfigFlag(cmd, &configPath)
 	return cmd
@@ -276,18 +546,38 @@ func newStateListCmd(info Info) *cobra.Command {
 		Short: "List current state entries",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store, err := loadStateStore(info, configPath)
+			format, collector, err := beginCommandResult(cmd, info)
 			if err != nil {
 				return err
 			}
-			snap, err := store.Current()
-			if errors.Is(err, state.ErrNoCurrent) {
+			metadata, err := loadStateMetadata(info, configPath)
+			if err != nil {
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+			}
+			revision, err := currentStateRevision(metadata.Store)
+			if err != nil {
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+			}
+			var snapshot *state.Snapshot
+			if revision != nil {
+				snapshot, err = metadata.Store.Current()
+				if err != nil {
+					return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+				}
+			}
+			if format.Machine() {
+				result, err := buildStateListResult(
+					info, metadata.Stack, revision, snapshot, collector.Diagnostics(),
+				)
+				if err != nil {
+					return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+				}
+				return cmdout.WriteDocument(cmd.OutOrStdout(), format, result)
+			}
+			if snapshot == nil {
 				return nil
 			}
-			if err != nil {
-				return err
-			}
-			entries, err := sortedStateEntries(snap)
+			entries, err := sortedStateEntries(snapshot)
 			if err != nil {
 				return err
 			}
@@ -298,6 +588,7 @@ func newStateListCmd(info Info) *cobra.Command {
 			return nil
 		},
 	}
+	ownStartupCheck(cmd)
 	addStandardFormatFlag(cmd)
 	addConfigFlag(cmd, &configPath)
 	return cmd
@@ -310,19 +601,37 @@ func newStateSnapshotsListCmd(info Info) *cobra.Command {
 		Short: "List snapshot revisions, marking the current one with *",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store, err := loadStateStore(info, configPath)
+			format, collector, err := beginCommandResult(cmd, info)
 			if err != nil {
 				return err
 			}
-			revs, err := store.List()
+			metadata, err := loadStateMetadata(info, configPath)
 			if err != nil {
-				return err
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
 			}
-			current, _ := store.CurrentRev()
+			revs, err := metadata.Store.List()
+			if err != nil {
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+			}
+			if revs == nil {
+				revs = []string{}
+			}
+			current, err := currentStateRevision(metadata.Store)
+			if err != nil {
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+			}
+			if format.Machine() {
+				return cmdout.WriteDocument(
+					cmd.OutOrStdout(), format,
+					buildStateSnapshotsResult(
+						info, metadata.Stack, current, revs, collector.Diagnostics(),
+					),
+				)
+			}
 			out := cmd.OutOrStdout()
 			for _, r := range revs {
 				marker := "  "
-				if r == current {
+				if current != nil && r == *current {
 					marker = "* "
 				}
 				fmt.Fprintf(out, "%s%s\n", marker, r)
@@ -330,6 +639,7 @@ func newStateSnapshotsListCmd(info Info) *cobra.Command {
 			return nil
 		},
 	}
+	ownStartupCheck(cmd)
 	addStandardFormatFlag(cmd)
 	addConfigFlag(cmd, &configPath)
 	return cmd
@@ -342,27 +652,56 @@ func newStateShowCmd(info Info) *cobra.Command {
 		Short: "Show one current state entry",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			format, collector, err := beginCommandResult(cmd, info)
+			if err != nil {
+				return err
+			}
 			ref, err := runtime.ParseEntryRef(args[0])
 			if err != nil {
-				return diagnostic.Context("state show", err)
+				return commandResultFailure(
+					cmd, format, collector.Diagnostics(), diagnostic.Context("state show", err),
+				)
 			}
-			store, err := loadStateStore(info, configPath)
+			metadata, err := loadStateMetadata(info, configPath)
 			if err != nil {
-				return err
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
 			}
-			snap, err := store.Current()
+			revision, err := currentStateRevision(metadata.Store)
 			if err != nil {
-				return err
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+			}
+			if revision == nil {
+				return commandResultFailure(
+					cmd, format, collector.Diagnostics(), state.ErrNoCurrent,
+				)
+			}
+			snap, err := metadata.Store.Current()
+			if err != nil {
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
 			}
 			for _, ent := range snap.Entries {
 				entryRef, ok := runtime.EntryRefFromEntry(ent)
 				if ok && runtime.SameEntryRef(entryRef, ref) {
+					if format.Machine() {
+						result, err := buildStateEntryResult(
+							info, metadata.Stack, *revision, ent, collector.Diagnostics(),
+						)
+						if err != nil {
+							return commandResultFailure(
+								cmd, format, collector.Diagnostics(), err,
+							)
+						}
+						return cmdout.WriteDocument(cmd.OutOrStdout(), format, result)
+					}
 					return printStateEntry(cmd, ent)
 				}
 			}
-			return fmt.Errorf("no entry at %s", ref.String())
+			return commandResultFailure(
+				cmd, format, collector.Diagnostics(), fmt.Errorf("no entry at %s", ref.String()),
+			)
 		},
 	}
+	ownStartupCheck(cmd)
 	addStandardFormatFlag(cmd)
 	addConfigFlag(cmd, &configPath)
 	return cmd
@@ -401,15 +740,81 @@ func newStatePullCmd(info Info) *cobra.Command {
 }
 
 func loadStateStore(info Info, configPath string) (state.Backend, error) {
-	config, err := parseStackFile(configPath)
+	metadata, err := loadStateMetadata(info, configPath)
 	if err != nil {
 		return nil, err
+	}
+	return metadata.Store, nil
+}
+
+type stateMetadata struct {
+	Store state.Backend
+	Stack string
+}
+
+func loadStateMetadata(info Info, configPath string) (stateMetadata, error) {
+	config, err := parseStackFile(configPath)
+	if err != nil {
+		return stateMetadata{}, err
 	}
 	enc, err := loadEncrypter(config, configPath)
 	if err != nil {
-		return nil, err
+		return stateMetadata{}, err
 	}
-	return loadStore(info, config, configPath, stackName(configPath), enc)
+	stack := stackName(configPath)
+	store, err := loadStore(info, config, configPath, stack, enc)
+	if err != nil {
+		return stateMetadata{}, err
+	}
+	return stateMetadata{Store: store, Stack: stack}, nil
+}
+
+func currentStateRevision(store state.Backend) (*string, error) {
+	revision, err := store.CurrentRev()
+	if errors.Is(err, state.ErrNoCurrent) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, diagnostic.Context("current revision", err)
+	}
+	return &revision, nil
+}
+
+func sameOptionalString(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
+}
+
+func stateErrorDiagnostics(err error) []diagnostic.Diagnostic {
+	diagnostics := diagnostic.FromError(err, diagnostic.ConvertOptions{})
+	var unlockError *runtime.StateUnlockError
+	if !errors.As(err, &unlockError) {
+		return diagnostics
+	}
+	for i := range diagnostics {
+		if diagnostics[i].Message == unlockError.Error() {
+			diagnostics[i].Code = "unobin.state.unlock"
+		}
+	}
+	return diagnostic.Normalize(diagnostics)
+}
+
+func stateCommandFailure(
+	cmd *cobra.Command,
+	format cmdout.Format,
+	collected []diagnostic.Diagnostic,
+	err error,
+) error {
+	var unlockError *runtime.StateUnlockError
+	if !format.Machine() || !errors.As(err, &unlockError) {
+		return commandResultFailure(cmd, format, collected, err)
+	}
+	failure := cmdout.FailWithDiagnostics(
+		cmdout.CodeFailed, "", nil, stateErrorDiagnostics(err),
+	)
+	return cmdout.WriteCommandError(cmd, format, collected, failure)
 }
 
 type listedStateEntry struct {

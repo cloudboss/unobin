@@ -5,7 +5,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
+	"github.com/cloudboss/unobin/pkg/filechange"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/spf13/cobra"
@@ -22,9 +24,17 @@ func newPinCmd(info Info) *cobra.Command {
 		Short: "Add this binary's identity to a stack file",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return doPin(cmd, info, configPath, versionOverride, contentRevisionOverride)
+			format, collector, err := beginCommandResult(cmd, info)
+			if err != nil {
+				return err
+			}
+			return doPinWithFormat(
+				cmd, info, configPath, versionOverride, contentRevisionOverride,
+				format, collector.Diagnostics(),
+			)
 		},
 	}
+	ownStartupCheck(cmd)
 	addStandardFormatFlag(cmd)
 	cmd.Flags().StringVarP(&configPath, "config", "c", "",
 		"Path to the stack file to pin into.")
@@ -38,8 +48,26 @@ func newPinCmd(info Info) *cobra.Command {
 func doPin(
 	cmd *cobra.Command, info Info, configPath, versionOverride, contentRevisionOverride string,
 ) error {
+	return doPinWithFormat(
+		cmd, info, configPath, versionOverride, contentRevisionOverride,
+		cmdout.FormatText, nil,
+	)
+}
+
+func doPinWithFormat(
+	cmd *cobra.Command,
+	info Info,
+	configPath string,
+	versionOverride string,
+	contentRevisionOverride string,
+	format cmdout.Format,
+	diagnostics []diagnostic.Diagnostic,
+) error {
+	fail := func(err error) error {
+		return commandResultFailure(cmd, format, diagnostics, err)
+	}
 	if configPath == "" {
-		return fmt.Errorf("--config is required")
+		return fail(fmt.Errorf("--config is required"))
 	}
 	version := versionOverride
 	if version == "" {
@@ -50,25 +78,45 @@ func doPin(
 		revision = info.ContentRevision
 	}
 	if version == "" || revision == "" {
-		return fmt.Errorf(
+		return fail(fmt.Errorf(
 			"this binary has no embedded version or content-revision; " +
-				"pass --version and --content-revision to pin another binary's identity")
+				"pass --version and --content-revision to pin another binary's identity"))
 	}
 	src, err := os.ReadFile(configPath)
 	if err != nil {
-		return err
+		return fail(err)
 	}
 	updated, action, err := pinFile(src, info.LibraryPath, version, revision)
 	if err != nil {
-		return diagnostic.Context(fmt.Sprintf("stack file %s", configPath), err)
+		return fail(diagnostic.Context(fmt.Sprintf("stack file %s", configPath), err))
+	}
+	content := updated
+	if action != pinActionAlreadyPinned {
+		content, err = lang.Canonicalize(configPath, updated)
+		if err != nil {
+			return fail(err)
+		}
+	}
+	change, err := filechange.WriteFile(configPath, content, 0o644)
+	if err != nil {
+		if change.Action != "" {
+			err = cmdout.WithFiles(err, []filechange.Change{change})
+		}
+		return fail(err)
+	}
+	if format.Machine() {
+		result, err := buildPinResult(
+			info, stackName(configPath), action, change, diagnostics,
+		)
+		if err != nil {
+			return fail(err)
+		}
+		return cmdout.WriteDocument(cmd.OutOrStdout(), format, result)
 	}
 	if action == pinActionAlreadyPinned {
 		fmt.Fprintf(cmd.ErrOrStderr(),
 			"%s already pins %s (content-revision %s).\n", configPath, version, revision)
 		return nil
-	}
-	if err := lang.WriteCanonical(configPath, updated); err != nil {
-		return err
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(),
 		"Pinned %s (content-revision %s) in %s (%s).\n", version, revision, configPath, action)

@@ -39,6 +39,14 @@
       "args": ["state", "show", "-c", "stacks/dev.ub", "action.go-secret"],
       "stdout": "want/state-show-secret.stdout",
       "stderr": "want/state-show-secret.stderr"
+    },
+    {
+      "name": "state-show-secret-json",
+      "args": [
+        "state", "show", "-c", "stacks/dev.ub", "action.go-secret", "--format", "json"
+      ],
+      "stdout": "want/state-show-secret-json.stdout",
+      "normalize": "json"
     }
   ],
   "stateSummary": "want/state-summary.json",

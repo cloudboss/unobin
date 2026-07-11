@@ -5,6 +5,12 @@
   "build": true,
   "commands": [
     {
+      "name": "refresh-empty-json",
+      "args": ["refresh", "-c", "stacks/dev.ub", "--format", "json"],
+      "stdout": "want/refresh-empty-json.stdout",
+      "normalize": "json"
+    },
+    {
       "name": "refresh-empty",
       "args": ["refresh", "-c", "stacks/dev.ub"],
       "stdout": "want/refresh-empty.stdout",
@@ -27,6 +33,12 @@
       "args": ["refresh", "-c", "stacks/dev.ub"],
       "stdout": "want/refresh-after-apply.stdout",
       "stderr": "want/refresh-after-apply.stderr"
+    },
+    {
+      "name": "refresh-after-apply-json",
+      "args": ["refresh", "-c", "stacks/dev.ub", "--format", "json"],
+      "stdout": "want/refresh-after-apply-json.stdout",
+      "normalize": "json"
     },
     {
       "name": "state-list",

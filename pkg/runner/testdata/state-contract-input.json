@@ -1,0 +1,46 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "appdeploy",
+    "version": "v0.1.0",
+    "content-revision": "abc123def456"
+  },
+  "stack": "dev",
+  "generated-at": "2026-07-10T00:00:00Z",
+  "entries": [
+    {
+      "address": "action.record",
+      "entry-kind": "action",
+      "category": "action",
+      "binding": {
+        "alias": "local",
+        "library-path": "example.com/local",
+        "kind": "record"
+      },
+      "schema-version": 1,
+      "trigger-hash": "sha256:trigger",
+      "inputs": {
+        "name": "deploy",
+        "password": "super-secret"
+      },
+      "outputs": {
+        "id": "record-1",
+        "token": "output-secret"
+      },
+      "depends-on": ["resource.z", "resource.a"],
+      "sensitive-inputs": ["password"],
+      "sensitive-outputs": ["token"]
+    },
+    {
+      "address": "resource.bucket",
+      "entry-kind": "leaf",
+      "category": "resource",
+      "binding": {
+        "alias": "local",
+        "kind": "bucket"
+      },
+      "inputs": {},
+      "outputs": {}
+    }
+  ]
+}
