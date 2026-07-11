@@ -1,5 +1,6 @@
 // Package gcpcfg holds the Google Cloud connection settings shared by
-// state backends, encrypters, and Go libraries.
+// state backends, encrypters, and Go libraries. Load resolves a Configuration
+// into credentials and client settings.
 package gcpcfg
 
 import (
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cloudboss/unobin/pkg/defaults"
+	"github.com/cloudboss/unobin/pkg/ptr"
 )
 
 const defaultRequestTimeout = "120s"
@@ -98,7 +100,7 @@ func (c *Configuration) Validate() error {
 	if c == nil {
 		return nil
 	}
-	if boolValue(c.PreferRegionalEndpoints) && boolValue(c.PreferGlobalEndpoints) {
+	if ptr.Value(c.PreferRegionalEndpoints) && ptr.Value(c.PreferGlobalEndpoints) {
 		return errors.New(
 			"gcp config: prefer-regional-endpoints and prefer-global-endpoints conflict")
 	}
@@ -106,15 +108,4 @@ func (c *Configuration) Validate() error {
 		return err
 	}
 	return nil
-}
-
-func stringValue(p *string) string {
-	if p == nil {
-		return ""
-	}
-	return *p
-}
-
-func boolValue(p *bool) bool {
-	return p != nil && *p
 }
