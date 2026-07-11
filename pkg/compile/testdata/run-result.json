@@ -1,0 +1,90 @@
+{
+  "cases": [
+    {
+      "name": "created",
+      "result": {
+        "factory-name": "demo",
+        "version": "v1.2.3",
+        "content-revision": "",
+        "library-path": "example.com/demo",
+        "source-path": "factory.ub",
+        "project-dir": ".",
+        "output-dir": "build",
+        "main-go-path": "build/main.go",
+        "go-mod-path": "build/go.mod",
+        "built": false,
+        "binary-path": "",
+        "files": [
+          {
+            "path": "build/go.mod",
+            "action": "created"
+          },
+          {
+            "path": "build/main.go",
+            "action": "created"
+          }
+        ]
+      },
+      "error": ""
+    },
+    {
+      "name": "unchanged",
+      "result": {
+        "factory-name": "demo",
+        "version": "v1.2.3",
+        "content-revision": "",
+        "library-path": "example.com/demo",
+        "source-path": "factory.ub",
+        "project-dir": ".",
+        "output-dir": "build",
+        "main-go-path": "build/main.go",
+        "go-mod-path": "build/go.mod",
+        "built": false,
+        "binary-path": "",
+        "files": [
+          {
+            "path": "build/go.mod",
+            "action": "unchanged"
+          },
+          {
+            "path": "build/main.go",
+            "action": "unchanged"
+          }
+        ]
+      },
+      "error": ""
+    },
+    {
+      "name": "partial write failure",
+      "result": {
+        "factory-name": "demo",
+        "version": "v1.2.3",
+        "content-revision": "",
+        "library-path": "example.com/demo",
+        "source-path": "factory.ub",
+        "project-dir": ".",
+        "output-dir": "build",
+        "main-go-path": "build/main.go",
+        "go-mod-path": "build/go.mod",
+        "built": false,
+        "binary-path": "",
+        "files": [
+          {
+            "path": "build/go.mod",
+            "action": "unchanged"
+          },
+          {
+            "path": "build/main.go",
+            "action": "created"
+          }
+        ]
+      },
+      "error": "rename $ROOT/build/.go.mod.tmp $ROOT/build/go.mod: file exists"
+    },
+    {
+      "name": "failure before mutation",
+      "result": null,
+      "error": "stat $ROOT/factory.ub: no such file or directory"
+    }
+  ]
+}

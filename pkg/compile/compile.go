@@ -22,6 +22,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/codegen"
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
+	"github.com/cloudboss/unobin/pkg/filechange"
 	"github.com/cloudboss/unobin/pkg/golibrary"
 	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -75,6 +76,42 @@ type Options struct {
 	// type checks infer, with its type. The residual-Unknown harness
 	// uses it; nil compiles without recording.
 	TypeObserver func(e lang.Expr, t typecheck.Type)
+}
+
+type Result struct {
+	FactoryName     string
+	Version         string
+	ContentRevision string
+	LibraryPath     string
+	SourcePath      string
+	ProjectDir      string
+	OutputDir       string
+	MainGoPath      string
+	GoModPath       string
+	Built           bool
+	BinaryPath      string
+	Files           []filechange.Change
+}
+
+func RunResult(opts Options) (*Result, error) {
+	var result *Result
+	err := run(opts, &result)
+	attempted := result != nil && len(result.Files) > 0
+	if result != nil {
+		var composeErr error
+		result.Files, composeErr = filechange.Compose(result.Files)
+		err = errors.Join(err, composeErr)
+	}
+	if err != nil && !attempted {
+		return nil, err
+	}
+	return result, err
+}
+
+// Run compiles a factory per the options.
+func Run(opts Options) error {
+	_, err := RunResult(opts)
+	return err
 }
 
 func (o Options) stdout() io.Writer {
@@ -189,8 +226,7 @@ func FactorySourcePath(path string) (string, error) {
 	return "", fmt.Errorf("compile: %s has no factory.ub", path)
 }
 
-// Run compiles a factory per the options.
-func Run(opts Options) error {
+func run(opts Options, resultOut **Result) error {
 	if opts.OutDir == "" {
 		return errors.New("--out is required (use `-` for stdout)")
 	}
@@ -413,6 +449,16 @@ func Run(opts Options) error {
 			analysis.LibraryConfigSchemas,
 		),
 	}
+	result := &Result{
+		FactoryName: name, Version: opts.Version, LibraryPath: opts.LibraryPath,
+		SourcePath: factoryPath, ProjectDir: projectDir, OutputDir: opts.OutDir,
+		Files: []filechange.Change{},
+	}
+	if opts.OutDir != "-" {
+		result.MainGoPath = filepath.Join(opts.OutDir, "main.go")
+		result.GoModPath = filepath.Join(opts.OutDir, "go.mod")
+	}
+	*resultOut = result
 
 	if opts.OutDir == "-" {
 		if len(analysis.UBPackages) > 0 {
@@ -435,23 +481,40 @@ func Run(opts Options) error {
 		return err
 	}
 
-	_, err = codegen.WriteSource(opts.OutDir, in,
+	changes, err := codegen.WriteSource(opts.OutDir, in,
 		opts.GoVersion, unobinVersion, analysis.GoModules, replaces)
+	result.Files = append(result.Files, changes...)
 	if err != nil {
 		return err
 	}
-	for packageID, pkgBytes := range analysis.UBPackages {
+	for _, packageID := range slices.Sorted(maps.Keys(analysis.UBPackages)) {
+		pkgBytes := analysis.UBPackages[packageID]
 		pkgDir := filepath.Join(opts.OutDir, "internal", packageID)
 		if err := os.MkdirAll(pkgDir, 0o755); err != nil {
 			return err
 		}
-		if err := os.WriteFile(filepath.Join(pkgDir, packageID+".go"), pkgBytes, 0o644); err != nil {
+		change, err := filechange.WriteFile(
+			filepath.Join(pkgDir, packageID+".go"), pkgBytes, 0o644,
+		)
+		if change.Path != "" {
+			result.Files = append(result.Files, change)
+		}
+		if err != nil {
 			return err
 		}
 	}
 	if opts.Build {
-		return runGoBuild(opts.stdout(), opts.stderr(), opts.reporter(),
-			opts.OutDir, name, opts.Version, unobinVersion)
+		buildResult, err := runGoBuild(
+			opts.stdout(), opts.stderr(), opts.reporter(),
+			opts.OutDir, name, opts.Version, unobinVersion,
+		)
+		result.Files = append(result.Files, buildResult.Files...)
+		result.ContentRevision = buildResult.ContentRevision
+		if err != nil {
+			return err
+		}
+		result.Built = true
+		result.BinaryPath = filepath.Join(opts.OutDir, name)
 	}
 	return nil
 }
@@ -515,6 +578,11 @@ func verifySelectedUnobin(
 	return nil
 }
 
+type goBuildResult struct {
+	ContentRevision string
+	Files           []filechange.Change
+}
+
 func runGoBuild(
 	stdout io.Writer,
 	stderr io.Writer,
@@ -523,28 +591,35 @@ func runGoBuild(
 	binaryName string,
 	version string,
 	expectedUnobin string,
-) error {
+) (goBuildResult, error) {
+	result := goBuildResult{Files: []filechange.Change{}}
 	goBin, err := toolchain.Ensure(stderr)
 	if err != nil {
-		return err
+		return result, err
 	}
 
 	tidy := exec.Command(goBin, "mod", "tidy")
 	tidy.Dir = dir
 	tidy.Stdout = stdout
 	tidy.Stderr = stderr
-	if err := tidy.Run(); err != nil {
-		return diagnostic.Context("go mod tidy failed", err)
+	changes, err := filechange.Observe([]string{
+		filepath.Join(dir, "go.mod"),
+		filepath.Join(dir, "go.sum"),
+	}, tidy.Run)
+	result.Files = append(result.Files, changes...)
+	if err != nil {
+		return result, diagnostic.Context("go mod tidy failed", err)
 	}
 
 	if err := verifySelectedUnobin(reporter, goBin, dir, expectedUnobin); err != nil {
-		return err
+		return result, err
 	}
 
 	revision, err := codegen.ContentRevision(dir)
 	if err != nil {
-		return err
+		return result, err
 	}
+	result.ContentRevision = revision
 
 	ldflags := fmt.Sprintf(
 		"-X main.factoryVersion=%s -X main.contentRevision=%s -X main.unobinVersion=%s",
@@ -554,8 +629,12 @@ func runGoBuild(
 	build.Dir = dir
 	build.Stdout = stdout
 	build.Stderr = stderr
-	if err := build.Run(); err != nil {
-		return diagnostic.Context("go build failed", err)
+	changes, err = filechange.Observe(
+		[]string{filepath.Join(dir, binaryName)}, build.Run,
+	)
+	result.Files = append(result.Files, changes...)
+	if err != nil {
+		return result, diagnostic.Context("go build failed", err)
 	}
 	diagnostic.Report(reporter, diagnostic.Diagnostic{
 		Code:     "unobin.compile.built",
@@ -564,7 +643,7 @@ func runGoBuild(
 			"Built %s %s (content-revision %s)", binaryName, version, revision,
 		),
 	})
-	return nil
+	return result, nil
 }
 
 // ProjectLockVersions reads dependency project-lock from dir and returns each repository's
