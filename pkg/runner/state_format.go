@@ -2,6 +2,7 @@ package runner
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/cloudboss/unobin/pkg/diagnostic"
@@ -423,9 +424,7 @@ func publicStateBinding(entry *state.Entry) (graphprint.Binding, error) {
 
 func maskStateValues(values map[string]any, sensitive []string) map[string]any {
 	masked := make(map[string]any, len(values))
-	for key, value := range values {
-		masked[key] = value
-	}
+	maps.Copy(masked, values)
 	for _, key := range sensitive {
 		if _, ok := masked[key]; ok {
 			masked[key] = sensitivePlaceholder
