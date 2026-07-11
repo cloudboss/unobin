@@ -1,0 +1,64 @@
+{
+  "cases": [
+    {
+      "name": "first interrupt",
+      "notice": {
+        "code": "unobin.apply.drain-requested",
+        "severity": "info",
+        "message": "Interrupted; letting in-flight steps finish. Press Ctrl-C again or send SIGTERM to abort."
+      },
+      "drain-closed": true,
+      "context-cause": "",
+      "signal-cause": "",
+      "grace": "42s"
+    },
+    {
+      "name": "grace timeout",
+      "notice": {
+        "code": "unobin.apply.drain-requested",
+        "severity": "info",
+        "message": "Interrupted; letting in-flight steps finish. Press Ctrl-C again or send SIGTERM to abort."
+      },
+      "drain-closed": true,
+      "context-cause": "apply: interrupted",
+      "signal-cause": "apply: interrupted",
+      "grace": "42s"
+    },
+    {
+      "name": "second interrupt",
+      "notice": {
+        "code": "unobin.apply.drain-requested",
+        "severity": "info",
+        "message": "Interrupted; letting in-flight steps finish. Press Ctrl-C again or send SIGTERM to abort."
+      },
+      "drain-closed": true,
+      "context-cause": "apply: interrupted",
+      "signal-cause": "apply: interrupted",
+      "grace": "42s"
+    },
+    {
+      "name": "termination",
+      "notice": null,
+      "drain-closed": false,
+      "context-cause": "apply: interrupted",
+      "signal-cause": "apply: interrupted",
+      "grace": "0s"
+    },
+    {
+      "name": "external cancellation",
+      "notice": null,
+      "drain-closed": false,
+      "context-cause": "encoding failed",
+      "signal-cause": "",
+      "grace": "0s"
+    },
+    {
+      "name": "stop",
+      "notice": null,
+      "drain-closed": false,
+      "context-cause": "context canceled",
+      "signal-cause": "",
+      "grace": "0s"
+    }
+  ]
+}
