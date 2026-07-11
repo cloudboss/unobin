@@ -41,7 +41,7 @@ east-region: 'us-east-2'
 scoped-region: 'us-west-2'
 ```
 
-`./awscfg schema` lists `aws-config` and `east-config` under inputs and expands
+`./awscfg schema show` lists `aws-config` and `east-config` under inputs and expands
 the fields stack authors may provide.
 
 ## See the compile check

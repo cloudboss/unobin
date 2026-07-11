@@ -29,7 +29,7 @@ subtest per case.
 ## Compiled factory cases
 
 Use compiled cases when the behavior belongs to a generated factory binary:
-`validate`, `schema`, `print-graph`, `plan`, `apply`, `output`, `refresh`, state
+`validate`, `schema show`, `print-graph`, `plan`, `apply`, `output`, `refresh`, state
 commands, plan files, state files, effects, masking, lifecycle behavior, library
 config, inputs, constraints, composites, and for-each behavior.
 

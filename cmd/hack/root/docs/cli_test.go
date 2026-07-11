@@ -19,13 +19,7 @@ func TestCLIWritesReference(t *testing.T) {
 
 	content, err := os.ReadFile(filepath.Join(outDir, "cli.md"))
 	require.NoError(t, err)
-	got := string(content)
-	require.Contains(t, got, "# CLI reference")
-	require.Contains(t, got, "## unobin compile")
-	require.Contains(t, got, "## unobin version")
-	require.Contains(t, got, "factory.ub")
-	require.Contains(t, got, "project.ub")
-	require.Contains(t, got, "project-lock.ub")
-	require.Contains(t, got, "stack file")
-	require.NotContains(t, got, "--help", "cobra's auto help flag must not appear")
+	want, err := os.ReadFile(filepath.Join("testdata", "cli.md"))
+	require.NoError(t, err)
+	require.Equal(t, string(want), string(content))
 }

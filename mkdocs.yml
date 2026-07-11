@@ -78,4 +78,5 @@ nav:
       - Testing: go-sdk/testing.md
   - Reference:
       - CLI: reference/cli.md
+      - Machine output: machine-output.md
       - Go API: reference/api/

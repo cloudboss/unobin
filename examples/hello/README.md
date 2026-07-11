@@ -46,7 +46,7 @@ export UB_STATE_KEY=$(head -c 32 /dev/urandom | base64)
 
 ```
 ./hello version
-./hello schema
+./hello schema show
 ./hello state list
 ./hello state show resource.hello
 ./hello state pull > state.json

@@ -33,7 +33,7 @@ go run ./cmd/unobin compile \
 cd /tmp/gcpcfg-build
 ./gcpcfg validate --allow-version-mismatch \
   -c "${OLDPWD}/examples/gcpcfg/dev.ub"
-./gcpcfg schema
+./gcpcfg schema show
 ```
 
 Expected validation output:
@@ -42,5 +42,5 @@ Expected validation output:
 OK
 ```
 
-`./gcpcfg schema` lists `gcp-config` under inputs and expands the fields stack
+`./gcpcfg schema show` lists `gcp-config` under inputs and expands the fields stack
 authors may provide.
