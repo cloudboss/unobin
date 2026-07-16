@@ -1,0 +1,19 @@
+[
+  {
+    "address": "resource.consumer",
+    "decision": "create",
+    "inputs": {
+      "name": {
+        "pending": [
+          "resource.two.id"
+        ]
+      },
+      "size": 3
+    },
+    "unresolved-inputs": {
+      "name": [
+        "resource.two.id"
+      ]
+    }
+  }
+]

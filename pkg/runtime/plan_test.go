@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -35,6 +36,11 @@ func planTestExecutor(
 func planFixture(t testing.TB, name string) string {
 	t.Helper()
 	return ubtest.ReadValidFixture(t, "testdata/ub/plan", name)
+}
+
+func pendingPlanFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/plan-pending-values", name)
 }
 
 type planRequiredConfig struct {
@@ -1396,9 +1402,404 @@ func TestPlanRecordsUnresolvedFieldRefs(t *testing.T) {
 	require.Equal(t, int64(2), two.Inputs["size"])
 }
 
+type pendingListResource struct {
+	Name      string
+	SubnetIDs *[]string `ub:"subnet-ids"`
+	Values    []string
+	Config    pendingObjectInput
+	Groups    [][]string
+	received  *[]string
+}
+
+type pendingObjectInput struct {
+	ID     string
+	Broken int64
+}
+
+func (p *pendingListResource) Create(_ context.Context, _ any) (any, error) {
+	if p.SubnetIDs != nil && p.received != nil {
+		*p.received = append([]string{}, (*p.SubnetIDs)...)
+	}
+	return map[string]any{"id": "fake-" + p.Name}, nil
+}
+
+func (p *pendingListResource) Read(_ context.Context, _ any, prior any) (any, error) {
+	return prior, nil
+}
+
+func (p *pendingListResource) Update(
+	ctx context.Context,
+	cfg any,
+	_ Prior[pendingListResource, any],
+) (any, error) {
+	return p.Create(ctx, cfg)
+}
+
+func (p *pendingListResource) Delete(_ context.Context, _ any, _ any) error {
+	return nil
+}
+
+func (p *pendingListResource) ReplaceFields() []string { return nil }
+
+func (p *pendingListResource) SchemaVersion() int { return 1 }
+
+func pendingPlanLibraries(
+	counters *resourceCounters,
+	received *[]string,
+) map[string]*Library {
+	libs := resourceModules(counters)
+	libs["core"].Resources["pending-list"] =
+		MakeResourceWith[pendingListResource, any, any](
+			func() *pendingListResource {
+				return &pendingListResource{received: received}
+			},
+		)
+	libs["core"].Functions["combine"] = MakeFunc(
+		"combine",
+		"Combine two strings.",
+		func(_, _ string) (string, error) {
+			return "", errors.New("combine ran while an argument was pending")
+		},
+	)
+	return libs
+}
+
+func pendingPlanFixtureInputs(name string) map[string]any {
+	name = strings.TrimPrefix(name, "valid/")
+	name = strings.TrimPrefix(name, "invalid/")
+	switch name {
+	case "plan-selected-local-conditional-list",
+		"plan-selected-nested-local-conditional-list",
+		"plan-selected-conditional-object-local-field",
+		"plan-selected-conditional-skips-dead-branch",
+		"plan-conditional-condition-type-error",
+		"plan-selected-conditional-branch-error":
+		return map[string]any{"subnet-set": int64(0)}
+	case "plan-selected-local-conditional-known-list":
+		return map[string]any{
+			"subnet-set":          int64(0),
+			"fallback-subnet-ids": []any{"subnet-known-a", "subnet-known-b"},
+		}
+	case "plan-unresolved-local-conditional-known-input":
+		return map[string]any{
+			"fallback-subnet-ids": []any{"fallback"},
+		}
+	case "plan-pending-expression-known-input", "plan-pending-call-known-input":
+		return map[string]any{"prefix": "known"}
+	case "plan-pending-expression-navigation-error":
+		return map[string]any{"count": int64(1)}
+	default:
+		return nil
+	}
+}
+
+func seedPendingPlanKnownOutput(
+	t *testing.T,
+	store *local.Store,
+	factory state.FactoryInfo,
+) {
+	t.Helper()
+	seedPrior(t, store, factory, &state.Entry{
+		Address:       "resource.one",
+		Type:          state.EntryLeaf,
+		Category:      "resource",
+		Binding:       &state.Binding{Alias: "core", Export: "thing"},
+		SchemaVersion: 1,
+		Inputs:        map[string]any{"name": "one", "size": float64(1)},
+		Outputs: map[string]any{
+			"id":   "fake-one",
+			"name": "one",
+			"size": float64(1),
+		},
+	})
+}
+
+type pendingPlanFixtureStep struct {
+	Address          string              `json:"address"`
+	Decision         Decision            `json:"decision"`
+	Inputs           map[string]any      `json:"inputs"`
+	UnresolvedInputs map[string][]string `json:"unresolved-inputs,omitempty"`
+}
+
+func pendingPlanFixtureValue(value any) any {
+	switch value := value.(type) {
+	case PendingValue:
+		return map[string]any{"pending": value.Refs}
+	case []any:
+		out := make([]any, len(value))
+		for i, element := range value {
+			out[i] = pendingPlanFixtureValue(element)
+		}
+		return out
+	case map[string]any:
+		out := make(map[string]any, len(value))
+		for key, element := range value {
+			out[key] = pendingPlanFixtureValue(element)
+		}
+		return out
+	default:
+		return value
+	}
+}
+
+func pendingPlanFixtureOutput(t testing.TB, plan *Plan) string {
+	t.Helper()
+	var steps []pendingPlanFixtureStep
+	for _, step := range plan.Steps {
+		if step.Kind != NodeResource {
+			continue
+		}
+		if len(step.UnresolvedInputs) == 0 &&
+			(step.Binding == nil || step.Binding.Export != "pending-list") {
+			continue
+		}
+		steps = append(steps, pendingPlanFixtureStep{
+			Address:          step.Address,
+			Decision:         step.Decision,
+			Inputs:           pendingPlanFixtureValue(step.Inputs).(map[string]any),
+			UnresolvedInputs: step.UnresolvedInputs,
+		})
+	}
+	body, err := json.MarshalIndent(steps, "", "  ")
+	require.NoError(t, err)
+	return string(body) + "\n"
+}
+
+func TestPlanPendingValueFixtures(t *testing.T) {
+	const dir = "testdata/ub/plan-pending-values"
+	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
+	ubtest.RequireInvalidFixtureGoldens(t, dir)
+	ubtest.Run(t, dir, func(name string, src []byte) (string, []string) {
+		var counters resourceCounters
+		store := newStateStore(t)
+		if strings.HasSuffix(name, "plan-pending-expression-known-output") {
+			seedPendingPlanKnownOutput(t, store, factory)
+		}
+		exec := planTestExecutor(
+			t,
+			string(src),
+			pendingPlanLibraries(&counters, nil),
+			store,
+			factory,
+		)
+		exec.Inputs = pendingPlanFixtureInputs(name)
+		plan, err := exec.Plan(context.Background())
+		if err != nil {
+			return "", []string{err.Error()}
+		}
+		return pendingPlanFixtureOutput(t, plan), nil
+	})
+}
+
+func TestPlanPreservesSelectedLocalConditionalList(t *testing.T) {
+	tests := []struct {
+		name      string
+		subnetSet int64
+		wantRefs  []string
+	}{
+		{
+			name:      "then branch",
+			subnetSet: 0,
+			wantRefs: []string{
+				"resource.subnet-a.id",
+				"resource.subnet-b.id",
+			},
+		},
+		{
+			name:      "else branch",
+			subnetSet: 1,
+			wantRefs: []string{
+				"resource.subnet-a.id",
+				"resource.subnet-c.id",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var counters resourceCounters
+			libs := pendingPlanLibraries(&counters, nil)
+			exec := planTestExecutor(
+				t,
+				pendingPlanFixture(t, "plan-selected-local-conditional-list"),
+				libs,
+				newStateStore(t),
+				state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+			)
+			exec.Inputs = map[string]any{"subnet-set": tt.subnetSet}
+
+			plan, err := exec.Plan(context.Background())
+			require.NoError(t, err)
+			clear := stepFor(plan, "resource.clear")
+			require.NotNil(t, clear)
+			require.Equal(t, []any{
+				PendingValue{Refs: []string{tt.wantRefs[0]}},
+				PendingValue{Refs: []string{tt.wantRefs[1]}},
+			}, clear.Inputs["subnet-ids"])
+			require.Equal(t, tt.wantRefs, clear.UnresolvedInputs["subnet-ids"])
+			require.NotContains(t, clear.UnresolvedInputs["subnet-ids"], "input.subnet-set")
+		})
+	}
+}
+
+func TestPlanPreservesSelectedNestedLocalConditionalList(t *testing.T) {
+	tests := []struct {
+		name      string
+		subnetSet int64
+		want      []any
+		wantRefs  []string
+	}{
+		{
+			name:      "then branch keeps known and repeated elements",
+			subnetSet: 0,
+			want: []any{
+				"known",
+				PendingValue{Refs: []string{"resource.subnet-a.id"}},
+				PendingValue{Refs: []string{"resource.subnet-a.id"}},
+				PendingValue{Refs: []string{"resource.subnet-b.id"}},
+			},
+			wantRefs: []string{
+				"resource.subnet-a.id",
+				"resource.subnet-b.id",
+			},
+		},
+		{
+			name:      "else branch",
+			subnetSet: 1,
+			want: []any{
+				"known",
+				PendingValue{Refs: []string{"resource.subnet-a.id"}},
+				PendingValue{Refs: []string{"resource.subnet-c.id"}},
+			},
+			wantRefs: []string{
+				"resource.subnet-a.id",
+				"resource.subnet-c.id",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var counters resourceCounters
+			libs := pendingPlanLibraries(&counters, nil)
+			exec := planTestExecutor(
+				t,
+				pendingPlanFixture(t, "plan-selected-nested-local-conditional-list"),
+				libs,
+				newStateStore(t),
+				state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+			)
+			exec.Inputs = map[string]any{"subnet-set": tt.subnetSet}
+
+			plan, err := exec.Plan(context.Background())
+			require.NoError(t, err)
+			clear := stepFor(plan, "resource.clear")
+			require.NotNil(t, clear)
+			require.Equal(t, tt.want, clear.Inputs["subnet-ids"])
+			require.Equal(t, tt.wantRefs, clear.UnresolvedInputs["subnet-ids"])
+		})
+	}
+}
+
+func TestPlanNarrowsSelectedConditionalObjectLocalField(t *testing.T) {
+	tests := []struct {
+		name      string
+		subnetSet int64
+		want      []any
+		wantRefs  []string
+	}{
+		{
+			name:      "then branch",
+			subnetSet: 0,
+			want: []any{
+				"known",
+				PendingValue{Refs: []string{"resource.subnet-a.id"}},
+			},
+			wantRefs: []string{"resource.subnet-a.id"},
+		},
+		{
+			name:      "else branch",
+			subnetSet: 1,
+			want: []any{
+				PendingValue{Refs: []string{"resource.subnet-b.id"}},
+			},
+			wantRefs: []string{"resource.subnet-b.id"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var counters resourceCounters
+			libs := pendingPlanLibraries(&counters, nil)
+			exec := planTestExecutor(
+				t,
+				pendingPlanFixture(t, "plan-selected-conditional-object-local-field"),
+				libs,
+				newStateStore(t),
+				state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+			)
+			exec.Inputs = map[string]any{"subnet-set": tt.subnetSet}
+
+			plan, err := exec.Plan(context.Background())
+			require.NoError(t, err)
+			clear := stepFor(plan, "resource.clear")
+			require.NotNil(t, clear)
+			require.Equal(t, tt.want, clear.Inputs["subnet-ids"])
+			require.Equal(t, tt.wantRefs, clear.UnresolvedInputs["subnet-ids"])
+			require.NotContains(t,
+				clear.UnresolvedInputs["subnet-ids"],
+				"resource.subnet-c.id",
+			)
+		})
+	}
+}
+
+func TestSelectedLocalConditionalListPlanRoundTrip(t *testing.T) {
+	tests := []struct {
+		name      string
+		subnetSet int64
+		want      []string
+	}{
+		{
+			name:      "then branch",
+			subnetSet: 0,
+			want:      []string{"fake-subnet-a", "fake-subnet-b"},
+		},
+		{
+			name:      "else branch",
+			subnetSet: 1,
+			want:      []string{"fake-subnet-a", "fake-subnet-c"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var counters resourceCounters
+			var received []string
+			libs := pendingPlanLibraries(&counters, &received)
+			exec := planTestExecutor(
+				t,
+				pendingPlanFixture(t, "plan-selected-local-conditional-list"),
+				libs,
+				newStateStore(t),
+				state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"},
+			)
+			exec.Inputs = map[string]any{"subnet-set": tt.subnetSet}
+
+			plan, err := exec.Plan(context.Background())
+			require.NoError(t, err)
+			encoded, err := EncodePlan(plan)
+			require.NoError(t, err)
+			planFile, err := DecodePlan(encoded)
+			require.NoError(t, err)
+			_, err = exec.ApplyPlan(context.Background(), planFile)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, received)
+		})
+	}
+}
+
 func TestPartialValueKeepsListStructure(t *testing.T) {
 	expr := parseValue(t, "['lit', resource.one.id]")
-	got := partialValue(expr, &EvalContext{}, nil)
+	got, refs, err := partialValue(expr, &EvalContext{}, nil)
+	require.NoError(t, err)
+	require.Equal(t, []string{"resource.one.id"}, refs)
 	require.Equal(t, []any{
 		"lit",
 		PendingValue{Refs: []string{"resource.one.id"}},
@@ -1407,7 +1808,9 @@ func TestPartialValueKeepsListStructure(t *testing.T) {
 
 func TestPartialValueKeepsObjectStructure(t *testing.T) {
 	expr := parseValue(t, "{ ready: true, id: resource.one.id }")
-	got := partialValue(expr, &EvalContext{}, nil)
+	got, refs, err := partialValue(expr, &EvalContext{}, nil)
+	require.NoError(t, err)
+	require.Equal(t, []string{"resource.one.id"}, refs)
 	require.Equal(t, map[string]any{
 		"ready": true,
 		"id":    PendingValue{Refs: []string{"resource.one.id"}},
@@ -1727,7 +2130,9 @@ func TestPlanPropagatesReadError(t *testing.T) {
 
 func TestPartialValueKeepsStringKeyedFields(t *testing.T) {
 	expr := parseValue(t, "{ 'app/role': 'web', id: resource.one.id }")
-	got := partialValue(expr, &EvalContext{}, nil)
+	got, refs, err := partialValue(expr, &EvalContext{}, nil)
+	require.NoError(t, err)
+	require.Equal(t, []string{"resource.one.id"}, refs)
 	require.Equal(t, map[string]any{
 		"app/role": "web",
 		"id":       PendingValue{Refs: []string{"resource.one.id"}},

@@ -1,0 +1,11 @@
+inputs: {
+  prefix: { type: string }
+}
+
+resources: {
+  one: core.thing { name: 'one', size: 1 }
+  two: core.thing {
+    name: core.combine(input.prefix, resource.one.id)
+    size: 2
+  }
+}

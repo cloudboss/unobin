@@ -190,9 +190,10 @@ func (f *File) write(config *Configuration, operation string) (*FileOutput, erro
 }
 
 type Object struct {
-	Name string
-	Body map[string]any
-	Tags *map[string]string
+	Name      string
+	Body      map[string]any
+	Tags      *map[string]string
+	SubnetIDs *[]string `ub:"subnet-ids"`
 }
 
 type ObjectOutput struct {

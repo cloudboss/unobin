@@ -1,0 +1,51 @@
+factory: {
+  inputs: {
+    subnet-set: { type: integer, default: 0 }
+    e2e-config: {
+      type: library-config('example.com/unobin/e2elib')
+      default: {
+        base-dir:       '.'
+        event-log-path: 'events.ndjson'
+        nested:         { label: 'nested' }
+      }
+    }
+  }
+
+  imports: {
+    e2e: 'example.com/unobin/e2elib'
+  }
+
+  library-configs: {
+    e2e: input.e2e-config
+  }
+
+  locals: {
+    selected-subnet-ids: if input.subnet-set == 0
+      then [resource.subnet-a.id, resource.subnet-b.id]
+      else [resource.subnet-a.id, resource.subnet-c.id]
+  }
+
+  resources: {
+    subnet-a: e2e.object {
+      name: 'subnet-a'
+      body: { cidr: '10.0.1.0/24' }
+    }
+
+    subnet-b: e2e.object {
+      name: 'subnet-b'
+      body: { cidr: '10.0.2.0/24' }
+    }
+
+    subnet-c: e2e.object {
+      name: 'subnet-c'
+      body: { cidr: '10.0.3.0/24' }
+    }
+
+    clear: e2e.object {
+      name:       'UNOBIN-IT-CACHE-CLEAR'
+      body:       { description: 'tag clearing coverage' }
+      subnet-ids: local.selected-subnet-ids
+      tags:       { clear: 'yes' }
+    }
+  }
+}

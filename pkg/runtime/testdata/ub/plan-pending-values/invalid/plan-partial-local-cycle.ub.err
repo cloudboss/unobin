@@ -1,0 +1,1 @@
+resource.broken: field "subnet-ids": index 1: eval: local "cyclic" refers to itself through a cycle

@@ -1,0 +1,13 @@
+[
+  {
+    "address": "resource.clear",
+    "decision": "create",
+    "inputs": {
+      "name": "UNOBIN-IT-CACHE-CLEAR",
+      "subnet-ids": [
+        "subnet-known-a",
+        "subnet-known-b"
+      ]
+    }
+  }
+]

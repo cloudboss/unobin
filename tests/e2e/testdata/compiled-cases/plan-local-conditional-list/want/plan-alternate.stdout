@@ -1,0 +1,16 @@
+  (create)  resource.clear
+      body: {description: 'tag clearing coverage'}
+      name: 'UNOBIN-IT-CACHE-CLEAR'
+      subnet-ids: [<resource.subnet-a.id>, <resource.subnet-c.id>]
+      tags: {clear: 'yes'}
+  (create)  resource.subnet-a
+      body: {cidr: '10.0.1.0/24'}
+      name: 'subnet-a'
+  (create)  resource.subnet-b
+      body: {cidr: '10.0.2.0/24'}
+      name: 'subnet-b'
+  (create)  resource.subnet-c
+      body: {cidr: '10.0.3.0/24'}
+      name: 'subnet-c'
+
+Plan: 4 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.

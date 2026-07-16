@@ -1,0 +1,18 @@
+inputs: {
+  subnet-set:          { type: integer, default: 0 }
+  fallback-subnet-ids: { type: list(string) }
+}
+
+locals: {
+  selected-subnet-ids: if input.subnet-set == 0
+    then input.fallback-subnet-ids
+    else [resource.subnet-a.id]
+}
+
+resources: {
+  subnet-a: core.thing { name: 'subnet-a', size: 1 }
+  clear: core.pending-list {
+    name:       'UNOBIN-IT-CACHE-CLEAR'
+    subnet-ids: local.selected-subnet-ids
+  }
+}

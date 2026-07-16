@@ -1,0 +1,10 @@
+resources: {
+  one: core.thing { name: 'one', size: 1 }
+  broken: core.pending-list {
+    name: 'broken'
+    config: {
+      id:     resource.one.id
+      broken: 1 / 0
+    }
+  }
+}

@@ -1,0 +1,11 @@
+inputs: {
+  count: { type: integer }
+}
+
+resources: {
+  one: core.thing { name: 'one', size: 1 }
+  broken: core.thing {
+    name: $'{{ resource.one.id }}-{{ input.count.missing }}'
+    size: 2
+  }
+}

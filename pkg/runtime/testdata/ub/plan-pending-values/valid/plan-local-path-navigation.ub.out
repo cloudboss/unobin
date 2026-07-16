@@ -1,0 +1,40 @@
+[
+  {
+    "address": "resource.by-dot",
+    "decision": "create",
+    "inputs": {
+      "name": "by-dot",
+      "subnet-ids": [
+        {
+          "pending": [
+            "resource.subnet-a.id"
+          ]
+        }
+      ]
+    },
+    "unresolved-inputs": {
+      "subnet-ids": [
+        "resource.subnet-a.id"
+      ]
+    }
+  },
+  {
+    "address": "resource.by-index",
+    "decision": "create",
+    "inputs": {
+      "name": "by-index",
+      "subnet-ids": [
+        {
+          "pending": [
+            "resource.subnet-b.id"
+          ]
+        }
+      ]
+    },
+    "unresolved-inputs": {
+      "subnet-ids": [
+        "resource.subnet-b.id"
+      ]
+    }
+  }
+]

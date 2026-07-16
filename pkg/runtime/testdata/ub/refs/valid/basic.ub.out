@@ -48,3 +48,5 @@ dot-path-local: resource.lb.endpoint.host
 splat: resource.vpc.subnets[*].cidr
 object-field: resource.subnet.id
 chain-dot-paths: resource.lb.config.attrs.host
+conditional-object-field: resource.selector.id, resource.primary.id, resource.alternate.id
+conditional-object-string-field: resource.selector.id, resource.primary.id, resource.alternate.id

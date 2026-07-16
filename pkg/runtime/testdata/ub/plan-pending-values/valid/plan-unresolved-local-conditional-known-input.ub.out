@@ -1,0 +1,23 @@
+[
+  {
+    "address": "resource.clear",
+    "decision": "create",
+    "inputs": {
+      "name": "UNOBIN-IT-CACHE-CLEAR",
+      "subnet-ids": {
+        "pending": [
+          "resource.selector.id",
+          "resource.subnet-a.id",
+          "resource.subnet-b.id"
+        ]
+      }
+    },
+    "unresolved-inputs": {
+      "subnet-ids": [
+        "resource.selector.id",
+        "resource.subnet-a.id",
+        "resource.subnet-b.id"
+      ]
+    }
+  }
+]

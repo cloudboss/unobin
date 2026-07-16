@@ -1,0 +1,8 @@
+resources: {
+  one: core.thing { name: 'one', size: 1 }
+  two: core.thing { name: 'two', size: 2 }
+  consumer: core.thing {
+    name: $'{{ resource.one.id }}-{{ resource.two.id }}'
+    size: 3
+  }
+}

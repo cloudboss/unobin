@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -76,9 +77,10 @@ func walkExpandingLocals(e lang.Expr, locals map[string]lang.Expr, visit func(*l
 // given trailing segments. A dot-path local grows the trailing segments
 // onto its own path so only the trailed field's upstream is followed.
 // An object literal selects the named field and keeps narrowing into
-// it. Anything else (calls, comprehensions, conditionals, computed
-// indexes) cannot be narrowed by static inspection, so the whole
-// expression is returned and analysis stays conservative-correct.
+// it. A conditional keeps its condition plus the matching field from
+// both possible branches. Anything else (calls, comprehensions, computed
+// indexes) cannot be narrowed by static inspection, so the whole expression
+// is returned and analysis stays conservative-correct.
 func narrowLocal(expr lang.Expr, trailing []lang.DotSegment) []lang.Expr {
 	if len(trailing) == 0 {
 		return []lang.Expr{expr}
@@ -87,14 +89,20 @@ func narrowLocal(expr lang.Expr, trailing []lang.DotSegment) []lang.Expr {
 	case *lang.DotPath:
 		return []lang.Expr{graftDotPath(v, trailing)}
 	case *lang.ObjectLit:
-		if trailing[0].Name == "" {
+		name := dotSegmentKey(trailing[0])
+		if name == "" {
 			return []lang.Expr{expr}
 		}
-		field := objectField(v, trailing[0].Name)
+		field := objectField(v, name)
 		if field == nil {
 			return nil
 		}
 		return narrowLocal(field, trailing[1:])
+	case *lang.Conditional:
+		out := []lang.Expr{v.Cond}
+		out = append(out, narrowLocal(v.Then, trailing)...)
+		out = append(out, narrowLocal(v.Else, trailing)...)
+		return out
 	default:
 		return []lang.Expr{expr}
 	}
@@ -122,6 +130,16 @@ func objectField(obj *lang.ObjectLit, name string) lang.Expr {
 		}
 	}
 	return nil
+}
+
+func dotSegmentKey(segment lang.DotSegment) string {
+	if segment.Name != "" {
+		return segment.Name
+	}
+	if key, ok := segment.Index.(*lang.StringLit); ok {
+		return key.Value
+	}
+	return ""
 }
 
 // refsWithLocals returns the node addresses e depends on, expanding
@@ -171,6 +189,37 @@ func deferredRefs(e lang.Expr, locals map[string]lang.Expr) []string {
 		}
 	})
 	return dedupe(out)
+}
+
+// pendingRefs returns only source paths that are unavailable in ec. Known
+// inputs and completed node outputs are omitted from plan placeholders.
+func pendingRefs(
+	e lang.Expr,
+	ec *EvalContext,
+	locals map[string]lang.Expr,
+) ([]string, error) {
+	var out []string
+	var evalErr error
+	walkExpandingLocals(e, locals, func(dp *lang.DotPath) {
+		if evalErr != nil {
+			return
+		}
+		switch dp.Root.Name {
+		case "input", "resource", "data-source", "action":
+		default:
+			return
+		}
+		if _, err := Eval(dp, ec); err == nil {
+			return
+		} else if !errors.Is(err, ErrEvalNotFound) {
+			evalErr = err
+			return
+		}
+		if path := DotPathString(dp); path != "" {
+			out = append(out, path)
+		}
+	})
+	return dedupe(out), evalErr
 }
 
 // dotPathString renders a dotted reference back to its source form.

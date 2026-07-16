@@ -1,0 +1,21 @@
+{
+  "name": "plan-local-conditional-list",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/plan-local-conditional-list",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub"],
+      "stdout": "want/plan.stdout",
+      "stderr": "want/plan.stderr"
+    },
+    {
+      "name": "plan-alternate",
+      "args": ["plan", "--ascii", "-c", "stacks/alternate.ub"],
+      "stdout": "want/plan-alternate.stdout",
+      "stderr": "want/plan.stderr"
+    }
+  ],
+  "deterministic": true
+}

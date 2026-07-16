@@ -1,0 +1,1 @@
+resource.broken: field "subnet-ids": eval: division by zero

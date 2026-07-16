@@ -1,0 +1,19 @@
+inputs: {
+  fallback-subnet-ids: { type: list(string) }
+}
+
+locals: {
+  selected-subnet-ids: if resource.selector.id == 'fallback'
+    then input.fallback-subnet-ids
+    else [resource.subnet-a.id, resource.subnet-b.id]
+}
+
+resources: {
+  selector: core.thing { name: 'selector', size: 1 }
+  subnet-a: core.thing { name: 'subnet-a', size: 1 }
+  subnet-b: core.thing { name: 'subnet-b', size: 1 }
+  clear: core.pending-list {
+    name:       'UNOBIN-IT-CACHE-CLEAR'
+    subnet-ids: local.selected-subnet-ids
+  }
+}

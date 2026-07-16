@@ -1,0 +1,27 @@
+inputs: {
+  subnet-set: { type: integer, default: 0 }
+}
+
+locals: {
+  subnet-selection: {
+    ids: if input.subnet-set == 0
+      then [
+        'known',
+        resource.subnet-a.id,
+        resource.subnet-a.id,
+        resource.subnet-b.id,
+      ]
+      else ['known', resource.subnet-a.id, resource.subnet-c.id]
+  }
+  selected-subnet-ids: local.subnet-selection.ids
+}
+
+resources: {
+  subnet-a: core.thing { name: 'subnet-a', size: 1 }
+  subnet-b: core.thing { name: 'subnet-b', size: 1 }
+  subnet-c: core.thing { name: 'subnet-c', size: 1 }
+  clear: core.pending-list {
+    name:       'UNOBIN-IT-CACHE-CLEAR'
+    subnet-ids: local.selected-subnet-ids
+  }
+}

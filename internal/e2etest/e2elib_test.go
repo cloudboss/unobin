@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/goschema"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -32,6 +33,9 @@ func TestE2ELibraryFixtureSchema(t *testing.T) {
 
 	object := schema.Resources["object"]
 	assert.Contains(t, object.Inputs, "body")
+	assert.True(t, object.Inputs["subnet-ids"].Equal(
+		typecheck.TOptional(typecheck.TList(typecheck.TString())),
+	))
 	assert.Contains(t, object.Outputs, "body")
 	assert.NotEmpty(t, object.Constraints)
 

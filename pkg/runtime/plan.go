@@ -56,12 +56,15 @@ func planEvalBody(body lang.Expr, ec *EvalContext) (map[string]any, map[string][
 		if !errors.Is(err, ErrEvalNotFound) {
 			return nil, nil, diagnostic.Context(fmt.Sprintf("field %q", fld.Key.Name), err)
 		}
-		refs := deferredRefs(fld.Value, locals)
+		value, refs, err := partialValue(fld.Value, ec, locals)
+		if err != nil {
+			return nil, nil, diagnostic.Context(fmt.Sprintf("field %q", fld.Key.Name), err)
+		}
 		if len(refs) == 0 {
 			inputs[fld.Key.Name] = nil
 			continue
 		}
-		inputs[fld.Key.Name] = partialValue(fld.Value, ec, locals)
+		inputs[fld.Key.Name] = value
 		if unresolved == nil {
 			unresolved = map[string][]string{}
 		}
@@ -71,21 +74,48 @@ func planEvalBody(body lang.Expr, ec *EvalContext) (map[string]any, map[string][
 }
 
 // partialValue rebuilds a body field whose full evaluation hit a forward
-// reference, descending array and object literals so a resolved element keeps
-// its value and an unresolved one becomes a PendingValue at its real position.
-// A non-literal expression that cannot resolve becomes a single PendingValue
-// holding the addresses it reads. The result is recorded for display only;
-// withoutPending discards the whole field for every plan-walk decision.
-func partialValue(e lang.Expr, ec *EvalContext, locals map[string]lang.Expr) any {
+// reference. It descends array and object literals, expands whole-value local
+// references, and chooses a conditional branch when its condition is known.
+// Resolved elements keep their values; unresolved elements become PendingValue
+// markers at their real positions. Expressions that cannot be reduced safely
+// remain one PendingValue holding the addresses they read. The result is for
+// display only; withoutPending discards the whole field for plan decisions.
+func partialValue(
+	e lang.Expr,
+	ec *EvalContext,
+	locals map[string]lang.Expr,
+) (any, []string, error) {
+	evaluator := partialEvaluator{
+		ec:        ec,
+		locals:    locals,
+		expanding: map[string]bool{},
+	}
+	return evaluator.value(e)
+}
+
+type partialEvaluator struct {
+	ec        *EvalContext
+	locals    map[string]lang.Expr
+	expanding map[string]bool
+}
+
+func (p *partialEvaluator) value(e lang.Expr) (any, []string, error) {
 	switch v := e.(type) {
 	case *lang.ArrayLit:
 		out := make([]any, len(v.Elements))
+		var refs []string
 		for i, el := range v.Elements {
-			out[i] = partialElement(el, ec, locals)
+			value, elementRefs, err := p.element(el)
+			if err != nil {
+				return nil, nil, diagnostic.Context(fmt.Sprintf("index %d", i), err)
+			}
+			out[i] = value
+			refs = append(refs, elementRefs...)
 		}
-		return out
+		return out, dedupe(refs), nil
 	case *lang.ObjectLit:
 		out := make(map[string]any, len(v.Fields))
+		var refs []string
 		for _, fld := range v.Fields {
 			var key string
 			switch {
@@ -96,21 +126,124 @@ func partialValue(e lang.Expr, ec *EvalContext, locals map[string]lang.Expr) any
 			default:
 				continue
 			}
-			out[key] = partialElement(fld.Value, ec, locals)
+			value, fieldRefs, err := p.element(fld.Value)
+			if err != nil {
+				return nil, nil, diagnostic.Context(fmt.Sprintf("key %q", key), err)
+			}
+			out[key] = value
+			refs = append(refs, fieldRefs...)
 		}
-		return out
+		return out, dedupe(refs), nil
+	case *lang.Conditional:
+		cond, err := Eval(v.Cond, p.ec)
+		if err != nil {
+			if !errors.Is(err, ErrEvalNotFound) {
+				return nil, nil, err
+			}
+			break
+		}
+		b, ok := cond.(bool)
+		if !ok {
+			return nil, nil, fmt.Errorf(
+				"eval: if: condition must be a boolean, got %s",
+				lang.TypeMessage(cond),
+			)
+		}
+		if b {
+			return p.element(v.Then)
+		}
+		return p.element(v.Else)
+	case *lang.DotPath:
+		if value, refs, err, ok := p.local(v); ok {
+			return value, refs, err
+		}
+	}
+	refs, err := pendingRefs(e, p.ec, p.locals)
+	if err != nil {
+		return nil, nil, err
+	}
+	return PendingValue{Refs: refs}, refs, nil
+}
+
+func (p *partialEvaluator) local(
+	path *lang.DotPath,
+) (any, []string, error, bool) {
+	if path.Root.Name != "local" ||
+		len(path.Segments) == 0 ||
+		path.Segments[0].Name == "" {
+		return nil, nil, nil, false
+	}
+	name := path.Segments[0].Name
+	expr, ok := p.locals[name]
+	if !ok {
+		return nil, nil, nil, false
+	}
+	if p.expanding[name] {
+		return nil, nil, fmt.Errorf(
+			"eval: local %q refers to itself through a cycle",
+			name,
+		), true
+	}
+	p.expanding[name] = true
+	defer delete(p.expanding, name)
+	return p.at(expr, path.Segments[1:])
+}
+
+func (p *partialEvaluator) at(
+	e lang.Expr,
+	segments []lang.DotSegment,
+) (any, []string, error, bool) {
+	if len(segments) == 0 {
+		value, refs, err := p.element(e)
+		return value, refs, err, true
+	}
+	switch v := e.(type) {
+	case *lang.ObjectLit:
+		name := dotSegmentKey(segments[0])
+		if name == "" {
+			return nil, nil, nil, false
+		}
+		field := objectField(v, name)
+		if field == nil {
+			return nil, nil, nil, false
+		}
+		return p.at(field, segments[1:])
+	case *lang.Conditional:
+		cond, err := Eval(v.Cond, p.ec)
+		if err != nil {
+			if errors.Is(err, ErrEvalNotFound) {
+				return nil, nil, nil, false
+			}
+			return nil, nil, err, true
+		}
+		b, ok := cond.(bool)
+		if !ok {
+			return nil, nil, fmt.Errorf(
+				"eval: if: condition must be a boolean, got %s",
+				lang.TypeMessage(cond),
+			), true
+		}
+		if b {
+			return p.at(v.Then, segments)
+		}
+		return p.at(v.Else, segments)
+	case *lang.DotPath:
+		value, refs, err := p.element(graftDotPath(v, segments))
+		return value, refs, err, true
 	default:
-		return PendingValue{Refs: deferredRefs(e, locals)}
+		return nil, nil, nil, false
 	}
 }
 
-// partialElement evaluates one element of a partially-resolved literal: the
-// real value when it resolves, otherwise its own partial structure.
-func partialElement(e lang.Expr, ec *EvalContext, locals map[string]lang.Expr) any {
-	if val, err := Eval(e, ec); err == nil {
-		return val
+func (p *partialEvaluator) element(e lang.Expr) (any, []string, error) {
+	value, err := Eval(e, p.ec)
+	if err == nil {
+		return value, nil, nil
 	}
-	return partialValue(e, ec, locals)
+	if !errors.Is(err, ErrEvalNotFound) {
+		return nil, nil, err
+	}
+	return p.value(e)
 }
 
 // withoutPending returns inputs with every still-unresolved field reset to

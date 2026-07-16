@@ -1,0 +1,1 @@
+resource.broken: field "config": key "broken": eval: division by zero

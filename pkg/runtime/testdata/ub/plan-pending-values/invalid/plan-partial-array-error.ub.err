@@ -1,0 +1,1 @@
+resource.broken: field "values": index 1: eval: division by zero

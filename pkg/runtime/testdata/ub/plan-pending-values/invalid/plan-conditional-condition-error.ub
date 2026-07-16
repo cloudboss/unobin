@@ -1,0 +1,9 @@
+resources: {
+  subnet-a: core.thing { name: 'subnet-a', size: 1 }
+  broken: core.pending-list {
+    name: 'broken'
+    subnet-ids: if 1 / 0 == 0
+      then [resource.subnet-a.id]
+      else []
+  }
+}

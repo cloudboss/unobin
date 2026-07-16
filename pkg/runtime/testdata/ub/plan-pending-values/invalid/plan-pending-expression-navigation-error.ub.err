@@ -1,0 +1,1 @@
+resource.broken: field "name": eval: cannot navigate into an integer at input.count.missing

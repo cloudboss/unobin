@@ -1,0 +1,1 @@
+resource.broken: field "subnet-ids": eval: if: condition must be a boolean, got an integer

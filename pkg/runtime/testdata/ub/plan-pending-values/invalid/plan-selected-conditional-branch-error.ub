@@ -1,0 +1,17 @@
+inputs: {
+  subnet-set: { type: integer, default: 0 }
+}
+
+locals: {
+  selected-subnet-ids: if input.subnet-set == 0
+    then [resource.subnet-a.id, 1 / 0]
+    else []
+}
+
+resources: {
+  subnet-a: core.thing { name: 'subnet-a', size: 1 }
+  broken: core.pending-list {
+    name:       'broken'
+    subnet-ids: local.selected-subnet-ids
+  }
+}

@@ -1,0 +1,17 @@
+locals: {
+  subnet: resource.subnet-a
+  config: { 'subnet-ids': [resource.subnet-b.id] }
+}
+
+resources: {
+  subnet-a: core.thing { name: 'subnet-a', size: 1 }
+  subnet-b: core.thing { name: 'subnet-b', size: 1 }
+  by-dot: core.pending-list {
+    name:       'by-dot'
+    subnet-ids: [local.subnet.id]
+  }
+  by-index: core.pending-list {
+    name:       'by-index'
+    subnet-ids: local.config['subnet-ids']
+  }
+}

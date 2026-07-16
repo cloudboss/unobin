@@ -48,6 +48,9 @@ locals: {
   lb: resource.lb.endpoint
   outer: local.inner.attrs
   inner: resource.lb.config
+  choice: if resource.selector.id == 'primary'
+    then { ids: resource.primary.id, ignored: resource.ignored.id }
+    else { ids: resource.alternate.id, ignored: resource.ignored.id }
 }
 
 refs-with-locals: {
@@ -62,4 +65,6 @@ deferred-refs: {
   splat: resource.vpc.subnets[*].cidr
   object-field: local.net.sub
   chain-dot-paths: local.outer.host
+  conditional-object-field: local.choice.ids
+  conditional-object-string-field: local.choice['ids']
 }
