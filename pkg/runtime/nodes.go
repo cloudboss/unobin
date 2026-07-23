@@ -35,12 +35,12 @@ const (
 // `resource.outer/resource.inner/resource.leaf`, and each node's
 // Composite names its direct enclosing call site.
 //
-// CompositeSyntaxBody, Libraries, and LibraryConfigSchemas are set only on a
-// composite boundary (the call site node), and IsComposite reports that case.
-// Libraries is the composite's resolved import table; the runtime resolves
-// composite-internal node lookups against this map rather than the stack root's,
-// so a composite can be reused without the caller importing every library it
-// transitively uses.
+// CompositeSyntaxBody, AssetSetID, Libraries, and LibraryConfigSchemas are set
+// only on a composite boundary (the call site node), and IsComposite reports
+// that case. Libraries is the composite's resolved import table; the runtime
+// resolves composite-internal node lookups against this map rather than the
+// stack root's, so a composite can be reused without the caller importing every
+// library it transitively uses.
 type Node struct {
 	Address              string
 	Kind                 NodeKind
@@ -51,6 +51,7 @@ type Node struct {
 	Body                 lang.Expr
 	Composite            string
 	CompositeSyntaxBody  *syntax.FactoryBody
+	AssetSetID           string
 	Libraries            map[string]*Library
 	LibraryConfigSchemas map[string]LibraryConfigSchema
 
@@ -244,6 +245,7 @@ func expandSyntaxComposite(callSiteAddr, parent, alias, libraryPath, typ, name s
 		Body:                 args,
 		Composite:            parent,
 		CompositeSyntaxBody:  composite.SyntaxBody,
+		AssetSetID:           composite.AssetSetID,
 		Libraries:            scopeMods,
 		LibraryConfigSchemas: composite.LibraryConfigSchemas,
 		ForEach:              extractForEach(args),

@@ -194,7 +194,10 @@ func localHoverText(
 		return "", err
 	}
 	var inferred *typecheck.Type
-	_ = check.NewSyntax(*body, libs).References(func(expr parse.Expr, typ typecheck.Type) {
+	_ = check.NewSyntax(*body, libs, nil, "").References(func(
+		expr parse.Expr,
+		typ typecheck.Type,
+	) {
 		if expr == local.Value {
 			inferred = &typ
 		}

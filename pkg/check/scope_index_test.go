@@ -60,7 +60,7 @@ func scopeIndexChecker(t *testing.T, rootFixture string) (*Checker, *syntax.Fact
 				"greeting": compositeType,
 			},
 		},
-	})
+	}, nil, "")
 	return checker, compositeType.SyntaxBody
 }
 

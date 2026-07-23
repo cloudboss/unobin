@@ -1,0 +1,9 @@
+bundle: resource {
+  assets: {
+    shared: './composite-tree'
+  }
+
+  locals: {
+    bad: asset.caller-only.path
+  }
+}

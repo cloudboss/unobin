@@ -176,6 +176,8 @@ func TestCheckTypesSchemaDependencyFixtures(t *testing.T) {
 			file.Factory.Body,
 			libs,
 			schemas,
+			nil,
+			"",
 		).References(nil)
 		return "", errList.Messages()
 	})
@@ -470,7 +472,7 @@ func TestCheckTypesUsesCompositeSyntaxBody(t *testing.T) {
 			},
 		},
 		"local": localFileLibrary(),
-	})
+	}, nil, "")
 
 	got := checker.References(nil).Messages()
 	require.ElementsMatch(t, []string{
@@ -495,8 +497,12 @@ func TestCheckTypesSkipsWhenInputsSchemaAbsent(t *testing.T) {
 func TestNewSyntaxUsesRootInputsForTypeChecks(t *testing.T) {
 	fixture := parseSyntaxFactoryFixture(t, invalidTypeFixture(t, "root-inputs"))
 
-	errs := NewSyntax(fixture.body,
-		map[string]*runtime.Library{"local": localFileLibrary()}).References(nil)
+	errs := NewSyntax(
+		fixture.body,
+		map[string]*runtime.Library{"local": localFileLibrary()},
+		nil,
+		"",
+	).References(nil)
 
 	require.Equal(t,
 		[]string{"type mismatch: expected string, got integer"},
@@ -506,8 +512,12 @@ func TestNewSyntaxUsesRootInputsForTypeChecks(t *testing.T) {
 func TestNewSyntaxUsesRootLocalsForTypeChecks(t *testing.T) {
 	fixture := parseSyntaxFactoryFixture(t, invalidTypeFixture(t, "root-locals"))
 
-	errs := NewSyntax(fixture.body,
-		map[string]*runtime.Library{"local": localFileLibrary()}).References(nil)
+	errs := NewSyntax(
+		fixture.body,
+		map[string]*runtime.Library{"local": localFileLibrary()},
+		nil,
+		"",
+	).References(nil)
 
 	require.Equal(t,
 		[]string{"type mismatch: expected string, got integer"},
@@ -517,7 +527,7 @@ func TestNewSyntaxUsesRootLocalsForTypeChecks(t *testing.T) {
 func TestNewSyntaxUsesRootConstraints(t *testing.T) {
 	fixture := parseSyntaxFactoryFixture(t, invalidTypeFixture(t, "root-constraints"))
 
-	errs := NewSyntax(fixture.body, nil).References(nil)
+	errs := NewSyntax(fixture.body, nil, nil, "").References(nil)
 
 	require.Equal(t,
 		[]string{"a constraint may read inputs only, not local.ok"},

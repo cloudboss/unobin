@@ -1,0 +1,6 @@
+type mismatch: expected string, got bytes
+type mismatch: expected bytes, got asset-path
+type mismatch: expected string, got bytes
+type mismatch: expected bytes, got asset-path
+type mismatch: expected string, got bytes
+type mismatch: expected bytes, got asset-path

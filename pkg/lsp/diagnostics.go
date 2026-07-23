@@ -93,7 +93,7 @@ func diagnosticsForOpaqueReferences(
 	text string,
 	body syntax.FactoryBody,
 ) []protocol.Diagnostic {
-	checker := check.NewSyntax(body, opaqueImportedLibraries(body))
+	checker := check.NewSyntax(body, opaqueImportedLibraries(body), nil, "")
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return DiagnosticsForError(text, errs)
 	}

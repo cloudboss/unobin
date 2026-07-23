@@ -78,6 +78,7 @@ func (c *referenceChecker) scopeForLibraryConfig(scope string) *typecheck.Scope 
 	s := &typecheck.Scope{
 		Inputs:         c.scopeInputs(scope),
 		LookupNode:     c.lookupNodeFor(scope),
+		LookupAsset:    c.lookupAssetFor(scope),
 		LookupFunction: c.lookupFunctionFor(scope),
 		Observe:        c.observe,
 	}
@@ -139,6 +140,7 @@ func (c *referenceChecker) checkLocalsBlockTypes(scope string) {
 	s := &typecheck.Scope{
 		Inputs:         c.scopeInputs(scope),
 		LookupNode:     c.lookupNodeFor(scope),
+		LookupAsset:    c.lookupAssetFor(scope),
 		LookupFunction: c.lookupFunctionFor(scope),
 		Observe:        c.observe,
 	}
@@ -426,6 +428,7 @@ func (c *referenceChecker) scopeFor(n *runtime.Node) *typecheck.Scope {
 	scope := &typecheck.Scope{
 		Inputs:         inputs,
 		LookupNode:     c.lookupNodeFor(n.Composite),
+		LookupAsset:    c.lookupAssetFor(n.Composite),
 		LookupFunction: c.lookupFunctionFor(n.Composite),
 		Observe:        c.observe,
 	}
@@ -571,6 +574,7 @@ func (c *referenceChecker) inferCompositeOutputs(node *runtime.Node) map[string]
 	s := &typecheck.Scope{
 		Inputs:         c.scopeInputs(node.Address),
 		LookupNode:     c.lookupNodeFor(node.Address),
+		LookupAsset:    c.lookupAssetFor(node.Address),
 		LookupFunction: c.lookupFunctionFor(node.Address),
 	}
 	s.LookupLocal = c.lookupLocalFor(node.Address, s)
@@ -797,6 +801,7 @@ func (c *referenceChecker) outputScope(scope string) *typecheck.Scope {
 	s := &typecheck.Scope{
 		Inputs:         c.scopeInputs(scope),
 		LookupNode:     c.lookupNodeFor(scope),
+		LookupAsset:    c.lookupAssetFor(scope),
 		LookupFunction: c.lookupFunctionFor(scope),
 		Observe:        c.observe,
 	}
@@ -833,6 +838,7 @@ func (c *referenceChecker) checkConstraintTypeExprs(values []lang.Expr, scope st
 	s := &typecheck.Scope{
 		Inputs:         c.scopeInputs(scope),
 		LookupNode:     c.lookupNodeFor(scope),
+		LookupAsset:    c.lookupAssetFor(scope),
 		LookupFunction: c.lookupFunctionFor(scope),
 		MissingAsNull:  true,
 		Observe:        c.observe,

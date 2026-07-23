@@ -1,0 +1,9 @@
+bundle-two: resource {
+  assets: {
+    shared: './second-tree'
+  }
+
+  locals: {
+    own-file: asset.shared['second.txt'].content
+  }
+}

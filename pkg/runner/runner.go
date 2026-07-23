@@ -729,6 +729,8 @@ func validateStack(info Info, config *parsedStack, configPath string) error {
 		*parsed.syntaxBody,
 		info.Libraries,
 		info.LibraryConfigSchemas,
+		nil,
+		"",
 	)
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return errs.Err()

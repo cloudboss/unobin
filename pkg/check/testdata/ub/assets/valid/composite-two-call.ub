@@ -1,0 +1,14 @@
+factory: {
+  assets: {
+    shared: './root-tree'
+  }
+
+  locals: {
+    own-file: asset.shared['root.txt'].content
+  }
+
+  resources: {
+    first: outer.bundle {}
+    second: outer.bundle-two {}
+  }
+}

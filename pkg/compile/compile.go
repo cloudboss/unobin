@@ -433,6 +433,8 @@ func run(opts Options, resultOut **Result) error {
 		sf.Factory.Body,
 		libs,
 		analysis.LibraryConfigSchemas,
+		nil,
+		"",
 	)
 	if errs := checker.References(opts.TypeObserver); errs.Len() > 0 {
 		return errs.Err()

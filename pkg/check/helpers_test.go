@@ -43,7 +43,7 @@ func checkSyntaxReferences(
 ) *lang.ErrorList {
 	t.Helper()
 	fixture := parseSyntaxFactoryFixture(t, checkFactorySource(src))
-	return NewSyntax(fixture.body, libs).References(nil)
+	return NewSyntax(fixture.body, libs, nil, "").References(nil)
 }
 
 func parseValue(t *testing.T, src string) lang.Expr {

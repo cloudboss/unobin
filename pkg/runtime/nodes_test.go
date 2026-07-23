@@ -194,6 +194,7 @@ func TestExtractNodesResourceBody(t *testing.T) {
 
 func TestExtractNodesExpandsComposite(t *testing.T) {
 	composite := syntaxResourceComposite(t, "cluster", nodeFixture(t, "expand-composite-body"))
+	composite.AssetSetID = "cluster-assets"
 	libs := map[string]*Library{
 		"net": {
 			Name: "net",
@@ -210,6 +211,7 @@ func TestExtractNodesExpandsComposite(t *testing.T) {
 	require.True(t, got[0].IsComposite())
 	require.Equal(t, NodeResource, got[0].Kind)
 	require.Same(t, composite.SyntaxBody, got[0].CompositeSyntaxBody)
+	require.Equal(t, "cluster-assets", got[0].AssetSetID)
 	require.Empty(t, got[0].Composite)
 
 	require.Equal(t, "resource.web/resource.greeting", got[1].Address)

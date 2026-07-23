@@ -1,0 +1,2 @@
+asset.tree accepts only one internal entry selection
+  hint: use asset.tree['internal/helpers.go']

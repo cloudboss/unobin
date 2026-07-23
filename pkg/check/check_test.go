@@ -21,7 +21,7 @@ func TestNewSyntaxBuildsDAGFromTypedBody(t *testing.T) {
 	checker := NewSyntax(sf.Factory.Body, map[string]*runtime.Library{
 		"aws": {},
 		"k8s": k8s,
-	})
+	}, nil, "")
 	dag := checker.DAG()
 
 	require.Contains(t, dag.Nodes, "resource.apps")
@@ -45,7 +45,7 @@ func TestNewSyntaxUsesCompositeSyntaxScope(t *testing.T) {
 				},
 			},
 		},
-	})
+	}, nil, "")
 
 	require.Empty(t, checkRefMessages(t, checker.References(nil)))
 }
@@ -65,7 +65,7 @@ func TestCheckReferenceFixtures(t *testing.T) {
 		if err != nil {
 			return "", []string{err.Error()}
 		}
-		return "", NewSyntax(f.Factory.Body, nil).References(nil).Messages()
+		return "", NewSyntax(f.Factory.Body, nil, nil, "").References(nil).Messages()
 	})
 }
 

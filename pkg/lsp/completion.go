@@ -1380,7 +1380,10 @@ func localCompletionTypes(
 	if err != nil {
 		return nil, err
 	}
-	_ = check.NewSyntax(*body, libs).References(func(expr parse.Expr, typ typecheck.Type) {
+	_ = check.NewSyntax(*body, libs, nil, "").References(func(
+		expr parse.Expr,
+		typ typecheck.Type,
+	) {
 		for _, local := range body.Locals {
 			if expr == local.Value {
 				out[local.Name.Name] = typ

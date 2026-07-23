@@ -85,6 +85,7 @@ type CompositeType struct {
 	Name                 string
 	Kind                 NodeKind
 	SyntaxBody           *syntax.FactoryBody
+	AssetSetID           string
 	Libraries            map[string]*Library
 	LibraryConfigSchemas map[string]LibraryConfigSchema
 }

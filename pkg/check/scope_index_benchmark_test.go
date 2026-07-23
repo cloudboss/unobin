@@ -10,7 +10,7 @@ import (
 )
 
 func BenchmarkReferencesManyCompositeScopes(b *testing.B) {
-	checker := NewSyntax(benchmarkRootBody(400), benchmarkLibraries())
+	checker := NewSyntax(benchmarkRootBody(400), benchmarkLibraries(), nil, "")
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {

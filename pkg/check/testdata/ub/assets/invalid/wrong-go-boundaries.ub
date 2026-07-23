@@ -1,0 +1,22 @@
+factory: {
+  assets: {
+    tree:    './tree'
+    archive: './archive.zip'
+  }
+
+  locals: {
+    wrong-path-call:    native.accept-path(asset.archive.content)
+    wrong-content-call: native.accept-content(asset.tree.path)
+  }
+
+  resources: {
+    sink: native.sink {
+      path:    asset.archive.content
+      content: asset.tree.path
+      nested: {
+        paths:   [asset.archive.content]
+        content: asset.tree.path
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+factory: {
+  inputs: {
+    name: {
+      type: string
+    }
+  }
+
+  assets: {
+    tree: './tree'
+  }
+
+  locals: {
+    bad: asset.tree[input.name]
+  }
+}

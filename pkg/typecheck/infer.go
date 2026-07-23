@@ -17,6 +17,10 @@ type Scope struct {
 	Each        *EachBinding
 	LookupNode  LookupNodeFn
 	LookupLocal LookupLocalFn
+	// LookupAsset resolves a complete asset dot path against the asset set
+	// selected for the current lexical body. Reference validation checks the
+	// path grammar and reports unknown entries before inference.
+	LookupAsset LookupAssetFn
 	// LookupFunction resolves a library-qualified function to its
 	// signature so a call's arguments and result type-check. Nil, or a
 	// false return, leaves the call inferring Unknown; existence and
@@ -100,6 +104,9 @@ type LookupNodeFn func(kind, alias, typ, name string) (Type, bool)
 // inferrer then returns Unknown without an error (the reference
 // checker reports an unknown local name).
 type LookupLocalFn func(name string) (Type, bool)
+
+// LookupAssetFn returns the semantic type of a validated asset reference.
+type LookupAssetFn func(path *lang.DotPath) (Type, bool)
 
 // Infer walks e and returns its inferred type. The target steers
 // how ambiguous literals decide between list/tuple and how object
@@ -695,6 +702,12 @@ func inferDotPath(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {
 		return inferNode(dp, scope, errs)
 	case "local":
 		return inferLocal(dp, scope, errs)
+	case "asset":
+		if scope != nil && scope.LookupAsset != nil {
+			if typ, ok := scope.LookupAsset(dp); ok {
+				return typ
+			}
+		}
 	case "@each":
 		return inferEach(dp, scope, errs)
 	}

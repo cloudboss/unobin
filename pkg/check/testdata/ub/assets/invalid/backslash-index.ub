@@ -1,0 +1,9 @@
+factory: {
+  assets: {
+    tree: './tree'
+  }
+
+  locals: {
+    bad: asset.tree['internal\\helpers.go']
+  }
+}

@@ -1,0 +1,2 @@
+asset.tree.internal names an internal entry
+  hint: use asset.tree['internal']

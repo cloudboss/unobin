@@ -180,6 +180,8 @@ func buildSourceGraph(
 		sf.Factory.Body,
 		libs,
 		analysis.LibraryConfigSchemas,
+		nil,
+		"",
 	)
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return nil, "", errs.Err()

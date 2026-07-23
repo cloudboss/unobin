@@ -54,6 +54,8 @@ func CheckFactoryBody(body syntax.FactoryBody, opts Options) (*Result, error) {
 		body,
 		analysis.Libraries,
 		analysis.LibraryConfigSchemas,
+		nil,
+		"",
 	)
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return nil, errs.Err()

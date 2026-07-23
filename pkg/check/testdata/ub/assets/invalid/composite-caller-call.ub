@@ -1,0 +1,9 @@
+factory: {
+  assets: {
+    caller-only: './root-tree'
+  }
+
+  resources: {
+    app: outer.bundle {}
+  }
+}

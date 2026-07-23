@@ -1,1 +1,1 @@
-factory.ub:3:30: resolve: unknown name "foo"; references start with input, local, resource, data-source, or action
+factory.ub:3:30: resolve: unknown name "foo"; references start with input, local, asset, resource, data-source, or action

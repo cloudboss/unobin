@@ -98,7 +98,7 @@ func checkSyntaxLiteralConstraints(
 ) *lang.ErrorList {
 	t.Helper()
 	fixture := parseSyntaxFactoryFixture(t, checkFactorySource(src))
-	return NewSyntax(fixture.body, libs).LiteralConstraints()
+	return NewSyntax(fixture.body, libs, nil, "").LiteralConstraints()
 }
 
 func TestCheckLiteralConstraints(t *testing.T) {
@@ -220,7 +220,7 @@ func TestCheckTypesGeneratedConstraintFixtures(t *testing.T) {
 		if file.Factory == nil {
 			return "", []string{"missing factory block"}
 		}
-		errs := NewSyntax(file.Factory.Body, nil).References(nil)
+		errs := NewSyntax(file.Factory.Body, nil, nil, "").References(nil)
 		return "", errs.Messages()
 	})
 }

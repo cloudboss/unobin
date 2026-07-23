@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/asset"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
@@ -24,6 +25,8 @@ type Checker struct {
 	locals               map[string]map[string]bool
 	libraries            map[string]map[string]*runtime.Library
 	libraryConfigSchemas map[string]map[string]runtime.LibraryConfigSchema
+	assetCatalog         *asset.Catalog
+	assetSets            map[string]*asset.Set
 	scopes               []checkerScope
 	bodyScopes           []checkerScope
 	nodesByScope         map[string][]*runtime.Node
@@ -37,7 +40,12 @@ type checkerScope struct {
 }
 
 // NewSyntax builds the check state from a typed factory or composite body.
-func NewSyntax(body syntax.FactoryBody, libs map[string]*runtime.Library) *Checker {
+func NewSyntax(
+	body syntax.FactoryBody,
+	libs map[string]*runtime.Library,
+	assetCatalog *asset.Catalog,
+	rootAssetSetID string,
+) *Checker {
 	return newChecker(
 		&body,
 		runtime.BuildSyntaxDAG(body, libs),
@@ -45,6 +53,8 @@ func NewSyntax(body syntax.FactoryBody, libs map[string]*runtime.Library) *Check
 		syntaxLocalNames(body.Locals),
 		libs,
 		nil,
+		assetCatalog,
+		rootAssetSetID,
 	)
 }
 
@@ -53,6 +63,8 @@ func NewSyntaxWithLibraryConfigSchemas(
 	body syntax.FactoryBody,
 	libs map[string]*runtime.Library,
 	libraryConfigSchemas map[string]runtime.LibraryConfigSchema,
+	assetCatalog *asset.Catalog,
+	rootAssetSetID string,
 ) *Checker {
 	return newChecker(
 		&body,
@@ -61,6 +73,8 @@ func NewSyntaxWithLibraryConfigSchemas(
 		syntaxLocalNames(body.Locals),
 		libs,
 		libraryConfigSchemas,
+		assetCatalog,
+		rootAssetSetID,
 	)
 }
 
@@ -71,7 +85,10 @@ func newChecker(
 	locals map[string]bool,
 	libs map[string]*runtime.Library,
 	libraryConfigSchemas map[string]runtime.LibraryConfigSchema,
+	assetCatalog *asset.Catalog,
+	rootAssetSetID string,
 ) *Checker {
+	rootAssets, _ := assetCatalog.Set(rootAssetSetID)
 	c := &Checker{
 		rootSyntax:           root,
 		dag:                  dag,
@@ -79,6 +96,8 @@ func newChecker(
 		locals:               map[string]map[string]bool{"": locals},
 		libraries:            map[string]map[string]*runtime.Library{"": libs},
 		libraryConfigSchemas: map[string]map[string]runtime.LibraryConfigSchema{},
+		assetCatalog:         assetCatalog,
+		assetSets:            map[string]*asset.Set{"": rootAssets},
 	}
 	if libraryConfigSchemas != nil {
 		c.libraryConfigSchemas[""] = libraryConfigSchemas
@@ -177,6 +196,8 @@ func (c *Checker) buildScopeIndexes() {
 		if node.LibraryConfigSchemas != nil {
 			c.libraryConfigSchemas[node.Address] = node.LibraryConfigSchemas
 		}
+		compositeAssets, _ := c.assetCatalog.Set(node.AssetSetID)
+		c.assetSets[node.Address] = compositeAssets
 		scope := checkerScope{
 			address: node.Address,
 			body:    node.CompositeSyntaxBody,
@@ -367,12 +388,15 @@ func (c *referenceChecker) checkConstraintExpr(expr lang.Expr, scope string, it 
 	c.checkExprIdents(expr)
 	lang.ScanExpr(expr, lang.ScanCallbacks{
 		DotPath: func(n *lang.DotPath, _ lang.ScanContext) lang.ScanDecision {
-			c.checkSplat(n)
+			if n.Root.Name != "asset" {
+				c.checkSplat(n)
+			}
 			switch {
 			case n.Root.Name == "input":
 				c.checkInput(n, scope)
 			case n.Root.Name == "resource", n.Root.Name == "data-source",
-				n.Root.Name == "action", n.Root.Name == "local":
+				n.Root.Name == "action", n.Root.Name == "local",
+				n.Root.Name == "asset":
 				c.addf(n.S.Start,
 					"a constraint may read inputs only, not %s", namedPathText(n))
 			case strings.HasPrefix(n.Root.Name, "@"):
@@ -428,7 +452,9 @@ func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) 
 	c.checkExprIdents(expr)
 	lang.ScanExpr(expr, lang.ScanCallbacks{
 		DotPath: func(n *lang.DotPath, _ lang.ScanContext) lang.ScanDecision {
-			c.checkSplat(n)
+			if n.Root.Name != "asset" {
+				c.checkSplat(n)
+			}
 			switch n.Root.Name {
 			case "input":
 				c.checkInput(n, scope)
@@ -436,6 +462,8 @@ func (c *referenceChecker) checkExpr(expr lang.Expr, scope string, eachOK bool) 
 				c.checkNode(n, scope)
 			case "local":
 				c.checkLocal(n, scope)
+			case "asset":
+				c.checkAsset(n, scope)
 			default:
 				if strings.HasPrefix(n.Root.Name, "@") {
 					c.checkBindingPath(n, iterScope{bare: eachOK})
@@ -936,11 +964,18 @@ func (c *referenceChecker) checkPathRoot(root *lang.Ident, bound map[string]bool
 		return
 	}
 	c.addf(root.S.Start,
-		"unknown name %q; references start with input, local, resource, data-source, or action", name)
+		"unknown name %q; references start with input, local, asset, resource, "+
+			"data-source, or action",
+		name,
+	)
 }
 
 func (c *referenceChecker) checkIdent(id *lang.Ident, bound map[string]bool) {
 	name := id.Name
+	if name == "asset" {
+		c.addf(id.S.Start, "asset cannot stand alone; write asset.<name>")
+		return
+	}
 	if name == lang.CoreNamespace {
 		c.addf(id.S.Start, "%s names functions; call one, e.g. %s.length(...)",
 			lang.CoreNamespace, lang.CoreNamespace)
@@ -962,7 +997,7 @@ func (c *referenceChecker) checkIdent(id *lang.Ident, bound map[string]bool) {
 // comprehension binds, passing the binding names in scope at that
 // identifier. A comprehension's source reads the outer scope; its
 // key, value, and filter see the comprehension's own names too. A dot
-// path root that is neither bound nor an address root visits with
+// path root that is neither bound nor a reference root visits with
 // isRoot set; call names stay with their own checks.
 func walkFreeIdents(
 	e lang.Expr, bound map[string]bool, visit func(*lang.Ident, map[string]bool, bool),
@@ -993,7 +1028,7 @@ func walkFreeIdents(
 	case *lang.Prefix:
 		walkFreeIdents(v.Expr, bound, visit)
 	case *lang.DotPath:
-		if v.Root != nil && !bound[v.Root.Name] && !addressRoot(v.Root.Name) {
+		if v.Root != nil && !bound[v.Root.Name] && !referenceRoot(v.Root.Name) {
 			visit(v.Root, bound, true)
 		}
 		for _, seg := range v.Segments {
@@ -1020,12 +1055,12 @@ func walkFreeIdents(
 	}
 }
 
-// addressRoot reports whether a dot path root has its own checker:
-// the address roots, and any @-named binding, whose validity depends
-// on the iteration context enclosing the expression.
-func addressRoot(name string) bool {
+// referenceRoot reports whether a dot path root has its own checker. Asset is a
+// static-value root rather than an address; @-named roots depend on the
+// iteration context enclosing the expression.
+func referenceRoot(name string) bool {
 	switch name {
-	case "input", "resource", "data-source", "action", "local":
+	case "input", "resource", "data-source", "action", "local", "asset":
 		return true
 	}
 	return strings.HasPrefix(name, "@")
@@ -1065,10 +1100,26 @@ func allDigits(s string) bool {
 
 func (c *referenceChecker) addf(pos lang.Position, format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
-	key := fmt.Sprintf("%s:%d:%d:%s", pos.File, pos.Line, pos.Column, msg)
+	c.addDiagnostic(pos, msg, "")
+}
+
+func (c *referenceChecker) addDiagnostic(pos lang.Position, message, hint string) {
+	key := fmt.Sprintf(
+		"%s:%d:%d:%s:%s",
+		pos.File,
+		pos.Line,
+		pos.Column,
+		message,
+		hint,
+	)
 	if c.seen[key] {
 		return
 	}
 	c.seen[key] = true
-	c.errs.Add(&lang.Error{Kind: lang.ErrResolve, Pos: pos, Msg: msg})
+	c.errs.Add(&lang.Error{
+		Kind: lang.ErrResolve,
+		Pos:  pos,
+		Msg:  message,
+		Hint: hint,
+	})
 }

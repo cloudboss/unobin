@@ -1,0 +1,21 @@
+factory: {
+  assets: {
+    tree:    './tree'
+    archive: './archive.zip'
+  }
+
+  locals: {
+    tree:         asset.tree
+    tree-path:    asset.tree.path
+    tree-content: asset.tree.content
+    tree-digest:  asset.tree.content-sha256
+    tree-mode:    asset.tree.mode
+    file:         asset.tree['main.go']
+    file-path:    asset.tree['main.go'].path
+    file-content: asset.tree['main.go'].content
+    file-digest:  asset.tree['main.go'].content-sha256
+    file-mode:    asset.tree['main.go'].mode
+    directory:    asset.tree['internal']
+    nested-file:  asset.tree['internal/helpers.go']
+  }
+}
