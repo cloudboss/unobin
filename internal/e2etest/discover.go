@@ -27,6 +27,11 @@ type CompiledCase struct {
 	FactoryPath         string               `json:"factoryPath"`
 	LibraryPath         string               `json:"libraryPath"`
 	Build               bool                 `json:"build"`
+	EmptyDirectories    []string             `json:"emptyDirectories"`
+	RemoveAfterCompile  []string             `json:"removeAfterCompile"`
+	AssetBundle         *AssetBundleCheck    `json:"assetBundle"`
+	AssetCache          *AssetCacheCheck     `json:"assetCache"`
+	AssetIdentity       *AssetIdentityCheck  `json:"assetIdentity"`
 	Commands            []Command            `json:"commands"`
 	Files               []FileCheck          `json:"files"`
 	FileExclusions      []FileExclusionCheck `json:"fileExclusions"`
@@ -105,10 +110,28 @@ type FileExclusionCheck struct {
 	Text []string `json:"text"`
 }
 
+type AssetBundleCheck struct {
+	SetCount  int `json:"setCount"`
+	BlobCount int `json:"blobCount"`
+}
+
+type AssetCacheCheck struct {
+	Path           string `json:"path"`
+	ReferenceCount int    `json:"referenceCount"`
+}
+
+type AssetIdentityCheck struct {
+	Asset           string `json:"asset"`
+	StableEntry     string `json:"stableEntry"`
+	ChangePath      string `json:"changePath"`
+	ReplacementPath string `json:"replacementPath"`
+}
+
 // PlanSummaryCheck describes a plan file decoded and compared to a golden.
 type PlanSummaryCheck struct {
-	Path string `json:"path"`
-	Want string `json:"want"`
+	Path          string `json:"path"`
+	Want          string `json:"want"`
+	IncludeInputs bool   `json:"includeInputs"`
 }
 
 // PlanEnvelopeCheck describes a plan envelope compared to a golden.
@@ -265,6 +288,21 @@ func validateCompiledCase(c CompiledCase) error {
 		return fmt.Errorf("name is required")
 	}
 	if err := checkRelPath("factoryPath", c.FactoryPath); err != nil {
+		return err
+	}
+	if err := validateRequiredPaths("emptyDirectories", c.EmptyDirectories); err != nil {
+		return err
+	}
+	if err := validateRequiredPaths("removeAfterCompile", c.RemoveAfterCompile); err != nil {
+		return err
+	}
+	if err := validateAssetBundleCheck(c.AssetBundle); err != nil {
+		return err
+	}
+	if err := validateAssetCacheCheck(c.AssetCache); err != nil {
+		return err
+	}
+	if err := validateAssetIdentityCheck(c.AssetIdentity); err != nil {
 		return err
 	}
 	if err := validateCommands(c.Commands); err != nil {
@@ -455,6 +493,78 @@ func validateFileExclusions(checks []FileExclusionCheck) error {
 			if text == "" {
 				return fmt.Errorf("%s.text[%d] is required", prefix, j)
 			}
+		}
+	}
+	return nil
+}
+
+func validateRequiredPaths(field string, paths []string) error {
+	for i, path := range paths {
+		name := fmt.Sprintf("%s[%d]", field, i)
+		if path == "" {
+			return fmt.Errorf("%s is required", name)
+		}
+		if err := checkRelPath(name, path); err != nil {
+			return err
+		}
+		if filepath.Clean(filepath.FromSlash(path)) == "." {
+			return fmt.Errorf("%s must name a path under the case directory", name)
+		}
+	}
+	return nil
+}
+
+func validateAssetBundleCheck(check *AssetBundleCheck) error {
+	if check == nil {
+		return nil
+	}
+	if check.SetCount <= 0 {
+		return fmt.Errorf("assetBundle.setCount must be positive")
+	}
+	if check.BlobCount <= 0 {
+		return fmt.Errorf("assetBundle.blobCount must be positive")
+	}
+	return nil
+}
+
+func validateAssetCacheCheck(check *AssetCacheCheck) error {
+	if check == nil {
+		return nil
+	}
+	if check.Path == "" {
+		return fmt.Errorf("assetCache.path is required")
+	}
+	if err := checkRelPath("assetCache.path", check.Path); err != nil {
+		return err
+	}
+	if check.ReferenceCount <= 0 {
+		return fmt.Errorf("assetCache.referenceCount must be positive")
+	}
+	return nil
+}
+
+func validateAssetIdentityCheck(check *AssetIdentityCheck) error {
+	if check == nil {
+		return nil
+	}
+	if check.Asset == "" {
+		return fmt.Errorf("assetIdentity.asset is required")
+	}
+	fields := []struct {
+		name  string
+		value string
+	}{
+		{name: "stableEntry", value: check.StableEntry},
+		{name: "changePath", value: check.ChangePath},
+		{name: "replacementPath", value: check.ReplacementPath},
+	}
+	for _, field := range fields {
+		name := "assetIdentity." + field.name
+		if field.value == "" {
+			return fmt.Errorf("%s is required", name)
+		}
+		if err := checkRelPath(name, field.value); err != nil {
+			return err
 		}
 	}
 	return nil

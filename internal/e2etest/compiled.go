@@ -15,6 +15,9 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 	}
 	workspace := copyCaseToWorkspace(t, c.Dir)
 	logProgress(t, "%s: fixture copied", c.Name)
+	if err := prepareEmptyDirectories(workspace, c.EmptyDirectories); err != nil {
+		t.Fatal(err)
+	}
 	logProgress(t, "%s: compile start", c.Name)
 	binary, err := compileCase(t.Context(), cfg.repoRoot, cfg.e2eLibraryDir, c, workspace)
 	if err != nil {
@@ -25,6 +28,21 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 		if _, err := os.Stat(binary); err != nil {
 			t.Fatalf("built binary: %v", err)
 		}
+	}
+	if err := checkAssetBundle(workspace, c.AssetBundle); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkAssetIdentity(
+		cfg.repoRoot,
+		cfg.e2eLibraryDir,
+		c,
+		workspace,
+		c.AssetIdentity,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := removeCasePaths(workspace, c.RemoveAfterCompile); err != nil {
+		t.Fatal(err)
 	}
 	if err := seedState(workspace, c); err != nil {
 		t.Fatal(err)
@@ -61,6 +79,9 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 		if err := compareCommandGoldens(c.Dir, cmd, got, *update); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if err := checkAssetCache(workspace, c.AssetCache); err != nil {
+		t.Fatal(err)
 	}
 	if len(c.Files) > 0 {
 		logProgress(t, "%s: file checks start", c.Name)

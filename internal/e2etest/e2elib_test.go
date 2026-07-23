@@ -18,6 +18,7 @@ func TestE2ELibraryFixtureSchema(t *testing.T) {
 
 	require.Contains(t, schema.Resources, "file")
 	require.Contains(t, schema.Resources, "object")
+	require.Contains(t, schema.Resources, "archive-zipfile")
 	require.Contains(t, schema.DataSources, "read-file")
 	require.Contains(t, schema.Actions, "echo")
 	require.Contains(t, schema.Actions, "record")
@@ -38,6 +39,19 @@ func TestE2ELibraryFixtureSchema(t *testing.T) {
 	))
 	assert.Contains(t, object.Outputs, "body")
 	assert.NotEmpty(t, object.Constraints)
+
+	archive := schema.Resources["archive-zipfile"]
+	assert.True(t, archive.Inputs["source-dir"].Equal(typecheck.TString()))
+	assert.True(t, archive.Inputs["selected-path"].Equal(typecheck.TString()))
+	assert.True(t, archive.Inputs["file-content"].Equal(typecheck.TBytes()))
+	assert.True(t, archive.Inputs["archive-content"].Equal(typecheck.TBytes()))
+	assert.True(t, archive.Inputs["expected-file-sha256"].Equal(typecheck.TString()))
+	assert.True(t, archive.Inputs["expected-file-mode"].Equal(typecheck.TString()))
+	assert.True(t, archive.Inputs["expected-directory-sha256"].Equal(typecheck.TString()))
+	assert.True(t, archive.Inputs["expected-directory-mode"].Equal(typecheck.TString()))
+	assert.Contains(t, archive.Inputs, "expected-entries")
+	assert.Contains(t, archive.Outputs, "entries")
+	assert.NotEmpty(t, archive.Constraints)
 
 	readFile := schema.DataSources["read-file"]
 	assert.Contains(t, readFile.Outputs, "content")

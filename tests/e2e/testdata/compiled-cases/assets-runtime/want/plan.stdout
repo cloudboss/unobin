@@ -1,0 +1,13 @@
+  (create)  resource.zippy
+      archive-content: <asset.zipdir.content>
+      expected-directory-mode: '0755'
+      expected-directory-sha256: '98a727a1c24b19ff88d732bb631bdeb720b0e50b068cd9f57a8aa4de53d8132b'
+      expected-entries: {'.hidden': '0644', empty: '0755', internal: '0755', 'internal/helpers.go': '0644', 'main.go': '0644', 'run.sh': '0755'}
+      expected-file-mode: '0644'
+      expected-file-sha256: '55a60bb97151b2b4b680462447ce60ec34511b14fa10d77440c97b9777101566'
+      file-content: <asset.zipdir['main.go'].content>
+      path: 'root.zip'
+      selected-path: <asset.zipdir['main.go'].path>
+      source-dir: <asset.zipdir.path>
+
+Plan: 1 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.

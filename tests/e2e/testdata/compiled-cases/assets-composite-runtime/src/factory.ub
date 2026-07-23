@@ -1,0 +1,26 @@
+factory: {
+  inputs: {
+    e2e-config: {
+      type: library-config('example.com/unobin/e2elib')
+      default: {
+        base-dir: '.'
+      }
+    }
+  }
+
+  imports: {
+    archives: './library'
+  }
+
+  resources: {
+    first: archives.archive {
+      path:       'first.zip'
+      e2e-config: input.e2e-config
+    }
+
+    second: archives.archive {
+      path:       'second.zip'
+      e2e-config: input.e2e-config
+    }
+  }
+}

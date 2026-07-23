@@ -1,0 +1,10 @@
+{"kind":"command-diagnostic","format-version":1,"sequence":1,"timestamp":"<timestamp>","diagnostic":{"code":"unobin.factory.replaced-toolchain","severity":"info","message":"github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced"}}
+{"kind":"apply-event","format-version":1,"sequence":2,"timestamp":"<timestamp>","stage":"start","decision":"eval","address":"resource.first/library-config.e2e"}
+{"kind":"apply-event","format-version":1,"sequence":3,"timestamp":"<timestamp>","stage":"done","decision":"eval","address":"resource.first/library-config.e2e","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":4,"timestamp":"<timestamp>","stage":"start","decision":"create","address":"resource.first/resource.zippy"}
+{"kind":"apply-event","format-version":1,"sequence":5,"timestamp":"<timestamp>","stage":"done","decision":"create","address":"resource.first/resource.zippy","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":6,"timestamp":"<timestamp>","stage":"start","decision":"eval","address":"resource.second/library-config.e2e"}
+{"kind":"apply-event","format-version":1,"sequence":7,"timestamp":"<timestamp>","stage":"done","decision":"eval","address":"resource.second/library-config.e2e","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":8,"timestamp":"<timestamp>","stage":"start","decision":"create","address":"resource.second/resource.zippy"}
+{"kind":"apply-event","format-version":1,"sequence":9,"timestamp":"<timestamp>","stage":"done","decision":"create","address":"resource.second/resource.zippy","elapsed":"<elapsed>"}
+{"kind":"apply-result","format-version":1,"sequence":10,"timestamp":"<timestamp>","started-at":"<timestamp>","finished-at":"<timestamp>","elapsed":"<elapsed>","state-rev":"<revision>","output-count":0}

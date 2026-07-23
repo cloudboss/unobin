@@ -16,6 +16,16 @@ func TestDiscoverCases(t *testing.T) {
 		"factoryPath": "src",
 		"libraryPath": "example.com/unobin/e2e/beta",
 		"build": true,
+		"emptyDirectories": ["src/assets/empty"],
+		"removeAfterCompile": ["src/assets"],
+		"assetBundle": { "setCount": 1, "blobCount": 4 },
+		"assetCache": { "path": "cache/apply", "referenceCount": 4 },
+		"assetIdentity": {
+			"asset": "tree",
+			"stableEntry": "main.go",
+			"changePath": "src/assets/internal/helpers.go",
+			"replacementPath": "mutations/helpers.go"
+		},
 		"commands": [
 			{
 				"name": "validate",
@@ -31,7 +41,11 @@ func TestDiscoverCases(t *testing.T) {
 			{ "path": "work/events.ndjson", "text": ["secret", "/tmp/source"] }
 		],
 		"planSummaries": [
-			{ "path": "work/plan.ubp", "want": "want/plan-summary.json" }
+			{
+				"path": "work/plan.ubp",
+				"want": "want/plan-summary.json",
+				"includeInputs": true
+			}
 		],
 		"planEnvelopes": [
 			{ "path": "work/plan.ubp", "want": "want/plan-envelope.json" }
@@ -69,6 +83,19 @@ func TestDiscoverCases(t *testing.T) {
 	assert.Equal(t, "example.com/unobin/e2e/beta", beta.LibraryPath)
 	assert.True(t, beta.Build)
 	assert.True(t, beta.Deterministic)
+	assert.Equal(t, []string{"src/assets/empty"}, beta.EmptyDirectories)
+	assert.Equal(t, []string{"src/assets"}, beta.RemoveAfterCompile)
+	require.NotNil(t, beta.AssetBundle)
+	assert.Equal(t, 1, beta.AssetBundle.SetCount)
+	assert.Equal(t, 4, beta.AssetBundle.BlobCount)
+	require.NotNil(t, beta.AssetCache)
+	assert.Equal(t, "cache/apply", beta.AssetCache.Path)
+	assert.Equal(t, 4, beta.AssetCache.ReferenceCount)
+	require.NotNil(t, beta.AssetIdentity)
+	assert.Equal(t, "tree", beta.AssetIdentity.Asset)
+	assert.Equal(t, "main.go", beta.AssetIdentity.StableEntry)
+	assert.Equal(t, "src/assets/internal/helpers.go", beta.AssetIdentity.ChangePath)
+	assert.Equal(t, "mutations/helpers.go", beta.AssetIdentity.ReplacementPath)
 	require.Len(t, beta.Files, 1)
 	assert.Equal(t, "work/events.ndjson", beta.Files[0].Path)
 	assert.Equal(t, "want/events.ndjson", beta.Files[0].Want)
@@ -78,6 +105,7 @@ func TestDiscoverCases(t *testing.T) {
 	require.Len(t, beta.PlanSummaries, 1)
 	assert.Equal(t, "work/plan.ubp", beta.PlanSummaries[0].Path)
 	assert.Equal(t, "want/plan-summary.json", beta.PlanSummaries[0].Want)
+	assert.True(t, beta.PlanSummaries[0].IncludeInputs)
 	require.Len(t, beta.PlanEnvelopes, 1)
 	assert.Equal(t, "work/plan.ubp", beta.PlanEnvelopes[0].Path)
 	assert.Equal(t, "want/plan-envelope.json", beta.PlanEnvelopes[0].Want)
@@ -209,6 +237,64 @@ func TestDiscoverCasesRejectsBadPaths(t *testing.T) {
 				]
 			}`,
 			want: "fileExclusions[0].text[0] is required",
+		},
+		{
+			name: "parent empty directory",
+			content: `{
+				"name": "bad",
+				"factoryPath": "src",
+				"emptyDirectories": ["../empty"]
+			}`,
+			want: "emptyDirectories[0] must stay under the case directory",
+		},
+		{
+			name: "empty removal path",
+			content: `{
+				"name": "bad",
+				"factoryPath": "src",
+				"removeAfterCompile": [""]
+			}`,
+			want: "removeAfterCompile[0] is required",
+		},
+		{
+			name: "case directory removal",
+			content: `{
+				"name": "bad",
+				"factoryPath": "src",
+				"removeAfterCompile": ["assets/.."]
+			}`,
+			want: "removeAfterCompile[0] must name a path under the case directory",
+		},
+		{
+			name: "invalid bundle count",
+			content: `{
+				"name": "bad",
+				"factoryPath": "src",
+				"assetBundle": { "setCount": 0, "blobCount": 1 }
+			}`,
+			want: "assetBundle.setCount must be positive",
+		},
+		{
+			name: "missing identity entry",
+			content: `{
+				"name": "bad",
+				"factoryPath": "src",
+				"assetIdentity": {
+					"asset": "tree",
+					"changePath": "src/helpers.go",
+					"replacementPath": "mutations/helpers.go"
+				}
+			}`,
+			want: "assetIdentity.stableEntry is required",
+		},
+		{
+			name: "invalid cache count",
+			content: `{
+				"name": "bad",
+				"factoryPath": "src",
+				"assetCache": { "path": "cache", "referenceCount": 0 }
+			}`,
+			want: "assetCache.referenceCount must be positive",
 		},
 	}
 

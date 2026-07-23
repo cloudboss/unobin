@@ -22,9 +22,10 @@ type planSummary struct {
 }
 
 type planStepSummary struct {
-	Address  string `json:"address"`
-	Kind     string `json:"kind"`
-	Decision string `json:"decision"`
+	Address  string         `json:"address"`
+	Kind     string         `json:"kind"`
+	Decision string         `json:"decision"`
+	Inputs   map[string]any `json:"inputs,omitempty"`
 }
 
 func comparePlanSummaries(
@@ -34,7 +35,7 @@ func comparePlanSummaries(
 	doUpdate bool,
 ) error {
 	for _, check := range checks {
-		body, err := planSummaryJSON(workspace, check.Path)
+		body, err := planSummaryJSON(workspace, check.Path, check.IncludeInputs)
 		if err != nil {
 			return err
 		}
@@ -45,7 +46,11 @@ func comparePlanSummaries(
 	return nil
 }
 
-func planSummaryJSON(workspace string, relPath string) (string, error) {
+func planSummaryJSON(
+	workspace string,
+	relPath string,
+	includeInputs bool,
+) (string, error) {
 	path := filepath.Join(workspace, filepath.FromSlash(relPath))
 	body, err := os.ReadFile(path)
 	if err != nil {
@@ -55,7 +60,7 @@ func planSummaryJSON(workspace string, relPath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("open plan %s: %w", relPath, err)
 	}
-	summary := summarizePlan(pf)
+	summary := summarizePlan(pf, includeInputs)
 	var out bytes.Buffer
 	enc := json.NewEncoder(&out)
 	enc.SetEscapeHTML(false)
@@ -73,16 +78,20 @@ func planSummaryEncrypter(ref *runtime.StateRef) (encrypt.Encrypter, error) {
 	return encrypters.Noop{}, nil
 }
 
-func summarizePlan(pf *runtime.PlanFile) planSummary {
+func summarizePlan(pf *runtime.PlanFile, includeInputs bool) planSummary {
 	factory := pf.Factory
 	factory.ContentRevision = "<revision>"
 	steps := make([]planStepSummary, 0, len(pf.Steps))
 	for _, step := range pf.Steps {
-		steps = append(steps, planStepSummary{
+		summary := planStepSummary{
 			Address:  step.Address,
 			Kind:     string(step.Kind),
 			Decision: string(step.Decision),
-		})
+		}
+		if includeInputs {
+			summary.Inputs = step.Inputs
+		}
+		steps = append(steps, summary)
 	}
 	return planSummary{
 		FormatVersion: pf.FormatVersion,

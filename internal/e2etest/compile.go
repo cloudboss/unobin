@@ -19,6 +19,24 @@ func compileCase(
 	workspace string,
 ) (string, error) {
 	outDir := filepath.Join(workspace, ".e2e", "build")
+	return compileCaseTo(
+		repoRoot,
+		e2eLibraryDir,
+		c,
+		workspace,
+		outDir,
+		c.Build,
+	)
+}
+
+func compileCaseTo(
+	repoRoot string,
+	e2eLibraryDir string,
+	c CompiledCase,
+	workspace string,
+	outDir string,
+	build bool,
+) (string, error) {
 	factoryPath := filepath.Join(workspace, filepath.FromSlash(c.FactoryPath))
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -34,7 +52,7 @@ func compileCase(
 		ReplaceGoModules: map[string]string{
 			e2eLibraryModule: e2eLibraryDir,
 		},
-		Build:  c.Build,
+		Build:  build,
 		Stdout: &stdout,
 		Stderr: &stderr,
 	})
@@ -47,7 +65,7 @@ func compileCase(
 			stderr.String(),
 		)
 	}
-	if !c.Build {
+	if !build {
 		return "", nil
 	}
 	return filepath.Join(outDir, c.Name), nil

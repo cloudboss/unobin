@@ -1,0 +1,67 @@
+{
+  "name": "assets-runtime",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/assets-runtime",
+  "build": true,
+  "emptyDirectories": [
+    "src/assets/zipdir/empty",
+    "cache/plan",
+    "cache/apply"
+  ],
+  "removeAfterCompile": ["src/assets/zipdir"],
+  "assetBundle": {
+    "setCount": 1,
+    "blobCount": 4
+  },
+  "assetCache": {
+    "path": "cache/apply",
+    "referenceCount": 4
+  },
+  "assetIdentity": {
+    "asset": "zipdir",
+    "stableEntry": "main.go",
+    "changePath": "src/assets/zipdir/internal/helpers.go",
+    "replacementPath": "mutations/helpers.go"
+  },
+  "commands": [
+    {
+      "name": "plan",
+      "args": [
+        "--asset-cache-dir", "cache/plan",
+        "plan", "--ascii", "-c", "stacks/dev.ub", "-o", "plan.ubp"
+      ],
+      "stdout": "want/plan.stdout",
+      "stderr": "want/plan.stderr"
+    },
+    {
+      "name": "apply",
+      "args": [
+        "--asset-cache-dir", "cache/apply",
+        "apply", "--format", "json", "plan.ubp"
+      ],
+      "stdout": "want/apply.stdout",
+      "normalize": "json"
+    }
+  ],
+  "planSummaries": [
+    {
+      "path": "plan.ubp",
+      "want": "want/plan-summary.json",
+      "includeInputs": true
+    }
+  ],
+  "fileExclusions": [
+    {
+      "path": "plan.ubp",
+      "text": [
+        "package main",
+        "package internal",
+        "$WORKSPACE",
+        "cache/plan",
+        "cache/apply"
+      ]
+    }
+  ],
+  "absentFiles": ["src/assets/zipdir"],
+  "stateSummary": "want/state-summary.json"
+}

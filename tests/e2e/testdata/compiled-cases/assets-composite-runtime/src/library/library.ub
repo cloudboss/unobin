@@ -1,0 +1,46 @@
+archive: resource {
+  assets: {
+    zipdir: './zipdir'
+  }
+
+  inputs: {
+    path:       { type: string }
+    e2e-config: { type: library-config('example.com/unobin/e2elib') }
+  }
+
+  imports: {
+    e2e: 'example.com/unobin/e2elib'
+  }
+
+  library-configs: {
+    e2e: input.e2e-config
+  }
+
+  resources: {
+    zippy: e2e.archive-zipfile {
+      path:                      input.path
+      source-dir:                asset.zipdir.path
+      selected-path:             asset.zipdir['main.go'].path
+      file-content:              asset.zipdir['main.go'].content
+      archive-content:           asset.zipdir.content
+      expected-file-sha256:      asset.zipdir['main.go'].content-sha256
+      expected-file-mode:        asset.zipdir['main.go'].mode
+      expected-directory-sha256: asset.zipdir.content-sha256
+      expected-directory-mode:   asset.zipdir.mode
+      expected-entries: {
+        '.hidden':             '0644'
+        empty:                 '0755'
+        internal:              '0755'
+        'internal/helpers.go': '0644'
+        'main.go':             '0644'
+        'run.sh':              '0755'
+      }
+    }
+  }
+
+  outputs: {
+    path: {
+      value: resource.zippy.path
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "assets-runtime",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "steps": [
+    {
+      "address": "library-config.e2e",
+      "kind": "library-config",
+      "decision": "eval",
+      "inputs": {
+        "base-dir": ".",
+        "event-log-path": "events.ndjson",
+        "nested": {
+          "enabled": true,
+          "label": "nested"
+        },
+        "prefix": ""
+      }
+    },
+    {
+      "address": "resource.zippy",
+      "kind": "resource",
+      "decision": "create",
+      "inputs": {
+        "archive-content": "unobin-asset:v1:content:d184843815cb7d00e52bf26e3a8be98dbe5879f5dc599f13743eb736ee8709fc:emlwZGlyAA",
+        "expected-directory-mode": "0755",
+        "expected-directory-sha256": "98a727a1c24b19ff88d732bb631bdeb720b0e50b068cd9f57a8aa4de53d8132b",
+        "expected-entries": {
+          ".hidden": "0644",
+          "empty": "0755",
+          "internal": "0755",
+          "internal/helpers.go": "0644",
+          "main.go": "0644",
+          "run.sh": "0755"
+        },
+        "expected-file-mode": "0644",
+        "expected-file-sha256": "55a60bb97151b2b4b680462447ce60ec34511b14fa10d77440c97b9777101566",
+        "file-content": "unobin-asset:v1:content:ca4eaaef19584f24c837e20f67fb327c3220a20dd197d8f73de5498dc6103b1a:emlwZGlyAG1haW4uZ28",
+        "path": "root.zip",
+        "selected-path": "unobin-asset:v1:path:ca4eaaef19584f24c837e20f67fb327c3220a20dd197d8f73de5498dc6103b1a:emlwZGlyAG1haW4uZ28",
+        "source-dir": "unobin-asset:v1:path:d184843815cb7d00e52bf26e3a8be98dbe5879f5dc599f13743eb736ee8709fc:emlwZGlyAA"
+      }
+    }
+  ]
+}
