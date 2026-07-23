@@ -155,8 +155,20 @@ func pathAliases(path, workingDir string) []string {
 	}
 	clean = filepath.Clean(clean)
 	aliases := []string{clean}
+	if target, err := os.Readlink(clean); err == nil {
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(clean), target)
+		}
+		target = filepath.Clean(target)
+		if !slices.Contains(aliases, target) {
+			aliases = append(aliases, target)
+		}
+	}
 	if resolved, err := filepath.EvalSymlinks(clean); err == nil && resolved != clean {
-		aliases = append(aliases, filepath.Clean(resolved))
+		resolved = filepath.Clean(resolved)
+		if !slices.Contains(aliases, resolved) {
+			aliases = append(aliases, resolved)
+		}
 	}
 	return aliases
 }

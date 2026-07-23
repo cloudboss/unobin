@@ -59,8 +59,11 @@ func FindProjectMarkerDir(start string) (string, projectmarker.Marker, error) {
 		return "", projectmarker.Marker{}, err
 	}
 	for {
-		marker, err := projectmarker.ClassifyRoot(os.DirFS(dir))
+		marker, err := projectmarker.ClassifyDir(dir)
 		if err != nil {
+			if unreadableDirectory(dir, err) {
+				return "", projectmarker.Marker{}, projectMarkerNotFoundError(start)
+			}
 			return "", projectmarker.Marker{}, err
 		}
 		if marker.Kind != projectmarker.None {
@@ -68,14 +71,26 @@ func FindProjectMarkerDir(start string) (string, projectmarker.Marker, error) {
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return "", projectmarker.Marker{}, fmt.Errorf(
-				"no project.ub or go.mod found in %s or any parent directory: %w",
-				start,
-				fs.ErrNotExist,
-			)
+			return "", projectmarker.Marker{}, projectMarkerNotFoundError(start)
 		}
 		dir = parent
 	}
+}
+
+func projectMarkerNotFoundError(start string) error {
+	return fmt.Errorf(
+		"no project.ub or go.mod found in %s or any parent directory: %w",
+		start,
+		fs.ErrNotExist,
+	)
+}
+
+func unreadableDirectory(dir string, err error) bool {
+	if !errors.Is(err, fs.ErrPermission) {
+		return false
+	}
+	_, readErr := os.ReadDir(dir)
+	return errors.Is(readErr, fs.ErrPermission)
 }
 
 func hasProjectFile(dir string) (bool, error) {

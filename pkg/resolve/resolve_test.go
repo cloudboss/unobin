@@ -40,6 +40,44 @@ func TestLocalResolverRelative(t *testing.T) {
 	require.Contains(t, string(b), "net")
 }
 
+func TestLocalResolverStopsAtUnreadableAncestor(t *testing.T) {
+	base := t.TempDir()
+	ancestor := filepath.Join(base, "ancestor")
+	root := filepath.Join(ancestor, "workspace")
+	writeFile(t, filepath.Join(root, "libraries", "net", "library.ub"),
+		"description: 'net'\n")
+	require.NoError(t, os.Chmod(ancestor, 0o111))
+	t.Cleanup(func() {
+		require.NoError(t, os.Chmod(ancestor, 0o755))
+	})
+	if _, err := os.ReadDir(ancestor); err == nil {
+		t.Skip("directory permissions are not enforced")
+	}
+
+	src, err := NewLocalResolver(root).Resolve(&LocalImport{Path: "./libraries/net"})
+	require.NoError(t, err)
+	require.NotNil(t, src)
+}
+
+func TestLocalResolverReturnsUnreadableProjectMarkerError(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "libraries", "net", "library.ub"),
+		"description: 'net'\n")
+	marker := filepath.Join(root, "project.ub")
+	writeFile(t, marker, localResolverFixture(t, "valid/empty-project"))
+	require.NoError(t, os.Chmod(marker, 0o000))
+	t.Cleanup(func() {
+		require.NoError(t, os.Chmod(marker, 0o644))
+	})
+	if _, err := os.ReadFile(marker); err == nil {
+		t.Skip("file permissions are not enforced")
+	}
+
+	_, err := NewLocalResolver(root).Resolve(&LocalImport{Path: "./libraries/net"})
+	require.Error(t, err)
+	require.ErrorIs(t, err, fs.ErrPermission)
+}
+
 func TestLocalResolverAbsolute(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(t.TempDir(), "abs-library")

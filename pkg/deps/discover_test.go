@@ -61,6 +61,42 @@ func TestFindProjectDirNotFound(t *testing.T) {
 	assert.True(t, errors.Is(err, fs.ErrNotExist))
 }
 
+func TestFindProjectMarkerDirStopsAtUnreadableAncestor(t *testing.T) {
+	base := t.TempDir()
+	ancestor := filepath.Join(base, "ancestor")
+	root := filepath.Join(ancestor, "workspace")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.Chmod(ancestor, 0o111))
+	t.Cleanup(func() {
+		require.NoError(t, os.Chmod(ancestor, 0o755))
+	})
+	if _, err := os.ReadDir(ancestor); err == nil {
+		t.Skip("directory permissions are not enforced")
+	}
+
+	_, _, err := FindProjectMarkerDir(root)
+	require.Error(t, err)
+	require.ErrorIs(t, err, fs.ErrNotExist)
+}
+
+func TestFindProjectMarkerDirReturnsUnreadableMarkerError(t *testing.T) {
+	root := t.TempDir()
+	marker := filepath.Join(root, ProjectFileName)
+	require.NoError(t, os.WriteFile(marker, readDiscoverFixture(t, "empty-project"), 0o644))
+	require.NoError(t, os.Chmod(marker, 0o000))
+	t.Cleanup(func() {
+		require.NoError(t, os.Chmod(marker, 0o644))
+	})
+	if _, err := os.ReadFile(marker); err == nil {
+		t.Skip("file permissions are not enforced")
+	}
+
+	_, _, err := FindProjectMarkerDir(root)
+	require.Error(t, err)
+	require.ErrorIs(t, err, fs.ErrPermission)
+	require.False(t, errors.Is(err, fs.ErrNotExist))
+}
+
 func TestFindProjectDirIgnoresDirectoryNamedLikeProject(t *testing.T) {
 	root := t.TempDir()
 	child := filepath.Join(root, "child")

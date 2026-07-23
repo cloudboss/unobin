@@ -1,6 +1,7 @@
 package resolve
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -173,7 +174,7 @@ func directGoModuleRoot(projectDir, targetDir string) (bool, error) {
 	if !sameDir(projectDir, targetDir) {
 		return false, nil
 	}
-	marker, err := projectmarker.ClassifyRoot(os.DirFS(projectDir))
+	marker, err := projectmarker.ClassifyDir(projectDir)
 	if err != nil {
 		return false, err
 	}
@@ -207,6 +208,9 @@ func nearestProjectDir(start string) (string, bool, error) {
 	for {
 		hasProject, err := dirHasProject(dir)
 		if err != nil {
+			if unreadableDirectory(dir, err) {
+				return "", false, nil
+			}
 			return "", false, err
 		}
 		if hasProject {
@@ -221,11 +225,19 @@ func nearestProjectDir(start string) (string, bool, error) {
 }
 
 func dirHasProject(dir string) (bool, error) {
-	marker, err := projectmarker.ClassifyRoot(os.DirFS(dir))
+	marker, err := projectmarker.ClassifyDir(dir)
 	if err != nil {
 		return false, err
 	}
 	return marker.Kind != projectmarker.None, nil
+}
+
+func unreadableDirectory(dir string, err error) bool {
+	if !errors.Is(err, fs.ErrPermission) {
+		return false
+	}
+	_, readErr := os.ReadDir(dir)
+	return errors.Is(readErr, fs.ErrPermission)
 }
 
 func sameDir(a, b string) bool {

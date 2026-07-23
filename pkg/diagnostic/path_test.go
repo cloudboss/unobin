@@ -154,6 +154,51 @@ func TestPathMapperGolden(t *testing.T) {
 	requireDiagnosticGolden(t, "testdata/path.json", result)
 }
 
+func TestPathMapperUsesUnresolvedSymlinkTarget(t *testing.T) {
+	root := t.TempDir()
+	physical := filepath.Join(root, "physical")
+	visible := filepath.Join(root, "visible")
+	require.NoError(t, os.MkdirAll(filepath.Join(physical, "real"), 0o755))
+	require.NoError(t, os.Symlink(physical, visible))
+
+	real := filepath.Join(visible, "real")
+	link := filepath.Join(visible, "link")
+	require.NoError(t, os.Symlink(real, link))
+
+	mapper := PathMapper{Mappings: []PathMapping{{
+		AbsoluteRoot: link,
+		DisplayRoot:  "linked",
+	}}}
+	path := filepath.Join(real, "child.ub")
+
+	require.Equal(t, "linked/child.ub", mapper.Display(path))
+	require.Equal(
+		t,
+		"open linked/child.ub: denied",
+		mapper.ReplaceKnownPrefixes("open "+path+": denied"),
+	)
+}
+
+func TestPathMapperUsesBrokenSymlinkTarget(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "missing")
+	link := filepath.Join(root, "broken")
+	require.NoError(t, os.Symlink(filepath.Base(target), link))
+
+	mapper := PathMapper{Mappings: []PathMapping{{
+		AbsoluteRoot: link,
+		DisplayRoot:  "broken",
+	}}}
+	path := filepath.Join(target, "child.ub")
+
+	require.Equal(t, "broken/child.ub", mapper.Display(path))
+	require.Equal(
+		t,
+		"open broken/child.ub: denied",
+		mapper.ReplaceKnownPrefixes("open "+path+": denied"),
+	)
+}
+
 func normalizeTestRoot(value, root string) string {
 	value = filepath.ToSlash(value)
 	return strings.ReplaceAll(value, filepath.ToSlash(root), "<tmp>")

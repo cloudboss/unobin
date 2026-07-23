@@ -3,6 +3,7 @@ package projectmarker
 import (
 	"io/fs"
 	"os"
+	"path/filepath"
 	"testing"
 	"testing/fstest"
 
@@ -29,6 +30,29 @@ func TestClassifyProject(t *testing.T) {
 			Data: readMarkerFixture(t, "testdata/ub/markers/valid/project.ub"),
 		},
 	})
+	require.NoError(t, err)
+	require.Equal(t, UB, marker.Kind)
+}
+
+func TestClassifyDirWithUnreadableParent(t *testing.T) {
+	base := t.TempDir()
+	ancestor := filepath.Join(base, "ancestor")
+	root := filepath.Join(ancestor, "project")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(root, "project.ub"),
+		readMarkerFixture(t, "testdata/ub/markers/valid/project.ub"),
+		0o644,
+	))
+	require.NoError(t, os.Chmod(ancestor, 0o111))
+	t.Cleanup(func() {
+		require.NoError(t, os.Chmod(ancestor, 0o755))
+	})
+	if _, err := os.ReadDir(ancestor); err == nil {
+		t.Skip("directory permissions are not enforced")
+	}
+
+	marker, err := ClassifyDir(root)
 	require.NoError(t, err)
 	require.Equal(t, UB, marker.Kind)
 }

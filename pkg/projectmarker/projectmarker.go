@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	pathpkg "path"
+	"path/filepath"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -65,6 +67,20 @@ func Classify(fsys fs.FS, dir string) (Marker, error) {
 
 func ClassifyRoot(fsys fs.FS) (Marker, error) {
 	return Classify(fsys, ".")
+}
+
+// ClassifyDir classifies the project marker in dir.
+func ClassifyDir(dir string) (Marker, error) {
+	return ClassifyRoot(directoryFS(dir))
+}
+
+type directoryFS string
+
+func (d directoryFS) Open(name string) (fs.File, error) {
+	if !fs.ValidPath(name) {
+		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrInvalid}
+	}
+	return os.Open(filepath.Join(string(d), filepath.FromSlash(name)))
 }
 
 func markerEntry(entries []fs.DirEntry, name string) (fs.DirEntry, bool) {
