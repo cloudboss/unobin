@@ -38,6 +38,15 @@ data-sources: {
 
 A composite kind is written in `.ub`, as opposed to primitive kinds, which are written in Go. Composites combine other kinds behind a declared input and output interface.
 
+## Asset
+
+An asset is a regular file or directory captured when a factory is compiled.
+Assets are static values, not categories or kinds. They do not create dependency
+graph nodes, have lifecycle operations, or create state entries.
+
+An asset belongs to the factory or composite body that declares it. The compiled
+factory contains its bytes and does not need the original source path at runtime.
+
 ## Library
 
 A library can be imported and provides kinds and functions.

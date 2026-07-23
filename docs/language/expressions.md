@@ -24,6 +24,7 @@ Factory expressions can read these roots:
 - `resource.<name>` for resource outputs.
 - `data-source.<name>` for data source outputs.
 - `action.<name>` for action outputs.
+- `asset.<name>` for a file or directory captured by the current body.
 - `@each.key` and `@each.value` inside `@for-each` and iterating constraints.
 - `@core.<name>(...)` for builtin functions.
 - `<alias>.<name>(...)` for imported functions, where `<alias>` is the import alias.
@@ -45,6 +46,37 @@ resources: {
   }
 }
 ```
+
+## Asset references
+
+An asset reference starts with the `asset` root and a name declared in the
+current factory or composite body:
+
+```
+asset.lambda.path
+asset.lambda.content
+asset.lambda.content-sha256
+asset.lambda.mode
+```
+
+For a directory asset, one bracket may select a descendant. Put the complete
+canonical relative path in that bracket:
+
+```
+asset.lambda['main.go'].content
+asset.lambda['internal/helpers.go'].path
+asset.lambda['internal'].content-sha256
+```
+
+The selection must be a string literal using `/`, with no empty, `.` or `..`
+segments. Computed selection, repeated brackets, and selection from a file asset
+are invalid.
+
+Asset paths support `==` and `!=` with other path or string expressions. The
+comparison uses the logical reference, not a host cache path. Asset content
+compares as bytes and can be passed to byte-compatible functions such as
+`@core.b64-encode`. Equality between disjoint types, such as asset content and a
+string, is a type mismatch.
 
 ## Operators
 

@@ -158,6 +158,12 @@ Opaque provider, resolver, operating-system, and external-tool messages remain
 verbatim except for known workspace, project, cache, and temporary prefixes. They
 may contain paths or sensitive text.
 
+Asset path and content values remain logical in plans and state. Machine values
+never replace them with a source path, cache path, or embedded content. Consumers
+must treat their encoded strings as opaque references. Text plans render them as
+source-like values such as `<asset.lambda.path>` and
+`<asset.lambda['main.go'].content>`.
+
 Known sensitive values are replaced with exactly `<sensitive>` in apply outputs,
 output results, state entry inputs and outputs, and text plans. Plan summaries do
 not include values or sensitivity lists. Unobin does not claim to redact arbitrary
@@ -261,7 +267,7 @@ Produced by `unobin compile`.
 | --- | --- | --- |
 | `factory` | compile factory identity | `content-revision` is null without `--build`. |
 | `source` | object | Required `path` and `project-dir` strings. |
-| `output` | object | Required `dir`, `main-go`, `go-mod`, `built`, and `binary`; `binary` is string or null. |
+| `output` | object | Required `dir`, `main-go`, `go-mod`, `built`, and `binary`; optional `assets`; `binary` is string or null. |
 | `files` | file-change array | Composed effects for generated Go and UB files, `go.sum`, and the binary. |
 | `diagnostics` | diagnostic array | Includes captured Go tool output in machine mode. |
 
@@ -269,6 +275,10 @@ Produced by `unobin compile`.
 rejects `-o -` with `unobin.command.stdout-conflict`. External-tool stdout and
 stderr are each bounded to 1 MiB and reported as diagnostics rather than written
 outside the document.
+
+`output.assets` is the public path to `factory.assets` and is omitted when the
+compiled source has no captured assets. Changes to the sidecar also appear in
+`files`, including its removal when a later compile has no assets.
 
 #### Dependency results
 

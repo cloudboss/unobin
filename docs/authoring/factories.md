@@ -38,6 +38,126 @@ locals: {
 }
 ```
 
+## Assets
+
+Use `assets:` to include regular files or directories in the compiled factory:
+
+```
+factory: {
+  assets: {
+    source:  './lambda'
+    archive: './dist/lambda.zip'
+  }
+}
+```
+
+Each declaration must be a non-empty relative string literal. Its path is
+resolved from the directory containing the `.ub` file that declares the factory
+or composite. The resolved path must remain in that project and must not overlap
+the compile output directory.
+
+Asset directories include hidden and underscore-prefixed entries. Unobin does
+not read `.gitignore` or other ignore files when capturing them. A declared
+asset and every entry below it must be a regular file or directory; symlinks and
+other filesystem entry types are rejected.
+
+Reference a declaration through the singular `asset` root:
+
+```
+resources: {
+  bundle: app.archive {
+    source-dir:   asset.source.path
+    archive-data: asset.archive.content
+  }
+}
+```
+
+Every asset value has these attributes:
+
+| Attribute | Meaning |
+| --- | --- |
+| `path` | A logical path that becomes a local path when passed to Go code. |
+| `content` | Exact file bytes, or a deterministic ZIP for a directory. |
+| `content-sha256` | Lowercase hexadecimal SHA-256 of `content`. |
+| `mode` | Normalized Unix mode: `0644` or `0755` for files, `0755` for directories. |
+
+Select a descendant of a directory with one bracket containing its complete
+relative path:
+
+```
+asset.source['main.go']
+asset.source['internal/helpers.go'].content
+asset.source['internal'].path
+```
+
+The bracket value must be a string literal using `/`. It cannot be empty,
+absolute, computed, or contain empty, `.` or `..` segments. Use one bracket for
+the complete path; `asset.source['internal']['helpers.go']` is invalid. A file
+asset does not support descendant selection.
+
+Asset paths can be passed to Go string inputs and asset content can be passed to
+Go `[]byte` inputs, including values nested in lists, maps, and objects. Paths
+remain logical until a Go call needs an operating-system path. Content works
+with byte-compatible core functions, for example:
+
+```
+locals: {
+  archive-base64: @core.b64-encode(asset.archive.content)
+  same-content:   asset.archive.content == asset.archive.content
+}
+```
+
+`==` and `!=` accept asset paths where strings are accepted and compare asset
+content with other byte values. Path comparison uses the logical reference, not
+a cache path. Comparing bytes with a string is a type mismatch. Asset values
+cannot be interpolated, and asset content cannot be returned directly as a
+factory output.
+
+Asset names are local to the body that declares them. A composite reads its own
+assets, does not inherit the caller's asset names, and does not expose its asset
+names to callers. A path or content value can still pass through a declared
+composite input before reaching Go code.
+
+### Asset permissions
+
+Unobin records portable Unix modes:
+
+| Source entry | Recorded mode | Runtime cache mode |
+| --- | --- | --- |
+| Directory | `0755` | `0555` |
+| Regular file with an execute bit | `0755` | `0555` |
+| Other regular file | `0644` | `0444` |
+
+Setuid, setgid, and sticky bits are rejected. Ownership, ACLs, extended
+attributes, and timestamps are not included. A permission change affects asset
+identity even when the file bytes do not change.
+
+### Asset cache
+
+Compiled factories materialize paths and retain resolved content in a
+content-addressed cache. Use the persistent root flag to choose its directory:
+
+```
+./build/appdeploy --asset-cache-dir ./asset-cache plan -c dev.ub -o plan.ubp
+./build/appdeploy --asset-cache-dir ./apply-cache apply plan.ubp
+```
+
+Without the flag, Unobin uses the platform user cache directory under
+`unobin/assets`. Relative flag values are resolved from the current working
+directory. The cache is created only when a command resolves an asset, so
+metadata-only commands do not create it.
+
+Current asset values can be reconstructed from the embedded factory bundle, so
+a saved plan can be applied with a different or initially empty cache. An older
+asset identity that is no longer in the current binary can be resolved only
+when its data remains in the selected cache. If it is absent, Unobin reports the
+logical asset reference and asks for the cache from the earlier factory run; it
+never substitutes current content.
+
+Go library read and delete operations should therefore prefer persisted
+external identifiers and outputs over reopening deployment source from an older
+factory revision.
+
 ## Input constraints
 
 Use `constraints:` to reject invalid combinations of factory inputs when a stack is planned. The compiler checks constraint syntax and verifies that `fields:` entries name declared inputs. The compiled factory evaluates the rules after stack inputs and defaults are combined, before it plans resources.
