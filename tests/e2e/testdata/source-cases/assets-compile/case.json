@@ -1,0 +1,39 @@
+{
+  "name": "assets-compile",
+  "rootPath": "factory/app",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "check",
+      "args": ["check", "-p", "factory.ub"],
+      "stdout": "want/check.stdout"
+    },
+    {
+      "name": "print-graph",
+      "args": ["print-graph", "-p", "factory.ub"]
+    },
+    {
+      "name": "compile",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "compile-json",
+      "args": ["compile", "-p", "factory.ub", "-o", "build", "--format", "json"],
+      "stdout": "want/compile-json.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "compile-stdout",
+      "args": ["compile", "-p", "factory.ub", "-o", "-"],
+      "stderr": "want/compile-stdout.stderr",
+      "exitCode": 1
+    }
+  ],
+  "files": [
+    {
+      "path": "factory/app/build/main.go",
+      "want": "want/main.go"
+    }
+  ]
+}

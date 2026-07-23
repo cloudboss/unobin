@@ -88,6 +88,7 @@ type Result struct {
 	OutputDir       string
 	MainGoPath      string
 	GoModPath       string
+	AssetsPath      string
 	Built           bool
 	BinaryPath      string
 	Files           []filechange.Change
@@ -276,12 +277,21 @@ func run(opts Options, resultOut **Result) error {
 		replaceUnobinAbs = abs
 	}
 
-	sourceDir := filepath.Dir(factoryPath)
+	absoluteFactoryPath, err := filepath.Abs(factoryPath)
+	if err != nil {
+		return err
+	}
+	sourceDir := filepath.Dir(absoluteFactoryPath)
 	projectDir, err := projectRoot(sourceDir)
 	if err != nil {
 		return err
 	}
 	factorySource := rootFactorySourceSpec(factoryPath, projectDir, opts.LibraryPath, src)
+	factorySource.ProjectRelPath = projectRelativePath(projectDir, absoluteFactoryPath)
+	rootSource := rootResolveSource(projectDir, sourceDir)
+	originalSourceDir := filepath.Dir(factoryPath)
+	rootSource.FS = os.DirFS(originalSourceDir)
+	rootSource.Path = originalSourceDir
 	project, err := readProject(projectDir)
 	if err != nil {
 		return err
@@ -390,6 +400,10 @@ func run(opts Options, resultOut **Result) error {
 	}
 	repoVersions = withReplacedVersions(
 		repoVersions, replaceUnobinAbs != "", replaceMap, opts.ReplaceGoModules)
+	generatedOutputPath := ""
+	if opts.OutDir != "-" {
+		generatedOutputPath = opts.OutDir
+	}
 	analysis, err := sourcecheck.AnalyzeImports(refs, sourcecheck.ImportAnalysisOptions{
 		Resolver:                resolver,
 		Versions:                repoVersions,
@@ -399,10 +413,21 @@ func run(opts Options, resultOut **Result) error {
 		GeneratePackages:        true,
 		ValidateCompositeBodies: true,
 		Body:                    &sf.Factory.Body,
-		Source:                  rootResolveSource(projectDir, sourceDir),
+		Source:                  rootSource,
+		RootSourceFile:          factorySource,
+		GeneratedOutputPath:     generatedOutputPath,
 	})
 	if err != nil {
 		return err
+	}
+	assetCatalog := analysis.Assets.Catalog()
+	hasAssets := len(assetCatalog.Sets()) > 0
+	var assetBundle []byte
+	if hasAssets {
+		assetBundle, err = analysis.Assets.Encode()
+		if err != nil {
+			return err
+		}
 	}
 
 	goConstraints := make(map[string]map[string][]lang.ConstraintSpec, len(analysis.Top))
@@ -433,8 +458,8 @@ func run(opts Options, resultOut **Result) error {
 		sf.Factory.Body,
 		libs,
 		analysis.LibraryConfigSchemas,
-		nil,
-		"",
+		assetCatalog,
+		analysis.RootAssetSetID,
 	)
 	if errs := checker.References(opts.TypeObserver); errs.Len() > 0 {
 		return errs.Err()
@@ -446,17 +471,22 @@ func run(opts Options, resultOut **Result) error {
 		return errs.Err()
 	}
 
+	generatedFactoryBody := sf.Factory.Body
+	generatedFactoryBody.Assets = nil
 	in := codegen.Input{
-		FactoryBody:   sf.Factory.Body,
-		FactorySource: factorySource,
-		LibraryPath:   opts.LibraryPath,
-		FactoryName:   name,
-		GoImports:     analysis.GoImports,
-		GoModules:     analysis.GoModules,
-		UBImports:     analysis.UBImports,
-		GoConstraints: goConstraints,
-		GoDefaults:    goDefaults,
-		GoSchemas:     goSchemas,
+		FactoryBody:    generatedFactoryBody,
+		FactorySource:  factorySource,
+		LibraryPath:    opts.LibraryPath,
+		FactoryName:    name,
+		AssetBundle:    assetBundle,
+		HasAssets:      hasAssets,
+		RootAssetSetID: analysis.RootAssetSetID,
+		GoImports:      analysis.GoImports,
+		GoModules:      analysis.GoModules,
+		UBImports:      analysis.UBImports,
+		GoConstraints:  goConstraints,
+		GoDefaults:     goDefaults,
+		GoSchemas:      goSchemas,
 		LibraryConfigSchemas: schemaOnlyLibraryConfigSchemas(
 			sf.Factory.Body,
 			analysis.LibraryConfigSchemas,
@@ -470,10 +500,17 @@ func run(opts Options, resultOut **Result) error {
 	if opts.OutDir != "-" {
 		result.MainGoPath = filepath.Join(opts.OutDir, "main.go")
 		result.GoModPath = filepath.Join(opts.OutDir, "go.mod")
+		if hasAssets {
+			result.AssetsPath = filepath.Join(opts.OutDir, "factory.assets")
+		}
 	}
 	*resultOut = result
 
 	if opts.OutDir == "-" {
+		if hasAssets {
+			return errors.New(
+				"compile: cannot stream generated source to stdout when assets are declared")
+		}
 		if len(analysis.UBPackages) > 0 {
 			return errors.New("compile: cannot stream to stdout when UB libraries are imported")
 		}

@@ -162,15 +162,13 @@ func buildSourceGraph(
 	schemaRoots := compile.UnobinSchemaRoots(
 		toolOutput, replaceUnobin, cliVersion())
 	analysis, err := sourcecheck.AnalyzeImports(refs, sourcecheck.ImportAnalysisOptions{
-		Resolver:    resolver,
-		Versions:    repoVersions,
-		Reporter:    reporter,
-		SchemaCache: compile.NewSchemaCache(schemaRoots...),
-		Body:        &sf.Factory.Body,
-		Source: &resolve.Source{
-			FS:   os.DirFS(filepath.Dir(stackPath)),
-			Path: filepath.Dir(stackPath),
-		},
+		Resolver:       resolver,
+		Versions:       repoVersions,
+		Reporter:       reporter,
+		SchemaCache:    compile.NewSchemaCache(schemaRoots...),
+		Body:           &sf.Factory.Body,
+		RootSourceFile: sourceFileForProject(projectDir, stackPath),
+		Source:         sourceForProjectDir(projectDir, filepath.Dir(stackPath)),
 	})
 	if err != nil {
 		return nil, "", err
@@ -180,8 +178,8 @@ func buildSourceGraph(
 		sf.Factory.Body,
 		libs,
 		analysis.LibraryConfigSchemas,
-		nil,
-		"",
+		analysis.Assets.Catalog(),
+		analysis.RootAssetSetID,
 	)
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return nil, "", errs.Err()

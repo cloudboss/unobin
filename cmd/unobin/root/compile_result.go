@@ -33,6 +33,7 @@ type compileOutputResult struct {
 	Dir    string  `json:"dir"     ub:"dir"`
 	MainGo string  `json:"main-go" ub:"main-go"`
 	GoMod  string  `json:"go-mod"  ub:"go-mod"`
+	Assets *string `json:"assets,omitempty" ub:"assets,omitempty"`
 	Built  bool    `json:"built"   ub:"built"`
 	Binary *string `json:"binary"  ub:"binary"`
 }
@@ -78,7 +79,9 @@ func buildCompileCommandResult(
 		Output: compileOutputResult{
 			Dir:    mapper.Display(result.OutputDir),
 			MainGo: mapper.Display(result.MainGoPath),
-			GoMod:  mapper.Display(result.GoModPath), Built: result.Built,
+			GoMod:  mapper.Display(result.GoModPath),
+			Assets: optionalCompileString(mapper.Display(result.AssetsPath)),
+			Built:  result.Built,
 		},
 		Files: files, Diagnostics: diagnostic.Normalize(diagnostics),
 	}

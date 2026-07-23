@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cloudboss/unobin/pkg/check"
 	"github.com/cloudboss/unobin/pkg/deps"
@@ -119,12 +120,13 @@ func diagnosticSourceCheckOptions(
 		return sourcecheck.Options{}, false, err
 	}
 	return sourcecheck.Options{
-		ProjectDir:  project.Root,
-		Source:      diagnosticSource(path),
-		Resolver:    project.Resolver,
-		Versions:    versions,
-		SchemaCache: diagnosticSchemaCache(project),
-		Mode:        sourcecheck.ModeNoFetch,
+		ProjectDir:     project.Root,
+		Source:         diagnosticProjectSource(path, project.Root),
+		RootSourceFile: diagnosticProjectSourceFile(path, project.Root),
+		Resolver:       project.Resolver,
+		Versions:       versions,
+		SchemaCache:    diagnosticSchemaCache(project),
+		Mode:           sourcecheck.ModeNoFetch,
 	}, true, nil
 }
 
@@ -164,11 +166,12 @@ func diagnosticLooseLibraryOptions(
 ) sourcecheck.Options {
 	dir := filepath.Dir(path)
 	return sourcecheck.Options{
-		ProjectDir: dir,
-		Source:     diagnosticSource(path),
-		Resolver:   NewImportResolver(dir, nil, nil, nil),
-		Versions:   diagnosticLibraryVersions(library),
-		Mode:       sourcecheck.ModeNoFetch,
+		ProjectDir:     dir,
+		Source:         diagnosticProjectSource(path, dir),
+		RootSourceFile: diagnosticProjectSourceFile(path, dir),
+		Resolver:       NewImportResolver(dir, nil, nil, nil),
+		Versions:       diagnosticLibraryVersions(library),
+		Mode:           sourcecheck.ModeNoFetch,
 	}
 }
 
@@ -197,6 +200,43 @@ func remoteImportVersionKey(remote *resolve.RemoteImport) string {
 func diagnosticSource(path string) *resolve.Source {
 	dir := filepath.Dir(path)
 	return &resolve.Source{FS: os.DirFS(dir), Path: dir}
+}
+
+func diagnosticProjectSource(path, projectDir string) *resolve.Source {
+	source := diagnosticSource(path)
+	relativeDir, ok := diagnosticProjectRelative(projectDir, filepath.Dir(path))
+	if !ok {
+		return source
+	}
+	if relativeDir == "." {
+		relativeDir = ""
+	}
+	source.ProjectFS = os.DirFS(projectDir)
+	source.ProjectPath = projectDir
+	source.PackageSubdir = filepath.ToSlash(relativeDir)
+	return source
+}
+
+func diagnosticProjectSourceFile(path, projectDir string) syntax.SourceFileSpec {
+	spec := syntax.SourceFileSpec{
+		PackageRelPath: filepath.ToSlash(filepath.Base(path)),
+	}
+	if relative, ok := diagnosticProjectRelative(projectDir, path); ok {
+		spec.ProjectRelPath = filepath.ToSlash(relative)
+	}
+	return spec
+}
+
+func diagnosticProjectRelative(projectDir, path string) (string, bool) {
+	if projectDir == "" {
+		return "", false
+	}
+	relative, err := filepath.Rel(projectDir, path)
+	if err != nil || relative == ".." ||
+		strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return relative, true
 }
 
 func diagnosticLibraries(

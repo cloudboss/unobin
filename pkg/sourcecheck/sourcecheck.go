@@ -24,13 +24,14 @@ const (
 
 // Options configures source checks.
 type Options struct {
-	ProjectDir  string
-	Source      *resolve.Source
-	Resolver    resolve.Resolver
-	Versions    map[string]string
-	SchemaCache *SchemaCache
-	Reporter    diagnostic.Reporter
-	Mode        Mode
+	ProjectDir     string
+	Source         *resolve.Source
+	RootSourceFile syntax.SourceFileSpec
+	Resolver       resolve.Resolver
+	Versions       map[string]string
+	SchemaCache    *SchemaCache
+	Reporter       diagnostic.Reporter
+	Mode           Mode
 }
 
 // Result is the source-check result for a factory or composite body.
@@ -54,8 +55,8 @@ func CheckFactoryBody(body syntax.FactoryBody, opts Options) (*Result, error) {
 		body,
 		analysis.Libraries,
 		analysis.LibraryConfigSchemas,
-		nil,
-		"",
+		analysis.Assets.Catalog(),
+		analysis.RootAssetSetID,
 	)
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return nil, errs.Err()
@@ -98,6 +99,7 @@ func CheckLibraryFile(file *syntax.LibraryFile, opts Options) error {
 			Kind:       string(export.Kind),
 			Name:       export.Name.Name,
 			SyntaxBody: export.Body,
+			SourceFile: opts.RootSourceFile,
 		})
 	}
 	return checkCompositeEntries(entries, opts)
@@ -115,7 +117,9 @@ func checkCompositeEntries(entries []resolve.CompositeEntry, opts Options) error
 
 	var bodyErrs []error
 	for _, entry := range entries {
-		_, err := CheckFactoryBody(entry.SyntaxBody, opts)
+		entryOpts := opts
+		entryOpts.RootSourceFile = entry.SourceFile
+		_, err := CheckFactoryBody(entry.SyntaxBody, entryOpts)
 		if err != nil {
 			bodyErrs = append(bodyErrs,
 				diagnostic.Context(
@@ -132,14 +136,15 @@ func analyzeFactoryImports(
 	opts Options,
 ) (*ImportAnalysis, error) {
 	return AnalyzeImports(refs, ImportAnalysisOptions{
-		ProjectDir:  opts.ProjectDir,
-		Source:      opts.Source,
-		Resolver:    opts.Resolver,
-		Versions:    opts.Versions,
-		SchemaCache: opts.SchemaCache,
-		Reporter:    opts.Reporter,
-		Mode:        opts.Mode,
-		Body:        &body,
+		ProjectDir:     opts.ProjectDir,
+		Source:         opts.Source,
+		Resolver:       opts.Resolver,
+		Versions:       opts.Versions,
+		SchemaCache:    opts.SchemaCache,
+		Reporter:       opts.Reporter,
+		Mode:           opts.Mode,
+		Body:           &body,
+		RootSourceFile: opts.RootSourceFile,
 	})
 }
 

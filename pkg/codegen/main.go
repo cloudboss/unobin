@@ -37,12 +37,15 @@ type Input struct {
 	FactoryBody   syntax.FactoryBody
 	FactorySource syntax.SourceFileSpec
 	// Body is a test convenience for callers that have a small source fragment.
-	Body        string
-	LibraryPath string
-	FactoryName string
-	GoImports   map[string]string
-	GoModules   map[string]string
-	UBImports   map[string]string
+	Body           string
+	LibraryPath    string
+	FactoryName    string
+	AssetBundle    []byte
+	HasAssets      bool
+	RootAssetSetID string
+	GoImports      map[string]string
+	GoModules      map[string]string
+	UBImports      map[string]string
 	// GoConstraints maps a Go-library alias to its types' cross-field
 	// constraints (kebab type name -> specs), gathered by the dev CLI
 	// from the library's source. codegen attaches them to the library in
@@ -66,6 +69,9 @@ type Input struct {
 func Generate(in Input) ([]byte, error) {
 	if in.FactoryName == "" {
 		return nil, fmt.Errorf("codegen: FactoryName is required")
+	}
+	if err := validateAssetInput(in); err != nil {
+		return nil, err
 	}
 	goImports := aliasImports(in.GoImports)
 	ubImports := aliasImports(in.UBImports)
@@ -101,6 +107,8 @@ func Generate(in Input) ([]byte, error) {
 		HasLibraryConfigSchema bool
 		HasLang                bool
 		HasTypecheck           bool
+		HasAssets              bool
+		RootAssetSetID         string
 		Inject                 bool
 	}{
 		FactoryBodyLiteral:     factoryBody,
@@ -124,7 +132,9 @@ func Generate(in Input) ([]byte, error) {
 			strings.Contains(factoryBody, "lang."),
 		HasTypecheck: schemasNeedTypecheck(in.GoSchemas) ||
 			libraryConfigSchemasNeedTypecheck(in.LibraryConfigSchemas),
-		Inject: len(constraintAliases)+len(defaultAliases)+len(schemaInjectAliases) > 0,
+		HasAssets:      in.HasAssets,
+		RootAssetSetID: in.RootAssetSetID,
+		Inject:         len(constraintAliases)+len(defaultAliases)+len(schemaInjectAliases) > 0,
 	}
 
 	var buf bytes.Buffer
@@ -136,6 +146,18 @@ func Generate(in Input) ([]byte, error) {
 		return nil, fmt.Errorf("codegen: format generated source: %w", err)
 	}
 	return out, nil
+}
+
+func validateAssetInput(in Input) error {
+	hasBundle := len(in.AssetBundle) > 0
+	if in.HasAssets != hasBundle {
+		return fmt.Errorf(
+			"codegen: assets require HasAssets and a non-empty AssetBundle together")
+	}
+	if !in.HasAssets && in.RootAssetSetID != "" {
+		return fmt.Errorf("codegen: assets are required for RootAssetSetID")
+	}
+	return nil
 }
 
 type aliasImport struct {
@@ -681,6 +703,9 @@ var mainTemplate = template.Must(template.New("main.go").Funcs(template.FuncMap{
 package main
 
 import (
+{{if .HasAssets}}	_ "embed"
+
+{{end -}}
 {{if .HasLang}}	"github.com/cloudboss/unobin/pkg/lang"
 {{end}}	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
@@ -691,6 +716,10 @@ import (
 {{end}}{{range .UBImports}}	{{.GoIdent}} {{quote .Path}}
 {{end -}}
 )
+{{if .HasAssets}}
+//go:embed factory.assets
+var factoryAssets []byte
+{{end}}
 
 var factorySource = parse.NewSourceFile(
 	{{quote .FactorySourcePath}},
@@ -738,6 +767,9 @@ func main() {
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries:       libraries,
+{{if .HasAssets}}		AssetBundle:       factoryAssets,
+		RootAssetSetID:    {{quote .RootAssetSetID}},
+{{end -}}
 {{if .HasLibraryConfigSchema}}		LibraryConfigSchemas: configSchemas,
 {{end}}		UnobinVersion: unobinVersion,
 	})
@@ -758,6 +790,9 @@ func main() {
 				{{quote .Path}},
 			),
 {{end}}		},
+{{if .HasAssets}}		AssetBundle:       factoryAssets,
+		RootAssetSetID:    {{quote .RootAssetSetID}},
+{{end -}}
 {{if .HasLibraryConfigSchema}}		LibraryConfigSchemas: configSchemas,
 {{end}}		UnobinVersion: unobinVersion,
 	})

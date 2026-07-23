@@ -7,6 +7,7 @@ import (
 	"os"
 	"slices"
 
+	"github.com/cloudboss/unobin/pkg/asset"
 	"github.com/cloudboss/unobin/pkg/codegen"
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
@@ -26,6 +27,8 @@ type ImportAnalysis struct {
 	GoModules            map[string]string
 	UBImports            map[string]string
 	UBPackages           map[string][]byte
+	Assets               *asset.Collection
+	RootAssetSetID       string
 }
 
 // ImportAnalysisOptions configures AnalyzeImports.
@@ -41,6 +44,8 @@ type ImportAnalysisOptions struct {
 	GeneratePackages        bool
 	ValidateCompositeBodies bool
 	Body                    *syntax.FactoryBody
+	RootSourceFile          syntax.SourceFileSpec
+	GeneratedOutputPath     string
 }
 
 // AnalyzeImports resolves refs once and builds the data each caller needs.
@@ -71,6 +76,18 @@ func AnalyzeImports(
 	if err != nil {
 		return nil, err
 	}
+	rootSet, err := asset.Capture(
+		opts.Source,
+		opts.RootSourceFile,
+		factoryBodyAssets(opts.Body),
+		opts.GeneratedOutputPath,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := visitor.assets.Add(rootSet); err != nil {
+		return nil, err
+	}
 	analysis := &ImportAnalysis{
 		Top:                  top,
 		Libraries:            make(map[string]*runtime.Library, len(top)),
@@ -79,6 +96,10 @@ func AnalyzeImports(
 		GoModules:            visitor.goModules,
 		UBImports:            map[string]string{},
 		UBPackages:           visitor.packages,
+		Assets:               visitor.assets,
+	}
+	if rootSet != nil {
+		analysis.RootAssetSetID = rootSet.ID
 	}
 	for _, res := range top {
 		switch res.Kind {
@@ -114,6 +135,13 @@ func AnalyzeImports(
 		analysis.LibraryConfigSchemas = libraryConfigSchemas
 	}
 	return analysis, nil
+}
+
+func factoryBodyAssets(body *syntax.FactoryBody) []syntax.AssetDecl {
+	if body == nil {
+		return nil
+	}
+	return body.Assets
 }
 
 func importSourceForOptions(opts ImportAnalysisOptions) *resolve.Source {
@@ -152,6 +180,8 @@ type importVisitor struct {
 	runtimeLibraries        map[string]*runtime.Library
 	reporter                diagnostic.Reporter
 	schemas                 *SchemaCache
+	assets                  *asset.Collection
+	generatedOutputPath     string
 }
 
 func newImportVisitor(opts ImportAnalysisOptions, schemas *SchemaCache) *importVisitor {
@@ -179,6 +209,8 @@ func newImportVisitor(opts ImportAnalysisOptions, schemas *SchemaCache) *importV
 		runtimeLibraries:        map[string]*runtime.Library{},
 		reporter:                opts.Reporter,
 		schemas:                 schemas,
+		assets:                  &asset.Collection{},
+		generatedOutputPath:     opts.GeneratedOutputPath,
 	}
 }
 
@@ -328,13 +360,14 @@ func (v *importVisitor) OnUBLibrary(
 	}
 	runtimeLib := runtimeLibraryForCompiledComposites(alias, composites)
 	if v.generatePackages {
-		src, err := codegen.GenerateUBLibraryPackage(
+		src, err := codegen.GenerateUBLibraryPackageWithAssets(
 			packageID,
 			alias,
 			syntaxBodiesForCompiledComposites(composites),
 			codegenImportsForCompiledComposites(composites),
 			goSpecsForCompiledComposites(composites),
 			lib.SourceFiles,
+			assetSetIDsForCompiledComposites(composites),
 		)
 		if err != nil {
 			return err
@@ -351,6 +384,7 @@ type compiledComposite struct {
 	libraryConfigSchemas map[string]runtime.LibraryConfigSchema
 	codegenImports       map[string]string
 	goSpecs              map[string]codegen.GoLibrarySpecs
+	assetSetID           string
 }
 
 func (v *importVisitor) buildCompiledComposites(
@@ -360,10 +394,28 @@ func (v *importVisitor) buildCompiledComposites(
 ) ([]compiledComposite, error) {
 	composites := make([]compiledComposite, 0, len(entries))
 	for _, entry := range entries {
+		set, err := asset.Capture(
+			source,
+			entry.SourceFile,
+			entry.SyntaxBody.Assets,
+			v.generatedOutputPath,
+		)
+		if err != nil {
+			return nil, diagnostic.Context(
+				fmt.Sprintf("%s composite %q", entry.Kind, entry.Name),
+				err,
+			)
+		}
+		if err := v.assets.Add(set); err != nil {
+			return nil, err
+		}
 		resols := bodyImports[entry.Kind][entry.Name]
 		composite := compiledComposite{
 			entry:    entry,
 			bodyLibs: make(map[string]*runtime.Library, len(resols)),
+		}
+		if set != nil {
+			composite.assetSetID = set.ID
 		}
 		if v.generatePackages {
 			composite.codegenImports = make(map[string]string, len(resols))
@@ -462,6 +514,7 @@ func runtimeLibraryForCompiledComposites(
 			SyntaxBody:           &syntaxBody,
 			Libraries:            composite.bodyLibs,
 			LibraryConfigSchemas: composite.libraryConfigSchemas,
+			AssetSetID:           composite.assetSetID,
 		})
 	}
 	return lib
@@ -476,7 +529,29 @@ func syntaxBodiesForCompiledComposites(
 		if out[kind] == nil {
 			out[kind] = map[string]syntax.FactoryBody{}
 		}
-		out[kind][composite.entry.Name] = composite.entry.SyntaxBody
+		body := composite.entry.SyntaxBody
+		body.Assets = nil
+		out[kind][composite.entry.Name] = body
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func assetSetIDsForCompiledComposites(
+	composites []compiledComposite,
+) map[string]map[string]string {
+	out := map[string]map[string]string{}
+	for _, composite := range composites {
+		if composite.assetSetID == "" {
+			continue
+		}
+		kind := composite.entry.Kind
+		if out[kind] == nil {
+			out[kind] = map[string]string{}
+		}
+		out[kind][composite.entry.Name] = composite.assetSetID
 	}
 	if len(out) == 0 {
 		return nil

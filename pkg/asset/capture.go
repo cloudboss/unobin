@@ -1,6 +1,7 @@
 package asset
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -171,7 +172,7 @@ func captureSourceEntries(
 				return nil, err
 			}
 		}
-		return captureOSEntries(absoluteSource)
+		return captureOSEntries(absoluteSource, sourcePath)
 	}
 	return captureFSEntries(boundary.fsys, sourcePath)
 }
@@ -212,12 +213,12 @@ func containsOSPath(parent, child string) (bool, error) {
 		(relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))), nil
 }
 
-func captureOSEntries(root string) ([]CapturedEntry, error) {
+func captureOSEntries(root, displayRoot string) ([]CapturedEntry, error) {
 	rootInfo, err := os.Lstat(root)
 	if err != nil {
-		return nil, err
+		return nil, captureOSFileError(err, displayRoot)
 	}
-	if err := validateCapturedMode(root, rootInfo.Mode()); err != nil {
+	if err := validateCapturedMode(displayRoot, rootInfo.Mode()); err != nil {
 		return nil, err
 	}
 
@@ -227,14 +228,18 @@ func captureOSEntries(root string) ([]CapturedEntry, error) {
 		_ os.DirEntry,
 		walkErr error,
 	) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		info, err := os.Lstat(current)
+		displayPath, err := captureOSDisplayPath(root, displayRoot, current)
 		if err != nil {
 			return err
 		}
-		entry, err := capturedEntryFromMode(current, info.Mode())
+		if walkErr != nil {
+			return captureOSFileError(walkErr, displayPath)
+		}
+		info, err := os.Lstat(current)
+		if err != nil {
+			return captureOSFileError(err, displayPath)
+		}
+		entry, err := capturedEntryFromMode(displayPath, info.Mode())
 		if err != nil {
 			return err
 		}
@@ -249,7 +254,7 @@ func captureOSEntries(root string) ([]CapturedEntry, error) {
 		if entry.Kind == EntryKindFile {
 			entry.Content, err = os.ReadFile(current)
 			if err != nil {
-				return err
+				return captureOSFileError(err, displayPath)
 			}
 		}
 		entries = append(entries, entry)
@@ -259,6 +264,32 @@ func captureOSEntries(root string) ([]CapturedEntry, error) {
 		return nil, err
 	}
 	return completeCapturedEntries(entries)
+}
+
+func captureOSDisplayPath(root, displayRoot, current string) (string, error) {
+	relative, err := filepath.Rel(root, current)
+	if err != nil {
+		return "", err
+	}
+	if relative == "." {
+		return displayRoot, nil
+	}
+	return pathpkg.Join(displayRoot, filepath.ToSlash(relative)), nil
+}
+
+func captureOSFileError(err error, displayPath string) error {
+	var pathErr *fs.PathError
+	if !errors.As(err, &pathErr) {
+		return err
+	}
+	cause := pathErr.Err
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		cause = fs.ErrNotExist
+	case errors.Is(err, fs.ErrPermission):
+		cause = fs.ErrPermission
+	}
+	return &fs.PathError{Op: "capture", Path: displayPath, Err: cause}
 }
 
 func captureFSEntries(fsys fs.FS, root string) ([]CapturedEntry, error) {

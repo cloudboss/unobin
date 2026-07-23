@@ -1,0 +1,11 @@
+payload: data-source {
+  assets: {
+    content: './missing.bin'
+  }
+
+  outputs: {
+    digest: {
+      value: asset.content.content-sha256
+    }
+  }
+}

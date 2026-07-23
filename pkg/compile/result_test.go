@@ -1,6 +1,7 @@
 package compile
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/cloudboss/unobin/internal/ubtest"
+	"github.com/cloudboss/unobin/pkg/asset"
 	"github.com/cloudboss/unobin/pkg/filechange"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/stretchr/testify/require"
@@ -33,6 +35,7 @@ type compileResultViewGolden struct {
 	OutputDir       string              `json:"output-dir"`
 	MainGoPath      string              `json:"main-go-path"`
 	GoModPath       string              `json:"go-mod-path"`
+	AssetsPath      string              `json:"assets-path"`
 	Built           bool                `json:"built"`
 	BinaryPath      string              `json:"binary-path"`
 	Files           []filechange.Change `json:"files"`
@@ -70,11 +73,61 @@ func TestRunResultGolden(t *testing.T) {
 	require.Equal(t, string(want), string(got))
 }
 
+func TestRunResultWritesCapturedAssets(t *testing.T) {
+	root := compileAssetResultRoot(t)
+	options := compileResultOptions(root)
+
+	compiled, err := RunResult(options)
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(root, "build", "factory.assets"), compiled.AssetsPath)
+	require.Contains(t, compiled.Files, filechange.Change{
+		Path:   compiled.AssetsPath,
+		Action: filechange.ActionCreated,
+	})
+
+	bundle, err := os.ReadFile(compiled.AssetsPath)
+	require.NoError(t, err)
+	catalog, err := asset.Open(bundle)
+	require.NoError(t, err)
+	require.NoError(t, catalog.Verify())
+	require.Len(t, catalog.Sets(), 1)
+
+	mainSource, err := os.ReadFile(compiled.MainGoPath)
+	require.NoError(t, err)
+	require.Contains(t, string(mainSource), "//go:embed factory.assets")
+	require.NotContains(t, string(mainSource), "./message.txt")
+}
+
+func TestRunResultRejectsAssetStdout(t *testing.T) {
+	root := compileAssetResultRoot(t)
+	options := compileResultOptions(root)
+	options.OutDir = "-"
+	var stdout bytes.Buffer
+	options.Stdout = &stdout
+
+	compiled, err := RunResult(options)
+	require.Nil(t, compiled)
+	require.EqualError(t, err,
+		"compile: cannot stream generated source to stdout when assets are declared")
+	require.Empty(t, stdout.String())
+}
+
 func compileResultRoot(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
 	source := ubtest.ReadValidFixture(t, "testdata/ub/run-result", "factory")
 	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(source), 0o644))
+	return root
+}
+
+func compileAssetResultRoot(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	source := ubtest.ReadValidFixture(t, "testdata/ub/assets", "factory")
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(source), 0o644))
+	content, err := os.ReadFile("testdata/ub/assets/valid/message.txt")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(root, "message.txt"), content, 0o644))
 	return root
 }
 
@@ -112,6 +165,7 @@ func compileResultGoldenCase(
 		OutputDir:  compileResultPath(root, result.OutputDir),
 		MainGoPath: compileResultPath(root, result.MainGoPath),
 		GoModPath:  compileResultPath(root, result.GoModPath),
+		AssetsPath: compileResultPath(root, result.AssetsPath),
 		Built:      result.Built, BinaryPath: compileResultPath(root, result.BinaryPath),
 		Files: append([]filechange.Change{}, result.Files...),
 	}

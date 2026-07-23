@@ -1,0 +1,9 @@
+factory: {
+  assets: {
+    message: '../shared/message.txt'
+  }
+
+  locals: {
+    digest: asset.message.content-sha256
+  }
+}

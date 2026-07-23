@@ -1,0 +1,9 @@
+factory: {
+  imports: {
+    bundle: './library'
+  }
+
+  data-sources: {
+    payload: bundle.payload {}
+  }
+}

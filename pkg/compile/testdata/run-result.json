@@ -12,6 +12,7 @@
         "output-dir": "build",
         "main-go-path": "build/main.go",
         "go-mod-path": "build/go.mod",
+        "assets-path": "",
         "built": false,
         "binary-path": "",
         "files": [
@@ -39,6 +40,7 @@
         "output-dir": "build",
         "main-go-path": "build/main.go",
         "go-mod-path": "build/go.mod",
+        "assets-path": "",
         "built": false,
         "binary-path": "",
         "files": [
@@ -66,6 +68,7 @@
         "output-dir": "build",
         "main-go-path": "build/main.go",
         "go-mod-path": "build/go.mod",
+        "assets-path": "",
         "built": false,
         "binary-path": "",
         "files": [

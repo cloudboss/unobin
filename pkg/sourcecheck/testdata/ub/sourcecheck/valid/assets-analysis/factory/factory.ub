@@ -1,0 +1,19 @@
+factory: {
+  imports: {
+    bundle: '../library'
+    bundle-again: '../library'
+  }
+
+  assets: {
+    root: './root.txt'
+  }
+
+  locals: {
+    root-digest: asset.root.content-sha256
+  }
+
+  data-sources: {
+    payload: bundle.payload {}
+    payload-again: bundle-again.payload {}
+  }
+}

@@ -1,0 +1,1 @@
+import "bundle": data-source composite "payload": asset "content" source "./missing.bin": capture missing.bin: file does not exist

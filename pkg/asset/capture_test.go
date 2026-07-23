@@ -421,8 +421,23 @@ func TestCaptureRejectsOSSymlinks(t *testing.T) {
 			)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "symlink")
+			require.NotContains(t, err.Error(), project)
 		})
 	}
+}
+
+func TestCaptureOSMissingPathUsesProjectRelativeDiagnostic(t *testing.T) {
+	project := t.TempDir()
+
+	_, err := Capture(
+		captureOSProjectSource(project),
+		captureProjectFile("factory.ub"),
+		[]syntax.AssetDecl{captureDeclaration("data", "missing/file")},
+		"",
+	)
+	require.EqualError(t, err,
+		`asset "data" source "missing/file": capture missing/file: file does not exist`)
+	require.NotContains(t, err.Error(), project)
 }
 
 func TestCaptureRejectsOutputOverlap(t *testing.T) {

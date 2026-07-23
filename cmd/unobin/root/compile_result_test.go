@@ -71,6 +71,32 @@ func TestCompileResultFormatGolden(t *testing.T) {
 	}
 }
 
+func TestCompileResultIncludesAssetPath(t *testing.T) {
+	root := t.TempDir()
+	mapper := diagnostic.PathMapper{
+		WorkingDir: root,
+		ProjectDir: root,
+		Mappings: []diagnostic.PathMapping{{
+			AbsoluteRoot: filepath.Join(root, "build"),
+			DisplayRoot:  "build",
+		}},
+	}
+	result := &compilepkg.Result{
+		FactoryName: "demo",
+		SourcePath:  filepath.Join(root, "factory.ub"),
+		ProjectDir:  root,
+		OutputDir:   filepath.Join(root, "build"),
+		MainGoPath:  filepath.Join(root, "build", "main.go"),
+		GoModPath:   filepath.Join(root, "build", "go.mod"),
+		AssetsPath:  filepath.Join(root, "build", "factory.assets"),
+	}
+
+	response, err := buildCompileCommandResult(result, mapper, nil)
+	require.NoError(t, err)
+	require.NotNil(t, response.Output.Assets)
+	require.Equal(t, "build/factory.assets", *response.Output.Assets)
+}
+
 type compileToolOutputGolden struct {
 	Limit      int                     `json:"limit"`
 	Cases      []compileToolOutputCase `json:"cases"`

@@ -210,6 +210,59 @@ func TestWriteSourceChangesGolden(t *testing.T) {
 	require.Equal(t, string(want), string(got))
 }
 
+func TestWriteSourceManagesAssetSidecar(t *testing.T) {
+	body := ubtest.ReadValidFixture(t, "testdata/ub/write-source", "minimal")
+	dir := filepath.Join(t.TempDir(), "out")
+	in := testMainInput(t, body, "demo")
+	in.AssetBundle = []byte("first bundle")
+	in.HasAssets = true
+	in.RootAssetSetID = "sha256:root"
+
+	changes, err := writeSource(t, dir, in)
+	require.NoError(t, err)
+	require.Equal(t, []filechange.Change{
+		{Path: filepath.Join(dir, "factory.assets"), Action: filechange.ActionCreated},
+		{Path: filepath.Join(dir, "go.mod"), Action: filechange.ActionCreated},
+		{Path: filepath.Join(dir, "main.go"), Action: filechange.ActionCreated},
+	}, changes)
+	info, err := os.Stat(filepath.Join(dir, "factory.assets"))
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o644), info.Mode().Perm())
+	bundle, err := os.ReadFile(filepath.Join(dir, "factory.assets"))
+	require.NoError(t, err)
+	require.Equal(t, []byte("first bundle"), bundle)
+
+	changes, err = writeSource(t, dir, in)
+	require.NoError(t, err)
+	require.Equal(t, []filechange.Change{
+		{Path: filepath.Join(dir, "factory.assets"), Action: filechange.ActionUnchanged},
+		{Path: filepath.Join(dir, "go.mod"), Action: filechange.ActionUnchanged},
+		{Path: filepath.Join(dir, "main.go"), Action: filechange.ActionUnchanged},
+	}, changes)
+
+	in.AssetBundle = []byte("second bundle")
+	changes, err = writeSource(t, dir, in)
+	require.NoError(t, err)
+	require.Equal(t, []filechange.Change{
+		{Path: filepath.Join(dir, "factory.assets"), Action: filechange.ActionUpdated},
+		{Path: filepath.Join(dir, "go.mod"), Action: filechange.ActionUnchanged},
+		{Path: filepath.Join(dir, "main.go"), Action: filechange.ActionUnchanged},
+	}, changes)
+
+	in.AssetBundle = nil
+	in.HasAssets = false
+	in.RootAssetSetID = ""
+	changes, err = writeSource(t, dir, in)
+	require.NoError(t, err)
+	require.Equal(t, []filechange.Change{
+		{Path: filepath.Join(dir, "factory.assets"), Action: filechange.ActionRemoved},
+		{Path: filepath.Join(dir, "go.mod"), Action: filechange.ActionUnchanged},
+		{Path: filepath.Join(dir, "main.go"), Action: filechange.ActionUpdated},
+	}, changes)
+	_, err = os.Stat(filepath.Join(dir, "factory.assets"))
+	require.ErrorIs(t, err, os.ErrNotExist)
+}
+
 func writeSource(
 	t *testing.T,
 	dir string,

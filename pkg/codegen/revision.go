@@ -26,7 +26,8 @@ func ContentRevision(dir string) (string, error) {
 			return nil
 		}
 		name := d.Name()
-		if name == "go.mod" || name == "go.sum" || strings.HasSuffix(name, ".go") {
+		if name == "go.mod" || name == "go.sum" || name == "factory.assets" ||
+			strings.HasSuffix(name, ".go") {
 			rel, err := filepath.Rel(dir, p)
 			if err != nil {
 				return err

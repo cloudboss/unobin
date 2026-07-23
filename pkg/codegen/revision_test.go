@@ -89,6 +89,13 @@ func TestContentRevisionChangesWith(t *testing.T) {
 					[]byte("package main\n"), 0o644))
 			},
 		},
+		{
+			name: "asset bundle",
+			mutate: func(t *testing.T, dir string) {
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "factory.assets"),
+					[]byte("asset bundle"), 0o644))
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

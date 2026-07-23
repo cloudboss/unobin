@@ -134,7 +134,7 @@ func compositeArtifactLibrary(goSourcePath string) *resolve.UBLibrary {
 			Body: &lang.ObjectLit{},
 		}},
 	}
-	return &resolve.UBLibrary{
+	lib := &resolve.UBLibrary{
 		SyntaxBodies: map[string]map[string]syntax.FactoryBody{
 			"resource":    {"archive": resourceBody},
 			"data-source": {"lookup": dataBody},
@@ -165,6 +165,11 @@ func compositeArtifactLibrary(goSourcePath string) *resolve.UBLibrary {
 			},
 		},
 	}
+	lib.Entries = []resolve.CompositeEntry{
+		{Kind: "resource", Name: "archive", SyntaxBody: resourceBody},
+		{Kind: "data-source", Name: "lookup", SyntaxBody: dataBody},
+	}
+	return lib
 }
 
 func compositeArtifactSchema() *runtime.LibrarySchema {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
@@ -435,4 +436,70 @@ func TestGenerateBuildsLibrariesMap(t *testing.T) {
 	require.Contains(t, s, `"core": runtime.LibraryWithPath(`)
 	require.Contains(t, s, `lib_core.Library(),`)
 	require.Contains(t, s, `"github.com/cloudboss/unobin/pkg/libraries/core",`)
+}
+
+func TestGenerateEmbedsAssets(t *testing.T) {
+	body := ubtest.ReadValidFixture(t, "testdata/ub/write-source", "minimal")
+	in := testMainInput(t, body, "demo")
+	in.AssetBundle = []byte("asset bundle")
+	in.HasAssets = true
+	in.RootAssetSetID = "sha256:root"
+
+	out, err := Generate(in)
+	require.NoError(t, err)
+
+	source := string(out)
+	require.Contains(t, source, `_ "embed"`)
+	require.Contains(t, source, "//go:embed factory.assets\nvar factoryAssets []byte")
+	require.Contains(t, source, "AssetBundle:     factoryAssets,")
+	require.Contains(t, source, `RootAssetSetID:  "sha256:root",`)
+	require.NotContains(t, source, "asset bundle")
+}
+
+func TestGenerateOmitsAssetsWithoutBundle(t *testing.T) {
+	body := ubtest.ReadValidFixture(t, "testdata/ub/write-source", "minimal")
+	out, err := Generate(testMainInput(t, body, "demo"))
+	require.NoError(t, err)
+
+	source := string(out)
+	require.NotContains(t, source, `"embed"`)
+	require.NotContains(t, source, "go:embed")
+	require.NotContains(t, source, "AssetBundle:")
+	require.NotContains(t, source, "RootAssetSetID:")
+}
+
+func TestGenerateRejectsInconsistentAssets(t *testing.T) {
+	body := ubtest.ReadValidFixture(t, "testdata/ub/write-source", "minimal")
+	tests := []struct {
+		name   string
+		update func(*Input)
+	}{
+		{
+			name: "assets without bundle",
+			update: func(in *Input) {
+				in.HasAssets = true
+			},
+		},
+		{
+			name: "bundle without assets",
+			update: func(in *Input) {
+				in.AssetBundle = []byte("asset bundle")
+			},
+		},
+		{
+			name: "root set without assets",
+			update: func(in *Input) {
+				in.RootAssetSetID = "sha256:root"
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			in := testMainInput(t, body, "demo")
+			tt.update(&in)
+
+			_, err := Generate(in)
+			require.ErrorContains(t, err, "assets")
+		})
+	}
 }

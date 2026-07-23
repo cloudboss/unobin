@@ -47,6 +47,24 @@ func WriteSource(
 	if err != nil {
 		return finishWriteSource(changes, err)
 	}
+	assetPath := filepath.Join(dir, "factory.assets")
+	if in.HasAssets {
+		change, err = filechange.WriteFile(assetPath, in.AssetBundle, 0o644)
+		changes = appendFileChange(changes, change)
+	} else {
+		var assetChanges []filechange.Change
+		assetChanges, err = filechange.Observe([]string{assetPath}, func() error {
+			removeErr := os.Remove(assetPath)
+			if errors.Is(removeErr, os.ErrNotExist) {
+				return nil
+			}
+			return removeErr
+		})
+		changes = append(changes, assetChanges...)
+	}
+	if err != nil {
+		return finishWriteSource(changes, err)
+	}
 	goModules, err := modulesForGoMod(in.GoImports, in.GoModules, importVersions)
 	if err != nil {
 		return finishWriteSource(changes, err)

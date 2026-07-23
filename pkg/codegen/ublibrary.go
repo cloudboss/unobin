@@ -71,6 +71,48 @@ func GenerateUBLibraryPackage(
 	goSpecs map[string]GoLibrarySpecs,
 	sourceFiles map[string]syntax.SourceFileSpec,
 ) ([]byte, error) {
+	return generateUBLibraryPackage(
+		packageID,
+		libraryName,
+		syntaxBodies,
+		imports,
+		goSpecs,
+		sourceFiles,
+		nil,
+	)
+}
+
+// GenerateUBLibraryPackageWithAssets includes the captured asset-set ID
+// for each composite body.
+func GenerateUBLibraryPackageWithAssets(
+	packageID string,
+	libraryName string,
+	syntaxBodies map[string]map[string]syntax.FactoryBody,
+	imports map[string]map[string]map[string]string,
+	goSpecs map[string]GoLibrarySpecs,
+	sourceFiles map[string]syntax.SourceFileSpec,
+	assetSetIDs map[string]map[string]string,
+) ([]byte, error) {
+	return generateUBLibraryPackage(
+		packageID,
+		libraryName,
+		syntaxBodies,
+		imports,
+		goSpecs,
+		sourceFiles,
+		assetSetIDs,
+	)
+}
+
+func generateUBLibraryPackage(
+	packageID string,
+	libraryName string,
+	syntaxBodies map[string]map[string]syntax.FactoryBody,
+	imports map[string]map[string]map[string]string,
+	goSpecs map[string]GoLibrarySpecs,
+	sourceFiles map[string]syntax.SourceFileSpec,
+	assetSetIDs map[string]map[string]string,
+) ([]byte, error) {
 	if packageID == "" {
 		return nil, fmt.Errorf("ublibrary: package name is required")
 	}
@@ -90,7 +132,11 @@ func GenerateUBLibraryPackage(
 			return nil, fmt.Errorf("ublibrary %q: unknown kind %q", libraryName, kind)
 		}
 		for _, name := range compositeNames(syntaxBodies[kind]) {
-			entry := compositeEntry{Name: name, Symbol: group.Symbol}
+			entry := compositeEntry{
+				Name:       name,
+				Symbol:     group.Symbol,
+				AssetSetID: assetSetIDs[kind][name],
+			}
 			encoded, err := encodeSyntaxBodyWithSourceHelpers(
 				syntaxBodies[kind][name], sourceHelperByFile)
 			if err != nil {
@@ -187,6 +233,7 @@ type compositeEntry struct {
 	Name       string
 	Symbol     string
 	SyntaxBody string
+	AssetSetID string
 	Libraries  []libraryBinding
 }
 
@@ -491,6 +538,9 @@ func {{.FuncName}}(start, end int) parse.Span {
 {{range .Entries}}			{{quote .Name}}: {
 				Name: {{quote .Name}},
 				Kind: {{.Symbol}},
+{{- if .AssetSetID}}
+				AssetSetID: {{quote .AssetSetID}},
+{{- end}}
 {{- if .SyntaxBody}}
 				SyntaxBody: {{.SyntaxBody}},
 {{- end}}

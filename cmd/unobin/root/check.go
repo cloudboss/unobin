@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/pkg/compile"
@@ -157,8 +158,7 @@ func checkSourceDir(
 		if err != nil {
 			return target, err
 		}
-		opts.Source = source
-		return target, sourcecheck.CheckUBLibrary(source, opts)
+		return target, sourcecheck.CheckUBLibrary(opts.Source, opts)
 	}
 
 	target := checkTarget{Path: cleanCheckPath(path), Type: "directory"}
@@ -199,7 +199,7 @@ func checkSourceFile(
 		if err != nil {
 			return target, err
 		}
-		opts.Source = sourceForDir(dir)
+		opts.RootSourceFile = sourceFileForProject(opts.ProjectDir, path)
 		_, err = sourcecheck.CheckFactoryBody(file.Factory.Body, opts)
 		return target, err
 	case syntax.FileLibrary:
@@ -207,7 +207,7 @@ func checkSourceFile(
 		if err != nil {
 			return target, err
 		}
-		opts.Source = sourceForDir(dir)
+		opts.RootSourceFile = sourceFileForProject(opts.ProjectDir, path)
 		return target, sourcecheck.CheckLibraryFile(file.Library, opts)
 	case syntax.FileStack, syntax.FileProject, syntax.FileProjectLock:
 		return target, nil
@@ -361,7 +361,7 @@ func checkOptions(
 		checkToolOutput(cmd), replaceUnobinAbs, cliVersion())
 	return sourcecheck.Options{
 		ProjectDir:  projectDir,
-		Source:      sourceForDir(sourceDir),
+		Source:      sourceForProjectDir(projectDir, sourceDir),
 		Resolver:    resolver,
 		Versions:    repoVersions,
 		SchemaCache: sourcecheck.NewSchemaCache(schemaRoots...),
@@ -382,4 +382,49 @@ func checkToolOutput(cmd *cobra.Command) io.Writer {
 
 func sourceForDir(path string) *resolve.Source {
 	return &resolve.Source{FS: os.DirFS(path), Path: path}
+}
+
+func sourceForProjectDir(projectDir, sourceDir string) *resolve.Source {
+	absoluteSourceDir, err := filepath.Abs(sourceDir)
+	if err != nil {
+		return sourceForDir(sourceDir)
+	}
+	source := sourceForDir(absoluteSourceDir)
+	relative, ok := relativeProjectPath(projectDir, absoluteSourceDir)
+	if !ok {
+		return source
+	}
+	if relative == "." {
+		relative = ""
+	}
+	source.ProjectFS = os.DirFS(projectDir)
+	source.ProjectPath = projectDir
+	source.PackageSubdir = filepath.ToSlash(relative)
+	return source
+}
+
+func sourceFileForProject(projectDir, sourcePath string) syntax.SourceFileSpec {
+	spec := syntax.SourceFileSpec{
+		PackageRelPath: filepath.ToSlash(filepath.Base(sourcePath)),
+	}
+	absoluteSourcePath, err := filepath.Abs(sourcePath)
+	if err != nil {
+		return spec
+	}
+	if relative, ok := relativeProjectPath(projectDir, absoluteSourcePath); ok {
+		spec.ProjectRelPath = filepath.ToSlash(relative)
+	}
+	return spec
+}
+
+func relativeProjectPath(projectDir, path string) (string, bool) {
+	if projectDir == "" {
+		return "", false
+	}
+	relative, err := filepath.Rel(projectDir, path)
+	if err != nil || relative == ".." ||
+		strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return relative, true
 }

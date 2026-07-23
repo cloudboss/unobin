@@ -46,6 +46,8 @@ type Info struct {
 	LibraryPath          string
 	Libraries            map[string]*runtime.Library
 	LibraryConfigSchemas map[string]runtime.LibraryConfigSchema
+	AssetBundle          []byte
+	RootAssetSetID       string
 
 	// UnobinVersion is the unobin version the factory was compiled
 	// against, stamped at link time the way FactoryVersion is. Run

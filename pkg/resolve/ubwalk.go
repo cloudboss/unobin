@@ -81,6 +81,7 @@ type UBLibrary struct {
 	SyntaxBodies map[string]map[string]syntax.FactoryBody
 	SourceFiles  map[string]syntax.SourceFileSpec
 	BodyImports  map[string]map[string][]Resolution
+	Entries      []CompositeEntry
 	Source       *Source
 }
 
@@ -88,22 +89,14 @@ type CompositeEntry struct {
 	Kind       string
 	Name       string
 	SyntaxBody syntax.FactoryBody
+	SourceFile syntax.SourceFileSpec
 }
 
 func (l *UBLibrary) CompositeEntries() []CompositeEntry {
 	if l == nil {
 		return nil
 	}
-	var entries []CompositeEntry
-	for kind, byName := range l.SyntaxBodies {
-		for name, body := range byName {
-			entries = append(entries, CompositeEntry{
-				Kind:       kind,
-				Name:       name,
-				SyntaxBody: body,
-			})
-		}
-	}
+	entries := slices.Clone(l.Entries)
 	slices.SortFunc(entries, func(a, b CompositeEntry) int {
 		if a.Name != b.Name {
 			return strings.Compare(a.Name, b.Name)
@@ -692,20 +685,33 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 	slices.Sort(matches)
 	syntaxBodies := make(map[string]map[string]syntax.FactoryBody, len(matches))
 	sourceFiles := make(map[string]syntax.SourceFileSpec, len(matches))
+	var entries []CompositeEntry
 	for _, filename := range matches {
 		b, err := readSourceFile(source, filename)
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", filename, err)
 		}
-		added, err := addSourceDeclaredLibraryFile(filename, b, syntaxBodies)
+		sourceFile := librarySourceFileSpec(source, filename, b)
+		added, err := addSourceDeclaredLibraryFile(
+			filename,
+			b,
+			sourceFile,
+			syntaxBodies,
+			&entries,
+		)
 		if err != nil {
 			return nil, err
 		}
 		if added {
-			sourceFiles[filename] = librarySourceFileSpec(source, filename, b)
+			sourceFiles[filename] = sourceFile
 		}
 	}
-	return &UBLibrary{SyntaxBodies: syntaxBodies, SourceFiles: sourceFiles, Source: source}, nil
+	return &UBLibrary{
+		SyntaxBodies: syntaxBodies,
+		SourceFiles:  sourceFiles,
+		Entries:      entries,
+		Source:       source,
+	}, nil
 }
 
 func librarySourceFileSpec(source *Source, filename string, src []byte) syntax.SourceFileSpec {
@@ -747,13 +753,45 @@ func applyUBLibrarySourceDisplayPaths(lib *UBLibrary, ref ImportRef, libraryPath
 		return
 	}
 	for file, spec := range lib.SourceFiles {
-		if spec.ProjectRelPath == spec.PackageRelPath {
-			spec.ProjectRelPath = libraryProjectRelPathFromRef(ref, spec.PackageRelPath)
-		}
-		spec.LibraryPath = libraryPath
-		spec.DisplayPath = librarySourceDisplayPath(spec)
+		spec = ubLibrarySourceDisplaySpec(spec, ref, libraryPath, lib.Source)
 		lib.SourceFiles[file] = spec
 	}
+	for i := range lib.Entries {
+		lib.Entries[i].SourceFile = ubLibrarySourceDisplaySpec(
+			lib.Entries[i].SourceFile,
+			ref,
+			libraryPath,
+			lib.Source,
+		)
+	}
+}
+
+func ubLibrarySourceDisplaySpec(
+	spec syntax.SourceFileSpec,
+	ref ImportRef,
+	libraryPath string,
+	source *Source,
+) syntax.SourceFileSpec {
+	if spec.ProjectRelPath == spec.PackageRelPath {
+		spec.ProjectRelPath = libraryProjectRelPathFromRef(ref, spec.PackageRelPath)
+	}
+	spec.LibraryPath = libraryPath
+	displaySpec := spec
+	if _, local := ref.(*LocalImport); local {
+		switch {
+		case source != nil && source.Path != "" && !filepath.IsAbs(source.Path):
+			displaySpec.ProjectRelPath = filepath.ToSlash(
+				filepath.Join(source.Path, filepath.FromSlash(spec.PackageRelPath)),
+			)
+		default:
+			displaySpec.ProjectRelPath = libraryProjectRelPathFromRef(
+				ref,
+				spec.PackageRelPath,
+			)
+		}
+	}
+	spec.DisplayPath = librarySourceDisplayPath(displaySpec)
+	return spec
 }
 
 func libraryProjectRelPathFromRef(ref ImportRef, packageRelPath string) string {
@@ -821,7 +859,9 @@ func resolvedUBLibraryPath(ref ImportRef, source *Source) string {
 func addSourceDeclaredLibraryFile(
 	filename string,
 	src []byte,
+	sourceFile syntax.SourceFileSpec,
 	syntaxBodies map[string]map[string]syntax.FactoryBody,
+	entries *[]CompositeEntry,
 ) (bool, error) {
 	f, err := lang.ParseSource(filename, src)
 	if err != nil {
@@ -848,6 +888,12 @@ func addSourceDeclaredLibraryFile(
 		if err := addSyntaxLibraryBody(export.Name.Name, kind, export.Body, syntaxBodies); err != nil {
 			return false, err
 		}
+		*entries = append(*entries, CompositeEntry{
+			Kind:       kind,
+			Name:       export.Name.Name,
+			SyntaxBody: export.Body,
+			SourceFile: sourceFile,
+		})
 	}
 	return len(sf.Library.Exports) > 0, nil
 }
