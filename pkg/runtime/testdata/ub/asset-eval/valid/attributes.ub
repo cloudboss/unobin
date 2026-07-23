@@ -1,0 +1,34 @@
+factory: {
+  assets: {
+    tree:    './tree'
+    archive: './archive.zip'
+  }
+
+  locals: {
+    root:     asset.tree
+    selected: asset.tree['main.go']
+    values: {
+      tree-path:       asset.tree.path
+      tree-content:    asset.tree.content
+      tree-digest:     asset.tree.content-sha256
+      tree-mode:       asset.tree.mode
+      file-path:       asset.tree['main.go'].path
+      file-content:    asset.tree['main.go'].content
+      file-digest:     asset.tree['main.go'].content-sha256
+      file-mode:       asset.tree['main.go'].mode
+      same-path:       asset.tree.path == asset.tree.path
+      other-path:      asset.tree.path != asset.tree['main.go'].path
+      same-content:    asset.archive.content == asset.archive.content
+      other-content:   asset.archive.content != asset.tree['main.go'].content
+      encoded-path:    @core.b64-encode(asset.tree['main.go'].path)
+      encoded-content: @core.b64-encode(asset.archive.content)
+    }
+  }
+
+  resources: {
+    item: test.value {
+      source:  asset.tree['main.go'].path
+      payload: asset.archive.content
+    }
+  }
+}

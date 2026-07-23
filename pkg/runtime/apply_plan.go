@@ -106,12 +106,20 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (result *ExecRes
 				fmt.Errorf("composite %q: not in DAG", step.Address),
 			)
 		}
+		assets, err := e.assetSet(boundary.AssetSetID)
+		if err != nil {
+			return nil, NewApplyFailure(
+				ApplyFailureSetup,
+				diagnostic.Context(fmt.Sprintf("composite %s", step.Address), err),
+			)
+		}
 		rs.composites[step.Address] = &EvalContext{
 			Inputs:    step.Inputs,
 			Resources: make(map[string]any),
 			Data:      make(map[string]any),
 			Actions:   make(map[string]any),
 			Libraries: compositeBodyLibraries(boundary, e.Libraries),
+			Assets:    assets,
 			locals:    compositeLocalScope(boundary),
 		}
 	}

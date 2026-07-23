@@ -356,11 +356,15 @@ func manifestSetID(assets []ManifestAsset) (string, error) {
 }
 
 func catalogFromManifest(manifest Manifest) *Catalog {
-	catalog := &Catalog{sets: make(map[string]*Set, len(manifest.AssetSets))}
+	catalog := &Catalog{
+		sets:       make(map[string]*Set, len(manifest.AssetSets)),
+		references: map[string]*Reference{},
+	}
 	for _, manifestSet := range manifest.AssetSets {
 		set := &Set{
-			ID:     manifestSet.ID,
-			assets: make(map[string]*Asset, len(manifestSet.Assets)),
+			ID:      manifestSet.ID,
+			assets:  make(map[string]*Asset, len(manifestSet.Assets)),
+			catalog: catalog,
 		}
 		for _, manifestAsset := range manifestSet.Assets {
 			item := &Asset{
@@ -372,10 +376,28 @@ func catalogFromManifest(manifest Manifest) *Catalog {
 				item.entries[entry.InternalPath] = &Entry{ManifestEntry: entry}
 			}
 			set.assets[item.Name] = item
+			for _, entry := range item.entries {
+				value := valueForEntry(item.Name, entry.InternalPath, entry)
+				catalog.indexReference(string(value.Path), item, entry)
+				catalog.indexReference(string(value.Content), item, entry)
+			}
 		}
 		catalog.sets[set.ID] = set
 	}
 	return catalog
+}
+
+func (c *Catalog) indexReference(token string, item *Asset, entry *Entry) {
+	if _, ok := c.references[token]; ok {
+		return
+	}
+	reference, ok := ParseReference(token)
+	if !ok {
+		panic("asset: generated an invalid logical reference")
+	}
+	reference.Asset = item
+	reference.Entry = entry
+	c.references[token] = &reference
 }
 
 func (c *Catalog) verify() error {

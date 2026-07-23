@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/asset"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang"
 )
@@ -36,6 +37,7 @@ type EvalContext struct {
 	Actions   map[string]any
 	Libraries map[string]*Library
 	Bindings  map[string]any
+	Assets    *asset.Set
 
 	// Each holds named iteration bindings, @each for a @for-each body
 	// and declared names like @rule for a chained constraint form,
@@ -416,9 +418,72 @@ func evalCoreCall(c *lang.Call, ctx *EvalContext) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	args, err = resolveCoreArgs(args, ctx)
+	if err != nil {
+		return nil, diagnostic.Context("eval: "+name, err)
+	}
 	return guard("calling "+name, true, func() (any, error) {
 		return fn.Func(args)
 	})
+}
+
+func resolveCoreArgs(args []any, ctx *EvalContext) ([]any, error) {
+	resolved := make([]any, len(args))
+	for i, value := range args {
+		next, err := resolveCoreValue(value, ctx)
+		if err != nil {
+			return nil, diagnostic.Context(fmt.Sprintf("arg %d", i), err)
+		}
+		resolved[i] = next
+	}
+	return resolved, nil
+}
+
+func resolveCoreValue(value any, ctx *EvalContext) (any, error) {
+	switch typed := value.(type) {
+	case asset.PathRef:
+		return string(typed), nil
+	case asset.ContentRef:
+		if ctx == nil || ctx.Assets == nil || ctx.Assets.Catalog() == nil {
+			return nil, fmt.Errorf("asset content: no asset catalog is available")
+		}
+		return ctx.Assets.Catalog().Content(string(typed))
+	case []any:
+		resolved := make([]any, len(typed))
+		for i, element := range typed {
+			next, err := resolveCoreValue(element, ctx)
+			if err != nil {
+				return nil, diagnostic.Context(fmt.Sprintf("index %d", i), err)
+			}
+			resolved[i] = next
+		}
+		return resolved, nil
+	case map[string]any:
+		resolved := make(map[string]any, len(typed))
+		for key, element := range typed {
+			next, err := resolveCoreValue(element, ctx)
+			if err != nil {
+				return nil, diagnostic.Context(fmt.Sprintf("key %q", key), err)
+			}
+			resolved[key] = next
+		}
+		return resolved, nil
+	case string:
+		if ctx == nil || ctx.Assets == nil || ctx.Assets.Catalog() == nil {
+			return typed, nil
+		}
+		reference, ok := ctx.Assets.Catalog().Reference(typed)
+		if !ok {
+			return typed, nil
+		}
+		switch reference.Kind {
+		case asset.ReferenceKindPath:
+			return typed, nil
+		case asset.ReferenceKindContent:
+			return ctx.Assets.Catalog().Content(typed)
+		}
+	}
+	return value, nil
 }
 
 func evalArgs(name string, exprs []lang.Expr, ctx *EvalContext) ([]any, error) {
@@ -751,6 +816,8 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 		root = ctx.Data
 	case "action":
 		root = ctx.Actions
+	case "asset":
+		return evalAsset(p, ctx)
 	case "local":
 		return evalLocal(p, ctx)
 	case lang.CoreNamespace:
@@ -764,6 +831,66 @@ func evalDotPath(p *lang.DotPath, ctx *EvalContext) (any, error) {
 		return nil, fmt.Errorf("eval: unknown address root %q", p.Root.Name)
 	}
 	return navigateSegments(root, p.Root.Name, p.Segments, ctx)
+}
+
+func evalAsset(path *lang.DotPath, ctx *EvalContext) (any, error) {
+	if len(path.Segments) == 0 || path.Segments[0].Name == "" {
+		return nil, fmt.Errorf("eval: asset requires a name")
+	}
+	name := path.Segments[0].Name
+	object := "asset." + name
+	if ctx == nil || ctx.Assets == nil {
+		return nil, fmt.Errorf(
+			"eval: %s: no asset set is available in this scope",
+			object,
+		)
+	}
+
+	internalPath := ""
+	rest := path.Segments[1:]
+	if len(rest) > 0 && rest[0].Index != nil {
+		literal, ok := rest[0].Index.(*lang.StringLit)
+		if !ok {
+			return nil, fmt.Errorf(
+				"eval: %s: internal entry selection must be a string literal",
+				object,
+			)
+		}
+		internalPath = literal.Value
+		object += "['" + internalPath + "']"
+		rest = rest[1:]
+	}
+
+	value, err := ctx.Assets.Value(name, internalPath)
+	if err != nil {
+		return nil, fmt.Errorf("eval: %s: %w", object, err)
+	}
+	if len(rest) == 0 {
+		return value, nil
+	}
+	if len(rest) != 1 ||
+		rest[0].Name == "" ||
+		rest[0].Index != nil ||
+		rest[0].Splat ||
+		rest[0].Guarded {
+		return nil, fmt.Errorf("eval: %s: invalid asset reference", object)
+	}
+	switch rest[0].Name {
+	case "path":
+		return value.Path, nil
+	case "content":
+		return value.Content, nil
+	case "content-sha256":
+		return value.ContentSHA256, nil
+	case "mode":
+		return value.Mode, nil
+	default:
+		return nil, fmt.Errorf(
+			"eval: %s: unknown asset attribute %q",
+			object,
+			rest[0].Name,
+		)
+	}
 }
 
 // navigateSegments walks a dot path's segments from cur, stepping into

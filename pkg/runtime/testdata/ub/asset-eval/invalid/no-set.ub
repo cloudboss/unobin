@@ -1,0 +1,5 @@
+factory: {
+  locals: {
+    result: asset.tree.path
+  }
+}

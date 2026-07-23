@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/asset"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
@@ -459,6 +460,16 @@ func formatValue(v any) string {
 		return "{" + strings.Join(parts, ", ") + "}"
 	case runtime.PendingValue:
 		return formatPending(x)
+	case asset.PathRef:
+		return asset.DisplayReference(string(x))
+	case asset.ContentRef:
+		return asset.DisplayReference(string(x))
+	case string:
+		display := asset.DisplayReference(x)
+		if display != x {
+			return display
+		}
+		return lang.Render(x)
 	case nil:
 		return "null"
 	default:

@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudboss/unobin/pkg/asset"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/encoding/ub"
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -42,6 +43,9 @@ type Executor struct {
 	DAG       *DAG
 	Libraries map[string]*Library
 	Inputs    map[string]any
+
+	AssetCatalog   *asset.Catalog
+	RootAssetSetID string
 
 	// SyntaxSource is the typed factory body for grammar-first callers.
 	SyntaxSource *syntax.FactoryBody
@@ -122,17 +126,25 @@ func (e *Executor) priorInternalConfiguration(addr string) (any, bool) {
 // configurations against what the last apply recorded. Only root
 // entries seed it: configurations are defined at the factory root and
 // cannot reference composite internals.
-func (e *Executor) stateScope(prior *state.Snapshot, inputs map[string]any) *EvalContext {
+func (e *Executor) stateScope(
+	prior *state.Snapshot,
+	inputs map[string]any,
+) (*EvalContext, error) {
+	rootAssets, err := e.rootAssetSet()
+	if err != nil {
+		return nil, err
+	}
 	scope := &EvalContext{
 		Inputs:    inputs,
 		Resources: make(map[string]any),
 		Data:      make(map[string]any),
 		Actions:   make(map[string]any),
 		Libraries: e.Libraries,
+		Assets:    rootAssets,
 		locals:    e.rootLocalScope(),
 	}
 	if prior == nil {
-		return scope
+		return scope, nil
 	}
 	for _, ent := range prior.Entries {
 		if DirectParent(ent.Address) != "" {
@@ -158,7 +170,7 @@ func (e *Executor) stateScope(prior *state.Snapshot, inputs map[string]any) *Eva
 			seedAddressInstance(target, tmpl, instKey, attrs)
 		}
 	}
-	return scope
+	return scope, nil
 }
 
 // seedPriorInternalConfigurations evaluates every internal
@@ -180,7 +192,11 @@ func (e *Executor) seedPriorInternalConfigurations(
 			continue
 		}
 		if scope == nil {
-			scope = e.stateScope(prior, inputs)
+			var err error
+			scope, err = e.stateScope(prior, inputs)
+			if err != nil {
+				return err
+			}
 		}
 		raw, err := evalConfigurationBody(n.Body, scope)
 		if err != nil {
@@ -341,6 +357,10 @@ func (e *Executor) initRun() (*runState, error) {
 	if err != nil {
 		return nil, err
 	}
+	rootAssets, err := e.rootAssetSet()
+	if err != nil {
+		return nil, err
+	}
 	rs := &runState{
 		eval: &EvalContext{
 			Inputs:    e.Inputs,
@@ -348,6 +368,7 @@ func (e *Executor) initRun() (*runState, error) {
 			Data:      make(map[string]any),
 			Actions:   make(map[string]any),
 			Libraries: e.Libraries,
+			Assets:    rootAssets,
 			locals:    e.rootLocalScope(),
 		},
 		order:            order,
@@ -362,6 +383,24 @@ func (e *Executor) initRun() (*runState, error) {
 	}
 	rs.prior = prior
 	return rs, nil
+}
+
+func (e *Executor) rootAssetSet() (*asset.Set, error) {
+	return e.assetSet(e.RootAssetSetID)
+}
+
+func (e *Executor) assetSet(id string) (*asset.Set, error) {
+	if id == "" {
+		return nil, nil
+	}
+	if e.AssetCatalog == nil {
+		return nil, fmt.Errorf("asset set %q: asset catalog is not configured", id)
+	}
+	set, ok := e.AssetCatalog.Set(id)
+	if !ok {
+		return nil, fmt.Errorf("asset set %q: not found in asset catalog", id)
+	}
+	return set, nil
 }
 
 // scopeFor returns the EvalContext n's body should be evaluated
@@ -468,12 +507,17 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 			fmt.Sprintf("composite %s: eval call args", callSite), err,
 		)
 	}
+	assets, err := e.assetSet(boundary.AssetSetID)
+	if err != nil {
+		return nil, diagnostic.Context(fmt.Sprintf("composite %s", callSite), err)
+	}
 	scope := &EvalContext{
 		Inputs:    args,
 		Resources: make(map[string]any),
 		Data:      make(map[string]any),
 		Actions:   make(map[string]any),
 		Libraries: compositeBodyLibraries(boundary, e.Libraries),
+		Assets:    assets,
 		locals:    compositeLocalScope(boundary),
 	}
 	rs.composites[callSite] = scope

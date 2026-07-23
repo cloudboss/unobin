@@ -62,13 +62,15 @@ type ManifestEntry struct {
 }
 
 type Catalog struct {
-	sets     map[string]*Set
-	readBlob func(string) ([]byte, error)
+	sets       map[string]*Set
+	references map[string]*Reference
+	readBlob   func(string) ([]byte, error)
 }
 
 type Set struct {
-	ID     string
-	assets map[string]*Asset
+	ID      string
+	assets  map[string]*Asset
+	catalog *Catalog
 }
 
 type Asset struct {
@@ -78,6 +80,34 @@ type Asset struct {
 
 type Entry struct {
 	ManifestEntry
+}
+
+type PathRef string
+
+type ContentRef string
+
+type Value struct {
+	Path          PathRef    `json:"path"`
+	Content       ContentRef `json:"content"`
+	ContentSHA256 string     `json:"content-sha256"`
+	Mode          string     `json:"mode"`
+}
+
+type ReferenceKind string
+
+const (
+	ReferenceKindPath    ReferenceKind = "path"
+	ReferenceKindContent ReferenceKind = "content"
+)
+
+type Reference struct {
+	Token         string
+	Kind          ReferenceKind
+	EntryIdentity string
+	AssetName     string
+	InternalPath  string
+	Asset         *Asset
+	Entry         *Entry
 }
 
 func (c *Catalog) Set(id string) (*Set, bool) {
@@ -102,6 +132,14 @@ func (c *Catalog) Sets() []*Set {
 	return sets
 }
 
+func (c *Catalog) Reference(token string) (*Reference, bool) {
+	if c == nil {
+		return nil, false
+	}
+	reference, ok := c.references[token]
+	return reference, ok
+}
+
 func (s *Set) Asset(name string) (*Asset, bool) {
 	if s == nil {
 		return nil, false
@@ -122,6 +160,13 @@ func (s *Set) Assets() []*Asset {
 		return strings.Compare(a.Name, b.Name)
 	})
 	return assets
+}
+
+func (s *Set) Catalog() *Catalog {
+	if s == nil {
+		return nil
+	}
+	return s.catalog
 }
 
 func (a *Asset) Entry(internalPath string) (*Entry, bool) {

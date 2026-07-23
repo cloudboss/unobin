@@ -101,6 +101,11 @@ func TestBuildDAGLiteralLocalAddsNoEdge(t *testing.T) {
 	require.Empty(t, g.Edges["action.go"])
 }
 
+func TestBuildDAGAssetReferenceAddsNoEdge(t *testing.T) {
+	g := syntaxDAG(t, dagFixture(t, "build-dag-asset-reference-adds-no-edge"), nil)
+	require.Empty(t, g.Edges["resource.main"])
+}
+
 func TestBuildDAGMergesImplicitAndExplicit(t *testing.T) {
 	g := syntaxDAG(t, dagFixture(t, "build-dag-merges-implicit-and-explicit"), nil)
 	require.ElementsMatch(t,

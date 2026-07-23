@@ -1,0 +1,15 @@
+bundle: resource {
+  assets: {
+    shared: './shared.txt'
+  }
+
+  locals: {
+    source: asset.shared.path
+  }
+
+  resources: {
+    item: test.value {
+      source: asset.shared.path
+    }
+  }
+}

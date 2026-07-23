@@ -1,0 +1,9 @@
+assets: {
+  archive: './archive.zip'
+}
+
+resources: {
+  main: aws.archive {
+    source: asset.archive.path
+  }
+}
