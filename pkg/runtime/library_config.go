@@ -14,6 +14,14 @@ import (
 )
 
 func decodeLibraryConfig(lib *Library, raw map[string]any) (any, error) {
+	return decodeLibraryConfigWith(lib, raw, nil)
+}
+
+func decodeLibraryConfigWith(
+	lib *Library,
+	raw map[string]any,
+	resolve func(map[string]any) (map[string]any, error),
+) (any, error) {
 	if lib == nil || lib.Configuration == nil {
 		return nil, errors.New("library declares no configuration")
 	}
@@ -28,6 +36,13 @@ func decodeLibraryConfig(lib *Library, raw map[string]any) (any, error) {
 			}
 		}
 		if err := checkConfigConstraints(schema.ConfigurationConstraints, values); err != nil {
+			return nil, err
+		}
+	}
+	if resolve != nil {
+		var err error
+		values, err = resolve(values)
+		if err != nil {
 			return nil, err
 		}
 	}

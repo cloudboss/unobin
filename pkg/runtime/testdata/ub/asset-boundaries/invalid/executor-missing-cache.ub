@@ -1,0 +1,33 @@
+factory: {
+  assets: {
+    archive: './archive.zip'
+    tree: './tree'
+  }
+
+  imports: {
+    native: 'github.com/example/native'
+  }
+
+  library-configs: {
+    native: {
+      path: asset.tree.path
+      content: asset.archive.content
+    }
+  }
+
+  resources: {
+    item: native.asset {
+      label: 'one'
+      replacement: 'one'
+      path: asset.tree.path
+      content: asset.archive.content
+      nested: [{
+        path: asset.tree.path
+        content: asset.archive.content
+      }]
+      by-name: {
+        archive: asset.archive.content
+      }
+    }
+  }
+}

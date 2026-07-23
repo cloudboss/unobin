@@ -1,0 +1,14 @@
+factory: {
+  assets: {
+    archive: './archive.zip'
+    tree: './tree'
+  }
+
+  imports: {
+    native: 'github.com/example/native'
+  }
+
+  locals: {
+    result: native.inspect(asset.archive.content)
+  }
+}

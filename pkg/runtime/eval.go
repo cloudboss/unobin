@@ -31,13 +31,14 @@ var ErrEvalNotFound = errors.New("not found")
 // dot-path roots ahead of the reserved roots; validation keeps the
 // names distinct across nesting.
 type EvalContext struct {
-	Inputs    map[string]any
-	Resources map[string]any
-	Data      map[string]any
-	Actions   map[string]any
-	Libraries map[string]*Library
-	Bindings  map[string]any
-	Assets    *asset.Set
+	Inputs     map[string]any
+	Resources  map[string]any
+	Data       map[string]any
+	Actions    map[string]any
+	Libraries  map[string]*Library
+	Bindings   map[string]any
+	Assets     *asset.Set
+	AssetCache *asset.Cache
 
 	// Each holds named iteration bindings, @each for a @for-each body
 	// and declared names like @rule for a chained constraint form,
@@ -398,6 +399,15 @@ func evalLibraryCall(c *lang.Call, ctx *EvalContext) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	for i := range args {
+		args[i], err = resolveAssetValue(ctx.AssetCache, args[i])
+		if err != nil {
+			return nil, diagnostic.Context(
+				fmt.Sprintf("eval: %s arg %d", name, i),
+				err,
+			)
+		}
+	}
 	out, err := guard("calling "+name, false, func() (any, error) {
 		return fn.Func(args)
 	})
@@ -444,6 +454,9 @@ func resolveCoreValue(value any, ctx *EvalContext) (any, error) {
 	case asset.PathRef:
 		return string(typed), nil
 	case asset.ContentRef:
+		if ctx != nil && ctx.AssetCache != nil {
+			return ctx.AssetCache.Resolve(string(typed))
+		}
 		if ctx == nil || ctx.Assets == nil || ctx.Assets.Catalog() == nil {
 			return nil, fmt.Errorf("asset content: no asset catalog is available")
 		}
@@ -469,19 +482,26 @@ func resolveCoreValue(value any, ctx *EvalContext) (any, error) {
 		}
 		return resolved, nil
 	case string:
+		reference, isReference := asset.ParseReference(typed)
+		if !isReference {
+			return typed, nil
+		}
+		if reference.Kind == asset.ReferenceKindPath {
+			return typed, nil
+		}
+		if ctx != nil && ctx.AssetCache != nil {
+			return ctx.AssetCache.Resolve(typed)
+		}
 		if ctx == nil || ctx.Assets == nil || ctx.Assets.Catalog() == nil {
-			return typed, nil
+			return nil, fmt.Errorf("asset content: no asset catalog is available")
 		}
-		reference, ok := ctx.Assets.Catalog().Reference(typed)
-		if !ok {
-			return typed, nil
+		if _, ok := ctx.Assets.Catalog().Reference(typed); !ok {
+			return nil, fmt.Errorf(
+				"asset content %s: not found in asset catalog",
+				asset.DisplayReference(typed),
+			)
 		}
-		switch reference.Kind {
-		case asset.ReferenceKindPath:
-			return typed, nil
-		case asset.ReferenceKindContent:
-			return ctx.Assets.Catalog().Content(typed)
-		}
+		return ctx.Assets.Catalog().Content(typed)
 	}
 	return value, nil
 }

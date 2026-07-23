@@ -45,6 +45,7 @@ type Executor struct {
 	Inputs    map[string]any
 
 	AssetCatalog   *asset.Catalog
+	AssetCache     *asset.Cache
 	RootAssetSetID string
 
 	// SyntaxSource is the typed factory body for grammar-first callers.
@@ -135,13 +136,14 @@ func (e *Executor) stateScope(
 		return nil, err
 	}
 	scope := &EvalContext{
-		Inputs:    inputs,
-		Resources: make(map[string]any),
-		Data:      make(map[string]any),
-		Actions:   make(map[string]any),
-		Libraries: e.Libraries,
-		Assets:    rootAssets,
-		locals:    e.rootLocalScope(),
+		Inputs:     inputs,
+		Resources:  make(map[string]any),
+		Data:       make(map[string]any),
+		Actions:    make(map[string]any),
+		Libraries:  e.Libraries,
+		Assets:     rootAssets,
+		AssetCache: e.AssetCache,
+		locals:     e.rootLocalScope(),
 	}
 	if prior == nil {
 		return scope, nil
@@ -210,7 +212,7 @@ func (e *Executor) seedPriorInternalConfigurations(
 			return fmt.Errorf("%s: library %q declares no configuration",
 				n.Address, n.Alias)
 		}
-		decoded, err := decodeLibraryConfig(lib, raw)
+		decoded, err := e.decodeLibraryConfig(lib, raw)
 		if err != nil {
 			return diagnostic.Context(n.Address, err)
 		}
@@ -363,13 +365,14 @@ func (e *Executor) initRun() (*runState, error) {
 	}
 	rs := &runState{
 		eval: &EvalContext{
-			Inputs:    e.Inputs,
-			Resources: make(map[string]any),
-			Data:      make(map[string]any),
-			Actions:   make(map[string]any),
-			Libraries: e.Libraries,
-			Assets:    rootAssets,
-			locals:    e.rootLocalScope(),
+			Inputs:     e.Inputs,
+			Resources:  make(map[string]any),
+			Data:       make(map[string]any),
+			Actions:    make(map[string]any),
+			Libraries:  e.Libraries,
+			Assets:     rootAssets,
+			AssetCache: e.AssetCache,
+			locals:     e.rootLocalScope(),
 		},
 		order:            order,
 		outputs:          make(map[string]any),
@@ -512,13 +515,14 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 		return nil, diagnostic.Context(fmt.Sprintf("composite %s", callSite), err)
 	}
 	scope := &EvalContext{
-		Inputs:    args,
-		Resources: make(map[string]any),
-		Data:      make(map[string]any),
-		Actions:   make(map[string]any),
-		Libraries: compositeBodyLibraries(boundary, e.Libraries),
-		Assets:    assets,
-		locals:    compositeLocalScope(boundary),
+		Inputs:     args,
+		Resources:  make(map[string]any),
+		Data:       make(map[string]any),
+		Actions:    make(map[string]any),
+		Libraries:  compositeBodyLibraries(boundary, e.Libraries),
+		Assets:     assets,
+		AssetCache: e.AssetCache,
+		locals:     compositeLocalScope(boundary),
 	}
 	rs.composites[callSite] = scope
 	return scope, nil
@@ -811,22 +815,26 @@ func sameInputs(a, b map[string]any) bool {
 	return bytes.Equal(aj, bj)
 }
 
-func sameResourceInputs(
+func (e *Executor) sameResourceInputs(
 	rt ResourceRegistration, receiver any, prior, current map[string]any,
-) bool {
+) (bool, error) {
 	if sameInputs(prior, current) {
-		return true
+		return true, nil
+	}
+	resolvedPrior, err := e.resolveAssetMap(prior)
+	if err != nil {
+		return false, diagnostic.Context("prior inputs", err)
 	}
 	for _, field := range inputFieldNames(prior, current) {
 		if sameValue(prior[field], current[field]) {
 			continue
 		}
-		if rt.EquivalentInput(receiver, field, prior) {
+		if rt.EquivalentInput(receiver, field, resolvedPrior) {
 			continue
 		}
-		return false
+		return false, nil
 	}
-	return true
+	return true, nil
 }
 
 func inputFieldNames(a, b map[string]any) []string {
@@ -845,23 +853,27 @@ func inputFieldNames(a, b map[string]any) []string {
 	return fields
 }
 
-func changedReplaceFieldsForResource(
+func (e *Executor) changedReplaceFieldsForResource(
 	rt ResourceRegistration,
 	receiver any,
 	replaceFields []string,
 	prior, current map[string]any,
-) []string {
+) ([]string, error) {
+	resolvedPrior, err := e.resolveAssetMap(prior)
+	if err != nil {
+		return nil, diagnostic.Context("prior inputs", err)
+	}
 	var changed []string
 	for _, field := range replaceFields {
 		if sameValue(prior[field], current[field]) {
 			continue
 		}
-		if rt.EquivalentInput(receiver, field, prior) {
+		if rt.EquivalentInput(receiver, field, resolvedPrior) {
 			continue
 		}
 		changed = append(changed, field)
 	}
-	return changed
+	return changed, nil
 }
 
 func sameValue(a, b any) bool {

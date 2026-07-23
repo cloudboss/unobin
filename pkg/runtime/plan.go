@@ -630,7 +630,7 @@ func (e *Executor) readDestroyTarget(ctx context.Context, step *PlanStep) (bool,
 	if err != nil {
 		return false, err
 	}
-	_, err = readObserved(ctx, rt, alias,
+	_, err = e.readObserved(ctx, rt, alias,
 		cfg, step.Inputs, step.PriorOutputs)
 	if errors.Is(err, ErrNotFound) {
 		return true, nil
@@ -1047,7 +1047,7 @@ func (e *Executor) planConfigNode(rs *runState, n *Node) (*PlanStep, error) {
 		return nil, fmt.Errorf("%s: library %q declares no configuration",
 			n.Address, n.Alias)
 	}
-	decoded, err := decodeLibraryConfig(lib, inputs)
+	decoded, err := e.decodeLibraryConfig(lib, inputs)
 	if err != nil {
 		return nil, diagnostic.Context(n.Address, err)
 	}
@@ -1354,18 +1354,25 @@ func (e *Executor) planOneResource(
 	step.PriorOutputs = migrated.Outputs
 	step.PriorInputs = priorInputs
 	probe := rt.NewReceiver()
-	if err := Decode(probe, inputs); err != nil {
+	if err := e.decodeInputs(probe, inputs); err != nil {
 		return nil, err
 	}
-	step.mayChangeOutputs = !sameResourceInputs(rt, probe, priorInputs, inputs)
+	inputsSame, err := e.sameResourceInputs(rt, probe, priorInputs, inputs)
+	if err != nil {
+		return nil, err
+	}
+	step.mayChangeOutputs = !inputsSame
 	// Whether changed inputs force a replace is decided here, mid-walk,
 	// from inputs alone: downstream nodes plan next and need to know
 	// whether this node's outputs survive. A replace-marked field still
 	// waiting on an upstream compares as changed, since the value it
 	// settles to cannot be assumed equal to the prior one.
 	if step.mayChangeOutputs {
-		step.ReplaceTriggers = changedReplaceFieldsForResource(
+		step.ReplaceTriggers, err = e.changedReplaceFieldsForResource(
 			rt, probe, rt.ReplaceFields(probe), priorInputs, inputs)
+		if err != nil {
+			return nil, err
+		}
 		step.regeneratesOutputs = len(step.ReplaceTriggers) > 0
 	}
 	// A pending internal configuration means the read cannot run: there
@@ -1384,7 +1391,21 @@ func (e *Executor) planOneResource(
 		}
 		return step, nil
 	}
-	planResp, err := rt.ModifyResourcePlan(probe, e.configFor(n), priorInputs, migrated.Outputs, true)
+	resolvedPriorInputs, err := e.resolveAssetMap(priorInputs)
+	if err != nil {
+		return nil, diagnostic.Context("prior inputs", err)
+	}
+	resolvedPriorOutputs, err := e.resolveAssetMap(migrated.Outputs)
+	if err != nil {
+		return nil, diagnostic.Context("prior outputs", err)
+	}
+	planResp, err := rt.ModifyResourcePlan(
+		probe,
+		e.configFor(n),
+		resolvedPriorInputs,
+		resolvedPriorOutputs,
+		true,
+	)
 	if err != nil {
 		blameLibrary(err, n.Alias)
 		return nil, err
@@ -1425,7 +1446,7 @@ func (e *Executor) runPendingReads(ctx context.Context, rs *runState) error {
 		wg.Go(func() {
 			defer func() { <-sem }()
 			pr.observed, pr.err = guard("reading this resource", true, func() (map[string]any, error) {
-				return readObserved(ctx, pr.rt, pr.alias, pr.cfg, pr.inputs, pr.priorOutputs)
+				return e.readObserved(ctx, pr.rt, pr.alias, pr.cfg, pr.inputs, pr.priorOutputs)
 			})
 			if !errors.Is(pr.err, ErrNotFound) || pr.priorBinding == nil {
 				return
@@ -1465,7 +1486,7 @@ func (e *Executor) readPriorBinding(ctx context.Context, pr *pendingRead) (map[s
 	if err != nil {
 		return nil, priorBindingUnavailableError(pr.priorBinding, err)
 	}
-	return readObserved(ctx, priorRT, priorAlias, priorCfg, pr.priorInputs, pr.priorOutputs)
+	return e.readObserved(ctx, priorRT, priorAlias, priorCfg, pr.priorInputs, pr.priorOutputs)
 }
 
 func priorBindingUnavailableError(binding *state.Binding, err error) error {
@@ -1609,7 +1630,7 @@ func (e *Executor) planOneData(
 		return nil, err
 	}
 	receiver := dt.NewReceiver()
-	if err := Decode(receiver, inputs); err != nil {
+	if err := e.decodeInputs(receiver, inputs); err != nil {
 		return nil, err
 	}
 	result, err := dt.Read(ctx, receiver, e.configFor(n))
@@ -1671,6 +1692,29 @@ func readObserved(
 		return nil, err
 	}
 	result, err := rt.Read(ctx, receiver, cfg, priorOutputs)
+	if err != nil {
+		blameLibrary(err, alias)
+		return nil, err
+	}
+	return mapify(result), nil
+}
+
+func (e *Executor) readObserved(
+	ctx context.Context,
+	rt ResourceRegistration,
+	alias string,
+	cfg any,
+	inputs, priorOutputs map[string]any,
+) (map[string]any, error) {
+	receiver := rt.NewReceiver()
+	if err := e.decodeInputs(receiver, inputs); err != nil {
+		return nil, err
+	}
+	resolvedOutputs, err := e.resolveAssetMap(priorOutputs)
+	if err != nil {
+		return nil, diagnostic.Context("prior outputs", err)
+	}
+	result, err := rt.Read(ctx, receiver, cfg, resolvedOutputs)
 	if err != nil {
 		blameLibrary(err, alias)
 		return nil, err

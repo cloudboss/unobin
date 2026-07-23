@@ -145,7 +145,7 @@ func (e *Executor) refreshLeaf(
 	if err != nil {
 		return nil, false, err
 	}
-	observed, err := readObserved(ctx, rt, alias,
+	observed, err := e.readObserved(ctx, rt, alias,
 		cfg, migrated.Inputs, migrated.Outputs)
 	if errors.Is(err, ErrNotFound) {
 		return nil, true, nil

@@ -1,0 +1,53 @@
+factory: {
+  assets: {
+    archive: './archive.zip'
+    tree: './tree'
+  }
+
+  imports: {
+    native: 'github.com/example/native'
+  }
+
+  library-configs: {
+    native: {
+      path: asset.tree.path
+      content: asset.archive.content
+    }
+  }
+
+  resources: {
+    item: native.asset {
+      label: 'two'
+      replacement: 'one'
+      path: asset.tree.path
+      content: asset.archive.content
+      nested: [{
+        path: asset.tree.path
+        content: asset.archive.content
+      }]
+      by-name: {
+        archive: asset.archive.content
+      }
+    }
+  }
+
+  data-sources: {
+    item: native.asset {
+      path: asset.tree.path
+      content: asset.archive.content
+    }
+  }
+
+  actions: {
+    item: native.asset {
+      path: asset.tree.path
+      content: asset.archive.content
+    }
+  }
+
+  outputs: {
+    inspected: {
+      value: native.inspect(asset.archive.content)
+    }
+  }
+}

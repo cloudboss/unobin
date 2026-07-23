@@ -114,13 +114,14 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (result *ExecRes
 			)
 		}
 		rs.composites[step.Address] = &EvalContext{
-			Inputs:    step.Inputs,
-			Resources: make(map[string]any),
-			Data:      make(map[string]any),
-			Actions:   make(map[string]any),
-			Libraries: compositeBodyLibraries(boundary, e.Libraries),
-			Assets:    assets,
-			locals:    compositeLocalScope(boundary),
+			Inputs:     step.Inputs,
+			Resources:  make(map[string]any),
+			Data:       make(map[string]any),
+			Actions:    make(map[string]any),
+			Libraries:  compositeBodyLibraries(boundary, e.Libraries),
+			Assets:     assets,
+			AssetCache: e.AssetCache,
+			locals:     compositeLocalScope(boundary),
 		}
 	}
 
@@ -214,7 +215,7 @@ func (e *Executor) applyConfigNode(rs *runState, step *PlanStep, node *Node) err
 		return fmt.Errorf("%s: library %q declares no configuration",
 			step.Address, node.Alias)
 	}
-	decoded, err := decodeLibraryConfig(lib, raw)
+	decoded, err := e.decodeLibraryConfig(lib, raw)
 	if err != nil {
 		return diagnostic.Context(step.Address, err)
 	}
@@ -237,7 +238,7 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 		outputs = step.PriorOutputs
 	case DecisionRerun:
 		receiver := at.NewReceiver()
-		if err := Decode(receiver, prep.inputs); err != nil {
+		if err := e.decodeInputs(receiver, prep.inputs); err != nil {
 			return err
 		}
 		result, err := at.Run(ctx, receiver, e.configFor(prep.node))
@@ -290,7 +291,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		return err
 	}
 	receiver := rt.NewReceiver()
-	if err := Decode(receiver, prep.inputs); err != nil {
+	if err := e.decodeInputs(receiver, prep.inputs); err != nil {
 		return err
 	}
 	// The plan diffed these inputs and showed the result; apply holds
@@ -299,7 +300,11 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	// no longer holds, and the answer is a fresh plan.
 	planned := knownFields(step, step.Inputs)
 	applied := knownFields(step, prep.inputs)
-	if !sameResourceInputs(rt, receiver, planned, applied) {
+	inputsSame, err := e.sameResourceInputs(rt, receiver, planned, applied)
+	if err != nil {
+		return err
+	}
+	if !inputsSame {
 		return fmt.Errorf(
 			"resource %s inputs changed since the plan was computed; plan again\n%s",
 			step.Address, diffFields(planned, applied, step.SensitiveInputs))
@@ -322,8 +327,20 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	case DecisionNoOp:
 		outputs = step.PriorOutputs
 	case DecisionUpdate:
+		priorInputs, err := e.resolveAssetMap(step.PriorInputs)
+		if err != nil {
+			return diagnostic.Context("update: prior inputs", err)
+		}
+		priorOutputs, err := e.resolveAssetMap(step.PriorOutputs)
+		if err != nil {
+			return diagnostic.Context("update: prior outputs", err)
+		}
+		observedOutputs, err := e.resolveAssetMap(step.ObservedOutputs)
+		if err != nil {
+			return diagnostic.Context("update: observed outputs", err)
+		}
 		result, err := rt.Update(ctx, receiver, cfg,
-			step.PriorInputs, step.PriorOutputs, step.ObservedOutputs)
+			priorInputs, priorOutputs, observedOutputs)
 		if err != nil {
 			return err
 		}
@@ -341,7 +358,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 			}
 			deleteRT = priorRT
 			deleteReceiver = priorRT.NewReceiver()
-			if err := Decode(deleteReceiver, step.PriorInputs); err != nil {
+			if err := e.decodeInputs(deleteReceiver, step.PriorInputs); err != nil {
 				return diagnostic.Context("replace: decode prior", err)
 			}
 			priorCfg, err := e.configForStateAddress(step.Address, priorAlias)
@@ -350,7 +367,11 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 			}
 			deleteCfg = priorCfg
 		}
-		if err := deleteRT.Delete(ctx, deleteReceiver, deleteCfg, step.PriorOutputs); err != nil {
+		priorOutputs, err := e.resolveAssetMap(step.PriorOutputs)
+		if err != nil {
+			return diagnostic.Context("replace: prior outputs", err)
+		}
+		if err := deleteRT.Delete(ctx, deleteReceiver, deleteCfg, priorOutputs); err != nil {
 			return diagnostic.Context("replace: delete prior", err)
 		}
 		result, err := rt.Create(ctx, receiver, cfg)
@@ -433,14 +454,18 @@ func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanSte
 		return fmt.Errorf("library %s has no resource %q", alias, typeName)
 	}
 	receiver := rt.NewReceiver()
-	if err := Decode(receiver, step.Inputs); err != nil {
+	if err := e.decodeInputs(receiver, step.Inputs); err != nil {
 		return err
 	}
 	cfg, err := e.configForStateAddress(step.Address, alias)
 	if err != nil {
 		return err
 	}
-	if err := rt.Delete(ctx, receiver, cfg, step.PriorOutputs); err != nil {
+	priorOutputs, err := e.resolveAssetMap(step.PriorOutputs)
+	if err != nil {
+		return diagnostic.Context("destroy: prior outputs", err)
+	}
+	if err := rt.Delete(ctx, receiver, cfg, priorOutputs); err != nil {
 		return err
 	}
 	rs.mu.Lock()
@@ -535,7 +560,7 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 		return err
 	}
 	receiver := dt.NewReceiver()
-	if err := Decode(receiver, prep.inputs); err != nil {
+	if err := e.decodeInputs(receiver, prep.inputs); err != nil {
 		return err
 	}
 	result, err := dt.Read(ctx, receiver, e.configFor(prep.node))
