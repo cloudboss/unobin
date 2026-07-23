@@ -1,0 +1,11 @@
+payload: data-source {
+  assets: {
+    missing: './missing.txt'
+  }
+
+  outputs: {
+    ok: {
+      value: 'ok'
+    }
+  }
+}

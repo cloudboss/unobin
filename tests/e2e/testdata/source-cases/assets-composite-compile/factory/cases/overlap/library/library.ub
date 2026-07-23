@@ -1,0 +1,11 @@
+payload: data-source {
+  assets: {
+    tree: './asset-source'
+  }
+
+  outputs: {
+    ok: {
+      value: 'ok'
+    }
+  }
+}

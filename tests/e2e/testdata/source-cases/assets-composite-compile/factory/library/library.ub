@@ -9,3 +9,15 @@ payload: data-source {
     }
   }
 }
+
+sibling: data-source {
+  assets: {
+    sibling: './sibling.txt'
+  }
+
+  outputs: {
+    digest: {
+      value: asset.sibling.content-sha256
+    }
+  }
+}

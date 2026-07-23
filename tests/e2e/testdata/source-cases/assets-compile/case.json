@@ -28,6 +28,34 @@
       "args": ["compile", "-p", "factory.ub", "-o", "-"],
       "stderr": "want/compile-stdout.stderr",
       "exitCode": 1
+    },
+    {
+      "name": "missing-source",
+      "args": ["compile", "-p", "cases/missing-source/factory.ub", "-o", "build-missing"],
+      "stderr": "want/missing-source.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "bracket-file",
+      "args": ["compile", "-p", "cases/bracket-file/factory.ub", "-o", "build-bracket"],
+      "stderr": "want/bracket-file.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "missing-entry",
+      "args": ["compile", "-p", "cases/missing-entry/factory.ub", "-o", "build-entry"],
+      "stderr": "want/missing-entry.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "source-output-overlap",
+      "args": [
+        "compile",
+        "-p", "cases/overlap/factory.ub",
+        "-o", "cases/overlap/overlap-source/build"
+      ],
+      "stderr": "want/source-output-overlap.stderr",
+      "exitCode": 1
     }
   ],
   "files": [

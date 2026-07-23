@@ -1,0 +1,9 @@
+factory: {
+  assets: {
+    message: '../../../shared/message.txt'
+  }
+
+  locals: {
+    invalid: asset.message['child.txt'].path
+  }
+}

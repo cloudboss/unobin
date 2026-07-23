@@ -8,11 +8,10 @@ factory: {
   }
 
   locals: {
-    caller-digest: asset.caller.content-sha256
+    invalid: asset.content.path
   }
 
   data-sources: {
     payload: bundle.payload {}
-    sibling: bundle.sibling {}
   }
 }

@@ -1,0 +1,9 @@
+factory: {
+  imports: {
+    invalid: './library'
+  }
+
+  data-sources: {
+    first: invalid.first {}
+  }
+}

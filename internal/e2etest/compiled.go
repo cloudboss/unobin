@@ -74,6 +74,9 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 		}
 		logProgress(t, "%s: file checks done", c.Name)
 	}
+	if err := checkFileExclusions(workspace, c.FileExclusions); err != nil {
+		t.Fatal(err)
+	}
 	if err := comparePlanSummaries(c.Dir, workspace, c.PlanSummaries, *update); err != nil {
 		t.Fatal(err)
 	}

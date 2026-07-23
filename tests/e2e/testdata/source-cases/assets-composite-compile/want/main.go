@@ -17,14 +17,14 @@ var factoryAssets []byte
 
 var factorySource = parse.NewSourceFile(
 	"factory.ub",
-	[]int{0, 11, 24, 48, 52, 53, 71, 102, 106, 108},
+	[]int{0, 11, 23, 50, 54, 55, 68, 92, 96, 97, 109, 156, 160, 161, 179, 210, 241, 245, 247},
 )
 
 func sp(start, end int) parse.Span {
 	return factorySource.Span(start, end)
 }
 
-var factoryBody = syntax.FactoryBody{S: sp(9, 107), Imports: []syntax.ImportDecl{{S: sp(28, 0), Alias: syntax.Ident{S: sp(28, 0), Name: "bundle"}, Ref: &lang.StringLit{S: sp(36, 0), Value: "./library"}}}, Data: []syntax.NodeDecl{{S: sp(75, 101), Kind: syntax.NodeKind("data-source"), Name: syntax.Ident{S: sp(75, 0), Name: "payload"}, Selector: syntax.NodeSelector{S: sp(84, 98), Alias: syntax.Ident{S: sp(84, 90), Name: "bundle"}, Export: syntax.Ident{S: sp(91, 98), Name: "payload"}}, Body: &lang.ObjectLit{S: sp(99, 101), Fields: []*lang.Field{}}}}}
+var factoryBody = syntax.FactoryBody{S: sp(9, 246), Locals: []syntax.LocalDecl{{S: sp(113, 0), Name: syntax.Ident{S: sp(113, 0), Name: "caller-digest"}, Value: &lang.DotPath{S: sp(128, 0), Root: &lang.Ident{S: sp(128, 0), Name: "asset"}, Segments: []lang.DotSegment{{S: sp(133, 0), Name: "caller"}, {S: sp(140, 0), Name: "content-sha256"}}}}}, Imports: []syntax.ImportDecl{{S: sp(72, 0), Alias: syntax.Ident{S: sp(72, 0), Name: "bundle"}, Ref: &lang.StringLit{S: sp(80, 0), Value: "./library"}}}, Data: []syntax.NodeDecl{{S: sp(183, 209), Kind: syntax.NodeKind("data-source"), Name: syntax.Ident{S: sp(183, 0), Name: "payload"}, Selector: syntax.NodeSelector{S: sp(192, 206), Alias: syntax.Ident{S: sp(192, 198), Name: "bundle"}, Export: syntax.Ident{S: sp(199, 206), Name: "payload"}}, Body: &lang.ObjectLit{S: sp(207, 209), Fields: []*lang.Field{}}}, {S: sp(214, 240), Kind: syntax.NodeKind("data-source"), Name: syntax.Ident{S: sp(214, 0), Name: "sibling"}, Selector: syntax.NodeSelector{S: sp(223, 237), Alias: syntax.Ident{S: sp(223, 229), Name: "bundle"}, Export: syntax.Ident{S: sp(230, 237), Name: "sibling"}}, Body: &lang.ObjectLit{S: sp(238, 240), Fields: []*lang.Field{}}}}}
 
 const (
 	factoryLibraryPath = ""
@@ -52,7 +52,7 @@ func main() {
 			),
 		},
 		AssetBundle:    factoryAssets,
-		RootAssetSetID: "",
+		RootAssetSetID: "5ee155a030a53191274f3cb2c9331db2ffb56923763efe652f77e2a69060aee0",
 		UnobinVersion:  unobinVersion,
 	})
 }

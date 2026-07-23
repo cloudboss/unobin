@@ -1,0 +1,9 @@
+factory: {
+  assets: {
+    tree: '../../../shared/tree'
+  }
+
+  locals: {
+    missing: asset.tree['missing.txt'].path
+  }
+}

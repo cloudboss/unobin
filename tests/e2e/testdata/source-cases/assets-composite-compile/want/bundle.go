@@ -10,7 +10,7 @@ import (
 
 var source0 = parse.NewSourceFile(
 	"local:library (library/library.ub)",
-	[]int{0, 23, 35, 64, 68, 69, 82, 96, 138, 144, 148, 150},
+	[]int{0, 23, 35, 64, 68, 69, 82, 96, 138, 144, 148, 150, 151, 174, 186, 215, 219, 220, 233, 247, 289, 295, 299, 301},
 )
 
 func sp0(start, end int) parse.Span {
@@ -26,6 +26,12 @@ func Library() *runtime.Library {
 				Kind:       runtime.NodeDataSource,
 				AssetSetID: "292c9f9ff0c15bbacb4b98f129935d26bab758137e9fbf8b691993771fbc3d73",
 				SyntaxBody: &syntax.FactoryBody{S: sp0(21, 149), Outputs: []syntax.OutputDecl{{S: sp0(86, 0), Name: syntax.Ident{S: sp0(86, 0), Name: "digest"}, Body: &lang.ObjectLit{S: sp0(94, 143), Fields: []*lang.Field{{S: sp0(102, 0), Key: lang.FieldKey{S: sp0(102, 0), Kind: lang.FieldIdent, Name: "value"}, Value: &lang.DotPath{S: sp0(109, 0), Root: &lang.Ident{S: sp0(109, 0), Name: "asset"}, Segments: []lang.DotSegment{{S: sp0(114, 0), Name: "content"}, {S: sp0(122, 0), Name: "content-sha256"}}}}}}}}},
+			},
+			"sibling": {
+				Name:       "sibling",
+				Kind:       runtime.NodeDataSource,
+				AssetSetID: "f3158d937ebca3da5d8077675f3271b64b06dfef848c0cba4c003e4af89f628b",
+				SyntaxBody: &syntax.FactoryBody{S: sp0(172, 300), Outputs: []syntax.OutputDecl{{S: sp0(237, 0), Name: syntax.Ident{S: sp0(237, 0), Name: "digest"}, Body: &lang.ObjectLit{S: sp0(245, 294), Fields: []*lang.Field{{S: sp0(253, 0), Key: lang.FieldKey{S: sp0(253, 0), Kind: lang.FieldIdent, Name: "value"}, Value: &lang.DotPath{S: sp0(260, 0), Root: &lang.Ident{S: sp0(260, 0), Name: "asset"}, Segments: []lang.DotSegment{{S: sp0(265, 0), Name: "sibling"}, {S: sp0(273, 0), Name: "content-sha256"}}}}}}}}},
 			},
 		},
 	}

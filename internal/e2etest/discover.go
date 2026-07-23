@@ -29,6 +29,7 @@ type CompiledCase struct {
 	Build               bool                 `json:"build"`
 	Commands            []Command            `json:"commands"`
 	Files               []FileCheck          `json:"files"`
+	FileExclusions      []FileExclusionCheck `json:"fileExclusions"`
 	PlanSummaries       []PlanSummaryCheck   `json:"planSummaries"`
 	PlanEnvelopes       []PlanEnvelopeCheck  `json:"planEnvelopes"`
 	StateEnvelopes      []StateEnvelopeCheck `json:"stateEnvelopes"`
@@ -42,18 +43,19 @@ type CompiledCase struct {
 
 // SourceCase describes a source-root CLI e2e case.
 type SourceCase struct {
-	Name        string              `json:"name"`
-	Dir         string              `json:"-"`
-	RootPath    string              `json:"rootPath"`
-	Executor    string              `json:"executor"`
-	CLIVersion  string              `json:"cliVersion"`
-	Build       bool                `json:"build"`
-	Remotes     []RemoteSource      `json:"remotes"`
-	Tags        map[string][]string `json:"tags"`
-	GoLibrary   *GoLibrarySource    `json:"goLibrary"`
-	Commands    []Command           `json:"commands"`
-	Files       []FileCheck         `json:"files"`
-	AbsentFiles []string            `json:"absentFiles"`
+	Name           string               `json:"name"`
+	Dir            string               `json:"-"`
+	RootPath       string               `json:"rootPath"`
+	Executor       string               `json:"executor"`
+	CLIVersion     string               `json:"cliVersion"`
+	Build          bool                 `json:"build"`
+	Remotes        []RemoteSource       `json:"remotes"`
+	Tags           map[string][]string  `json:"tags"`
+	GoLibrary      *GoLibrarySource     `json:"goLibrary"`
+	Commands       []Command            `json:"commands"`
+	Files          []FileCheck          `json:"files"`
+	FileExclusions []FileExclusionCheck `json:"fileExclusions"`
+	AbsentFiles    []string             `json:"absentFiles"`
 }
 
 type GoLibrarySource struct {
@@ -95,6 +97,12 @@ type Command struct {
 type FileCheck struct {
 	Path string `json:"path"`
 	Want string `json:"want"`
+}
+
+// FileExclusionCheck rejects text in a generated text or binary file.
+type FileExclusionCheck struct {
+	Path string   `json:"path"`
+	Text []string `json:"text"`
 }
 
 // PlanSummaryCheck describes a plan file decoded and compared to a golden.
@@ -265,6 +273,9 @@ func validateCompiledCase(c CompiledCase) error {
 	if err := validateFiles(c.Files); err != nil {
 		return err
 	}
+	if err := validateFileExclusions(c.FileExclusions); err != nil {
+		return err
+	}
 	if err := validatePlanSummaries(c.PlanSummaries); err != nil {
 		return err
 	}
@@ -312,6 +323,9 @@ func validateSourceCase(c SourceCase) error {
 		return err
 	}
 	if err := validateFiles(c.Files); err != nil {
+		return err
+	}
+	if err := validateFileExclusions(c.FileExclusions); err != nil {
 		return err
 	}
 	return validateAbsentFiles(c.AbsentFiles)
@@ -423,6 +437,24 @@ func validateFiles(files []FileCheck) error {
 		}
 		if err := checkRelPath(prefix+".want", file.Want); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func validateFileExclusions(checks []FileExclusionCheck) error {
+	for i, check := range checks {
+		prefix := fmt.Sprintf("fileExclusions[%d]", i)
+		if err := checkRelPath(prefix+".path", check.Path); err != nil {
+			return err
+		}
+		if check.Path == "" {
+			return fmt.Errorf("%s.path is required", prefix)
+		}
+		for j, text := range check.Text {
+			if text == "" {
+				return fmt.Errorf("%s.text[%d] is required", prefix, j)
+			}
 		}
 	}
 	return nil

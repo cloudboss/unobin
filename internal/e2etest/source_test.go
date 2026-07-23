@@ -53,6 +53,22 @@ func TestCheckAbsentFiles(t *testing.T) {
 	require.Contains(t, err.Error(), "present.txt exists")
 }
 
+func TestCheckFileExclusions(t *testing.T) {
+	workspace := t.TempDir()
+	writeText(t, filepath.Join(workspace, "generated.txt"), "allowed text\n")
+
+	require.NoError(t, checkFileExclusions(workspace, []FileExclusionCheck{{
+		Path: "generated.txt",
+		Text: []string{"forbidden", "$WORKSPACE/source"},
+	}}))
+	err := checkFileExclusions(workspace, []FileExclusionCheck{{
+		Path: "generated.txt",
+		Text: []string{"allowed"},
+	}})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `generated.txt contains excluded text "allowed"`)
+}
+
 func TestSourceRemoteMapSetsProjectMetadata(t *testing.T) {
 	workspace := t.TempDir()
 	writeText(t, filepath.Join(workspace, "repo/project.ub"),

@@ -1,0 +1,11 @@
+payload: data-source {
+  assets: {
+    content: './payload.bin'
+  }
+
+  outputs: {
+    ok: {
+      value: 'ok'
+    }
+  }
+}

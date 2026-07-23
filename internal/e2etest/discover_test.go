@@ -27,6 +27,9 @@ func TestDiscoverCases(t *testing.T) {
 		"files": [
 			{ "path": "work/events.ndjson", "want": "want/events.ndjson" }
 		],
+		"fileExclusions": [
+			{ "path": "work/events.ndjson", "text": ["secret", "/tmp/source"] }
+		],
 		"planSummaries": [
 			{ "path": "work/plan.ubp", "want": "want/plan-summary.json" }
 		],
@@ -69,6 +72,9 @@ func TestDiscoverCases(t *testing.T) {
 	require.Len(t, beta.Files, 1)
 	assert.Equal(t, "work/events.ndjson", beta.Files[0].Path)
 	assert.Equal(t, "want/events.ndjson", beta.Files[0].Want)
+	require.Len(t, beta.FileExclusions, 1)
+	assert.Equal(t, "work/events.ndjson", beta.FileExclusions[0].Path)
+	assert.Equal(t, []string{"secret", "/tmp/source"}, beta.FileExclusions[0].Text)
 	require.Len(t, beta.PlanSummaries, 1)
 	assert.Equal(t, "work/plan.ubp", beta.PlanSummaries[0].Path)
 	assert.Equal(t, "want/plan-summary.json", beta.PlanSummaries[0].Want)
@@ -106,6 +112,9 @@ func TestDiscoverSourceCases(t *testing.T) {
 		"files": [
 			{ "path": "root/project.ub", "want": "want/project.ub" }
 		],
+		"fileExclusions": [
+			{ "path": "root/project.ub", "text": ["secret", "/tmp/source"] }
+		],
 		"absentFiles": ["root/services/app/project-lock.ub"]
 	}`)
 
@@ -126,6 +135,9 @@ func TestDiscoverSourceCases(t *testing.T) {
 	assert.Equal(t, []string{"v1.0.0"}, got.Tags["github.com/x/lib"])
 	assert.Equal(t, "sync", got.Commands[0].Name)
 	assert.Equal(t, "root/project.ub", got.Files[0].Path)
+	require.Len(t, got.FileExclusions, 1)
+	assert.Equal(t, "root/project.ub", got.FileExclusions[0].Path)
+	assert.Equal(t, []string{"secret", "/tmp/source"}, got.FileExclusions[0].Text)
 	assert.Equal(t, []string{"root/services/app/project-lock.ub"}, got.AbsentFiles)
 }
 
@@ -164,6 +176,39 @@ func TestDiscoverCasesRejectsBadPaths(t *testing.T) {
 				]
 			}`,
 			want: "commands[0].name is required",
+		},
+		{
+			name: "empty exclusion path",
+			content: `{
+				"name": "bad",
+				"factoryPath": "src",
+				"fileExclusions": [
+					{ "text": ["secret"] }
+				]
+			}`,
+			want: "fileExclusions[0].path is required",
+		},
+		{
+			name: "parent exclusion path",
+			content: `{
+				"name": "bad",
+				"factoryPath": "src",
+				"fileExclusions": [
+					{ "path": "../generated.go", "text": ["secret"] }
+				]
+			}`,
+			want: "fileExclusions[0].path must stay under the case directory",
+		},
+		{
+			name: "empty excluded text",
+			content: `{
+				"name": "bad",
+				"factoryPath": "src",
+				"fileExclusions": [
+					{ "path": "generated.go", "text": [""] }
+				]
+			}`,
+			want: "fileExclusions[0].text[0] is required",
 		},
 	}
 

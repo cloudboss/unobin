@@ -19,6 +19,66 @@
       "args": ["compile", "-p", "factory.ub", "-o", "-"],
       "stderr": "want/compile-stdout.stderr",
       "exitCode": 1
+    },
+    {
+      "name": "missing-source",
+      "args": [
+        "compile",
+        "-p", "cases/missing-source/factory.ub",
+        "-o", "build-missing"
+      ],
+      "stderr": "want/missing-source.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "bracket-file",
+      "args": [
+        "compile",
+        "-p", "cases/bracket-file/factory.ub",
+        "-o", "build-bracket"
+      ],
+      "stderr": "want/bracket-file.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "missing-entry",
+      "args": [
+        "compile",
+        "-p", "cases/missing-entry/factory.ub",
+        "-o", "build-entry"
+      ],
+      "stderr": "want/missing-entry.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "source-output-overlap",
+      "args": [
+        "compile",
+        "-p", "cases/overlap/factory.ub",
+        "-o", "cases/overlap/library/asset-source/build"
+      ],
+      "stderr": "want/source-output-overlap.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "caller-isolation",
+      "args": [
+        "compile",
+        "-p", "cases/caller-isolation/factory.ub",
+        "-o", "build-caller"
+      ],
+      "stderr": "want/caller-isolation.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "sibling-isolation",
+      "args": [
+        "compile",
+        "-p", "cases/sibling-isolation/factory.ub",
+        "-o", "build-sibling"
+      ],
+      "stderr": "want/sibling-isolation.stderr",
+      "exitCode": 1
     }
   ],
   "files": [
@@ -29,6 +89,20 @@
     {
       "path": "factory/build/internal/bundle/bundle.go",
       "want": "want/bundle.go"
+    }
+  ],
+  "fileExclusions": [
+    {
+      "path": "factory/build/main.go",
+      "text": ["caller.txt", "payload.bin", "sibling.txt", "$WORKSPACE"]
+    },
+    {
+      "path": "factory/build/internal/bundle/bundle.go",
+      "text": ["caller.txt", "payload.bin", "sibling.txt", "$WORKSPACE"]
+    },
+    {
+      "path": "factory/build/factory.assets",
+      "text": ["caller.txt", "payload.bin", "sibling.txt", "$WORKSPACE"]
     }
   ]
 }

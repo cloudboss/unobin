@@ -1,0 +1,11 @@
+payload: data-source {
+  assets: {
+    tree: './tree'
+  }
+
+  outputs: {
+    missing: {
+      value: asset.tree['missing.txt'].path
+    }
+  }
+}

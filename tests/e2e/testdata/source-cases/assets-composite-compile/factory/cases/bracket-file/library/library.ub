@@ -1,0 +1,11 @@
+payload: data-source {
+  assets: {
+    payload: './payload.bin'
+  }
+
+  outputs: {
+    invalid: {
+      value: asset.payload['child.txt'].path
+    }
+  }
+}

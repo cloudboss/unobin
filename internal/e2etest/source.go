@@ -70,9 +70,36 @@ func runSourceCase(t *testing.T, cfg config, executable string, c SourceCase) {
 		}
 		logProgress(t, "%s: file checks done", c.Name)
 	}
+	if err := checkFileExclusions(workspace, c.FileExclusions); err != nil {
+		t.Fatal(err)
+	}
 	if err := checkAbsentFiles(workspace, c.AbsentFiles); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func checkFileExclusions(
+	workspace string,
+	checks []FileExclusionCheck,
+) error {
+	for _, check := range checks {
+		path := filepath.Join(workspace, filepath.FromSlash(check.Path))
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", check.Path, err)
+		}
+		for _, excluded := range check.Text {
+			excluded = expandValue(workspace, excluded)
+			if bytes.Contains(body, []byte(excluded)) {
+				return fmt.Errorf(
+					"%s contains excluded text %q",
+					check.Path,
+					excluded,
+				)
+			}
+		}
+	}
+	return nil
 }
 
 func sourceCasesNeedProcess(cases []SourceCase) bool {

@@ -1,0 +1,23 @@
+first: data-source {
+  assets: {
+    first: './first.txt'
+  }
+
+  outputs: {
+    invalid: {
+      value: asset.second.path
+    }
+  }
+}
+
+second: data-source {
+  assets: {
+    second: './second.txt'
+  }
+
+  outputs: {
+    ok: {
+      value: 'ok'
+    }
+  }
+}
