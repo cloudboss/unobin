@@ -9,7 +9,7 @@ import (
 )
 
 var source0 = parse.NewSourceFile(
-	"local:b (../b/library.ub)",
+	"local:b (b/library.ub)",
 	[]int{0, 22, 35, 66, 70, 72},
 )
 

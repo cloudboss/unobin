@@ -196,6 +196,20 @@ func rootFactorySourceSpec(
 	}
 }
 
+func rootResolveSource(projectDir, sourceDir string) *resolve.Source {
+	packageSubdir := projectRelativePath(projectDir, sourceDir)
+	if packageSubdir == "." {
+		packageSubdir = ""
+	}
+	return &resolve.Source{
+		FS:            os.DirFS(sourceDir),
+		Path:          sourceDir,
+		ProjectFS:     os.DirFS(projectDir),
+		ProjectPath:   projectDir,
+		PackageSubdir: packageSubdir,
+	}
+}
+
 func projectRelativePath(projectDir, path string) string {
 	if projectDir != "" {
 		if rel, err := filepath.Rel(projectDir, path); err == nil && rel != ".." &&
@@ -385,10 +399,7 @@ func run(opts Options, resultOut **Result) error {
 		GeneratePackages:        true,
 		ValidateCompositeBodies: true,
 		Body:                    &sf.Factory.Body,
-		Source: &resolve.Source{
-			FS:   os.DirFS(sourceDir),
-			Path: sourceDir,
-		},
+		Source:                  rootResolveSource(projectDir, sourceDir),
 	})
 	if err != nil {
 		return err

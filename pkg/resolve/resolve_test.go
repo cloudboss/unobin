@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 
 	"github.com/stretchr/testify/require"
 
@@ -38,6 +39,69 @@ func TestLocalResolverRelative(t *testing.T) {
 	b, err := fs.ReadFile(src.FS, "library.ub")
 	require.NoError(t, err)
 	require.Contains(t, string(b), "net")
+}
+
+func TestLocalResolverAddsProjectMetadata(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "project.ub"),
+		localResolverFixture(t, "valid/empty-project"))
+	writeFile(t, filepath.Join(root, "libraries", "net", "metadata.txt"), "net\n")
+
+	src, err := NewLocalResolver(root).Resolve(&LocalImport{Path: "./libraries/net"})
+	require.NoError(t, err)
+	require.Equal(t, root, src.ProjectPath)
+	require.Equal(t, "libraries/net", src.PackageSubdir)
+	project, err := fs.ReadFile(src.ProjectFS, "project.ub")
+	require.NoError(t, err)
+	require.NotEmpty(t, project)
+}
+
+func TestResolveLocalSourcePreservesOSProjectMetadata(t *testing.T) {
+	root := t.TempDir()
+	parentPath := filepath.Join(root, "libraries", "parent")
+	writeFile(t, filepath.Join(root, "project.ub"),
+		localResolverFixture(t, "valid/empty-project"))
+	writeFile(t, filepath.Join(parentPath, "child", "metadata.txt"), "child\n")
+	parent := &Source{
+		FS:            os.DirFS(parentPath),
+		Path:          parentPath,
+		ProjectFS:     os.DirFS(root),
+		ProjectPath:   root,
+		ProjectSubdir: "ub/project",
+		PackageSubdir: "libraries/parent",
+	}
+
+	child, err := ResolveLocalSource(&LocalImport{Path: "./child"}, parent)
+	require.NoError(t, err)
+	require.Equal(t, root, child.ProjectPath)
+	require.Equal(t, "ub/project", child.ProjectSubdir)
+	require.Equal(t, "libraries/parent/child", child.PackageSubdir)
+	project, err := fs.ReadFile(child.ProjectFS, "project.ub")
+	require.NoError(t, err)
+	require.NotEmpty(t, project)
+}
+
+func TestResolveLocalSourcePreservesVirtualProjectMetadata(t *testing.T) {
+	projectFS := fstest.MapFS{
+		"metadata.txt":                    &fstest.MapFile{Data: []byte("project")},
+		"libraries/parent/child/data.txt": &fstest.MapFile{Data: []byte("library")},
+	}
+	parentFS, err := fs.Sub(projectFS, "libraries/parent")
+	require.NoError(t, err)
+	parent := &Source{
+		FS:            parentFS,
+		ProjectFS:     projectFS,
+		ProjectSubdir: "ub/project",
+		PackageSubdir: "libraries/parent",
+	}
+
+	child, err := ResolveLocalSource(&LocalImport{Path: "./child"}, parent)
+	require.NoError(t, err)
+	require.Equal(t, "ub/project", child.ProjectSubdir)
+	require.Equal(t, "libraries/parent/child", child.PackageSubdir)
+	metadata, err := fs.ReadFile(child.ProjectFS, "metadata.txt")
+	require.NoError(t, err)
+	require.Equal(t, "project", string(metadata))
 }
 
 func TestLocalResolverStopsAtUnreadableAncestor(t *testing.T) {

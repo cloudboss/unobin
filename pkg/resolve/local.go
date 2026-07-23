@@ -41,7 +41,14 @@ func (r *LocalResolver) Resolve(ref ImportRef) (*Source, error) {
 	if err := checkLocalProjectBoundary(r.Root, abs, li.Path); err != nil {
 		return nil, err
 	}
-	return localSourceFromPath(li.Path, abs)
+	source, err := localSourceFromPath(li.Path, abs)
+	if err != nil {
+		return nil, err
+	}
+	if err := addLocalProjectMetadata(source, r.Root); err != nil {
+		return nil, err
+	}
+	return source, nil
 }
 
 // ResolveFrom resolves local refs relative to the package that declared
@@ -76,7 +83,12 @@ func ResolveLocalSource(li *LocalImport, parent *Source) (*Source, error) {
 		if err := checkLocalProjectBoundary(parent.Path, abs, li.Path); err != nil {
 			return nil, err
 		}
-		return localSourceFromPath(li.Path, abs)
+		child, err := localSourceFromPath(li.Path, abs)
+		if err != nil {
+			return nil, err
+		}
+		preserveLocalProjectMetadata(child, parent, li.Path)
+		return child, nil
 	}
 	if parent.FS == nil {
 		return nil, fmt.Errorf("local import %q: missing declaring source", li.Path)
@@ -99,7 +111,9 @@ func ResolveLocalSource(li *LocalImport, parent *Source) (*Source, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Source{FS: sub}, nil
+	child := &Source{FS: sub}
+	preserveLocalProjectMetadata(child, parent, li.Path)
+	return child, nil
 }
 
 func absoluteLocalImportError(path string) error {
@@ -258,4 +272,53 @@ func localSourceFromPath(importPath, abs string) (*Source, error) {
 		return nil, fmt.Errorf("local import %q: not a directory", importPath)
 	}
 	return &Source{FS: os.DirFS(abs), Path: abs}, nil
+}
+
+func addLocalProjectMetadata(source *Source, importerRoot string) error {
+	projectPath, ok, err := nearestProjectDir(importerRoot)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+	sourcePath, err := filepath.Abs(source.Path)
+	if err != nil {
+		return err
+	}
+	packageSubdir, err := filepath.Rel(projectPath, sourcePath)
+	if err != nil {
+		return err
+	}
+	source.ProjectFS = os.DirFS(projectPath)
+	source.ProjectPath = projectPath
+	source.PackageSubdir = cleanPackageSubdir(filepath.ToSlash(packageSubdir))
+	return nil
+}
+
+func preserveLocalProjectMetadata(child, parent *Source, importPath string) {
+	if child == nil || parent == nil || parent.ProjectFS == nil {
+		return
+	}
+	child.Commit = parent.Commit
+	child.ProjectFS = parent.ProjectFS
+	child.ProjectPath = parent.ProjectPath
+	child.ProjectSubdir = parent.ProjectSubdir
+	child.PackageSubdir = childPackageSubdir(parent.PackageSubdir, importPath)
+	child.ModuleRootPath = parent.ModuleRootPath
+	child.ModulePath = parent.ModulePath
+	if parent.GoImportPath != "" {
+		child.GoImportPath = pathpkg.Join(parent.GoImportPath, filepath.ToSlash(importPath))
+	}
+}
+
+func childPackageSubdir(parentSubdir, importPath string) string {
+	return cleanPackageSubdir(pathpkg.Join(parentSubdir, filepath.ToSlash(importPath)))
+}
+
+func cleanPackageSubdir(value string) string {
+	if value == "." {
+		return ""
+	}
+	return value
 }
