@@ -6,7 +6,7 @@ Builtin functions live under `@core`.
 | --- | --- |
 | `@core.join(list, sep)` | Join scalar list elements with a separator. |
 | `@core.to-json(value)` | Render compact JSON. |
-| `@core.b64-encode(string)` | Base64-encode a string. |
+| `@core.b64-encode(string \| bytes)` | Base64-encode a string or bytes. |
 | `@core.b64-decode(string)` | Base64-decode a string. |
 | `@core.range(n)` | Return integers from `0` through `n - 1`. |
 | `@core.length(value)` | Return the length of a string, list, or map. |

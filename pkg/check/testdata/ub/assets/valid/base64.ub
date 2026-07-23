@@ -1,0 +1,12 @@
+factory: {
+  assets: {
+    tree:    './tree'
+    archive: './archive.zip'
+  }
+
+  locals: {
+    encoded-path:    @core.b64-encode(asset.tree.path)
+    encoded-content: @core.b64-encode(asset.archive.content)
+    encoded-bytes:   @core.b64-encode([0, 127, 255])
+  }
+}

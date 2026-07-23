@@ -41,7 +41,13 @@ var coreRegistrations = []struct {
 		"Join a list's elements into one string with a separator between elements.",
 		fnJoin, nil},
 	{"to-json", "Render a value as compact JSON.", fnToJSON, nil},
-	{"b64-encode", "Base64-encode a string.", fnB64Encode, nil},
+	{"b64-encode", "Base64-encode a string or bytes.", fnB64Encode,
+		&typecheck.FuncSig{
+			Params: []typecheck.Type{typecheck.TUnion([]typecheck.Type{
+				typecheck.TString(), typecheck.TBytes(),
+			})},
+			Result: typecheck.TString(),
+		}},
 	{"b64-decode", "Base64-decode a string.", fnB64Decode, nil},
 	{"range", "Return the integers [0, n) as a list.", fnRange, nil},
 	{"length", "Return the number of elements in a string, list, or map.", fnLength,
@@ -199,8 +205,47 @@ func fnToJSON(v any) (string, error) {
 	return strings.TrimSuffix(b.String(), "\n"), nil
 }
 
-func fnB64Encode(s string) (string, error) {
-	return base64.StdEncoding.EncodeToString([]byte(s)), nil
+func fnB64Encode(value any) (string, error) {
+	content, err := b64Bytes(value)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(content), nil
+}
+
+func b64Bytes(value any) ([]byte, error) {
+	switch typed := value.(type) {
+	case string:
+		return []byte(typed), nil
+	case []byte:
+		return typed, nil
+	case []any:
+		content := make([]byte, len(typed))
+		for i, value := range typed {
+			number, ok := value.(int64)
+			if !ok {
+				return nil, fmt.Errorf(
+					"b64-encode: element %d must be a byte, got %s",
+					i,
+					lang.TypeMessage(value),
+				)
+			}
+			if number < 0 || number > 255 {
+				return nil, fmt.Errorf(
+					"b64-encode: element %d must be a byte, got %d",
+					i,
+					number,
+				)
+			}
+			content[i] = byte(number)
+		}
+		return content, nil
+	default:
+		return nil, fmt.Errorf(
+			"b64-encode: argument must be a string or bytes, got %s",
+			lang.TypeMessage(value),
+		)
+	}
 }
 
 func fnB64Decode(s string) (string, error) {

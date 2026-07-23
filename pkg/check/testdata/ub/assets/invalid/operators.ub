@@ -1,0 +1,17 @@
+factory: {
+  assets: {
+    tree:    './tree'
+    archive: './archive.zip'
+  }
+
+  locals: {
+    path:             asset.tree.path
+    content:          asset.archive.content
+    add-path:         local.path + '-suffix'
+    subtract-content: local.content - 1
+    order-path:       local.path < 'z'
+    order-content:    local.content > local.content
+    boolean-path:     local.path && true
+    negate-content:   !local.content
+  }
+}

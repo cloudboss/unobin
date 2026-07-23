@@ -627,6 +627,12 @@ func TestEvalEquality(t *testing.T) {
 	}
 }
 
+func TestEvalEqualityBytes(t *testing.T) {
+	require.True(t, evalEq([]byte{0, 127, 255}, []byte{0, 127, 255}))
+	require.False(t, evalEq([]byte{0, 127, 255}, []byte{0, 127, 254}))
+	require.False(t, evalEq([]byte{0}, []byte{0, 0}))
+}
+
 func TestEvalLogical(t *testing.T) {
 	cases := []struct {
 		src  string

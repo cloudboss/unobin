@@ -1,0 +1,11 @@
+factory: {
+  assets: {
+    tree:    './tree'
+    archive: './archive.zip'
+  }
+
+  locals: {
+    path:    $'{{ asset.tree.path }}'
+    content: $'{{ asset.archive.content }}'
+  }
+}

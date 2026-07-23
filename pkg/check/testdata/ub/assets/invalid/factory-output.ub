@@ -1,0 +1,15 @@
+factory: {
+  assets: {
+    archive: './archive.zip'
+  }
+
+  locals: {
+    content: asset.archive.content
+  }
+
+  outputs: {
+    content: {
+      value: local.content
+    }
+  }
+}

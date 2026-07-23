@@ -73,6 +73,7 @@ func TestEvalCoreNamespaceIgnoresImportTable(t *testing.T) {
 // compatibility promise.
 func TestCoreFunctionSet(t *testing.T) {
 	str := typecheck.TString()
+	bytes := typecheck.TBytes()
 	integer := typecheck.TInteger()
 	number := typecheck.TNumber()
 	boolean := typecheck.TBoolean()
@@ -86,7 +87,10 @@ func TestCoreFunctionSet(t *testing.T) {
 			Result: boolean,
 		},
 		"b64-decode": {Params: []typecheck.Type{str}, Result: str},
-		"b64-encode": {Params: []typecheck.Type{str}, Result: str},
+		"b64-encode": {
+			Params: []typecheck.Type{typecheck.TUnion([]typecheck.Type{str, bytes})},
+			Result: str,
+		},
 		"join": {
 			Params: []typecheck.Type{typecheck.TList(typecheck.TOpaque()), str},
 			Result: str,
@@ -153,6 +157,32 @@ func requireSigEqual(t *testing.T, name string, want, got typecheck.FuncSig) {
 	require.True(t, want.Result.Equal(got.Result),
 		"%s result: want %s, got %s", name, want.Result, got.Result)
 	require.Equal(t, want.Infer == nil, got.Infer == nil, "%s: result hook presence", name)
+}
+
+func TestB64EncodeUnionMatchesRuntime(t *testing.T) {
+	union := CoreFunctionSigs()["b64-encode"].Params[0]
+	cases := []struct {
+		name string
+		typ  typecheck.Type
+		val  any
+	}{
+		{"string", typecheck.TString(), "ab"},
+		{"asset path", typecheck.TAssetPath(), "/tmp/source"},
+		{"bytes", typecheck.TBytes(), []byte{0, 255}},
+		{"byte list", typecheck.TList(typecheck.TInteger()), []any{int64(0), int64(255)}},
+		{"string list", typecheck.TList(typecheck.TString()), []any{"x"}},
+		{"object", typecheck.TObject(nil), map[string]any{}},
+		{"boolean", typecheck.TBoolean(), true},
+		{"null", typecheck.TNull(), nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, rtErr := fnB64Encode(c.val)
+			staticOK := typecheck.Assignable(union, c.typ)
+			require.Equal(t, rtErr == nil, staticOK,
+				"runtime and static faces disagree on %s", c.typ)
+		})
+	}
 }
 
 // TestMergeFaceMatchesRuntime locks merge's declared face to the

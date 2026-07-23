@@ -1,0 +1,6 @@
++: operators cannot use asset-path values
+-: operators cannot use bytes values
+<: operators cannot use asset-path values
+>: operators cannot use bytes values
+&&: operators cannot use asset-path values
+!: operators cannot use bytes values

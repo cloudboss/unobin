@@ -793,7 +793,20 @@ func (c *referenceChecker) checkOutputBodyTypes() {
 func (c *referenceChecker) checkSyntaxOutputsBlock(outputs []syntax.OutputDecl, scope string) {
 	s := c.outputScope(scope)
 	for _, decl := range outputs {
-		typecheck.Infer(decl.Body, typecheck.TUnknown(), s, c.errs)
+		expr := lang.OutputValueExpr(decl.Body)
+		if expr == nil {
+			typecheck.Infer(decl.Body, typecheck.TUnknown(), s, c.errs)
+			continue
+		}
+		typ := typecheck.Infer(expr, typecheck.TUnknown(), s, c.errs)
+		if scope == "" && typ.Kind == typecheck.Bytes {
+			c.errs.Addf(
+				lang.ErrType,
+				expr.Span().Start,
+				"factory output %q cannot return asset content",
+				decl.Name.Name,
+			)
+		}
 	}
 }
 

@@ -1,0 +1,13 @@
+factory: {
+  assets: {
+    tree:    './tree'
+    archive: './archive.zip'
+  }
+
+  locals: {
+    same-path:         asset.tree.path == asset.tree.path
+    literal-path:      asset.tree.path == '/tmp/tree'
+    same-content:      asset.archive.content == asset.archive.content
+    different-content: asset.archive.content != asset.tree['main.go'].content
+  }
+}

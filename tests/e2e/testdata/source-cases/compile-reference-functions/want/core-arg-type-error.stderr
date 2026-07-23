@@ -1,1 +1,1 @@
-factory.ub:22:33: type: type mismatch: expected string, got integer
+factory.ub:22:33: type: b64-encode: argument must be a string or bytes, got an integer

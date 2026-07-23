@@ -1,0 +1,11 @@
+factory: {
+  assets: {
+    archive: './archive.zip'
+  }
+
+  locals: {
+    content:      asset.archive.content
+    json-content: @core.to-json(local.content)
+    json-object:  @core.to-json({ content: local.content })
+  }
+}

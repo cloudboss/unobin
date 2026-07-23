@@ -17,9 +17,25 @@ func evalCore(t *testing.T, src string, inputs map[string]any) (any, error) {
 }
 
 func TestFunctionB64Encode(t *testing.T) {
-	got, err := evalCore(t, "@core.b64-encode('hello')", nil)
+	tests := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{"string", "@core.b64-encode('hello')", "aGVsbG8="},
+		{"bytes", "@core.b64-encode([0, 127, 255])", "AH//"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := evalCore(t, tt.src, nil)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+
+	got, err := fnB64Encode([]byte{0, 127, 255})
 	require.NoError(t, err)
-	require.Equal(t, "aGVsbG8=", got)
+	require.Equal(t, "AH//", got)
 }
 
 func TestFunctionB64Decode(t *testing.T) {
@@ -42,8 +58,15 @@ func TestFunctionB64DecodeBad(t *testing.T) {
 
 func TestFunctionB64EncodeWrongType(t *testing.T) {
 	_, err := evalCore(t, "@core.b64-encode(1)", nil)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "must be a string")
+	require.EqualError(t, err,
+		"b64-encode: argument must be a string or bytes, got an integer")
+
+	_, err = evalCore(t, "@core.b64-encode([256])", nil)
+	require.EqualError(t, err, "b64-encode: element 0 must be a byte, got 256")
+
+	_, err = evalCore(t, "@core.b64-encode(['x'])", nil)
+	require.EqualError(t, err,
+		"b64-encode: element 0 must be a byte, got a string")
 }
 
 func TestFunctionRange(t *testing.T) {

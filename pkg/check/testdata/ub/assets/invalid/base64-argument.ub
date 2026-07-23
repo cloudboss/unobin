@@ -1,0 +1,10 @@
+factory: {
+  assets: {
+    archive: './archive.zip'
+  }
+
+  locals: {
+    boolean: @core.b64-encode(true)
+    object:  @core.b64-encode({ value: 'x' })
+  }
+}

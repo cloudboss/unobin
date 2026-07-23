@@ -1,0 +1,9 @@
+factory: {
+  assets: {
+    archive: './archive.zip'
+  }
+
+  locals: {
+    bad: asset.archive.content == 'zip bytes'
+  }
+}

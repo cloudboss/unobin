@@ -1,0 +1,2 @@
+b64-encode: argument must be a string or bytes, got a boolean
+b64-encode: argument must be a string or bytes, got an object

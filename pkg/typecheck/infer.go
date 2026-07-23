@@ -7,7 +7,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 )
 
-// Scope carries the lexical information the inferrer needs to type
+// Scope contains the lexical information the inferrer needs to type
 // an expression: local input declarations, an optional @each binding,
 // and a callback that returns the output Type for a node address.
 // LookupNode may be nil when the caller has no node table; the walker
@@ -197,6 +197,20 @@ func inferCall(c *lang.Call, scope *Scope, errs *lang.ErrorList) Type {
 		case sig.Variadic != nil:
 			target = *sig.Variadic
 		}
+		if c.Library.Name == lang.CoreNamespace {
+			got := inferCoreArgument(
+				c.Func.Name,
+				arg,
+				target,
+				sig.Infer != nil,
+				scope,
+				errs,
+			)
+			if sig.Infer != nil {
+				argTypes = append(argTypes, got)
+			}
+			continue
+		}
 		switch {
 		case sig.Infer != nil:
 			got := Infer(arg, TUnknown(), scope, errs)
@@ -216,6 +230,44 @@ func inferCall(c *lang.Call, scope *Scope, errs *lang.ErrorList) Type {
 	return sig.Result
 }
 
+func inferCoreArgument(
+	function string,
+	arg lang.Expr,
+	target Type,
+	inferResult bool,
+	scope *Scope,
+	errs *lang.ErrorList,
+) Type {
+	inferTarget := target
+	if inferResult || target.Kind == Union {
+		inferTarget = TUnknown()
+	}
+	got := Infer(arg, inferTarget, scope, errs)
+	if kind, ok := containedAssetValueKind(got); ok &&
+		!explicitlyAcceptsInternal(target, got) {
+		errs.Addf(
+			lang.ErrType,
+			arg.Span().Start,
+			"%s.%s cannot accept %s values",
+			lang.CoreNamespace,
+			function,
+			Type{Kind: kind},
+		)
+		return got
+	}
+	switch {
+	case inferResult:
+		if target.IsKnown() && got.IsKnown() && !Assignable(target, got) {
+			reportMismatch(arg, target, got, errs)
+		}
+	case target.Kind == Union:
+		checkUnionInferred(function, arg, target, got, errs)
+	default:
+		checkInferred(arg, target, got, errs)
+	}
+	return got
+}
+
 // checkUnionArg checks an argument against a builtin's union-typed
 // parameter. The diagnostic reuses the runtime function's own prose,
 // so a compile rejection and a plan rejection read the same.
@@ -223,6 +275,16 @@ func checkUnionArg(
 	fnName string, arg lang.Expr, target Type, scope *Scope, errs *lang.ErrorList,
 ) {
 	got := Infer(arg, TUnknown(), scope, errs)
+	checkUnionInferred(fnName, arg, target, got, errs)
+}
+
+func checkUnionInferred(
+	fnName string,
+	arg lang.Expr,
+	target Type,
+	got Type,
+	errs *lang.ErrorList,
+) {
 	if !got.IsKnown() || Assignable(target, got) {
 		return
 	}
@@ -341,6 +403,11 @@ func inferInterpolated(s *lang.InterpolatedString, scope *Scope, errs *lang.Erro
 // value does not splice into text directly; serializing it is the way
 // to spell that.
 func checkInterpolatedSlot(t Type, pos lang.Position, errs *lang.ErrorList) {
+	if kind, ok := directAssetValueKind(t); ok {
+		errs.Addf(lang.ErrType, pos,
+			"interpolation cannot use %s values", Type{Kind: kind})
+		return
+	}
 	if t.Unwrap().Kind == Opaque {
 		errs.Addf(lang.ErrType, pos,
 			"interpolation slot is opaque; render it as text with @core.to-json(x)")
@@ -498,16 +565,20 @@ func mapValueTarget(target Type, group bool) (Type, bool) {
 // everything else, references and calls included, is compared here.
 func Check(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 	got := Infer(e, target, scope, errs)
+	checkInferred(e, target, got, errs)
+	return got
+}
+
+func checkInferred(e lang.Expr, target, got Type, errs *lang.ErrorList) {
 	if !target.IsKnown() || !got.IsKnown() {
-		return got
+		return
 	}
 	if literalEnforced(e, target) {
-		return got
+		return
 	}
 	if !Assignable(target, got) {
 		reportMismatch(e, target, got, errs)
 	}
-	return got
 }
 
 // reportMismatch appends the diagnostic for a value of type got in a
@@ -1078,6 +1149,12 @@ func inferInfix(in *lang.Infix, scope *Scope, errs *lang.ErrorList) Type {
 		rightScope = scope.narrowed(facts)
 	}
 	right := Infer(in.Right, TUnknown(), rightScope, errs)
+	if in.Op != "??" && in.Op != "==" && in.Op != "!=" {
+		if rejectAssetOperator(in.Op, in.Left, left, errs) ||
+			rejectAssetOperator(in.Op, in.Right, right, errs) {
+			return invalidOperatorResult(in.Op)
+		}
+	}
 	switch in.Op {
 	case "&&", "||":
 		checkBooleanOperand(in.Op, in.Left, left, errs)
@@ -1269,6 +1346,9 @@ func isComparison(e lang.Expr) bool {
 
 func inferPrefix(p *lang.Prefix, scope *Scope, errs *lang.ErrorList) Type {
 	inner := Infer(p.Expr, TUnknown(), scope, errs)
+	if rejectAssetOperator(p.Op, p.Expr, inner, errs) {
+		return TUnknown()
+	}
 	switch p.Op {
 	case "!":
 		checkBooleanOperand(p.Op, p.Expr, inner, errs)
@@ -1283,6 +1363,119 @@ func inferPrefix(p *lang.Prefix, scope *Scope, errs *lang.ErrorList) Type {
 		}
 	}
 	return TUnknown()
+}
+
+func rejectAssetOperator(
+	operator string,
+	expression lang.Expr,
+	typ Type,
+	errs *lang.ErrorList,
+) bool {
+	kind, ok := directAssetValueKind(typ)
+	if !ok {
+		return false
+	}
+	errs.Addf(
+		lang.ErrType,
+		expression.Span().Start,
+		"%s: operators cannot use %s values",
+		operator,
+		Type{Kind: kind},
+	)
+	return true
+}
+
+func invalidOperatorResult(operator string) Type {
+	switch operator {
+	case "&&", "||", "<", "<=", ">", ">=":
+		return TBoolean()
+	default:
+		return TUnknown()
+	}
+}
+
+func directAssetValueKind(typ Type) (Kind, bool) {
+	typ = typ.Unwrap()
+	switch typ.Kind {
+	case AssetPath, Bytes:
+		return typ.Kind, true
+	default:
+		return Unknown, false
+	}
+}
+
+func containedAssetValueKind(typ Type) (Kind, bool) {
+	if kind, ok := directAssetValueKind(typ); ok {
+		return kind, true
+	}
+	if typ.Elem != nil {
+		if kind, ok := containedAssetValueKind(*typ.Elem); ok {
+			return kind, true
+		}
+	}
+	for _, elem := range typ.Elems {
+		if kind, ok := containedAssetValueKind(elem); ok {
+			return kind, true
+		}
+	}
+	for _, field := range typ.Fields {
+		if kind, ok := containedAssetValueKind(field.Type); ok {
+			return kind, true
+		}
+	}
+	return Unknown, false
+}
+
+func explicitlyAcceptsInternal(target, got Type) bool {
+	if _, ok := containedAssetValueKind(got); !ok {
+		return true
+	}
+	target = target.Unwrap()
+	got = got.Unwrap()
+	if target.Kind == Union {
+		for _, member := range target.Elems {
+			if Assignable(member, got) && explicitlyAcceptsInternal(member, got) {
+				return true
+			}
+		}
+		return false
+	}
+	switch got.Kind {
+	case AssetPath:
+		return target.Kind == AssetPath || target.Kind == String
+	case Bytes:
+		return target.Kind == Bytes
+	case List, Map:
+		return target.Kind == got.Kind &&
+			target.Elem != nil &&
+			got.Elem != nil &&
+			explicitlyAcceptsInternal(*target.Elem, *got.Elem)
+	case Tuple:
+		if target.Kind != Tuple || len(target.Elems) != len(got.Elems) {
+			return false
+		}
+		for i := range got.Elems {
+			if !explicitlyAcceptsInternal(target.Elems[i], got.Elems[i]) {
+				return false
+			}
+		}
+		return true
+	case Object:
+		if target.Kind != Object {
+			return false
+		}
+		for _, gotField := range got.Fields {
+			if _, ok := containedAssetValueKind(gotField.Type); !ok {
+				continue
+			}
+			targetField, ok := target.Field(gotField.Name)
+			if !ok || !explicitlyAcceptsInternal(targetField.Type, gotField.Type) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 func numericResult(left, right Type) Type {
