@@ -8,6 +8,7 @@ import (
 	stdruntime "runtime"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/asset"
 	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/goschema"
@@ -35,6 +36,7 @@ type ProjectCache struct {
 	projects       map[string]*Project
 	remoteFactory  func() (cachedRemoteSource, error)
 	schemaRoots    []goschema.ModuleRoot
+	assetSets      map[string]*asset.Set
 }
 
 // NewProjectCache returns an empty project cache.
@@ -77,6 +79,7 @@ func newProjectCacheWithRemoteAndSchemaRoots(
 		projects:      map[string]*Project{},
 		remoteFactory: remoteFactory,
 		schemaRoots:   uniqueModuleRoots(schemaRoots),
+		assetSets:     map[string]*asset.Set{},
 	}
 	cache.SetWorkspaceRoots(singleWorkspaceRoot(workspaceRoot))
 	return cache
@@ -122,6 +125,7 @@ func (c *ProjectCache) InvalidatePath(path string) {
 	if c == nil {
 		return
 	}
+	clear(c.assetSets)
 	for root, project := range c.projects {
 		if pathInDir(path, root) {
 			delete(c.projects, root)
@@ -131,6 +135,20 @@ func (c *ProjectCache) InvalidatePath(path string) {
 			project.invalidateGoPath(path)
 		}
 	}
+}
+
+func (c *ProjectCache) cachedAssetSet(key string) *asset.Set {
+	if c == nil {
+		return nil
+	}
+	return c.assetSets[key]
+}
+
+func (c *ProjectCache) cacheAssetSet(key string, set *asset.Set) {
+	if c == nil || set == nil {
+		return
+	}
+	c.assetSets[key] = set
 }
 
 func (c *ProjectCache) readProject(root string, marker projectmarker.Marker) (*Project, error) {

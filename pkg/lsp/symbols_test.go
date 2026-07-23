@@ -83,6 +83,27 @@ func TestDocumentSymbolsLibrary(t *testing.T) {
 	}, documentSymbolNames(symbols))
 }
 
+func TestDocumentSymbolsAssets(t *testing.T) {
+	source := ubtest.ReadValidFixture(t, "testdata/ub/assets", "factory")
+	symbols, rpcErr := DocumentSymbolsForText("factory.ub", source)
+	require.Nil(t, rpcErr)
+	require.Contains(t, documentSymbolNames(symbols), "asset.file")
+	require.Contains(t, documentSymbolNames(symbols), "asset.tree")
+	requireSymbolNameRange(t, source, findDocumentSymbol(t, symbols, "asset.file"),
+		"file: './data/file.txt'", "file")
+}
+
+func TestDocumentSymbolsCompositeAssets(t *testing.T) {
+	source := ubtest.ReadValidFixture(t, "testdata/ub/assets", "library")
+	symbols, rpcErr := DocumentSymbolsForText("library.ub", source)
+	require.Nil(t, rpcErr)
+
+	first := findDocumentSymbol(t, symbols, "resource.first")
+	require.Contains(t, documentSymbolNames(first.Children), "asset.first")
+	second := findDocumentSymbol(t, symbols, "resource.second")
+	require.Contains(t, documentSymbolNames(second.Children), "asset.second")
+}
+
 func TestDocumentSymbolsInvalidSourceReturnsNoSymbols(t *testing.T) {
 	path := filepath.Join("testdata/ub/symbols/invalid", "incomplete-factory.ub")
 	src := ubtest.ReadFixture(t, path)

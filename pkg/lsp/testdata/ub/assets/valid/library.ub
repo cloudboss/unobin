@@ -1,0 +1,21 @@
+first: resource {
+  assets: {
+    first: './data/tree'
+  }
+
+  locals: {
+    reference: asset.first
+  }
+  outputs: {}
+}
+
+second: resource {
+  assets: {
+    second: './data/file.txt'
+  }
+
+  locals: {
+    reference: asset.second
+  }
+  outputs: {}
+}

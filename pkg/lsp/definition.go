@@ -61,6 +61,7 @@ type definitionToken struct {
 }
 
 type definitionDecls struct {
+	assets  map[string]syntax.AssetDecl
 	inputs  map[string]syntax.InputDecl
 	locals  map[string]syntax.LocalDecl
 	imports map[string]syntax.ImportDecl
@@ -104,6 +105,7 @@ func definitionBodyForOffset(file *syntax.File, offset int) (*syntax.FactoryBody
 
 func definitionDeclsForBody(body *syntax.FactoryBody) definitionDecls {
 	decls := definitionDecls{
+		assets:  map[string]syntax.AssetDecl{},
 		inputs:  map[string]syntax.InputDecl{},
 		locals:  map[string]syntax.LocalDecl{},
 		imports: map[string]syntax.ImportDecl{},
@@ -115,6 +117,9 @@ func definitionDeclsForBody(body *syntax.FactoryBody) definitionDecls {
 	}
 	if body == nil {
 		return decls
+	}
+	for _, item := range body.Assets {
+		decls.assets[item.Name.Name] = item
 	}
 	for _, input := range body.Inputs {
 		decls.inputs[input.Name.Name] = input
@@ -350,6 +355,14 @@ func definitionForToken(
 		return []protocol.Location{}, nil
 	}
 	switch parts[0] {
+	case "asset":
+		if item, ok := decls.assets[parts[1]]; ok {
+			return locationsForTargets(definitionTarget{
+				path: path,
+				text: text,
+				span: item.Name.S,
+			}), nil
+		}
 	case "input":
 		if input, ok := decls.inputs[parts[1]]; ok {
 			return locationsForTargets(definitionTarget{path: path, text: text, span: input.Name.S}), nil

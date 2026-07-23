@@ -2,10 +2,13 @@
 factory: {
   inputs: {
     name: {
-      type: string
+      type:        string
       description: 'Name'
     }
     count: { type: optional(integer) }
+  }
+  assets: {
+    source: './source'
   }
   locals: {
     interpolated: $'name={{ input.name }}'
@@ -14,12 +17,13 @@ factory: {
       '''
     enabled: true
     missing: null
-    math: (input.count ?? 0) + 1 >= 2 && !false
-    ids: [ for s in input.subnets : s.id when s.public ]
+    math:    (input.count ?? 0) + 1 >= 2 && !false
+    ids:     [ for s in input.subnets : s.id when s.public ]
   }
   resources: {
     server: example.web {
-      name: local.interpolated
+      name:     local.interpolated
+      source:   asset.source.path
       tags.env: 'dev'
     }
   }

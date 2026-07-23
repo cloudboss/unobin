@@ -1,0 +1,5 @@
+factory: {
+  assets: {
+    missing: './data/missing.txt'
+  }
+}

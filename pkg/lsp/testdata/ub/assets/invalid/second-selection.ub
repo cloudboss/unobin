@@ -1,0 +1,9 @@
+factory: {
+  assets: {
+    tree: './data/tree'
+  }
+
+  locals: {
+    entry: asset.tree['nested']['file.txt']
+  }
+}

@@ -64,6 +64,9 @@ func hoverAtOffset(
 	if body == nil {
 		return nil, false, nil
 	}
+	if reference := assetPathAtOffset(text, body, offset); reference != nil {
+		return assetHover(path, body, reference, projects), true, nil
+	}
 	if hover, found, err := libraryConfigInputHover(
 		path, text, offset, body.Inputs, decls, projects,
 	); found || err != nil {
@@ -125,6 +128,10 @@ func hoverForToken(
 		return nil, nil
 	}
 	switch parts[0] {
+	case "asset":
+		if _, ok := decls.assets[parts[1]]; ok {
+			return assetHoverFromToken(path, token, body, projects), nil
+		}
 	case "input":
 		if input, ok := decls.inputs[parts[1]]; ok {
 			return plainHover(inputHoverText(input)), nil
@@ -153,6 +160,34 @@ func hoverForToken(
 		}
 	}
 	return nil, nil
+}
+
+func assetHoverFromToken(
+	path string,
+	token string,
+	body *syntax.FactoryBody,
+	projects *ProjectCache,
+) *protocol.Hover {
+	parts := strings.Split(token, ".")
+	if len(parts) < 2 {
+		return nil
+	}
+	set := editorAssetSet(path, body, projects)
+	item, ok := set.Asset(parts[1])
+	if !ok {
+		return nil
+	}
+	entry, ok := item.Entry("")
+	if !ok {
+		return nil
+	}
+	return plainHover(fmt.Sprintf(
+		"asset.%s\nkind: %s\nmode: %s\ncontent-sha256: %s",
+		parts[1],
+		entry.Kind,
+		entry.Mode,
+		entry.ContentSHA256,
+	))
 }
 
 func hoverForNodeRef(

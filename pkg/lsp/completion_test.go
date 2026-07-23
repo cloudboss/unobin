@@ -34,7 +34,17 @@ func TestCompletionFactoryBlocks(t *testing.T) {
 
 	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
 	require.Nil(t, rpcErr)
-	requireCompletionLabels(t, list, "inputs", "resources", "outputs", "constraints")
+	requireCompletionLabels(t, list, "assets", "inputs", "resources", "outputs", "constraints")
+}
+
+func TestCompletionCompositeBlocksIncludeAssets(t *testing.T) {
+	root, path, source := assetEditorProject(t, "library")
+	offset := strings.Index(source, "first: resource {") + len("first: resource {\n")
+	pos := OffsetToLSP(source, offset)
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "assets", "inputs", "resources", "outputs")
 }
 
 func TestCompletionStackBlocks(t *testing.T) {
@@ -500,7 +510,92 @@ func TestCompletionRoots(t *testing.T) {
 	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
 	require.Nil(t, rpcErr)
 	requireCompletionLabels(t, list,
-		"input", "local", "resource", "data-source", "action", "@core")
+		"asset", "input", "local", "resource", "data-source", "action", "@core")
+}
+
+func TestCompletionAssetRoot(t *testing.T) {
+	root, path, source := assetEditorProject(t, "factory")
+	source, pos := sourceWithCompletionCursor(t, source, "asset.file", "a")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "asset")
+}
+
+func TestCompletionAssetNamesUseCurrentBody(t *testing.T) {
+	root, path, source := assetEditorProject(t, "factory")
+	source, pos := sourceWithCompletionCursor(t, source, "asset.file", "asset.")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireOnlyCompletionLabels(t, list, "file", "tree")
+}
+
+func TestCompletionCompositeAssetNamesAreLexical(t *testing.T) {
+	root, path, source := assetEditorProject(t, "library")
+	cache := NewProjectCache(root)
+
+	firstSource, firstPos := sourceWithCompletionCursor(t, source, "asset.first", "asset.")
+	list, rpcErr := CompleteForText(path, firstSource, firstPos, cache)
+	require.Nil(t, rpcErr)
+	requireOnlyCompletionLabels(t, list, "first")
+
+	secondSource, secondPos := sourceWithCompletionCursor(t, source, "asset.second", "asset.")
+	list, rpcErr = CompleteForText(path, secondSource, secondPos, cache)
+	require.Nil(t, rpcErr)
+	requireOnlyCompletionLabels(t, list, "second")
+}
+
+func TestCompletionAssetAttributes(t *testing.T) {
+	root, path, source := assetEditorProject(t, "factory")
+	cache := NewProjectCache(root)
+	for _, target := range []string{
+		"asset.file.path",
+		"asset.tree['nested/file.txt'].content",
+	} {
+		t.Run(target, func(t *testing.T) {
+			prefix := strings.TrimSuffix(target, "path")
+			prefix = strings.TrimSuffix(prefix, "content")
+			edited, pos := sourceWithCompletionCursor(t, source, target, prefix)
+
+			list, rpcErr := CompleteForText(path, edited, pos, cache)
+			require.Nil(t, rpcErr)
+			requireOnlyCompletionLabels(
+				t, list, "content", "content-sha256", "mode", "path",
+			)
+		})
+	}
+}
+
+func TestCompletionAssetInternalPathsUseOneLiteral(t *testing.T) {
+	root, path, source := assetEditorProject(t, "factory")
+	literal := "'nested/file.txt'"
+	start := strings.Index(source, literal)
+	require.NotEqual(t, -1, start)
+	pos := OffsetToLSP(source, start+len("'nested/"))
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireCompletionLabels(t, list, "nested", "nested/file.txt")
+
+	item := requireCompletionItem(t, list, "nested/file.txt")
+	require.NotNil(t, item.TextEdit)
+	editStart, ok := LSPToOffset(source, item.TextEdit.Range.Start)
+	require.True(t, ok)
+	editEnd, ok := LSPToOffset(source, item.TextEdit.Range.End)
+	require.True(t, ok)
+	require.Equal(t, literal, source[editStart:editEnd])
+	require.Equal(t, literal, item.TextEdit.NewText)
+}
+
+func TestCompletionAssetSecondSelectionReturnsNoItems(t *testing.T) {
+	root, path, _ := assetEditorProject(t, "factory")
+	source := ubtest.ReadInvalidFixture(t, "testdata/ub/assets", "second-selection")
+	pos := positionInText(source, "'file.txt'", "file")
+
+	list, rpcErr := CompleteForText(path, source, pos, NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	require.Empty(t, list.Items)
 }
 
 func TestCompletionLocalNames(t *testing.T) {
@@ -687,6 +782,19 @@ func completionProject(t *testing.T) (string, string, string) {
 	}, nil)
 	source := ubtest.ReadFixture(t, "testdata/ub/completion/valid/factory.ub")
 	path := filepath.Join(root, "factory.ub")
+	require.NoError(t, os.WriteFile(path, []byte(source), 0o644))
+	return root, path, source
+}
+
+func assetEditorProject(t *testing.T, name string) (string, string, string) {
+	t.Helper()
+	root := writeUBProject(t, nil, nil)
+	require.NoError(t, os.CopyFS(
+		root,
+		os.DirFS("testdata/ub/assets/project"),
+	))
+	source := ubtest.ReadValidFixture(t, "testdata/ub/assets", name)
+	path := filepath.Join(root, name+".ub")
 	require.NoError(t, os.WriteFile(path, []byte(source), 0o644))
 	return root, path, source
 }

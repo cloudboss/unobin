@@ -3,6 +3,9 @@ package lsp
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -29,6 +32,52 @@ func TestHoverLocalInferredType(t *testing.T) {
 	require.Nil(t, rpcErr)
 	require.NotNil(t, hover)
 	require.Equal(t, "local name: string", hover.Contents.Value)
+}
+
+func TestHoverFileAssetMetadata(t *testing.T) {
+	root, path, source := assetEditorProject(t, "factory")
+
+	hover, rpcErr := HoverForText(path, source,
+		positionInText(source, "asset.file", "file"), NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	require.NotNil(t, hover)
+	require.Contains(t, hover.Contents.Value, "kind: file")
+	require.Contains(t, hover.Contents.Value, "mode: 0644")
+	require.Regexp(t, `content-sha256: [0-9a-f]{64}`, hover.Contents.Value)
+	require.NotContains(t, hover.Contents.Value, root)
+}
+
+func TestHoverDirectoryAssetEntryMetadata(t *testing.T) {
+	root, path, source := assetEditorProject(t, "factory")
+
+	hover, rpcErr := HoverForText(path, source,
+		positionInText(source, "'nested'", "nested"), NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	require.NotNil(t, hover)
+	require.True(t, strings.HasPrefix(hover.Contents.Value, "asset.tree['nested']\n"))
+	require.Contains(t, hover.Contents.Value, "kind: directory")
+	require.Contains(t, hover.Contents.Value, "mode: 0755")
+	require.Regexp(t, `content-sha256: [0-9a-f]{64}`, hover.Contents.Value)
+	require.NotContains(t, hover.Contents.Value, root)
+}
+
+func TestHoverAssetMetadataCacheInvalidation(t *testing.T) {
+	root, path, source := assetEditorProject(t, "factory")
+	cache := NewProjectCache(root)
+	pos := positionInText(source, "asset.file", "file")
+
+	before, rpcErr := HoverForText(path, source, pos, cache)
+	require.Nil(t, rpcErr)
+	require.NotNil(t, before)
+
+	assetPath := filepath.Join(root, "data", "file.txt")
+	require.NoError(t, os.WriteFile(assetPath, []byte("changed asset\n"), 0o644))
+	cache.InvalidatePath(assetPath)
+
+	after, rpcErr := HoverForText(path, source, pos, cache)
+	require.Nil(t, rpcErr)
+	require.NotNil(t, after)
+	require.NotEqual(t, before.Contents.Value, after.Contents.Value)
 }
 
 func TestHoverGoSchemaFieldType(t *testing.T) {

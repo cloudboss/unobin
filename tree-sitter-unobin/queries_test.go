@@ -59,6 +59,32 @@ func TestQueriesValidateWithTreeSitter(t *testing.T) {
 	}
 }
 
+func TestHighlightsIncludeAssetSyntax(t *testing.T) {
+	body := readQueryFile(t, "queries/highlights.scm")
+
+	require.Contains(t, body, "actions|assets|configurations")
+	require.Contains(t, body, "@self|action|asset|data-source")
+}
+
+func TestHighlightsCaptureAssetSyntax(t *testing.T) {
+	npm, err := exec.LookPath("npm")
+	if err != nil {
+		t.Skip("npm not found")
+	}
+	sample := "../pkg/lsp/testdata/ub/assets/valid/factory.ub"
+	require.FileExists(t, sample)
+
+	cmd := exec.Command(npm,
+		"exec", "--package=tree-sitter-cli@0.26.9", "--",
+		"tree-sitter", "query", "--grammar-path", ".", "queries/highlights.scm", sample)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+	captures := queryCaptures(string(out))
+
+	require.Contains(t, captures["font-lock-keyword-face"], "assets")
+	require.Contains(t, captures["font-lock-builtin-face"], "asset")
+}
+
 func TestTagsQueryCapturesDeclarationNames(t *testing.T) {
 	npm, err := exec.LookPath("npm")
 	if err != nil {
@@ -89,6 +115,18 @@ func tagCaptureNames(output string) map[string]struct{} {
 		names[match[1]] = struct{}{}
 	}
 	return names
+}
+
+func queryCaptures(output string) map[string]map[string]struct{} {
+	re := regexp.MustCompile("capture: \\d+ - ([^,]+), .* text: `([^`]*)`")
+	captures := map[string]map[string]struct{}{}
+	for _, match := range re.FindAllStringSubmatch(output, -1) {
+		if captures[match[1]] == nil {
+			captures[match[1]] = map[string]struct{}{}
+		}
+		captures[match[1]][match[2]] = struct{}{}
+	}
+	return captures
 }
 
 func readQueryFile(t *testing.T, path string) string {

@@ -527,6 +527,14 @@ func completionAtOffset(
 	if body == nil {
 		return protocol.CompletionList{}, false, nil
 	}
+	if factoryBodyTopLevelCompletionContext(text, body, offset) {
+		return completionList(factoryBlockCompletionItems()), true, nil
+	}
+	if list, found := assetCompletionAtOffset(
+		path, text, offset, body, decls, projects,
+	); found {
+		return list, true, nil
+	}
 	if list, found, err := libraryConfigInputCompletions(
 		path, text, offset, body.Inputs, decls, projects,
 	); found || err != nil {
@@ -865,6 +873,11 @@ func completionForToken(
 		return protocol.CompletionList{}, nil
 	}
 	switch parts[0] {
+	case "asset":
+		items := namedCompletionItems(
+			mapKeys(decls.assets), protocol.CompletionItemKindVariable,
+		)
+		return completionList(items), nil
 	case "input":
 		items := namedCompletionItems(
 			mapKeys(decls.inputs), protocol.CompletionItemKindVariable,
@@ -899,6 +912,7 @@ func completionForToken(
 
 func rootCompletionItems() []protocol.CompletionItem {
 	return []protocol.CompletionItem{
+		{Label: "asset", Kind: protocol.CompletionItemKindKeyword},
 		{Label: "input", Kind: protocol.CompletionItemKindKeyword},
 		{Label: "local", Kind: protocol.CompletionItemKindKeyword},
 		{Label: "resource", Kind: protocol.CompletionItemKindKeyword},
@@ -914,7 +928,7 @@ func fileRoleCompletionItems() []protocol.CompletionItem {
 
 func factoryBlockCompletionItems() []protocol.CompletionItem {
 	return keywordCompletionItems(
-		"inputs", "imports", "library-configs", "resources", "data-sources",
+		"assets", "inputs", "imports", "library-configs", "resources", "data-sources",
 		"actions", "outputs", "constraints", "state-moves", "locals",
 	)
 }
@@ -1100,9 +1114,29 @@ func selectorKindAtOffset(body *syntax.FactoryBody, offset int) syntax.NodeKind 
 
 func nearestFactoryChildBlockName(text string, offset int) string {
 	return nearestBlockNameFrom(text, offset, []string{
-		"inputs", "imports", "library-configs", "resources", "data-sources",
+		"assets", "inputs", "imports", "library-configs", "resources", "data-sources",
 		"actions", "outputs", "constraints", "state-moves", "locals",
 	})
+}
+
+func factoryBodyTopLevelCompletionContext(
+	text string,
+	body *syntax.FactoryBody,
+	offset int,
+) bool {
+	if body == nil || !spanContainsOffset(body.S, offset) ||
+		strings.TrimSpace(currentLinePrefix(text, offset)) != "" {
+		return false
+	}
+	for _, name := range []string{
+		"assets", "inputs", "imports", "library-configs", "resources", "data-sources",
+		"actions", "outputs", "constraints", "state-moves", "locals",
+	} {
+		if insideNamedBlock(text, offset, name) {
+			return false
+		}
+	}
+	return true
 }
 
 func nearestStackChildBlockName(text string, offset int) string {

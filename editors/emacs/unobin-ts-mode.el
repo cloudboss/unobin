@@ -138,13 +138,13 @@ Emacs session.  When t, install automatically."
      "(primary_expression (identifier) @font-lock-variable-name-face)"
      ""
      "((field_key (identifier) @font-lock-keyword-face)"
-     " (#match? @font-lock-keyword-face \"^(actions|configurations|constraints|data-sources|deps|encryption|factory|imports|inputs|library|library-configs|locals|outputs|parallelism|pin|project|project-lock|replace|requires|resources|stack|state|state-moves|toolchain|unobin-version|version)$\"))"
+     " (#match? @font-lock-keyword-face \"^(actions|assets|configurations|constraints|data-sources|deps|encryption|factory|imports|inputs|library|library-configs|locals|outputs|parallelism|pin|project|project-lock|replace|requires|resources|stack|state|state-moves|toolchain|unobin-version|version)$\"))"
      ""
      "((field_key (identifier) @font-lock-preprocessor-face)"
      " (#match? @font-lock-preprocessor-face \"^@\"))"
      ""
      "((path (identifier) @font-lock-builtin-face)"
-     " (#match? @font-lock-builtin-face \"^(@core|@each|@self|action|data-source|input|local|resource)$\"))"
+     " (#match? @font-lock-builtin-face \"^(@core|@each|@self|action|asset|data-source|input|local|resource)$\"))"
      ""
      "(selector (identifier) @font-lock-function-name-face)"
      ""
@@ -157,13 +157,15 @@ Emacs session.  When t, install automatically."
    "\n"))
 
 (defconst unobin-ts-mode--field-keywords
-  '("actions" "configurations" "constraints" "data-sources" "deps" "encryption"
-    "factory" "imports" "inputs" "library" "library-configs" "locals" "outputs"
-    "parallelism" "pin" "project" "project-lock" "replace" "requires" "resources"
-    "stack" "state" "state-moves" "toolchain" "unobin-version" "version"))
+  '("actions" "assets" "configurations" "constraints" "data-sources" "deps"
+    "encryption" "factory" "imports" "inputs" "library" "library-configs" "locals"
+    "outputs" "parallelism" "pin" "project" "project-lock" "replace" "requires"
+    "resources" "stack" "state" "state-moves" "toolchain" "unobin-version"
+    "version"))
 
 (defconst unobin-ts-mode--reference-roots
-  '("@core" "@each" "@self" "action" "data-source" "input" "local" "resource"))
+  '("@core" "@each" "@self" "action" "asset" "data-source" "input" "local"
+    "resource"))
 
 (defvar unobin-ts-mode--install-asked nil)
 

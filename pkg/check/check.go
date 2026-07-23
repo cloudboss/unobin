@@ -27,6 +27,7 @@ type Checker struct {
 	libraryConfigSchemas map[string]map[string]runtime.LibraryConfigSchema
 	assetCatalog         *asset.Catalog
 	assetSets            map[string]*asset.Set
+	assetNames           map[string]map[string]bool
 	scopes               []checkerScope
 	bodyScopes           []checkerScope
 	nodesByScope         map[string][]*runtime.Node
@@ -98,6 +99,7 @@ func newChecker(
 		libraryConfigSchemas: map[string]map[string]runtime.LibraryConfigSchema{},
 		assetCatalog:         assetCatalog,
 		assetSets:            map[string]*asset.Set{"": rootAssets},
+		assetNames:           map[string]map[string]bool{"": syntaxAssetNames(root.Assets)},
 	}
 	if libraryConfigSchemas != nil {
 		c.libraryConfigSchemas[""] = libraryConfigSchemas
@@ -198,6 +200,7 @@ func (c *Checker) buildScopeIndexes() {
 		}
 		compositeAssets, _ := c.assetCatalog.Set(node.AssetSetID)
 		c.assetSets[node.Address] = compositeAssets
+		c.assetNames[node.Address] = syntaxAssetNames(node.CompositeSyntaxBody.Assets)
 		scope := checkerScope{
 			address: node.Address,
 			body:    node.CompositeSyntaxBody,
@@ -210,6 +213,14 @@ func (c *Checker) buildScopeIndexes() {
 			seenBodies[scope.body] = true
 		}
 	}
+}
+
+func syntaxAssetNames(declarations []syntax.AssetDecl) map[string]bool {
+	names := make(map[string]bool, len(declarations))
+	for _, declaration := range declarations {
+		names[declaration.Name.Name] = true
+	}
+	return names
 }
 
 func (c *referenceChecker) checkDeclarations() {

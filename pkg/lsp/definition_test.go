@@ -38,6 +38,26 @@ func TestDefinitionLocalName(t *testing.T) {
 		"name: input.region", "name")
 }
 
+func TestDefinitionAssetName(t *testing.T) {
+	root, path, source := assetEditorProject(t, "factory")
+
+	locations, rpcErr := DefinitionForText(path, source,
+		positionInText(source, "asset.file", "file"), NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, path, source,
+		"file: './data/file.txt'", "file")
+}
+
+func TestDefinitionCompositeAssetNameUsesCurrentBody(t *testing.T) {
+	root, path, source := assetEditorProject(t, "library")
+
+	locations, rpcErr := DefinitionForText(path, source,
+		positionInText(source, "asset.second", "second"), NewProjectCache(root))
+	require.Nil(t, rpcErr)
+	requireDefinitionLocation(t, locations, path, source,
+		"second: './data/file.txt'", "second")
+}
+
 func TestDefinitionResourceReference(t *testing.T) {
 	root, factoryPath, factorySource, _ := definitionProject(t)
 	cache := NewProjectCache(root)

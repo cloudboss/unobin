@@ -1,0 +1,9 @@
+factory: {
+  assets: {
+    tree: './data/tree'
+  }
+
+  locals: {
+    missing: asset.missing.path
+  }
+}

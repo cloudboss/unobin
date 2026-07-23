@@ -45,9 +45,14 @@ func documentSymbols(file *syntax.File, text string) []protocol.DocumentSymbol {
 
 func factorySymbols(text string, body syntax.FactoryBody) []protocol.DocumentSymbol {
 	symbols := make([]protocol.DocumentSymbol, 0,
-		len(body.Inputs)+len(body.Locals)+len(body.Constraints)+len(body.Imports)+
+		len(body.Assets)+len(body.Inputs)+len(body.Locals)+len(body.Constraints)+
+			len(body.Imports)+
 			len(body.LibraryConfigs)+len(body.StateMoves)+len(body.Resources)+
 			len(body.Data)+len(body.Actions)+len(body.Outputs))
+	for _, item := range body.Assets {
+		symbols = append(symbols, symbolFromSpan(text, "asset."+item.Name.Name,
+			protocol.SymbolKindVariable, item.Name.S))
+	}
 	for _, input := range body.Inputs {
 		symbols = append(symbols, symbolFromSpan(text, "input."+input.Name.Name,
 			protocol.SymbolKindVariable, input.Name.S))
@@ -171,8 +176,9 @@ func librarySymbols(text string, library *syntax.LibraryFile) []protocol.Documen
 	symbols := make([]protocol.DocumentSymbol, 0, len(library.Exports))
 	for _, export := range library.Exports {
 		name := string(export.Kind) + "." + export.Name.Name
-		symbols = append(symbols, symbolFromSpan(text, name,
-			protocol.SymbolKindClass, export.Name.S))
+		symbol := symbolFromSpan(text, name, protocol.SymbolKindClass, export.Name.S)
+		symbol.Children = factorySymbols(text, export.Body)
+		symbols = append(symbols, symbol)
 	}
 	return symbols
 }

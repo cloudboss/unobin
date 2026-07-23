@@ -28,6 +28,13 @@ func TestUnobinTsModeStaticRequirements(t *testing.T) {
 	require.Contains(t, body, "Package-Requires:")
 }
 
+func TestUnobinTsModeIncludesAssetHighlights(t *testing.T) {
+	body := readFile(t, "unobin-ts-mode.el")
+
+	require.Contains(t, body, `"assets"`)
+	require.Contains(t, body, `"asset"`)
+}
+
 func TestUnobinTsModeReadme(t *testing.T) {
 	body := readFile(t, "README.md")
 

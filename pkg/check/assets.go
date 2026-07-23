@@ -19,7 +19,7 @@ type assetReference struct {
 type assetReferenceReporter func(pos lang.Position, message, hint string)
 
 func (c *referenceChecker) checkAsset(path *lang.DotPath, scope string) {
-	resolveAssetReference(path, c.assetSets[scope], func(
+	resolveAssetReference(path, c.assetSets[scope], c.assetNames[scope], func(
 		pos lang.Position,
 		message string,
 		hint string,
@@ -30,7 +30,12 @@ func (c *referenceChecker) checkAsset(path *lang.DotPath, scope string) {
 
 func (c *referenceChecker) lookupAssetFor(scope string) typecheck.LookupAssetFn {
 	return func(path *lang.DotPath) (typecheck.Type, bool) {
-		reference, ok := resolveAssetReference(path, c.assetSets[scope], nil)
+		reference, ok := resolveAssetReference(
+			path,
+			c.assetSets[scope],
+			c.assetNames[scope],
+			nil,
+		)
 		if !ok {
 			return typecheck.TUnknown(), false
 		}
@@ -41,6 +46,7 @@ func (c *referenceChecker) lookupAssetFor(scope string) typecheck.LookupAssetFn 
 func resolveAssetReference(
 	path *lang.DotPath,
 	set *asset.Set,
+	declaredNames map[string]bool,
 	report assetReferenceReporter,
 ) (assetReference, bool) {
 	if path == nil || path.Root == nil {
@@ -92,8 +98,9 @@ func resolveAssetReference(
 	}
 
 	name := nameSegment.Name
-	item, ok := set.Asset(name)
-	if !ok {
+	var item *asset.Asset
+	var entry *asset.Entry
+	if set == nil && !declaredNames[name] {
 		reportAssetReference(
 			report,
 			nameSegment.S.Start,
@@ -102,9 +109,22 @@ func resolveAssetReference(
 		)
 		return assetReference{}, false
 	}
-	entry, ok := item.Entry("")
-	if !ok {
-		return assetReference{}, false
+	if set != nil {
+		var ok bool
+		item, ok = set.Asset(name)
+		if !ok {
+			reportAssetReference(
+				report,
+				nameSegment.S.Start,
+				fmt.Sprintf("unknown asset %q", name),
+				"",
+			)
+			return assetReference{}, false
+		}
+		entry, ok = item.Entry("")
+		if !ok {
+			return assetReference{}, false
+		}
 	}
 	reference := assetReference{object: "asset." + name}
 	rest := path.Segments[1:]
@@ -122,7 +142,7 @@ func resolveAssetReference(
 		return assetReference{}, false
 	}
 	if rest[0].Index != nil {
-		if entry.Kind == asset.EntryKindFile {
+		if entry != nil && entry.Kind == asset.EntryKindFile {
 			reportAssetReference(
 				report,
 				rest[0].S.Start,
@@ -154,7 +174,11 @@ func resolveAssetReference(
 			)
 			return assetReference{}, false
 		}
-		if _, ok := item.Entry(literal.Value); !ok {
+		entryFound := true
+		if item != nil {
+			_, entryFound = item.Entry(literal.Value)
+		}
+		if !entryFound {
 			reportAssetReference(
 				report,
 				rest[0].S.Start,
@@ -204,7 +228,7 @@ func resolveAssetReference(
 			reference.object,
 			attributeSegment.Name,
 		)
-		if reference.object == "asset."+name {
+		if item != nil && reference.object == "asset."+name {
 			if _, found := item.Entry(attributeSegment.Name); found {
 				message = reference.object + "." + attributeSegment.Name +
 					" names an internal entry"

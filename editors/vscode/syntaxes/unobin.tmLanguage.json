@@ -95,7 +95,7 @@
         },
         {
           "name": "keyword.declaration.unobin",
-          "match": "\\b(?:actions|configurations|constraints|data-sources|deps|encryption|factory|imports|inputs|library|library-configs|locals|outputs|parallelism|pin|project|project-lock|replace|requires|resources|stack|state|state-moves|toolchain|unobin-version|version)\\b(?=\\s*:)"
+          "match": "\\b(?:actions|assets|configurations|constraints|data-sources|deps|encryption|factory|imports|inputs|library|library-configs|locals|outputs|parallelism|pin|project|project-lock|replace|requires|resources|stack|state|state-moves|toolchain|unobin-version|version)\\b(?=\\s*:)"
         },
         {
           "name": "keyword.control.unobin",
@@ -155,7 +155,7 @@
       "patterns": [
         {
           "name": "variable.language.unobin",
-          "match": "(?<![A-Za-z0-9_-])(?:@core|@each|@self|action|data-source|input|local|resource)\\b(?=\\.)"
+          "match": "(?<![A-Za-z0-9_-])(?:@core|@each|@self|action|asset|data-source|input|local|resource)\\b(?=\\.)"
         },
         {
           "name": "variable.other.readwrite.unobin",

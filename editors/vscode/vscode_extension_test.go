@@ -3,7 +3,9 @@ package vscode_test
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -208,13 +210,103 @@ func TestTextMateGrammarScopesMatchEditorScheme(t *testing.T) {
 	}
 }
 
+func TestTextMateGrammarHighlightsAssetSyntax(t *testing.T) {
+	var grammar struct {
+		Repository map[string]textMateSet `json:"repository"`
+	}
+	readJSON(t, filepath.Join("syntaxes", "unobin.tmLanguage.json"), &grammar)
+
+	declaration := textMatePatternNamed(
+		t,
+		grammar.Repository["declarations"].Patterns,
+		"keyword.declaration.unobin",
+	)
+	require.Contains(t, declaration.Match, "|assets|")
+
+	reference := textMatePatternNamed(
+		t,
+		grammar.Repository["paths"].Patterns,
+		"variable.language.unobin",
+	)
+	require.Contains(t, reference.Match, "|asset|")
+
+	tests := []struct {
+		name    string
+		pattern string
+		source  string
+		want    bool
+	}{
+		{
+			name:    "asset declaration",
+			pattern: declaration.Match,
+			source:  "assets: {",
+			want:    true,
+		},
+		{
+			name:    "asset declaration suffix",
+			pattern: declaration.Match,
+			source:  "assets-value: {",
+			want:    false,
+		},
+		{
+			name:    "asset reference",
+			pattern: reference.Match,
+			source:  "asset.source.path",
+			want:    true,
+		},
+		{
+			name:    "named asset value",
+			pattern: reference.Match,
+			source:  "myasset.source.path",
+			want:    false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, textMatePatternMatches(t, tt.pattern, tt.source))
+		})
+	}
+}
+
 type textMateSet struct {
 	Patterns []textMatePattern `json:"patterns"`
 }
 
 type textMatePattern struct {
 	Name     string            `json:"name"`
+	Match    string            `json:"match"`
 	Patterns []textMatePattern `json:"patterns"`
+}
+
+func textMatePatternNamed(
+	t *testing.T,
+	patterns []textMatePattern,
+	name string,
+) textMatePattern {
+	t.Helper()
+	for _, pattern := range patterns {
+		if pattern.Name == name {
+			return pattern
+		}
+	}
+	require.FailNow(t, "TextMate pattern not found", name)
+	return textMatePattern{}
+}
+
+func textMatePatternMatches(t *testing.T, pattern, source string) bool {
+	t.Helper()
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node not found")
+	}
+	script := "process.stdout.write(String(" +
+		"new RegExp(process.argv[1]).test(process.argv[2])))"
+	cmd := exec.Command(node, "-e", script, pattern, source)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+	value, err := strconv.ParseBool(string(out))
+	require.NoError(t, err)
+	return value
 }
 
 func textMateScopes(repository map[string]textMateSet) map[string]bool {

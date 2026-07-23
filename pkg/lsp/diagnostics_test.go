@@ -121,6 +121,48 @@ func TestDiagnosticsCheckLibraryFiles(t *testing.T) {
 		"library \"missing\" is not imported")
 }
 
+func TestDiagnosticsReportMissingAssetSource(t *testing.T) {
+	ubtest.RequireInvalidFixtureGoldens(t, "testdata/ub/assets")
+	root := writeUBProject(t, nil, nil)
+	source := ubtest.ReadInvalidFixture(t, "testdata/ub/assets", "missing-source")
+	path := filepath.Join(root, "factory.ub")
+	require.NoError(t, os.WriteFile(path, []byte(source), 0o644))
+
+	diags := DiagnosticsForTextWithProjects(path, source, NewProjectCache(root))
+
+	require.Equal(t, []string{
+		`asset "missing" source "./data/missing.txt": ` +
+			"capture data/missing.txt: file does not exist",
+	}, diagnosticMessages(diags))
+}
+
+func TestDiagnosticsUnsavedAssetBufferDefersFilesystemChecks(t *testing.T) {
+	source := ubtest.ReadValidFixture(t, "testdata/ub/assets", "factory")
+	path := filepath.Join(t.TempDir(), "factory.ub")
+
+	require.Empty(t, DiagnosticsForText(path, source))
+}
+
+func TestDiagnosticsUnsavedAssetBufferKeepsStructuralChecks(t *testing.T) {
+	source := ubtest.ReadInvalidFixture(t, "testdata/ub/assets", "second-selection")
+	path := filepath.Join(t.TempDir(), "factory.ub")
+
+	diags := DiagnosticsForText(path, source)
+
+	require.Contains(t, strings.Join(diagnosticMessages(diags), "\n"),
+		"asset.tree accepts only one internal entry selection")
+}
+
+func TestDiagnosticsUnsavedAssetBufferRejectsUnknownName(t *testing.T) {
+	source := ubtest.ReadInvalidFixture(t, "testdata/ub/assets", "unknown-asset")
+	path := filepath.Join(t.TempDir(), "factory.ub")
+
+	diags := DiagnosticsForText(path, source)
+
+	require.Contains(t, strings.Join(diagnosticMessages(diags), "\n"),
+		`unknown asset "missing"`)
+}
+
 func BenchmarkDiagnosticsForTextWithProjectsLargeFactory(b *testing.B) {
 	root, sourcePath, source := largeDiagnosticProject(b, 500)
 	cache := NewProjectCache(root)

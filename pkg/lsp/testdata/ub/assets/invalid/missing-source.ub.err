@@ -1,0 +1,1 @@
+asset "missing" source "./data/missing.txt": capture data/missing.txt: file does not exist
