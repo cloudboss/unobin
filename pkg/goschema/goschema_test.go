@@ -835,7 +835,8 @@ func TestReadSamePackage(t *testing.T) {
 	require.Contains(t, schema.Actions, "do")
 	do := schema.Actions["do"]
 	require.Equal(t, map[string]typecheck.Type{
-		"what": typecheck.TString(),
+		"what":    typecheck.TString(),
+		"content": typecheck.TBytes(),
 	}, do.Inputs)
 	require.Equal(t, map[string]typecheck.Type{
 		"result":   typecheck.TString(),
@@ -848,7 +849,7 @@ func TestReadSamePackage(t *testing.T) {
 		"the alias should resolve to the same field set")
 
 	fns := schema.Functions
-	require.Len(t, fns, 3)
+	require.Len(t, fns, 4)
 
 	require.Len(t, fns["upper"].Params, 1)
 	require.True(t, fns["upper"].Params[0].Equal(typecheck.TString()))
@@ -865,6 +866,10 @@ func TestReadSamePackage(t *testing.T) {
 	require.NotNil(t, fns["join"].Variadic)
 	require.True(t, fns["join"].Variadic.Equal(typecheck.TString()))
 	require.True(t, fns["join"].Result.Equal(typecheck.TString()))
+
+	require.Len(t, fns["size"].Params, 1)
+	require.True(t, fns["size"].Params[0].Equal(typecheck.TBytes()))
+	require.True(t, fns["size"].Result.Equal(typecheck.TInteger()))
 }
 
 func TestReadSubpackage(t *testing.T) {
@@ -1159,6 +1164,14 @@ func Library() *runtime.Library {
 			`"x": runtime.MakeFunc("x", "d", badResult),`,
 			"func badResult(s string) (chan int, error) { return nil, nil }",
 			`function "x" result has an unsupported type`},
+		{"byte slice result",
+			`"x": runtime.MakeFunc("x", "d", byteResult),`,
+			"func byteResult() ([]byte, error) { return nil, nil }",
+			`function "x" result has an unsupported type`},
+		{"nested byte slice parameter",
+			`"x": runtime.MakeFunc("x", "d", nestedBytes),`,
+			"func nestedBytes(value [][]byte) (bool, error) { return true, nil }",
+			`function "x" parameter 1 has an unsupported type`},
 		{"function type literal",
 			`"x": runtime.FunctionType{Name: "x", ArgCount: 1},`, "",
 			`function "x": register with runtime.MakeFunc; ` +

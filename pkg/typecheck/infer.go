@@ -240,6 +240,10 @@ func kindNoun(k Kind) string {
 	switch k {
 	case String:
 		return "string"
+	case AssetPath:
+		return "asset path"
+	case Bytes:
+		return "bytes"
 	case Integer:
 		return "integer"
 	case Number:
@@ -265,6 +269,10 @@ func typeProse(t Type) string {
 	switch t.Kind {
 	case String:
 		return "a string"
+	case AssetPath:
+		return "an asset path"
+	case Bytes:
+		return "bytes"
 	case Integer:
 		return "an integer"
 	case Number:

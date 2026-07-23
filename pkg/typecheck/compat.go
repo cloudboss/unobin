@@ -58,8 +58,12 @@ func Assignable(dst, src Type) bool {
 			}
 		}
 		return false
-	case String, Boolean, Null:
+	case String:
+		return src.Kind == String || src.Kind == AssetPath
+	case AssetPath, Boolean, Null:
 		return dst.Kind == src.Kind
+	case Bytes:
+		return bytesAssignable(src)
 	case Integer:
 		return src.Kind == Integer
 	case Number:
@@ -74,6 +78,13 @@ func Assignable(dst, src Type) bool {
 		return objectAssignable(dst, src)
 	}
 	return false
+}
+
+func bytesAssignable(src Type) bool {
+	if src.Kind == Bytes {
+		return true
+	}
+	return listAssignable(TList(TInteger()), src)
 }
 
 func libraryConfigAssignable(dst, src Type) bool {

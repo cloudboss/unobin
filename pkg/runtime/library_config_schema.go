@@ -131,6 +131,8 @@ func langTypeFromCheck(t typecheck.Type) lang.TypeExpr {
 	switch t.Kind {
 	case typecheck.String:
 		return &lang.TypeAtomic{Name: "string"}
+	case typecheck.AssetPath:
+		return &lang.TypeAtomic{Name: "string"}
 	case typecheck.Integer:
 		return &lang.TypeAtomic{Name: "integer"}
 	case typecheck.Number:
@@ -159,7 +161,8 @@ func langTypeFromCheck(t typecheck.Type) lang.TypeExpr {
 			elems = append(elems, langTypeFromCheck(elem))
 		}
 		return &lang.TypeTuple{Elements: elems}
-	case typecheck.Opaque, typecheck.Unknown, typecheck.LibraryConfig, typecheck.Union:
+	case typecheck.Bytes, typecheck.Opaque, typecheck.Unknown,
+		typecheck.LibraryConfig, typecheck.Union:
 		return &lang.TypeAtomic{Name: "opaque"}
 	}
 	return &lang.TypeAtomic{Name: "opaque"}

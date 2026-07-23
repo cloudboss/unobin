@@ -13,6 +13,8 @@ func TestTypeString(t *testing.T) {
 		want string
 	}{
 		{"string", TString(), "string"},
+		{"asset path", TAssetPath(), "asset-path"},
+		{"bytes", TBytes(), "bytes"},
 		{"integer", TInteger(), "integer"},
 		{"opaque", TOpaque(), "opaque"},
 		{"list of string", TList(TString()), "list(string)"},
@@ -136,6 +138,10 @@ func TestIsKnown(t *testing.T) {
 func TestEqual(t *testing.T) {
 	assert.True(t, TString().Equal(TString()))
 	assert.False(t, TString().Equal(TInteger()))
+	assert.True(t, TAssetPath().Equal(TAssetPath()))
+	assert.False(t, TAssetPath().Equal(TString()))
+	assert.True(t, TBytes().Equal(TBytes()))
+	assert.False(t, TBytes().Equal(TList(TInteger())))
 	assert.True(t, TList(TString()).Equal(TList(TString())))
 	assert.False(t, TList(TString()).Equal(TList(TInteger())))
 

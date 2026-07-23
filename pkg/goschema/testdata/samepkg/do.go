@@ -6,7 +6,8 @@ import (
 )
 
 type DoAction struct {
-	What string
+	What    string
+	Content []byte
 }
 
 type DoActionOutput struct {

@@ -11,8 +11,8 @@ import (
 // way text/template adapts a FuncMap entry. fn may take any number of
 // parameters, variadic included, and must return (value, error); each
 // parameter must be a type the evaluator's values convert to exactly:
-// bool, int64, float64, string, any, or a slice or string-keyed map of
-// those.
+// bool, int64, float64, string, any, []byte, or a slice or string-keyed
+// map of the ordinary value types.
 // Evaluated arguments convert to the parameter types on the way in and
 // the result converts back to evaluator values on the way out, so the
 // implementation stays plain typed Go and the argument count cannot
@@ -81,7 +81,7 @@ func validateFuncSignature(name string, t reflect.Type) {
 		panic(fmt.Sprintf("function %s must return (value, error); the second result is %s",
 			name, t.Out(1)))
 	}
-	if !supportedParam(t.Out(0)) {
+	if !supportedFunctionValue(t.Out(0)) {
 		panic(fmt.Sprintf("function %s result has unsupported type %s", name, t.Out(0)))
 	}
 	for i := range t.NumIn() {
@@ -96,12 +96,16 @@ func validateFuncSignature(name string, t reflect.Type) {
 	}
 }
 
-// supportedParam reports whether a parameter or result type is one the
-// evaluator's values convert to and from exactly: bool, int64, float64,
-// string, any, or a slice or string-keyed map of those. Other kinds,
-// named types included, are rejected so a registration cannot validate
-// and then leak values the language cannot hold.
+// supportedParam accepts the ordinary evaluator value types plus []byte,
+// which is input-only.
 func supportedParam(t reflect.Type) bool {
+	if t == reflect.TypeFor[[]byte]() {
+		return true
+	}
+	return supportedFunctionValue(t)
+}
+
+func supportedFunctionValue(t reflect.Type) bool {
 	switch t {
 	case reflect.TypeFor[bool](), reflect.TypeFor[int64](),
 		reflect.TypeFor[float64](), reflect.TypeFor[string]():
@@ -111,9 +115,9 @@ func supportedParam(t reflect.Type) bool {
 	case reflect.Interface:
 		return t.NumMethod() == 0
 	case reflect.Slice:
-		return supportedParam(t.Elem())
+		return supportedFunctionValue(t.Elem())
 	case reflect.Map:
-		return t.Key().Kind() == reflect.String && supportedParam(t.Elem())
+		return t.Key().Kind() == reflect.String && supportedFunctionValue(t.Elem())
 	}
 	return false
 }
@@ -169,6 +173,17 @@ func convertValue(target reflect.Type, v any) (reflect.Value, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Type() == target {
 		return rv, nil
+	}
+	if target.Kind() == reflect.Uint8 {
+		n, ok := v.(int64)
+		if !ok {
+			return reflect.Value{}, fmt.Errorf(
+				" must be a byte, got %s", lang.TypeMessage(v))
+		}
+		if n < 0 || n > 255 {
+			return reflect.Value{}, fmt.Errorf(" must be a byte, got %d", n)
+		}
+		return reflect.ValueOf(byte(n)), nil
 	}
 	switch target.Kind() {
 	case reflect.Slice:
@@ -253,6 +268,8 @@ func typeWord(t reflect.Type) string {
 		return "a number"
 	case reflect.String:
 		return "a string"
+	case reflect.Uint8:
+		return "a byte"
 	case reflect.Slice:
 		return "a list"
 	case reflect.Map:

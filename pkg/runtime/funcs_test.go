@@ -84,6 +84,27 @@ func TestMakeFuncScalarAndAny(t *testing.T) {
 	require.Equal(t, int64(0), got)
 }
 
+func TestMakeFuncByteContent(t *testing.T) {
+	var received []byte
+	size := MakeFunc("size", "d", func(content []byte) (int64, error) {
+		received = content
+		return int64(len(content)), nil
+	})
+
+	got, err := size.Func([]any{[]byte("abc")})
+	require.NoError(t, err)
+	require.Equal(t, int64(3), got)
+	require.Equal(t, []byte("abc"), received)
+
+	got, err = size.Func([]any{[]any{int64(0), int64(255)}})
+	require.NoError(t, err)
+	require.Equal(t, int64(2), got)
+	require.Equal(t, []byte{0, 255}, received)
+
+	_, err = size.Func([]any{[]any{int64(256)}})
+	require.EqualError(t, err, "size: argument 1: element 0 must be a byte, got 256")
+}
+
 func TestMakeFuncMultipleFixedArgs(t *testing.T) {
 	clamp := MakeFunc("clamp", "d", func(n, lo, hi int64) (int64, error) {
 		if n < lo {
@@ -204,6 +225,8 @@ func TestMakeFuncRejectsBadSignatures(t *testing.T) {
 			"function x parameter 1 has unsupported type int"},
 		{"unsupported element", func(chs []chan int) (bool, error) { return true, nil },
 			"function x parameter 1 has unsupported type []chan int"},
+		{"nested byte slices", func(contents [][]byte) (bool, error) { return true, nil },
+			"function x parameter 1 has unsupported type [][]uint8"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -227,6 +250,8 @@ func TestMakeFuncRejectsBadResults(t *testing.T) {
 			"function x result has unsupported type chan int"},
 		{"named element result", func(s string) ([]named, error) { return nil, nil },
 			"function x result has unsupported type []runtime.named"},
+		{"byte slice result", func() ([]byte, error) { return nil, nil },
+			"function x result has unsupported type []uint8"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

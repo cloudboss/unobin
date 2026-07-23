@@ -60,6 +60,19 @@ func TestLibraryConfigSchemaFromLibrarySchemaUsesSchemaFields(t *testing.T) {
 	}, got.LangSchema())
 }
 
+func TestLangTypeFromCheckHidesInternalAssetTypes(t *testing.T) {
+	require.Equal(
+		t,
+		&lang.TypeAtomic{Name: "string"},
+		langTypeFromCheck(typecheck.TAssetPath()),
+	)
+	require.Equal(
+		t,
+		&lang.TypeAtomic{Name: "opaque"},
+		langTypeFromCheck(typecheck.TBytes()),
+	)
+}
+
 func TestLibraryConfigSchemaFromLibrarySchemaConvertsLegacyMap(t *testing.T) {
 	got, ok := LibraryConfigSchemaFromLibrarySchema("example.com/aws", &LibrarySchema{
 		HasConfiguration: true,

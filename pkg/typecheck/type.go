@@ -40,6 +40,8 @@ const (
 	// by their registrations; inference never produces it and no
 	// source syntax writes it.
 	Union
+	AssetPath
+	Bytes
 )
 
 // Type is a structural type description. The Kind field discrim-
@@ -86,6 +88,10 @@ type ObjectField struct {
 func TUnknown() Type { return Type{Kind: Unknown} }
 func TOpaque() Type  { return Type{Kind: Opaque} }
 func TString() Type  { return Type{Kind: String} }
+func TAssetPath() Type {
+	return Type{Kind: AssetPath}
+}
+func TBytes() Type   { return Type{Kind: Bytes} }
 func TInteger() Type { return Type{Kind: Integer} }
 func TNumber() Type  { return Type{Kind: Number} }
 func TBoolean() Type { return Type{Kind: Boolean} }
@@ -201,6 +207,10 @@ func (t Type) String() string {
 		return "opaque"
 	case String:
 		return "string"
+	case AssetPath:
+		return "asset-path"
+	case Bytes:
+		return "bytes"
 	case Integer:
 		return "integer"
 	case Number:

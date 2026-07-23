@@ -535,6 +535,10 @@ func typeLiteral(t typecheck.Type) string {
 		return "typecheck.TOpaque()"
 	case typecheck.String:
 		return "typecheck.TString()"
+	case typecheck.AssetPath:
+		return "typecheck.TAssetPath()"
+	case typecheck.Bytes:
+		return "typecheck.TBytes()"
 	case typecheck.Integer:
 		return "typecheck.TInteger()"
 	case typecheck.Number:

@@ -14,6 +14,14 @@ func TestAssignableAtomics(t *testing.T) {
 		want bool
 	}{
 		{"string<-string", TString(), TString(), true},
+		{"string<-asset-path", TString(), TAssetPath(), true},
+		{"asset-path<-asset-path", TAssetPath(), TAssetPath(), true},
+		{"asset-path<-string", TAssetPath(), TString(), false},
+		{"bytes<-bytes", TBytes(), TBytes(), true},
+		{"bytes<-list(integer)", TBytes(), TList(TInteger()), true},
+		{"bytes<-tuple(integer)", TBytes(), TTuple([]Type{TInteger(), TInteger()}), true},
+		{"bytes<-list(string)", TBytes(), TList(TString()), false},
+		{"list(integer)<-bytes", TList(TInteger()), TBytes(), false},
 		{"string<-integer", TString(), TInteger(), false},
 		{"integer<-integer", TInteger(), TInteger(), true},
 		{"integer<-number", TInteger(), TNumber(), false},

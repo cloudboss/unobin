@@ -41,6 +41,11 @@ func sourceMainFactory(body string) string {
 	return "factory" + ": {\n" + body + "\n}\n"
 }
 
+func TestTypeLiteralInternalAssetTypes(t *testing.T) {
+	require.Equal(t, "typecheck.TAssetPath()", typeLiteral(typecheck.TAssetPath()))
+	require.Equal(t, "typecheck.TBytes()", typeLiteral(typecheck.TBytes()))
+}
+
 func TestGenerateInjectsGoConstraints(t *testing.T) {
 	out, err := Generate(Input{
 		Body:        "description: 'x'",

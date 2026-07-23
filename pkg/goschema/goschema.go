@@ -722,6 +722,9 @@ func (w *walker) typeFromAST(e ast.Expr) typecheck.Type {
 	case *ast.StarExpr:
 		return typecheck.TOptional(w.typeFromAST(v.X))
 	case *ast.ArrayType:
+		if isByteSlice(v) {
+			return typecheck.TBytes()
+		}
 		return typecheck.TList(w.typeFromAST(v.Elt))
 	case *ast.MapType:
 		keyID, ok := v.Key.(*ast.Ident)
@@ -1244,7 +1247,7 @@ func validateFuncDecl(name string, ft *ast.FuncType, addErr func(string, ...any)
 		if id, ok := last.Type.(*ast.Ident); !ok || id.Name != "error" {
 			addErr("function %q must return (value, error)", name)
 		}
-		if !supportedParamType(ft.Results.List[0].Type) {
+		if !supportedFunctionValueType(ft.Results.List[0].Type) {
 			addErr("function %q result has an unsupported type", name)
 		}
 	}
@@ -1270,6 +1273,13 @@ func validateFuncDecl(name string, ft *ast.FuncType, addErr func(string, ...any)
 // bool, int64, float64, string, any, or a slice or string-keyed map of
 // those.
 func supportedParamType(e ast.Expr) bool {
+	if isByteSlice(e) {
+		return true
+	}
+	return supportedFunctionValueType(e)
+}
+
+func supportedFunctionValueType(e ast.Expr) bool {
 	switch t := e.(type) {
 	case *ast.Ident:
 		switch t.Name {
@@ -1280,12 +1290,21 @@ func supportedParamType(e ast.Expr) bool {
 	case *ast.InterfaceType:
 		return t.Methods == nil || len(t.Methods.List) == 0
 	case *ast.ArrayType:
-		return t.Len == nil && supportedParamType(t.Elt)
+		return t.Len == nil && supportedFunctionValueType(t.Elt)
 	case *ast.MapType:
 		key, ok := t.Key.(*ast.Ident)
-		return ok && key.Name == "string" && supportedParamType(t.Value)
+		return ok && key.Name == "string" && supportedFunctionValueType(t.Value)
 	}
 	return false
+}
+
+func isByteSlice(e ast.Expr) bool {
+	slice, ok := e.(*ast.ArrayType)
+	if !ok || slice.Len != nil {
+		return false
+	}
+	elem, ok := slice.Elt.(*ast.Ident)
+	return ok && elem.Name == "byte"
 }
 
 // funcTypeSig maps a declared signature onto the inferrer's view of
@@ -1303,16 +1322,23 @@ func funcTypeSig(ft *ast.FuncType) typecheck.FuncSig {
 	}
 	for _, fld := range ft.Params.List {
 		if ell, ok := fld.Type.(*ast.Ellipsis); ok {
-			elem := astValueType(ell.Elt)
+			elem := astParamType(ell.Elt)
 			sig.Variadic = &elem
 			continue
 		}
-		t := astValueType(fld.Type)
+		t := astParamType(fld.Type)
 		for range max(len(fld.Names), 1) {
 			sig.Params = append(sig.Params, t)
 		}
 	}
 	return sig
+}
+
+func astParamType(e ast.Expr) typecheck.Type {
+	if isByteSlice(e) {
+		return typecheck.TBytes()
+	}
+	return astValueType(e)
 }
 
 // astValueType maps a declared parameter or result type onto the
