@@ -19,12 +19,24 @@ import (
 const cacheLayoutVersion = "v1"
 
 type Cache struct {
-	catalog *Catalog
-	root    string
-	rootErr error
+	catalog  *Catalog
+	root     string
+	rootErr  error
+	rootName string
 
 	mu       sync.Mutex
 	resolved map[string]any
+}
+
+func (c *Cache) HideRootInErrors() {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.root != "" {
+		c.rootName = filepath.Base(c.root)
+	}
 }
 
 type completion struct {
@@ -126,11 +138,15 @@ func (c *Cache) Resolve(token string) (any, error) {
 		return nil, fmt.Errorf("asset %s: validate cache: %w", DisplayReference(token), hitErr)
 	}
 	if embedded == nil {
+		displayRoot := root
+		if c.rootName != "" {
+			displayRoot = c.rootName
+		}
 		return nil, fmt.Errorf(
 			"asset %s is not present in the embedded bundle or cache %s; "+
 				"use the cache directory from the earlier factory run",
 			DisplayReference(token),
-			root,
+			displayRoot,
 		)
 	}
 	if err := c.materialize(finalDir, embedded); err != nil {

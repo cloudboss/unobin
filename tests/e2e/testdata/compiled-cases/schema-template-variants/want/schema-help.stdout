@@ -11,4 +11,7 @@ Available Commands:
 Flags:
   -h, --help   help for schema
 
+Global Flags:
+      --asset-cache-dir string   Directory for materialized factory assets.
+
 Use "schema-template-variants schema [command] --help" for more information about a command.

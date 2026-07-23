@@ -22,6 +22,7 @@ const applyBrowserTimeout = 5 * time.Second
 type preparedApplyCommand struct {
 	plan        *runtime.PlanFile
 	parsed      *parsedFactory
+	assets      *runnerAssets
 	store       state.Backend
 	parallelism int
 }
@@ -149,6 +150,10 @@ func prepareApplyCommand(
 	if err != nil {
 		return nil, runtime.NewApplyFailure(runtime.ApplyFailureSetup, err)
 	}
+	assets, err := runnerAssetsFor(info)
+	if err != nil {
+		return nil, runtime.NewApplyFailure(runtime.ApplyFailureSetup, err)
+	}
 	store, err := resolveBackend(
 		fromRuntimeStateRef(plan.Backend), info.FactoryName, plan.Stack, encrypter,
 	)
@@ -160,7 +165,7 @@ func prepareApplyCommand(
 		parallelism = parallelismOverride
 	}
 	return &preparedApplyCommand{
-		plan: plan, parsed: parsed, store: store, parallelism: parallelism,
+		plan: plan, parsed: parsed, assets: assets, store: store, parallelism: parallelism,
 	}, nil
 }
 
@@ -551,7 +556,7 @@ func newApplyExecutor(
 	controller *applySignalController,
 	events chan<- runtime.ApplyEvent,
 ) *runtime.Executor {
-	return &runtime.Executor{
+	exec := &runtime.Executor{
 		SyntaxSource: prepared.parsed.syntaxBody,
 		DAG:          prepared.parsed.dag,
 		Libraries:    info.Libraries,
@@ -565,6 +570,8 @@ func newApplyExecutor(
 		Drain:       controller.Drain(),
 		Events:      events,
 	}
+	prepared.assets.configureExecutor(exec)
+	return exec
 }
 
 func enrichApplyFailure(

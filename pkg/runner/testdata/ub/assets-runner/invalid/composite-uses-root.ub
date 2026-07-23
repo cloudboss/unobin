@@ -1,0 +1,5 @@
+group: resource {
+  locals: {
+    wrong-path: asset.payload.path
+  }
+}

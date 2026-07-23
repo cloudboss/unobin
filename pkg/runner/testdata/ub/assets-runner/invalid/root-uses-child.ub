@@ -1,0 +1,13 @@
+factory: {
+  imports: {
+    components: 'github.com/example/components'
+  }
+
+  locals: {
+    wrong-path: asset.child.path
+  }
+
+  resources: {
+    item: components.group {}
+  }
+}

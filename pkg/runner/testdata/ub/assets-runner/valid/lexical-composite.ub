@@ -1,0 +1,5 @@
+group: resource {
+  locals: {
+    child-path: asset.child.path
+  }
+}

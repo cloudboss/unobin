@@ -353,6 +353,22 @@ func TestCacheReportsMissingHistoricalReference(t *testing.T) {
 	require.NotNil(t, catalog)
 }
 
+func TestCacheCanHideRootInErrors(t *testing.T) {
+	captured := bundleFileSet(t, "program", "body\n")
+	_, set := cacheCatalog(t, captured)
+	value, err := set.Value("program", "")
+	require.NoError(t, err)
+	cacheRoot := filepath.Join(t.TempDir(), "private-cache")
+	cache, err := NewCache(nil, cacheRoot)
+	require.NoError(t, err)
+	cache.HideRootInErrors()
+
+	_, err = cache.Resolve(string(value.Path))
+	require.Error(t, err)
+	require.NotContains(t, err.Error(), cacheRoot)
+	require.Contains(t, err.Error(), "cache private-cache")
+}
+
 func TestCacheRejectsInvalidReferencesAndPaths(t *testing.T) {
 	cache, err := NewCache(nil, filepath.Join(t.TempDir(), "cache"))
 	require.NoError(t, err)

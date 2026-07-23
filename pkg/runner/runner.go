@@ -48,6 +48,7 @@ type Info struct {
 	LibraryConfigSchemas map[string]runtime.LibraryConfigSchema
 	AssetBundle          []byte
 	RootAssetSetID       string
+	options              *rootOptions
 
 	// UnobinVersion is the unobin version the factory was compiled
 	// against, stamped at link time the way FactoryVersion is. Run
@@ -67,11 +68,21 @@ func Run(info Info) {
 }
 
 func newRootCmd(info Info) *cobra.Command {
+	info.options = &rootOptions{}
 	root := &cobra.Command{
 		Use:           info.FactoryName,
 		Short:         "Compiled unobin factory " + info.FactoryName,
 		SilenceUsage:  true,
 		SilenceErrors: true,
+	}
+	root.PersistentFlags().StringVar(
+		&info.options.assetCacheDir,
+		"asset-cache-dir",
+		"",
+		"Directory for materialized factory assets.",
+	)
+	root.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		return checkRunnerAssets(cmd, info)
 	}
 	versionCmd := newVersionCmd(info)
 	planCmd := newPlanCmd(info)
@@ -494,6 +505,10 @@ func doRefreshWithFormat(
 	if err != nil {
 		return fail(err)
 	}
+	assets, err := runnerAssetsFor(info)
+	if err != nil {
+		return fail(err)
+	}
 	dag := parsed.dag
 	inputs, err := buildInputs(
 		config,
@@ -526,6 +541,7 @@ func doRefreshWithFormat(
 			ContentRevision: info.ContentRevision,
 		},
 	}
+	assets.configureExecutor(exec)
 	res, err := exec.Refresh(context.Background())
 	if format == cmdout.FormatText {
 		if err != nil {
@@ -724,6 +740,10 @@ func validateStack(info Info, config *parsedStack, configPath string) error {
 	if err != nil {
 		return err
 	}
+	assets, err := runnerAssetsFor(info)
+	if err != nil {
+		return err
+	}
 	// Validation is the one command whose job is to re-prove the
 	// stack, so it runs the deep checks the other commands leave to
 	// the compiler.
@@ -731,8 +751,8 @@ func validateStack(info Info, config *parsedStack, configPath string) error {
 		*parsed.syntaxBody,
 		info.Libraries,
 		info.LibraryConfigSchemas,
-		nil,
-		"",
+		assets.catalog,
+		assets.rootAssetSetID,
 	)
 	if errs := checker.References(nil); errs.Len() > 0 {
 		return errs.Err()
@@ -757,6 +777,7 @@ func validateStack(info Info, config *parsedStack, configPath string) error {
 		DAG:       dag,
 		Libraries: info.Libraries,
 	}
+	assets.configureExecutor(demand)
 	if err := demand.CheckLibraryConfigs(); err != nil {
 		return err
 	}
@@ -974,6 +995,10 @@ func doPlanWithFormat(
 	if err != nil {
 		return fail(err)
 	}
+	assets, err := runnerAssetsFor(info)
+	if err != nil {
+		return fail(err)
+	}
 	dag := parsed.dag
 	inputs, err := buildInputs(
 		config,
@@ -1014,6 +1039,7 @@ func doPlanWithFormat(
 		Parallelism: parallelism,
 		Destroy:     destroy,
 	}
+	assets.configureExecutor(exec)
 	plan, err := exec.Plan(context.Background())
 	if err != nil {
 		return fail(err)

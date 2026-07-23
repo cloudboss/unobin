@@ -1,0 +1,9 @@
+factory: {
+  imports: {
+    components: 'github.com/example/components'
+  }
+
+  resources: {
+    item: components.group {}
+  }
+}
