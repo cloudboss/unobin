@@ -1,0 +1,6 @@
+factory: {
+  assets: {
+    lambda: './lambda'
+    lambda: './other'
+  }
+}

@@ -1,0 +1,10 @@
+factory: {
+  assets: {
+    lambda:  './testdata/lambda/source-directory-with-hidden-and-executable-files'
+    archive: './testdata/build/preassembled-lambda-deployment-archive.zip'
+  }
+
+  locals: {
+    selected: asset.lambda['internal/helpers/asset-selection-retains-a-single-bracket.go'].path
+  }
+}

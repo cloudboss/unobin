@@ -1,0 +1,7 @@
+packaged: resource {
+  assets: {
+    source: '../files/source'
+  }
+
+  outputs: {}
+}

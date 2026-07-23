@@ -95,6 +95,55 @@ func TestLowerFactoryFile(t *testing.T) {
 	assert.Equal(t, "path", got.Factory.Body.Outputs[0].Name.Name)
 }
 
+func TestLowerAssetFixtures(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/assets", func(name string, src []byte) (string, []string) {
+		_, err := ParseSource(assetFixturePath(name), src)
+		if err != nil {
+			return "", strings.Split(err.Error(), "\n")
+		}
+		return "", nil
+	})
+}
+
+func TestLowerAssetsRetainsDeclarations(t *testing.T) {
+	src := ubtest.ReadValidFixture(t, "testdata/ub/assets", "root")
+
+	got, err := ParseSource("factory.ub", []byte(src))
+
+	require.NoError(t, err)
+	require.NotNil(t, got.Factory)
+	require.Len(t, got.Factory.Body.Assets, 2)
+	requireSpan(t, got.Factory.Body.Assets[0].S)
+	requireSpan(t, got.Factory.Body.Assets[0].Name.S)
+	requireSpan(t, got.Factory.Body.Assets[0].Source.S)
+	assert.Equal(t, "lambda", got.Factory.Body.Assets[0].Name.Name)
+	assert.Equal(t, "./lambda", got.Factory.Body.Assets[0].Source.Value)
+	assert.Equal(t, "archive", got.Factory.Body.Assets[1].Name.Name)
+	assert.Equal(t, "./build/lambda.zip", got.Factory.Body.Assets[1].Source.Value)
+}
+
+func TestLowerCompositeAssetsRetainsDeclarations(t *testing.T) {
+	src := ubtest.ReadValidFixture(t, "testdata/ub/assets", "composite")
+
+	got, err := ParseSource("assets.ub", []byte(src))
+
+	require.NoError(t, err)
+	require.NotNil(t, got.Library)
+	require.Len(t, got.Library.Exports, 1)
+	require.Len(t, got.Library.Exports[0].Body.Assets, 1)
+	asset := got.Library.Exports[0].Body.Assets[0]
+	requireSpan(t, asset.S)
+	assert.Equal(t, "source", asset.Name.Name)
+	assert.Equal(t, "../files/source", asset.Source.Value)
+}
+
+func assetFixturePath(name string) string {
+	if strings.Contains(name, "composite") {
+		return "assets.ub"
+	}
+	return "factory.ub"
+}
+
 func TestLowerInputTypeFieldsUseParsedTypes(t *testing.T) {
 	f := parseFile(t, "factory.ub", lowerFixture(t, "input-type-fields"), parse.FileFactory)
 

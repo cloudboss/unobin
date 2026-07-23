@@ -51,6 +51,12 @@ func encodeSyntaxFactoryBody(
 		}
 		b.WriteString(s)
 	}
+	if len(n.Assets) > 0 {
+		fields.next(b, "Assets")
+		if err := encodeSyntaxAssets(b, n.Assets, spanName); err != nil {
+			return err
+		}
+	}
 	if len(n.Inputs) > 0 {
 		fields.next(b, "Inputs")
 		if err := encodeSyntaxInputs(b, n.Inputs, spanName); err != nil {
@@ -110,6 +116,33 @@ func encodeSyntaxFactoryBody(
 		if err := encodeSyntaxOutputs(b, n.Outputs, spanName); err != nil {
 			return err
 		}
+	}
+	b.WriteString("}")
+	return nil
+}
+
+func encodeSyntaxAssets(
+	b *strings.Builder,
+	decls []syntax.AssetDecl,
+	spanName SyntaxSpanNamer,
+) error {
+	b.WriteString("[]syntax.AssetDecl{")
+	for i, decl := range decls {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		source, err := encodeNodeString(decl.Source, spanName)
+		if err != nil {
+			return err
+		}
+		b.WriteString("{")
+		fields := syntaxFieldWriter{}
+		writeSpanField(b, &fields, decl.S, spanName)
+		fields.next(b, "Name")
+		encodeSyntaxIdent(b, decl.Name, spanName)
+		fields.next(b, "Source")
+		b.WriteString(source)
+		b.WriteString("}")
 	}
 	b.WriteString("}")
 	return nil

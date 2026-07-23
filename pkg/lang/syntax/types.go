@@ -95,6 +95,7 @@ type LibraryFile struct {
 type FactoryBody struct {
 	S              parse.Span
 	Description    *parse.StringLit
+	Assets         []AssetDecl
 	Inputs         []InputDecl
 	Locals         []LocalDecl
 	Constraints    []ConstraintDecl
@@ -105,6 +106,12 @@ type FactoryBody struct {
 	Data           []NodeDecl
 	Actions        []NodeDecl
 	Outputs        []OutputDecl
+}
+
+type AssetDecl struct {
+	S      parse.Span
+	Name   Ident
+	Source *parse.StringLit
 }
 
 type StackFactoryBlock struct {

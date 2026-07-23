@@ -228,6 +228,10 @@ func lowerFactoryBodyWithMode(
 		switch name.Name {
 		case "description":
 			body.Description = stringValue(fld, "description", errs)
+		case "assets":
+			if obj := objectValue(fld, "assets", errs); obj != nil {
+				body.Assets = lowerAssets(obj, errs)
+			}
 		case "inputs":
 			if obj := objectValue(fld, "inputs", errs); obj != nil {
 				body.Inputs = lowerInputs(obj, errs, mode)
@@ -736,6 +740,27 @@ func lowerConstraints(arr *parse.ArrayLit) []ConstraintDecl {
 		})
 	}
 	return constraints
+}
+
+func lowerAssets(block *parse.ObjectLit, errs *parse.ErrorList) []AssetDecl {
+	assets := make([]AssetDecl, 0, len(block.Fields))
+	for _, fld := range block.Fields {
+		name, ok := fieldName(fld, "asset name", errs)
+		if !ok {
+			continue
+		}
+		source := stringValue(fld, "asset "+name.Name, errs)
+		if source == nil {
+			continue
+		}
+		if source.Value == "" {
+			errs.Addf(parse.ErrSchema, source.S.Start,
+				"asset %s must have a non-empty source path", name.Name)
+			continue
+		}
+		assets = append(assets, AssetDecl{S: fld.S, Name: name, Source: source})
+	}
+	return assets
 }
 
 func lowerImports(block *parse.ObjectLit, errs *parse.ErrorList) []ImportDecl {

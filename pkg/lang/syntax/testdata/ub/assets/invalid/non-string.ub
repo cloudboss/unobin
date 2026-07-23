@@ -1,0 +1,5 @@
+factory: {
+  assets: {
+    lambda: 42
+  }
+}
