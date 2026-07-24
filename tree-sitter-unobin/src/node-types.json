@@ -52,21 +52,7 @@
   {
     "type": "block_triple_quoted_string",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "triple_quoted_string_text",
-          "named": true
-        },
-        {
-          "type": "triple_string_sigil",
-          "named": true
-        }
-      ]
-    }
+    "fields": {}
   },
   {
     "type": "boolean",
@@ -1172,14 +1158,6 @@
   },
   {
     "type": "triple_interpolated_string_text",
-    "named": true
-  },
-  {
-    "type": "triple_quoted_string_text",
-    "named": true
-  },
-  {
-    "type": "triple_string_sigil",
     "named": true
   },
   {

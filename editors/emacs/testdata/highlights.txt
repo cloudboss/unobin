@@ -19,6 +19,10 @@ factory: {
     missing: null
     math:    (input.count ?? 0) + 1 >= 2 && !false
     ids:     [ for s in input.subnets : s.id when s.public ]
+    wrapped: input.cloudfront-price-class == 'PriceClass_100' || input.cloudfront-price-class == '''\-
+      PriceClass_200
+      ''' || input.cloudfront-price-class == 'PriceClass_All'
+    after-wrapped: 42
   }
   resources: {
     server: example.web {

@@ -1537,28 +1537,8 @@
       ]
     },
     "block_triple_quoted_string": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "STRING",
-          "value": "'''"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "triple_string_sigil"
-        },
-        {
-          "type": "REPEAT",
-          "content": {
-            "type": "SYMBOL",
-            "name": "triple_quoted_string_text"
-          }
-        },
-        {
-          "type": "STRING",
-          "value": "'''"
-        }
-      ]
+      "type": "SYMBOL",
+      "name": "_block_triple_quoted_string"
     },
     "single_line_triple_quoted_string": {
       "type": "TOKEN",
@@ -1592,62 +1572,6 @@
           {
             "type": "STRING",
             "value": "'''"
-          }
-        ]
-      }
-    },
-    "triple_string_sigil": {
-      "type": "TOKEN",
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "STRING",
-            "value": "|-"
-          },
-          {
-            "type": "STRING",
-            "value": "|"
-          },
-          {
-            "type": "STRING",
-            "value": ">-"
-          },
-          {
-            "type": "STRING",
-            "value": ">"
-          },
-          {
-            "type": "STRING",
-            "value": "\\-"
-          },
-          {
-            "type": "STRING",
-            "value": "\\"
-          }
-        ]
-      }
-    },
-    "triple_quoted_string_text": {
-      "type": "IMMEDIATE_TOKEN",
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "PATTERN",
-            "value": "[^']+"
-          },
-          {
-            "type": "PATTERN",
-            "value": "'''[^,\\n}\\])]"
-          },
-          {
-            "type": "PATTERN",
-            "value": "'[^']"
-          },
-          {
-            "type": "PATTERN",
-            "value": "''[^']"
           }
         ]
       }
@@ -1953,7 +1877,12 @@
     ]
   ],
   "precedences": [],
-  "externals": [],
+  "externals": [
+    {
+      "type": "SYMBOL",
+      "name": "_block_triple_quoted_string"
+    }
+  ],
   "inline": [],
   "supertypes": [],
   "reserved": {}

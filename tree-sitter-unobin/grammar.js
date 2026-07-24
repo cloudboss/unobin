@@ -18,6 +18,10 @@ module.exports = grammar({
     $.comment,
   ],
 
+  externals: $ => [
+    $._block_triple_quoted_string,
+  ],
+
   word: $ => $.identifier,
 
   conflicts: $ => [
@@ -284,26 +288,12 @@ module.exports = grammar({
       $.single_line_triple_quoted_string,
     ),
 
-    block_triple_quoted_string: $ => seq(
-      "'''",
-      $.triple_string_sigil,
-      repeat($.triple_quoted_string_text),
-      "'''",
-    ),
+    block_triple_quoted_string: $ => $._block_triple_quoted_string,
 
     single_line_triple_quoted_string: _ => token(seq(
       "'''",
       repeat(choice(/[^'\n\r]/, /'[^'\n\r]/, /''[^'\n\r]/)),
       "'''",
-    )),
-
-    triple_string_sigil: _ => token(choice('|-', '|', '>-', '>', '\\-', '\\')),
-
-    triple_quoted_string_text: _ => token.immediate(choice(
-      /[^']+/,
-      /'''[^,\n}\])]/,
-      /'[^']/,
-      /''[^']/,
     )),
 
     interpolated_string: $ => choice(
