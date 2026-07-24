@@ -1,0 +1,21 @@
+api: resource {
+  inputs: {
+    environment: {
+      type: object({
+        variables: map(string)
+      })
+    }
+    e2e-config: { type: library-config('example.com/unobin/e2elib') }
+  }
+
+  imports: { e2e: 'example.com/unobin/e2elib' }
+
+  library-configs: { e2e: input.e2e-config }
+
+  resources: {
+    marker: e2e.file {
+      path:    'marker'
+      content: 'marker'
+    }
+  }
+}

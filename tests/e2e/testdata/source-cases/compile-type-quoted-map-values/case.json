@@ -1,0 +1,22 @@
+{
+  "name": "compile-type-quoted-map-values",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "unquoted-values",
+      "dir": "unquoted-values",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/unquoted-values.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "quoted-values",
+      "dir": "quoted-values",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/quoted-values.stderr",
+      "exitCode": 1
+    }
+  ]
+}

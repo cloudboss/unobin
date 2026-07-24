@@ -335,6 +335,53 @@ func TestInferObjectLiteralOpenTargetChecksDeclaredFields(t *testing.T) {
 		errs.Messages())
 }
 
+func TestCheckObjectLiteralKeyForms(t *testing.T) {
+	scope := &Scope{Inputs: []ObjectField{{Name: "port", Type: TInteger()}}}
+	tests := []struct {
+		name   string
+		src    string
+		target Type
+		want   []string
+	}{
+		{
+			name:   "unquoted map key",
+			src:    "{ PORT: input.port }",
+			target: TMap(TString()),
+			want:   []string{"type mismatch: expected string, got integer"},
+		},
+		{
+			name:   "quoted map key",
+			src:    "{ 'PORT': input.port }",
+			target: TMap(TString()),
+			want:   []string{"type mismatch: expected string, got integer"},
+		},
+		{
+			name:   "quoted optional map key",
+			src:    "{ 'PORT': input.port }",
+			target: TOptional(TMap(TString())),
+			want: []string{
+				"type mismatch: expected optional(map(string)), " +
+					"got object({ PORT: integer })",
+			},
+		},
+		{
+			name: "quoted object key",
+			src:  "{ 'port': input.port }",
+			target: TObject([]ObjectField{
+				{Name: "port", Type: TString()},
+			}),
+			want: []string{"type mismatch: expected string, got integer"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := lang.NewErrorList(0)
+			Check(parseExpr(t, tt.src), tt.target, scope, errs)
+			require.Equal(t, tt.want, errs.Messages())
+		})
+	}
+}
+
 func TestNavigateOpenObjectFields(t *testing.T) {
 	scope := &Scope{Inputs: []ObjectField{{
 		Name: "payload",

@@ -680,7 +680,7 @@ func inferObject(
 			return inferObjectFree(o, scope, errs)
 		}
 		for _, fld := range o.Fields {
-			if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+			if _, ok := objectLiteralFieldName(fld.Key); !ok {
 				continue
 			}
 			Check(fld.Value, *target.Elem, scope, errs)
@@ -700,10 +700,10 @@ func inferObjectAgainstObject(
 	seen := map[string]bool{}
 	fields := make([]ObjectField, 0, len(o.Fields))
 	for _, fld := range o.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+		name, ok := objectLiteralFieldName(fld.Key)
+		if !ok {
 			continue
 		}
-		name := fld.Key.Name
 		seen[name] = true
 		spec, ok := declared[name]
 		if !ok {
@@ -743,15 +743,30 @@ func inferObjectFree(
 ) Type {
 	fields := make([]ObjectField, 0, len(o.Fields))
 	for _, fld := range o.Fields {
-		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+		name, ok := objectLiteralFieldName(fld.Key)
+		if !ok {
 			continue
 		}
 		fields = append(fields, ObjectField{
-			Name: fld.Key.Name,
+			Name: name,
 			Type: Infer(fld.Value, TUnknown(), scope, errs),
 		})
 	}
 	return TObject(fields)
+}
+
+func objectLiteralFieldName(key lang.FieldKey) (string, bool) {
+	switch key.Kind {
+	case lang.FieldIdent:
+		if key.IsMeta() {
+			return "", false
+		}
+		return key.Name, true
+	case lang.FieldString:
+		return key.String, true
+	default:
+		return "", false
+	}
 }
 
 func inferDotPath(dp *lang.DotPath, scope *Scope, errs *lang.ErrorList) Type {

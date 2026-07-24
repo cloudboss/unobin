@@ -1,0 +1,4 @@
+2 errors:
+  factory.ub:31:21: type: type mismatch: expected string, got integer
+  factory.ub:32:21: type: type mismatch: expected string, got object({ port: integer  name: string })
+
