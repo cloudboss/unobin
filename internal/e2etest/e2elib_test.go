@@ -60,7 +60,11 @@ func TestE2ELibraryFixtureSchema(t *testing.T) {
 	record := schema.Actions["record"]
 	assert.Contains(t, record.Outputs, "record")
 
+	secretResource := schema.Resources["secret"]
+	assert.Equal(t, []string{"value"}, secretResource.SensitiveInputs)
+
 	secret := schema.Actions["secret"]
+	assert.Equal(t, []string{"value"}, secret.SensitiveInputs)
 	assert.Contains(t, secret.Outputs, "value")
 	assert.Equal(t, []string{"value"}, secret.SensitiveOutputs)
 

@@ -9,7 +9,9 @@
 {"kind":"apply-event","format-version":1,"sequence":9,"timestamp":"<timestamp>","stage":"done","decision":"rerun","address":"action.record-local","elapsed":"<elapsed>"}
 {"kind":"apply-event","format-version":1,"sequence":10,"timestamp":"<timestamp>","stage":"start","decision":"rerun","address":"action.record-output-local"}
 {"kind":"apply-event","format-version":1,"sequence":11,"timestamp":"<timestamp>","stage":"done","decision":"rerun","address":"action.record-output-local","elapsed":"<elapsed>"}
-{"kind":"apply-output","format-version":1,"sequence":12,"timestamp":"<timestamp>","name":"library-token","value":"<sensitive>","sensitive":true}
-{"kind":"apply-output","format-version":1,"sequence":13,"timestamp":"<timestamp>","name":"public-name","value":"deploy","sensitive":false}
-{"kind":"apply-output","format-version":1,"sequence":14,"timestamp":"<timestamp>","name":"token","value":"<sensitive>","sensitive":true}
-{"kind":"apply-result","format-version":1,"sequence":15,"timestamp":"<timestamp>","started-at":"<timestamp>","finished-at":"<timestamp>","elapsed":"<elapsed>","state-rev":"<revision>","output-count":3}
+{"kind":"apply-event","format-version":1,"sequence":12,"timestamp":"<timestamp>","stage":"start","decision":"create","address":"resource.go-secret"}
+{"kind":"apply-event","format-version":1,"sequence":13,"timestamp":"<timestamp>","stage":"done","decision":"create","address":"resource.go-secret","elapsed":"<elapsed>"}
+{"kind":"apply-output","format-version":1,"sequence":14,"timestamp":"<timestamp>","name":"library-token","value":"<sensitive>","sensitive":true}
+{"kind":"apply-output","format-version":1,"sequence":15,"timestamp":"<timestamp>","name":"public-name","value":"deploy","sensitive":false}
+{"kind":"apply-output","format-version":1,"sequence":16,"timestamp":"<timestamp>","name":"token","value":"<sensitive>","sensitive":true}
+{"kind":"apply-result","format-version":1,"sequence":17,"timestamp":"<timestamp>","started-at":"<timestamp>","finished-at":"<timestamp>","elapsed":"<elapsed>","state-rev":"<revision>","output-count":3}

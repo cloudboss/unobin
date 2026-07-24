@@ -20,6 +20,13 @@ factory: {
     e2e: input.e2e-config
   }
 
+  resources: {
+    go-secret: e2e.secret {
+      label: input.name
+      value: 'resource-top-secret'
+    }
+  }
+
   locals: {
     name-copy:     input.name
     secret-copy:   input.secret
@@ -35,7 +42,7 @@ factory: {
 
     go-secret: e2e.secret {
       label: input.name
-      value: input.secret
+      value: 'top-secret'
     }
 
     record-local: e2e.record {

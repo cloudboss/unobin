@@ -62,6 +62,11 @@ func Library() *ubruntime.Library {
 			](),
 			"file":   ubruntime.MakeResource[File, *FileOutput, *Configuration](),
 			"object": ubruntime.MakeResource[Object, *ObjectOutput, *Configuration](),
+			"secret": ubruntime.MakeResource[
+				SecretResource,
+				*SecretResourceOutput,
+				*Configuration,
+			](),
 		},
 		DataSources: map[string]ubruntime.DataSourceRegistration{
 			"read-file": ubruntime.MakeDataSource[ReadFile, *ReadFileOutput, *Configuration](),
@@ -714,12 +719,59 @@ type RecordOutput struct {
 
 type Secret struct {
 	Label string
-	Value string
+	Value string `ub:",sensitive"`
 }
 
 type SecretOutput struct {
 	Label string
 	Value string `ub:",sensitive"`
+}
+
+type SecretResource struct {
+	Label string
+	Value string `ub:",sensitive"`
+}
+
+type SecretResourceOutput struct {
+	Label string
+}
+
+func (s *SecretResource) SchemaVersion() int { return 1 }
+
+func (s *SecretResource) ReplaceFields() []string { return nil }
+
+func (s *SecretResource) Create(
+	_ context.Context,
+	_ *Configuration,
+) (*SecretResourceOutput, error) {
+	return &SecretResourceOutput{Label: s.Label}, nil
+}
+
+func (s *SecretResource) Read(
+	_ context.Context,
+	_ *Configuration,
+	prior *SecretResourceOutput,
+) (*SecretResourceOutput, error) {
+	if prior == nil {
+		return nil, ubruntime.ErrNotFound
+	}
+	return prior, nil
+}
+
+func (s *SecretResource) Update(
+	_ context.Context,
+	_ *Configuration,
+	_ ubruntime.Prior[SecretResource, *SecretResourceOutput],
+) (*SecretResourceOutput, error) {
+	return &SecretResourceOutput{Label: s.Label}, nil
+}
+
+func (s *SecretResource) Delete(
+	_ context.Context,
+	_ *Configuration,
+	_ *SecretResourceOutput,
+) error {
+	return nil
 }
 
 func (r Record) Constraints() []constraint.Constraint {

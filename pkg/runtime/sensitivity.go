@@ -142,6 +142,36 @@ func (s *sensitivityAnalyzer) sensitiveInputs(body lang.Expr, compositeAddr stri
 	return names
 }
 
+func (s *sensitivityAnalyzer) stepSensitiveInputs(n *Node) []string {
+	if n == nil {
+		return nil
+	}
+	names := map[string]bool{}
+	if n.IsComposite() {
+		if cs := s.compositeSensitivity(n); cs != nil {
+			for name := range cs.inputs {
+				names[name] = true
+			}
+		}
+	} else if ts := s.primitiveTypeSchema(n); ts != nil {
+		for _, name := range ts.SensitiveInputs {
+			names[name] = true
+		}
+	}
+	for _, name := range s.sensitiveInputs(n.Body, n.Composite) {
+		names[name] = true
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(names))
+	for name := range names {
+		out = append(out, name)
+	}
+	slices.Sort(out)
+	return out
+}
+
 // sensitiveOutputs returns the kebab-case output field names this
 // node exposes as sensitive. For a primitive resource, data source,
 // or action it comes from the library schema's tagged fields; for a
@@ -160,28 +190,23 @@ func (s *sensitivityAnalyzer) sensitiveOutputs(n *Node) []string {
 		slices.Sort(names)
 		return names
 	}
-	switch n.Kind {
-	case NodeResource, NodeAction, NodeDataSource:
-		libs, _ := s.libsForNode(n)
-		lib, ok := libs[n.Alias]
-		if !ok || lib == nil || lib.Schema == nil {
-			return nil
-		}
-		var ts *TypeSchema
-		switch n.Kind {
-		case NodeResource:
-			ts = lib.Schema.Resources[n.Type]
-		case NodeDataSource:
-			ts = lib.Schema.DataSources[n.Type]
-		case NodeAction:
-			ts = lib.Schema.Actions[n.Type]
-		}
-		if ts == nil {
-			return nil
-		}
-		return append([]string(nil), ts.SensitiveOutputs...)
+	ts := s.primitiveTypeSchema(n)
+	if ts == nil {
+		return nil
 	}
-	return nil
+	return slices.Clone(ts.SensitiveOutputs)
+}
+
+func (s *sensitivityAnalyzer) primitiveTypeSchema(n *Node) *TypeSchema {
+	if n == nil || n.IsComposite() {
+		return nil
+	}
+	libs, _ := s.libsForNode(n)
+	lib := libs[n.Alias]
+	if lib == nil || lib.Schema == nil {
+		return nil
+	}
+	return lib.Schema.ForType(n.Kind, n.Type)
 }
 
 // libsForNode returns the libraries table that resolves the node's

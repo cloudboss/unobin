@@ -930,6 +930,23 @@ func TestPlanCreateForFreshResource(t *testing.T) {
 	require.Equal(t, int64(0), c.creates, "Plan should not invoke Create")
 }
 
+func TestPlanMarksDeclaredSensitiveGoInput(t *testing.T) {
+	src := planFixture(t, "plan-create-for-fresh-resource")
+	var c resourceCounters
+	libs := resourceModules(&c)
+	libs["core"].Schema = &LibrarySchema{
+		Resources: map[string]*TypeSchema{
+			"thing": {SensitiveInputs: []string{"name"}},
+		},
+	}
+
+	plan := runPlan(t, src, libs, newStateStore(t))
+
+	step := stepFor(plan, "resource.one")
+	require.NotNil(t, step)
+	require.Equal(t, []string{"name"}, step.SensitiveInputs)
+}
+
 func TestPlanNoOpForUnchanged(t *testing.T) {
 	src := planFixture(t, "plan-no-op-for-unchanged")
 	var c resourceCounters

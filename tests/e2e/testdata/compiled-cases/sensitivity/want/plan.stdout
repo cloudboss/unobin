@@ -10,5 +10,8 @@
   (rerun)   action.record-output-local
       message: <sensitive>
       name: 'output-local'
+  (create)  resource.go-secret
+      label: 'deploy'
+      value: <sensitive>
 
-Plan: 0 to create, 0 to update, 0 to replace, 0 to destroy, 4 to rerun.
+Plan: 1 to create, 0 to update, 0 to replace, 0 to destroy, 4 to rerun.

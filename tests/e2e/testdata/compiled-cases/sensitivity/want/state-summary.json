@@ -99,6 +99,27 @@
       "depends-on": [
         "action.go-secret"
       ]
+    },
+    {
+      "address": "resource.go-secret",
+      "entry-kind": "leaf",
+      "category": "resource",
+      "binding": {
+        "alias": "e2e",
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "secret"
+      },
+      "schema-version": 1,
+      "sensitive-inputs": [
+        "value"
+      ],
+      "inputs": {
+        "label": "deploy",
+        "value": "resource-top-secret"
+      },
+      "outputs": {
+        "label": "deploy"
+      }
     }
   ],
   "outputs": {
