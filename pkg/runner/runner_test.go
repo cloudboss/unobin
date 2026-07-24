@@ -397,36 +397,76 @@ func TestPrintPlanShowsGoneSection(t *testing.T) {
 	require.Contains(t, out, "Plan: 1 to create")
 }
 
-func TestPrintPlanGroupsForEachInstances(t *testing.T) {
-	plan := &runtime.Plan{
-		Steps: []*runtime.PlanStep{
-			{
-				Address:  "resource.many['alpha']",
-				Kind:     runtime.NodeResource,
-				Decision: runtime.DecisionCreate,
-				Inputs:   map[string]any{"name": "alpha", "size": int64(1)},
+func TestPrintPlanForEachInstanceCount(t *testing.T) {
+	tests := []struct {
+		name     string
+		plan     *runtime.Plan
+		wantPath string
+	}{
+		{
+			name: "singular",
+			plan: &runtime.Plan{
+				Steps: []*runtime.PlanStep{
+					{
+						Address:  "resource.many['only']",
+						Kind:     runtime.NodeResource,
+						Decision: runtime.DecisionCreate,
+						Inputs:   map[string]any{"name": "only"},
+					},
+				},
 			},
-			{
-				Address:  "resource.many['beta']",
-				Kind:     runtime.NodeResource,
-				Decision: runtime.DecisionCreate,
-				Inputs:   map[string]any{"name": "beta", "size": int64(2)},
+			wantPath: "testdata/plan-for-each-single.stdout",
+		},
+		{
+			name: "plural",
+			plan: &runtime.Plan{
+				Steps: []*runtime.PlanStep{
+					{
+						Address:  "resource.many['alpha']",
+						Kind:     runtime.NodeResource,
+						Decision: runtime.DecisionCreate,
+						Inputs:   map[string]any{"name": "alpha", "size": int64(1)},
+					},
+					{
+						Address:  "resource.many['beta']",
+						Kind:     runtime.NodeResource,
+						Decision: runtime.DecisionCreate,
+						Inputs:   map[string]any{"name": "beta", "size": int64(2)},
+					},
+				},
 			},
+			wantPath: "testdata/plan-for-each-multiple.stdout",
+		},
+		{
+			name: "plural with one change",
+			plan: &runtime.Plan{
+				Steps: []*runtime.PlanStep{
+					{
+						Address:  "resource.many['alpha']",
+						Kind:     runtime.NodeResource,
+						Decision: runtime.DecisionCreate,
+						Inputs:   map[string]any{"name": "alpha"},
+					},
+					{
+						Address:  "resource.many['beta']",
+						Kind:     runtime.NodeResource,
+						Decision: runtime.DecisionNoOp,
+						Inputs:   map[string]any{"name": "beta"},
+					},
+				},
+			},
+			wantPath: "testdata/plan-for-each-partial-change.stdout",
 		},
 	}
-	buf := &bytes.Buffer{}
-	printPlan(buf, plan, false)
-	expected := `  + resource.many  (for-each, 2 instances)
-    + ['alpha']
-        name: 'alpha'
-        size: 1
-    + ['beta']
-        name: 'beta'
-        size: 2
-
-Plan: 2 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.
-`
-	require.Equal(t, expected, buf.String())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := &bytes.Buffer{}
+			printPlan(buf, tt.plan, false)
+			want, err := os.ReadFile(tt.wantPath)
+			require.NoError(t, err)
+			require.Equal(t, string(want), buf.String())
+		})
+	}
 }
 
 func TestPrintPlanGroupsForEachInstancesInsideComposite(t *testing.T) {

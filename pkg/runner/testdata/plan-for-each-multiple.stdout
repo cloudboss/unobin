@@ -1,0 +1,9 @@
+  + resource.many  (for-each, 2 instances)
+    + ['alpha']
+        name: 'alpha'
+        size: 1
+    + ['beta']
+        name: 'beta'
+        size: 2
+
+Plan: 2 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.

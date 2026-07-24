@@ -1,0 +1,43 @@
+factory: {
+  inputs: {
+    e2e-config: {
+      type: library-config('example.com/unobin/e2elib')
+      default: {
+        base-dir:       '.'
+        event-log-path: 'events.ndjson'
+        nested:         { label: 'nested' }
+      }
+    }
+  }
+
+  locals: {
+    single-files: {
+      only: { path: 'files/only.txt', content: 'only' }
+    }
+    multiple-files: {
+      alpha: { path: 'files/alpha.txt', content: 'alpha' }
+      beta:  { path: 'files/beta.txt', content: 'beta' }
+    }
+  }
+
+  imports: {
+    e2e: 'example.com/unobin/e2elib'
+  }
+
+  library-configs: {
+    e2e: input.e2e-config
+  }
+
+  resources: {
+    single: e2e.file {
+      @for-each: local.single-files
+      path:      @each.value.path
+      content:   @each.value.content
+    }
+    multiple: e2e.file {
+      @for-each: local.multiple-files
+      path:      @each.value.path
+      content:   @each.value.content
+    }
+  }
+}

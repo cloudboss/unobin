@@ -1,0 +1,15 @@
+{
+  "name": "plan-for-each-count",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/plan-for-each-count",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub"],
+      "stdout": "want/plan.stdout",
+      "stderr": "want/plan.stderr"
+    }
+  ],
+  "deterministic": true
+}

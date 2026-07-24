@@ -260,8 +260,12 @@ func renderForEachGroup(
 	instSymPad := strings.Repeat("  ", depth+2)
 	instFieldPad := strings.Repeat("  ", depth+4)
 	header := decisionSymbol(strongestDecision(changing), ascii)
-	fmt.Fprintf(out, "%s%s %s  (for-each, %d instances)\n",
-		symPad, header, relTo(tmpl, parent), len(group))
+	instanceLabel := "instance"
+	if len(group) != 1 {
+		instanceLabel += "s"
+	}
+	fmt.Fprintf(out, "%s%s %s  (for-each, %d %s)\n",
+		symPad, header, relTo(tmpl, parent), len(group), instanceLabel)
 	for _, inst := range changing {
 		_, k := runtime.SplitInstanceAddress(inst.Address)
 		fmt.Fprintf(out, "%s%s ['%s']%s\n",

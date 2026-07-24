@@ -1,0 +1,19 @@
+  (create)  resource.multiple  (for-each, 2 instances)
+    (create)  ['alpha']
+        content: 'alpha'
+        create-parents: true
+        mode: 420
+        path: 'files/alpha.txt'
+    (create)  ['beta']
+        content: 'beta'
+        create-parents: true
+        mode: 420
+        path: 'files/beta.txt'
+  (create)  resource.single  (for-each, 1 instance)
+    (create)  ['only']
+        content: 'only'
+        create-parents: true
+        mode: 420
+        path: 'files/only.txt'
+
+Plan: 3 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.
