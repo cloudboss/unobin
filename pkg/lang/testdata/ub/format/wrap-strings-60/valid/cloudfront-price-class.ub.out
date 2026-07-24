@@ -1,0 +1,5 @@
+require: (
+  input.cloudfront-price-class == 'PriceClass_100'
+  || input.cloudfront-price-class == 'PriceClass_200'
+  || input.cloudfront-price-class == 'PriceClass_All'
+)

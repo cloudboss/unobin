@@ -168,7 +168,7 @@ func (w *formatter) findAlignmentGroup(fields []*Field, start int, indent string
 // group that has already padded the short-key siblings.
 func (w *formatter) fitsAtColumn(e Expr, column int) bool {
 	switch e.(type) {
-	case *ObjectLit, *ArrayLit, *Call, *Conditional, *Comprehension:
+	case *ObjectLit, *ArrayLit, *Call, *Infix, *Conditional, *Comprehension:
 		return w.fitsOnLine(e, column)
 	}
 	return true
@@ -1686,6 +1686,34 @@ func (w *formatter) writeCallArgsPacked(c *Call, indent, inner string) error {
 }
 
 func (w *formatter) writeInfix(i *Infix, indent string) error {
+	if (i.Op != "||" && i.Op != "&&") || w.fitsOnLine(i, w.column()) {
+		return w.writeInfixInline(i, indent)
+	}
+	operands := appendInfixOperands(nil, i, i.Op)
+	inner := indent + fmtStep
+	prec := opPrec(i.Op)
+	w.buf.WriteString("(\n")
+	for idx, operand := range operands {
+		w.buf.WriteString(inner)
+		if idx > 0 {
+			w.buf.WriteString(i.Op)
+			w.buf.WriteByte(' ')
+		}
+		if err := w.writeParens(
+			operand,
+			operandParens(operand, prec, idx > 0),
+			inner,
+		); err != nil {
+			return err
+		}
+		w.buf.WriteByte('\n')
+	}
+	w.buf.WriteString(indent)
+	w.buf.WriteByte(')')
+	return nil
+}
+
+func (w *formatter) writeInfixInline(i *Infix, indent string) error {
 	prec := opPrec(i.Op)
 	if err := w.writeParens(i.Left, operandParens(i.Left, prec, false), indent); err != nil {
 		return err
@@ -1694,6 +1722,15 @@ func (w *formatter) writeInfix(i *Infix, indent string) error {
 	w.buf.WriteString(i.Op)
 	w.buf.WriteByte(' ')
 	return w.writeParens(i.Right, operandParens(i.Right, prec, true), indent)
+}
+
+func appendInfixOperands(out []Expr, expr Expr, op string) []Expr {
+	infix, ok := expr.(*Infix)
+	if !ok || infix.Op != op {
+		return append(out, expr)
+	}
+	out = appendInfixOperands(out, infix.Left, op)
+	return appendInfixOperands(out, infix.Right, op)
 }
 
 func (w *formatter) writePrefix(p *Prefix, indent string) error {
