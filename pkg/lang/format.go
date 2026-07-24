@@ -62,9 +62,14 @@ func FormatWith(file *File, opts FormatOptions) ([]byte, error) {
 	if maxColumn <= 0 {
 		maxColumn = DefaultMaxColumn
 	}
+	var source []byte
+	if file.Body != nil {
+		source = file.Body.Source
+	}
 	w := &formatter{
 		comments:    file.Comments,
 		maxColumn:   maxColumn,
+		source:      source,
 		wrapStrings: opts.WrapStrings,
 	}
 	if err := w.writeFile(file); err != nil {
@@ -79,6 +84,7 @@ type formatter struct {
 	cIdx          int
 	lastLine      int
 	maxColumn     int
+	source        []byte
 	wrapStrings   bool
 	canonicalExpr bool
 }
@@ -112,12 +118,60 @@ func (w *formatter) writeFields(fields []*Field, indent string) error {
 				return err
 			}
 			w.lastLine = fieldEndLine(field)
+			if k+1 < len(fields) {
+				w.lastLine = w.fieldSourceEndLine(field, fields[k+1])
+			}
 			w.flushTrailingOnLine(w.lastLine)
 			w.buf.WriteByte('\n')
 		}
 		i = end
 	}
 	return nil
+}
+
+// fieldSourceEndLine finds the final source line occupied by a field's value.
+// Expression spans omit grouping parentheses, so the next field supplies the
+// reliable upper bound.
+func (w *formatter) fieldSourceEndLine(field, next *Field) int {
+	if field.Decl != nil || field.Value == nil || len(w.source) == 0 {
+		return fieldEndLine(field)
+	}
+	start := field.Value.Span().Start
+	end := next.S.Start
+	if start.Offset < 0 || end.Offset <= start.Offset || end.Offset > len(w.source) {
+		return fieldEndLine(field)
+	}
+	for offset := end.Offset - 1; offset >= start.Offset; offset-- {
+		if commentStart, ok := w.sourceCommentStart(offset, start.Offset, end.Offset); ok {
+			offset = commentStart
+			continue
+		}
+		switch w.source[offset] {
+		case ' ', '\t', '\r', '\n':
+			continue
+		}
+		line := start.Line
+		for _, b := range w.source[start.Offset:offset] {
+			if b == '\n' {
+				line++
+			}
+		}
+		return line
+	}
+	return fieldEndLine(field)
+}
+
+func (w *formatter) sourceCommentStart(offset, minOffset, maxOffset int) (int, bool) {
+	for _, comment := range w.comments {
+		start := comment.S.Start.Offset
+		if start < minOffset || start >= maxOffset {
+			continue
+		}
+		if offset >= start && offset < start+len(comment.Text) {
+			return start, true
+		}
+	}
+	return 0, false
 }
 
 // findAlignmentGroup returns the half-open range [start, end) of

@@ -1,0 +1,6 @@
+require: (
+  alpha
+  && beta
+  && gamma
+)
+next: value
