@@ -408,6 +408,76 @@ func TestSessionDefinitionReturnsLocations(t *testing.T) {
 		"region: { type", "region")
 }
 
+func TestSessionDefinitionResolvesRelativeParentImport(t *testing.T) {
+	projectDir, factoryPath, factorySource, libraryPath, librarySource :=
+		relativeParentDefinitionProject(t, false)
+	session := NewSession("dev")
+	session.projects = NewProjectCache(projectDir)
+	uri := PathToFileURI(factoryPath)
+	rpcErr := openDocument(t, session, uri, 1, factorySource)
+	require.Nil(t, rpcErr)
+
+	result, rpcErr := requestDefinition(t, session, uri,
+		positionInText(factorySource, "parent.message", "message"))
+	require.Nil(t, rpcErr)
+	locations, ok := result.([]protocol.Location)
+	require.True(t, ok)
+	requireDefinitionLocation(t, locations, libraryPath, librarySource,
+		"message: data-source", "message")
+}
+
+func TestSessionDefinitionRejectsImportOutsideProject(t *testing.T) {
+	projectDir, factoryPath, factorySource, _, _ :=
+		relativeParentDefinitionProject(t, true)
+	session := NewSession("dev")
+	session.projects = NewProjectCache(projectDir)
+	uri := PathToFileURI(factoryPath)
+	rpcErr := openDocument(t, session, uri, 1, factorySource)
+	require.Nil(t, rpcErr)
+
+	result, rpcErr := requestDefinition(t, session, uri,
+		positionInText(factorySource, "external.message", "message"))
+	require.Nil(t, result)
+	require.NotNil(t, rpcErr)
+	require.Equal(t, protocol.ErrorCodeInternalError, rpcErr.Code)
+	require.Equal(t,
+		`local import "../../../external" resolves outside project root `+projectDir,
+		rpcErr.Message)
+}
+
+func relativeParentDefinitionProject(
+	t *testing.T,
+	outside bool,
+) (string, string, string, string, string) {
+	t.Helper()
+	base := t.TempDir()
+	projectDir := filepath.Join(base, "repo")
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
+	require.NoError(t, deps.WriteProject(filepath.Join(projectDir, deps.ProjectFileName),
+		&deps.Project{
+			Requires: map[deps.Dependency]deps.Requirement{},
+			Replace:  map[deps.Dependency]string{},
+		}))
+	factoryFixture := "testdata/ub/definition/valid/relative-parent-import-factory.ub"
+	libraryDir := filepath.Join(projectDir, "libs")
+	if outside {
+		factoryFixture = "testdata/ub/definition/valid/relative-outside-import-factory.ub"
+		libraryDir = filepath.Join(base, "external")
+	}
+	factorySource := ubtest.ReadFixture(t, factoryFixture)
+	factoryDir := filepath.Join(projectDir, "factories", "control")
+	require.NoError(t, os.MkdirAll(factoryDir, 0o755))
+	factoryPath := filepath.Join(factoryDir, "factory.ub")
+	require.NoError(t, os.WriteFile(factoryPath, []byte(factorySource), 0o644))
+	librarySource := ubtest.ReadFixture(
+		t, "testdata/ub/definition/valid/relative-parent-import-library.ub",
+	)
+	require.NoError(t, os.MkdirAll(libraryDir, 0o755))
+	libraryPath := filepath.Join(libraryDir, "library.ub")
+	require.NoError(t, os.WriteFile(libraryPath, []byte(librarySource), 0o644))
+	return projectDir, factoryPath, factorySource, libraryPath, librarySource
+}
+
 func definitionProject(t *testing.T) (string, string, string, string) {
 	t.Helper()
 	root := t.TempDir()

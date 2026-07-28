@@ -592,16 +592,16 @@ func localPath(ref ImportRef) string {
 }
 
 func sourceKey(source *Source, fallback string) string {
-	if source != nil && source.Path != "" {
-		return "source:" + filepath.Clean(source.Path)
+	if path := sourceLocalPath(source); path != "" {
+		return "source:" + filepath.Clean(path)
 	}
 	return fallback
 }
 
 func resolvedUBKey(ref ImportRef, source *Source, fromKey string) string {
 	if _, ok := ref.(*LocalImport); ok {
-		if source != nil && source.Path != "" {
-			return "local:" + filepath.Clean(source.Path)
+		if path := sourceLocalPath(source); path != "" {
+			return "local:" + filepath.Clean(path)
 		}
 		if fromKey != "" {
 			return "local:" + fromKey + ":" + localPath(ref)
@@ -778,10 +778,11 @@ func ubLibrarySourceDisplaySpec(
 	spec.LibraryPath = libraryPath
 	displaySpec := spec
 	if _, local := ref.(*LocalImport); local {
+		localPath := sourceLocalPath(source)
 		switch {
-		case source != nil && source.Path != "" && !filepath.IsAbs(source.Path):
+		case localPath != "" && !filepath.IsAbs(localPath):
 			displaySpec.ProjectRelPath = filepath.ToSlash(
-				filepath.Join(source.Path, filepath.FromSlash(spec.PackageRelPath)),
+				filepath.Join(localPath, filepath.FromSlash(spec.PackageRelPath)),
 			)
 		default:
 			displaySpec.ProjectRelPath = libraryProjectRelPathFromRef(
@@ -843,8 +844,8 @@ func resolvedUBLibraryPath(ref ImportRef, source *Source) string {
 		}
 		return packagePath
 	case *LocalImport:
-		if source != nil && source.Path != "" {
-			return "local:" + filepath.Clean(source.Path)
+		if path := sourceLocalPath(source); path != "" {
+			return "local:" + filepath.Clean(path)
 		}
 		if r.Path != "" {
 			return "local:" + filepath.Clean(r.Path)
@@ -854,6 +855,16 @@ func resolvedUBLibraryPath(ref ImportRef, source *Source) string {
 		return "local:" + filepath.Clean(source.Path)
 	}
 	return ""
+}
+
+func sourceLocalPath(source *Source) string {
+	if source == nil {
+		return ""
+	}
+	if source.LocalPath != "" {
+		return source.LocalPath
+	}
+	return source.Path
 }
 
 func addSourceDeclaredLibraryFile(

@@ -1,0 +1,34 @@
+{
+  "name": "compile-relative-parent-import",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "parent-import",
+      "dir": "repo/factories/control",
+      "args": ["compile", "-p", ".", "-o", "build"]
+    },
+    {
+      "name": "outside-project",
+      "dir": "repo/factories/escape",
+      "args": ["compile", "-p", ".", "-o", "build"],
+      "stderr": "want/outside-project.stderr",
+      "exitCode": 1
+    }
+  ],
+  "files": [
+    {
+      "path": "repo/factories/control/build/main.go",
+      "want": "want/main.go"
+    },
+    {
+      "path": "repo/factories/control/build/go.mod",
+      "want": "want/go.mod"
+    },
+    {
+      "path": "repo/factories/control/build/internal/libs/libs.go",
+      "want": "want/libs.go"
+    }
+  ]
+}

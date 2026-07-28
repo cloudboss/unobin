@@ -289,9 +289,7 @@ func run(opts Options, resultOut **Result) error {
 	factorySource := rootFactorySourceSpec(factoryPath, projectDir, opts.LibraryPath, src)
 	factorySource.ProjectRelPath = projectRelativePath(projectDir, absoluteFactoryPath)
 	rootSource := rootResolveSource(projectDir, sourceDir)
-	originalSourceDir := filepath.Dir(factoryPath)
-	rootSource.FS = os.DirFS(originalSourceDir)
-	rootSource.Path = originalSourceDir
+	rootSource.LocalPath = filepath.Dir(factoryPath)
 	project, err := readProject(projectDir)
 	if err != nil {
 		return err

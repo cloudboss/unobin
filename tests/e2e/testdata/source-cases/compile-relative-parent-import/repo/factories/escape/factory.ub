@@ -1,0 +1,4 @@
+factory: {
+  imports: { external: '../../../external' }
+  data-sources: { message: external.message {} }
+}

@@ -71,6 +71,22 @@ func (r *ImportResolver) ResolveNoFetch(
 	}
 }
 
+// ResolveNoFetchFrom resolves local refs from the declaring source and other
+// refs from cached project data.
+func (r *ImportResolver) ResolveNoFetchFrom(
+	ref resolve.ImportRef,
+	parent *resolve.Source,
+) (*resolve.Source, bool, error) {
+	if _, ok := ref.(*resolve.LocalImport); !ok {
+		return r.ResolveNoFetch(ref)
+	}
+	src, err := r.local.ResolveFrom(ref, parent)
+	if err != nil {
+		return nil, false, err
+	}
+	return src, true, nil
+}
+
 func (r *ImportResolver) resolveReplacement(
 	ref *resolve.RemoteImport,
 ) (*resolve.Source, bool, error) {

@@ -1,0 +1,4 @@
+factory: {
+  imports: { parent: '../../libs' }
+  data-sources: { message: parent.message {} }
+}

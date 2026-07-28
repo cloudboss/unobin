@@ -1,0 +1,1 @@
+import "external": local import "../../../external" resolves outside project root <workspace>/repo

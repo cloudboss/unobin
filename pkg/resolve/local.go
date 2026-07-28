@@ -45,6 +45,7 @@ func (r *LocalResolver) Resolve(ref ImportRef) (*Source, error) {
 	if err != nil {
 		return nil, err
 	}
+	source.LocalPath = filepath.Clean(abs)
 	if err := addLocalProjectMetadata(source, r.Root); err != nil {
 		return nil, err
 	}
@@ -87,6 +88,7 @@ func ResolveLocalSource(li *LocalImport, parent *Source) (*Source, error) {
 		if err != nil {
 			return nil, err
 		}
+		child.LocalPath = childLocalPath(parent, li.Path)
 		preserveLocalProjectMetadata(child, parent, li.Path)
 		return child, nil
 	}
@@ -111,9 +113,20 @@ func ResolveLocalSource(li *LocalImport, parent *Source) (*Source, error) {
 	if err != nil {
 		return nil, err
 	}
-	child := &Source{FS: sub}
+	child := &Source{FS: sub, LocalPath: childLocalPath(parent, li.Path)}
 	preserveLocalProjectMetadata(child, parent, li.Path)
 	return child, nil
+}
+
+func childLocalPath(parent *Source, importPath string) string {
+	base := parent.LocalPath
+	if base == "" {
+		base = parent.Path
+	}
+	if base == "" {
+		return filepath.Clean(importPath)
+	}
+	return filepath.Clean(filepath.Join(base, importPath))
 }
 
 func absoluteLocalImportError(path string) error {

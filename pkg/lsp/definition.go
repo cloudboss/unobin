@@ -834,7 +834,8 @@ func resolveImportAlias(
 	if err != nil {
 		return resolvedImport{}, err
 	}
-	src, ok, err := project.Resolver.ResolveNoFetch(ref)
+	parent := &resolve.Source{Path: filepath.Dir(path)}
+	src, ok, err := project.Resolver.ResolveNoFetchFrom(ref, parent)
 	if err != nil {
 		return resolvedImport{}, err
 	}
@@ -857,7 +858,8 @@ func resolveLibraryConfigPath(
 	if err != nil {
 		return resolvedImport{}, err
 	}
-	src, ok, err := project.Resolver.ResolveNoFetch(ref)
+	parent := &resolve.Source{Path: filepath.Dir(path)}
+	src, ok, err := project.Resolver.ResolveNoFetchFrom(ref, parent)
 	if err != nil {
 		return resolvedImport{}, err
 	}
