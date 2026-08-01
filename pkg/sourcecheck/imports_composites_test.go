@@ -10,6 +10,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/stretchr/testify/require"
 )
 
@@ -54,6 +55,8 @@ func TestImportVisitorBuildsCompositeArtifactsTogether(t *testing.T) {
 	require.Contains(t, archive.goSpecs["example.com/std"].Constraints, "resource.file")
 	require.Contains(t, archive.goSpecs["example.com/std"].Defaults, "resource.file")
 	require.Contains(t, archive.goSpecs["example.com/std"].Schema.Resources, "file")
+	require.Equal(t, "example.com/std/config.Configuration",
+		archive.goSpecs["example.com/std"].Schema.ConfigurationIdentity)
 	require.NotContains(t, archive.goSpecs["example.com/std"].Constraints, "resource.unused")
 	require.NotContains(t, archive.goSpecs["example.com/std"].Defaults, "data-source.query")
 
@@ -174,6 +177,12 @@ func compositeArtifactLibrary(goSourcePath string) *resolve.UBLibrary {
 
 func compositeArtifactSchema() *runtime.LibrarySchema {
 	return &runtime.LibrarySchema{
+		HasConfiguration: true,
+		ConfigurationFields: []typecheck.ObjectField{
+			{Name: "region", Type: typecheck.TString()},
+		},
+		ConfigurationIdentity: "example.com/std/config.Configuration",
+		ConfigurationDigest:   "config-digest",
 		Resources: map[string]*runtime.TypeSchema{
 			"file": {
 				SensitiveInputs: []string{"content"},

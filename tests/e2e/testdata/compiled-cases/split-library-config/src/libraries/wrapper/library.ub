@@ -1,0 +1,21 @@
+region: action {
+  inputs: {
+    aws: { type: library-config('example.com/aws//config') }
+  }
+
+  imports: {
+    service: 'example.com/aws//service'
+  }
+
+  library-configs: {
+    service: input.aws
+  }
+
+  actions: {
+    inner: service.region {}
+  }
+
+  outputs: {
+    region: { value: action.inner.region }
+  }
+}

@@ -7,15 +7,13 @@ factory: {
   }
 
   imports: {
-    service: 'example.com/aws//service'
-  }
-
-  library-configs: {
-    service: input.aws
+    wrapper: './libraries/wrapper'
   }
 
   actions: {
-    region: service.region {}
+    region: wrapper.region {
+      aws: input.aws
+    }
   }
 
   outputs: {

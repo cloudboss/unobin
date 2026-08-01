@@ -144,6 +144,46 @@ func TestGenerateUBLibraryEmitsSyntaxBody(t *testing.T) {
 	require.NotContains(t, s, `Body: &lang.File{`)
 }
 
+func TestGenerateUBLibraryCompositeConfigSchemaGolden(t *testing.T) {
+	ubtest.Run(t, "testdata/ub/ublibrary-config-schema",
+		func(name string, src []byte) (string, []string) {
+			body, _ := parseSyntaxUBFile(t, name+".ub", "action", "region", string(src))
+			configPath := "example.com/aws//config"
+			configSchemas := map[string]map[string]map[string]runtime.LibraryConfigSchema{
+				"action": {
+					"region": {
+						configPath: {
+							Path: configPath,
+							Fields: []typecheck.ObjectField{
+								{Name: "region", Type: typecheck.TString()},
+							},
+							Constraints: []lang.ConstraintSpec{
+								{Kind: "predicate", Require: "input.region != ''"},
+							},
+							Identity: "aws-config-v1",
+							Digest:   "digest",
+						},
+					},
+				},
+			}
+			out, err := GenerateUBLibraryPackageWithAssetsAndConfigSchemas(
+				"wrapper",
+				"wrapper",
+				map[string]map[string]syntax.FactoryBody{"action": {"region": body}},
+				nil,
+				nil,
+				nil,
+				nil,
+				configSchemas,
+			)
+			if err != nil {
+				return "", []string{err.Error()}
+			}
+			return string(out), nil
+		},
+	)
+}
+
 func TestGenerateUBLibraryEmitsSyntaxBodyWithSpans(t *testing.T) {
 	body, src := parseSyntaxUBFile(t, "library.ub", "resource", "cluster", "description: 'a'")
 	sourceFiles := map[string]syntax.SourceFileSpec{

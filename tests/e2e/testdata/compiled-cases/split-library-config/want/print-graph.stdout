@@ -1,7 +1,12 @@
 action.region
-  -> library-config.service
+  -> action.region/action.inner
+  -> action.region/library-config.service
 
-library-config.service
+action.region/action.inner
+  -> action.region/library-config.service
+  -> input.aws
+
+action.region/library-config.service
   -> input.aws
 
 output.region

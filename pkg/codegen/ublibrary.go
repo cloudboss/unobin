@@ -79,6 +79,7 @@ func GenerateUBLibraryPackage(
 		goSpecs,
 		sourceFiles,
 		nil,
+		nil,
 	)
 }
 
@@ -93,6 +94,30 @@ func GenerateUBLibraryPackageWithAssets(
 	sourceFiles map[string]syntax.SourceFileSpec,
 	assetSetIDs map[string]map[string]string,
 ) ([]byte, error) {
+	return GenerateUBLibraryPackageWithAssetsAndConfigSchemas(
+		packageID,
+		libraryName,
+		syntaxBodies,
+		imports,
+		goSpecs,
+		sourceFiles,
+		assetSetIDs,
+		nil,
+	)
+}
+
+// GenerateUBLibraryPackageWithAssetsAndConfigSchemas includes the captured
+// asset-set IDs and resolved library-config schemas for each composite body.
+func GenerateUBLibraryPackageWithAssetsAndConfigSchemas(
+	packageID string,
+	libraryName string,
+	syntaxBodies map[string]map[string]syntax.FactoryBody,
+	imports map[string]map[string]map[string]string,
+	goSpecs map[string]GoLibrarySpecs,
+	sourceFiles map[string]syntax.SourceFileSpec,
+	assetSetIDs map[string]map[string]string,
+	libraryConfigSchemas map[string]map[string]map[string]runtime.LibraryConfigSchema,
+) ([]byte, error) {
 	return generateUBLibraryPackage(
 		packageID,
 		libraryName,
@@ -101,6 +126,7 @@ func GenerateUBLibraryPackageWithAssets(
 		goSpecs,
 		sourceFiles,
 		assetSetIDs,
+		libraryConfigSchemas,
 	)
 }
 
@@ -112,6 +138,7 @@ func generateUBLibraryPackage(
 	goSpecs map[string]GoLibrarySpecs,
 	sourceFiles map[string]syntax.SourceFileSpec,
 	assetSetIDs map[string]map[string]string,
+	libraryConfigSchemas map[string]map[string]map[string]runtime.LibraryConfigSchema,
 ) ([]byte, error) {
 	if packageID == "" {
 		return nil, fmt.Errorf("ublibrary: package name is required")
@@ -122,6 +149,8 @@ func generateUBLibraryPackage(
 
 	idents := newIdentTable()
 	sourceHelpers, sourceHelperByFile := sourceHelpersFor(sourceFiles)
+	hasConfigSchemaLang := false
+	hasConfigSchemaTypecheck := false
 	groups := map[string]*compositeGroup{}
 	for _, c := range compositeKinds {
 		groups[c.kind] = &compositeGroup{MapField: c.mapField, Symbol: c.symbol}
@@ -132,10 +161,18 @@ func generateUBLibraryPackage(
 			return nil, fmt.Errorf("ublibrary %q: unknown kind %q", libraryName, kind)
 		}
 		for _, name := range compositeNames(syntaxBodies[kind]) {
+			configSchemas := libraryConfigSchemas[kind][name]
 			entry := compositeEntry{
 				Name:       name,
 				Symbol:     group.Symbol,
 				AssetSetID: assetSetIDs[kind][name],
+			}
+			if len(configSchemas) > 0 {
+				entry.LibraryConfigSchemas = libraryConfigSchemasLiteral(configSchemas)
+				hasConfigSchemaLang = hasConfigSchemaLang ||
+					libraryConfigSchemasNeedLang(configSchemas)
+				hasConfigSchemaTypecheck = hasConfigSchemaTypecheck ||
+					libraryConfigSchemasNeedTypecheck(configSchemas)
 			}
 			encoded, err := encodeSyntaxBodyWithSourceHelpers(
 				syntaxBodies[kind][name], sourceHelperByFile)
@@ -189,14 +226,15 @@ func generateUBLibraryPackage(
 		HasSyntaxBodies  bool
 		HasSourceHelpers bool
 	}{
-		PackageName:      sanitizeIdent(packageID),
-		LibraryName:      libraryName,
-		SpecVars:         specVars,
-		Groups:           orderedGroups,
-		GoImports:        idents.imports(),
-		SourceHelpers:    sourceHelpers,
-		HasLang:          specVarsNeedLang(specVars) || hasSyntaxBodies(orderedGroups),
-		HasTypecheck:     specVarsNeedTypecheck(specVars),
+		PackageName:   sanitizeIdent(packageID),
+		LibraryName:   libraryName,
+		SpecVars:      specVars,
+		Groups:        orderedGroups,
+		GoImports:     idents.imports(),
+		SourceHelpers: sourceHelpers,
+		HasLang: specVarsNeedLang(specVars) || hasSyntaxBodies(orderedGroups) ||
+			hasConfigSchemaLang,
+		HasTypecheck:     specVarsNeedTypecheck(specVars) || hasConfigSchemaTypecheck,
 		HasSyntaxBodies:  hasSyntaxBodies(orderedGroups),
 		HasSourceHelpers: len(sourceHelpers) > 0,
 	}
@@ -230,11 +268,12 @@ type compositeGroup struct {
 }
 
 type compositeEntry struct {
-	Name       string
-	Symbol     string
-	SyntaxBody string
-	AssetSetID string
-	Libraries  []libraryBinding
+	Name                 string
+	Symbol               string
+	SyntaxBody           string
+	AssetSetID           string
+	LibraryConfigSchemas string
+	Libraries            []libraryBinding
 }
 
 type sourceHelper struct {
@@ -543,6 +582,9 @@ func {{.FuncName}}(start, end int) parse.Span {
 {{- end}}
 {{- if .SyntaxBody}}
 				SyntaxBody: {{.SyntaxBody}},
+{{- end}}
+{{- if .LibraryConfigSchemas}}
+				LibraryConfigSchemas: {{.LibraryConfigSchemas}},
 {{- end}}
 {{- if .Libraries}}
 				Libraries: map[string]*runtime.Library{

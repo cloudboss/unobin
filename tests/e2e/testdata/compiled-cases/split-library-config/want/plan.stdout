@@ -1,3 +1,5 @@
-  (rerun)   action.region
+  (rerun)   action.region  (composite)
+      aws: {region: 'us-west-2'}
+    (rerun)   action.inner
 
 Plan: 0 to create, 0 to update, 0 to replace, 0 to destroy, 1 to rerun.

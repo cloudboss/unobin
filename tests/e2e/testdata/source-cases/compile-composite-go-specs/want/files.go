@@ -54,7 +54,8 @@ func Library() *runtime.Library {
 			{Field: "input.nested.label", Value: "'nested'"},
 			{Field: "input.nested.enabled", Value: "true"},
 		},
-		ConfigurationDigest: "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3",
+		ConfigurationIdentity: "example.com/unobin/e2elib.Configuration",
+		ConfigurationDigest:   "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3",
 	}
 	return &runtime.Library{
 		Name: "files",
@@ -63,6 +64,23 @@ func Library() *runtime.Library {
 				Name:       "archive",
 				Kind:       runtime.NodeResource,
 				SyntaxBody: &syntax.FactoryBody{S: sp0(18, 357), Inputs: []syntax.InputDecl{{S: sp0(36, 0), Name: syntax.Ident{S: sp0(36, 0), Name: "path"}, Body: &lang.ObjectLit{S: sp0(42, 58), Fields: []*lang.Field{{S: sp0(44, 0), Key: lang.FieldKey{S: sp0(44, 0), Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeAtomic{S: sp0(50, 0), Name: "string"}}}}, Type: &lang.TypeAtomic{S: sp0(50, 0), Name: "string"}}, {S: sp0(63, 0), Name: syntax.Ident{S: sp0(63, 0), Name: "body"}, Body: &lang.ObjectLit{S: sp0(69, 85), Fields: []*lang.Field{{S: sp0(71, 0), Key: lang.FieldKey{S: sp0(71, 0), Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeAtomic{S: sp0(77, 0), Name: "string"}}}}, Type: &lang.TypeAtomic{S: sp0(77, 0), Name: "string"}}, {S: sp0(90, 0), Name: syntax.Ident{S: sp0(90, 0), Name: "e2e-config"}, Body: &lang.ObjectLit{S: sp0(102, 155), Fields: []*lang.Field{{S: sp0(104, 0), Key: lang.FieldKey{S: sp0(104, 0), Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeLibraryConfig{S: sp0(110, 0), Path: &lang.StringLit{S: sp0(125, 0), Value: "example.com/unobin/e2elib"}}}}}, Type: &lang.TypeLibraryConfig{S: sp0(110, 0), Path: &lang.StringLit{S: sp0(125, 0), Value: "example.com/unobin/e2elib"}}}}, Imports: []syntax.ImportDecl{{S: sp0(174, 0), Alias: syntax.Ident{S: sp0(174, 0), Name: "e2e"}, Ref: &lang.StringLit{S: sp0(179, 0), Value: "example.com/unobin/e2elib"}}}, LibraryConfigs: []syntax.LibraryConfigDecl{{S: sp0(231, 0), Alias: syntax.Ident{S: sp0(231, 0), Name: "e2e"}, Value: &lang.DotPath{S: sp0(236, 0), Root: &lang.Ident{S: sp0(236, 0), Name: "input"}, Segments: []lang.DotSegment{{S: sp0(241, 0), Name: "e2e-config"}}}}}, Resources: []syntax.NodeDecl{{S: sp0(275, 351), Kind: syntax.NodeKind("resource"), Name: syntax.Ident{S: sp0(275, 0), Name: "member"}, Selector: syntax.NodeSelector{S: sp0(283, 291), Alias: syntax.Ident{S: sp0(283, 286), Name: "e2e"}, Export: syntax.Ident{S: sp0(287, 291), Name: "file"}}, Body: &lang.ObjectLit{S: sp0(292, 351), Fields: []*lang.Field{{S: sp0(300, 0), Key: lang.FieldKey{S: sp0(300, 0), Kind: lang.FieldIdent, Name: "path"}, Value: &lang.DotPath{S: sp0(309, 0), Root: &lang.Ident{S: sp0(309, 0), Name: "input"}, Segments: []lang.DotSegment{{S: sp0(314, 0), Name: "path"}}}}, {S: sp0(326, 0), Key: lang.FieldKey{S: sp0(326, 0), Kind: lang.FieldIdent, Name: "content"}, Value: &lang.DotPath{S: sp0(335, 0), Root: &lang.Ident{S: sp0(335, 0), Name: "input"}, Segments: []lang.DotSegment{{S: sp0(340, 0), Name: "body"}}}}}}}}},
+				LibraryConfigSchemas: map[string]runtime.LibraryConfigSchema{
+					"example.com/unobin/e2elib": {Path: "example.com/unobin/e2elib", Fields: []typecheck.ObjectField{
+						{Name: "base-dir", Type: typecheck.TString(), Defaulted: true},
+						{Name: "event-log-path", Type: typecheck.TString(), Defaulted: true},
+						{Name: "prefix", Type: typecheck.TString(), Defaulted: true},
+						{Name: "nested", Type: typecheck.TObject([]typecheck.ObjectField{
+							{Name: "label", Type: typecheck.TString(), Defaulted: true},
+							{Name: "enabled", Type: typecheck.TBoolean(), Defaulted: true},
+						})},
+					}, Defaults: []lang.DefaultSpec{
+						{Field: "input.base-dir", Value: "'.'"},
+						{Field: "input.event-log-path", Value: "'events.ndjson'"},
+						{Field: "input.prefix", Value: "''"},
+						{Field: "input.nested.label", Value: "'nested'"},
+						{Field: "input.nested.enabled", Value: "true"},
+					}, Identity: "example.com/unobin/e2elib.Configuration", Digest: "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3"},
+				},
 				Libraries: map[string]*runtime.Library{
 					"e2e": runtime.LibraryWithPath(
 						e2elibLib,

@@ -360,7 +360,7 @@ func (v *importVisitor) OnUBLibrary(
 	}
 	runtimeLib := runtimeLibraryForCompiledComposites(alias, composites)
 	if v.generatePackages {
-		src, err := codegen.GenerateUBLibraryPackageWithAssets(
+		src, err := codegen.GenerateUBLibraryPackageWithAssetsAndConfigSchemas(
 			packageID,
 			alias,
 			syntaxBodiesForCompiledComposites(composites),
@@ -368,6 +368,7 @@ func (v *importVisitor) OnUBLibrary(
 			goSpecsForCompiledComposites(composites),
 			lib.SourceFiles,
 			assetSetIDsForCompiledComposites(composites),
+			libraryConfigSchemasForCompiledComposites(composites),
 		)
 		if err != nil {
 			return err
@@ -552,6 +553,31 @@ func assetSetIDsForCompiledComposites(
 			out[kind] = map[string]string{}
 		}
 		out[kind][composite.entry.Name] = composite.assetSetID
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func libraryConfigSchemasForCompiledComposites(
+	composites []compiledComposite,
+) map[string]map[string]map[string]runtime.LibraryConfigSchema {
+	out := map[string]map[string]map[string]runtime.LibraryConfigSchema{}
+	for _, composite := range composites {
+		if len(composite.libraryConfigSchemas) == 0 {
+			continue
+		}
+		kind := composite.entry.Kind
+		if out[kind] == nil {
+			out[kind] = map[string]map[string]runtime.LibraryConfigSchema{}
+		}
+		schemas := make(
+			map[string]runtime.LibraryConfigSchema,
+			len(composite.libraryConfigSchemas),
+		)
+		maps.Copy(schemas, composite.libraryConfigSchemas)
+		out[kind][composite.entry.Name] = schemas
 	}
 	if len(out) == 0 {
 		return nil
@@ -756,6 +782,7 @@ func copyConfigurationSchema(dst, src *runtime.LibrarySchema) {
 	dst.ConfigurationFields = slices.Clone(src.ConfigurationFields)
 	dst.ConfigurationDefaults = slices.Clone(src.ConfigurationDefaults)
 	dst.ConfigurationConstraints = slices.Clone(src.ConfigurationConstraints)
+	dst.ConfigurationIdentity = src.ConfigurationIdentity
 	dst.ConfigurationDigest = src.ConfigurationDigest
 	dst.ConfigurationEmpty = src.ConfigurationEmpty
 }
