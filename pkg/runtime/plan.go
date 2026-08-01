@@ -1156,28 +1156,12 @@ func (e *Executor) checkCompositeConstraints(rs *runState, step *PlanStep) []err
 	if !ok || !node.IsComposite() {
 		return nil
 	}
-	constraints := compositeConstraints(node)
-	if constraints == nil || len(constraints.Elements) == 0 {
-		return nil
-	}
 	scope, ok := rs.composites[step.Address]
 	if !ok || scope == nil {
 		return nil
 	}
-	values := make(map[string]any, len(scope.Inputs))
-	for name := range compositeInputNames(node) {
-		values[name] = nil
-	}
-	maps.Copy(values, scope.Inputs)
-	eval := func(ex lang.Expr, binds []lang.EachBinding) (any, error) {
-		ctx := &EvalContext{Inputs: values, Libraries: node.Libraries, MissingAsNull: true}
-		ApplyBindings(ctx, binds)
-		return Eval(ex, ctx)
-	}
 	var out []error
-	for _, er := range lang.CheckConstraints(
-		constraints, values, eval, lang.DisplayNodeRelative,
-	).Errors() {
+	for _, er := range checkCompositeConstraintValues(node, scope).Errors() {
 		out = append(out, fmt.Errorf("%s: %v", step.Address, er))
 	}
 	return out

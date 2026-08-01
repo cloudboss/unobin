@@ -1,0 +1,13 @@
+stack: {
+  factory: {
+    inputs: {
+      aws: { region: '' }
+    }
+  }
+
+  state: local {
+    path: '.unobin/state-invalid'
+  }
+
+  encryption: noop {}
+}

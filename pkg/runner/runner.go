@@ -758,13 +758,14 @@ func validateStack(info Info, config *parsedStack, configPath string) error {
 		return errs.Err()
 	}
 	dag := checker.DAG()
-	if _, err := buildInputs(
+	inputs, err := buildInputs(
 		config,
 		configPath,
 		parsed,
 		info.Libraries,
 		info.LibraryConfigSchemas,
-	); err != nil {
+	)
+	if err != nil {
 		return err
 	}
 	if err := validateStateRefs(config, configPath); err != nil {
@@ -776,8 +777,12 @@ func validateStack(info Info, config *parsedStack, configPath string) error {
 	demand := &runtime.Executor{
 		DAG:       dag,
 		Libraries: info.Libraries,
+		Inputs:    inputs,
 	}
 	assets.configureExecutor(demand)
+	if err := demand.ValidateCompositeConstraints(); err != nil {
+		return err
+	}
 	if err := demand.CheckLibraryConfigs(); err != nil {
 		return err
 	}

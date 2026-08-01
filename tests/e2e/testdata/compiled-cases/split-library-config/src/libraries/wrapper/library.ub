@@ -11,6 +11,15 @@ region: action {
     service: input.aws
   }
 
+  constraints: [
+    {
+      kind:    predicate
+      when:    true
+      require: input.aws.region != ''
+      message: 'region is required'
+    },
+  ]
+
   actions: {
     inner: service.region {}
   }

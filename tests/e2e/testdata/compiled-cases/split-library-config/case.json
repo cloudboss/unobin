@@ -11,6 +11,12 @@
       "stderr": "want/validate.stderr"
     },
     {
+      "name": "validate-invalid",
+      "args": ["validate", "-c", "stacks/invalid.ub"],
+      "stderr": "want/validate-invalid.stderr",
+      "exitCode": 1
+    },
+    {
       "name": "print-graph",
       "args": ["print-graph"],
       "stdout": "want/print-graph.stdout",

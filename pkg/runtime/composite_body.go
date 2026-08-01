@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"maps"
 
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang"
@@ -50,6 +51,33 @@ func compositeConstraints(n *Node) *lang.ArrayLit {
 		values = append(values, decl.Value)
 	}
 	return &lang.ArrayLit{Elements: values}
+}
+
+func checkCompositeConstraintValues(n *Node, scope *EvalContext) *lang.ErrorList {
+	constraints := compositeConstraints(n)
+	if constraints == nil || len(constraints.Elements) == 0 || scope == nil {
+		return lang.NewErrorList(0)
+	}
+	values := make(map[string]any, len(scope.Inputs))
+	for name := range compositeInputNames(n) {
+		values[name] = nil
+	}
+	maps.Copy(values, scope.Inputs)
+	eval := func(ex lang.Expr, binds []lang.EachBinding) (any, error) {
+		ctx := &EvalContext{
+			Inputs:        values,
+			Libraries:     n.Libraries,
+			MissingAsNull: true,
+		}
+		ApplyBindings(ctx, binds)
+		return Eval(ex, ctx)
+	}
+	return lang.CheckConstraints(
+		constraints,
+		values,
+		eval,
+		lang.DisplayNodeRelative,
+	)
 }
 
 func compositeOutputs(n *Node) []compositeOutputDecl {
