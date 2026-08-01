@@ -1,0 +1,14 @@
+application: resource {
+  inputs: {
+    e2e-config: { type: library-config('example.com/unobin/e2elib') }
+  }
+
+  imports: { control: '../control' }
+
+  resources: {
+    control: control.control {
+      database:   { min-capacity: 4.0, max-capacity: 0.5 }
+      e2e-config: input.e2e-config
+    }
+  }
+}

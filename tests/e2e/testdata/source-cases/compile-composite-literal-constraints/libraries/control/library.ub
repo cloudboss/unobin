@@ -1,0 +1,33 @@
+control: resource {
+  inputs: {
+    database: {
+      type: object(
+        {
+          min-capacity: { type: number }
+          max-capacity: { type: number }
+        },
+      )
+    }
+    e2e-config: { type: library-config('example.com/unobin/e2elib') }
+  }
+
+  constraints: [
+    {
+      kind:    predicate
+      when:    true
+      require: input.database.min-capacity <= input.database.max-capacity
+      message: 'database.min-capacity must not exceed database.max-capacity'
+    },
+  ]
+
+  imports: { e2e: 'example.com/unobin/e2elib' }
+
+  library-configs: { e2e: input.e2e-config }
+
+  resources: {
+    marker: e2e.file {
+      path:    'marker.txt'
+      content: 'control'
+    }
+  }
+}

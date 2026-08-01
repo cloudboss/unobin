@@ -1,0 +1,1 @@
+factory.ub:21:30: schema: resource.control: constraints[0] (predicate): database.min-capacity must not exceed database.max-capacity

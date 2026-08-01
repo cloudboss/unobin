@@ -1,0 +1,25 @@
+{
+  "name": "compile-composite-literal-constraints",
+  "rootPath": ".",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "commands": [
+    {
+      "name": "valid-literal",
+      "dir": "valid-literal",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "deferred-relevant-input",
+      "dir": "deferred-relevant-input",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"]
+    },
+    {
+      "name": "invalid-literal",
+      "dir": "invalid-literal",
+      "args": ["compile", "-p", "factory.ub", "-o", "build"],
+      "stderr": "want/invalid-literal.stderr",
+      "exitCode": 1
+    }
+  ]
+}

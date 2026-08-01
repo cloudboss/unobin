@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
@@ -15,14 +16,14 @@ import (
 // fields with no inputs or upstream outputs in scope, applies literal
 // defaults, and checks constraints whose referenced roots are known and
 // valid at compile time. Optional absent fields read as null; missing
-// required roots are left to the required-presence diagnostics. Only
-// Go libraries declare constraints, so a composite call site has none
-// of its own; the nodes inside a composite body are checked against the
-// libraries the body imports.
+// required roots are left to the required-presence diagnostics. Go nodes
+// read constraints from their schemas; composite nodes read them from
+// their imported syntax bodies.
 func (c *Checker) LiteralConstraints() *lang.ErrorList {
 	errs := lang.NewErrorList(0)
 	for _, n := range c.dag.Nodes {
 		if n.IsComposite() {
+			checkCompositeLiteralConstraints(errs, n)
 			continue
 		}
 		switch n.Kind {
@@ -72,6 +73,88 @@ func (c *Checker) LiteralConstraints() *lang.ErrorList {
 		}
 	}
 	return errs
+}
+
+func checkCompositeLiteralConstraints(errs *lang.ErrorList, n *runtime.Node) {
+	constraints := n.CompositeSyntaxBody.Constraints
+	if len(constraints) == 0 {
+		return
+	}
+	values, deferred, ok := literalValues(n.Body)
+	if !ok {
+		return
+	}
+	skip := compositeLiteralConstraintSkipRoots(
+		values,
+		deferred,
+		n.CompositeSyntaxBody.Inputs,
+	)
+	elements := make([]lang.Expr, len(constraints))
+	for i, constraint := range constraints {
+		if constraintReadsAny(constraint.Value, skip) {
+			continue
+		}
+		elements[i] = constraint.Value
+	}
+	eval := func(ex lang.Expr, binds []lang.EachBinding) (any, error) {
+		ctx := &runtime.EvalContext{
+			Inputs:        values,
+			Libraries:     n.Libraries,
+			MissingAsNull: true,
+		}
+		runtime.ApplyBindings(ctx, binds)
+		v, err := runtime.Eval(ex, ctx)
+		if errors.Is(err, runtime.ErrEvalNotFound) {
+			return nil, nil
+		}
+		return v, err
+	}
+	checked := lang.CheckConstraints(
+		&lang.ArrayLit{Elements: elements},
+		values,
+		eval,
+		lang.DisplayNodeRelative,
+	)
+	pos := n.Body.Span().Start
+	for _, err := range checked.Errors() {
+		errs.Addf(lang.ErrSchema, pos, "%s: %s", n.Address, err.Msg)
+	}
+}
+
+func compositeLiteralConstraintSkipRoots(
+	values map[string]any,
+	deferred map[string]bool,
+	inputs []syntax.InputDecl,
+) map[string]bool {
+	skip := make(map[string]bool, len(deferred)+len(inputs))
+	for name := range deferred {
+		skip[name] = true
+	}
+	for _, input := range inputs {
+		name := input.Name.Name
+		if _, ok := values[name]; ok {
+			continue
+		}
+		_, optional, _ := syntaxInputType(input)
+		if !optional {
+			skip[name] = true
+		}
+	}
+	return skip
+}
+
+func constraintReadsAny(expr lang.Expr, names map[string]bool) bool {
+	read := false
+	lang.Walk(expr, func(e lang.Expr) {
+		path, ok := e.(*lang.DotPath)
+		if !ok || path.Root == nil || path.Root.Name != "input" || len(path.Segments) == 0 {
+			return
+		}
+		if names[path.Segments[0].Name] {
+			read = true
+		}
+	})
+	return read
 }
 
 func overlayLiteralConstraintDefaults(
