@@ -148,6 +148,7 @@ func generateUBLibraryPackage(
 	}
 
 	idents := newIdentTable()
+	referenceCounts := map[string]int{}
 	sourceHelpers, sourceHelperByFile := sourceHelpersFor(sourceFiles)
 	hasConfigSchemaLang := false
 	hasConfigSchemaTypecheck := false
@@ -183,6 +184,7 @@ func generateUBLibraryPackage(
 			entry.SyntaxBody = "&" + encoded
 			for _, localAlias := range sortedAliases(imports[kind][name]) {
 				p := imports[kind][name][localAlias]
+				referenceCounts[p]++
 				entry.Libraries = append(entry.Libraries, libraryBinding{
 					LocalAlias: localAlias,
 					Path:       p,
@@ -200,7 +202,7 @@ func generateUBLibraryPackage(
 		}
 	}
 
-	specVars, varOf := specVarsFor(idents, goSpecs)
+	libraryVars, varOf := libraryVarsFor(idents, goSpecs, referenceCounts)
 	for _, g := range orderedGroups {
 		for _, entry := range g.Entries {
 			for i, b := range entry.Libraries {
@@ -217,7 +219,7 @@ func generateUBLibraryPackage(
 	data := struct {
 		PackageName      string
 		LibraryName      string
-		SpecVars         []specVar
+		LibraryVars      []libraryVar
 		Groups           []*compositeGroup
 		GoImports        []goImport
 		SourceHelpers    []sourceHelper
@@ -228,13 +230,13 @@ func generateUBLibraryPackage(
 	}{
 		PackageName:   sanitizeIdent(packageID),
 		LibraryName:   libraryName,
-		SpecVars:      specVars,
+		LibraryVars:   libraryVars,
 		Groups:        orderedGroups,
 		GoImports:     idents.imports(),
 		SourceHelpers: sourceHelpers,
-		HasLang: specVarsNeedLang(specVars) || hasSyntaxBodies(orderedGroups) ||
+		HasLang: libraryVarsNeedLang(libraryVars) || hasSyntaxBodies(orderedGroups) ||
 			hasConfigSchemaLang,
-		HasTypecheck:     specVarsNeedTypecheck(specVars) || hasConfigSchemaTypecheck,
+		HasTypecheck:     libraryVarsNeedTypecheck(libraryVars) || hasConfigSchemaTypecheck,
 		HasSyntaxBodies:  hasSyntaxBodies(orderedGroups),
 		HasSourceHelpers: len(sourceHelpers) > 0,
 	}
@@ -362,17 +364,12 @@ type libraryBinding struct {
 	LocalAlias string
 	Path       string
 	GoIdent    string
-	// Value is the expression the binding renders: the shared spec
-	// variable when the path declares specs, otherwise an inline
-	// `<ident>.Library()` call.
+	// Value is a local registration when the path is used more than once
+	// or has embedded metadata. Otherwise it is an inline Library call.
 	Value string
 }
 
-// specVar is one local variable the generated Library() declares for a
-// Go library whose types declare specs: the library is constructed
-// once, the rendered assignments attach its Constraints and Defaults,
-// and every binding of the path shares the variable.
-type specVar struct {
+type libraryVar struct {
 	Name          string
 	GoIdent       string
 	Path          string
@@ -383,26 +380,23 @@ type specVar struct {
 	UsesTypecheck bool
 }
 
-// specVarsFor returns the spec variables for every bound import path
-// with declared specs, ordered by import path, plus the path-to-name
-// map bindings resolve against. The variable name derives from the
-// import ident, so it stays unique and never collides with a package
-// name or keyword.
-func specVarsFor(
-	idents *identTable, goSpecs map[string]GoLibrarySpecs,
-) ([]specVar, map[string]string) {
+func libraryVarsFor(
+	idents *identTable,
+	goSpecs map[string]GoLibrarySpecs,
+	referenceCounts map[string]int,
+) ([]libraryVar, map[string]string) {
 	paths := append([]string(nil), idents.order...)
 	slices.Sort(paths)
-	vars := make([]specVar, 0, len(goSpecs))
-	varOf := make(map[string]string, len(goSpecs))
+	vars := make([]libraryVar, 0, len(paths))
+	varOf := make(map[string]string, len(paths))
 	for _, p := range paths {
 		specs := goSpecs[p]
-		if specs.Empty() {
+		if specs.Empty() && referenceCounts[p] < 2 {
 			continue
 		}
 		ident := idents.byPath[p]
 		name := strings.TrimPrefix(ident, "lib_") + "Lib"
-		v := specVar{Name: name, GoIdent: ident, Path: p}
+		v := libraryVar{Name: name, GoIdent: ident, Path: p}
 		if len(specs.Constraints) > 0 {
 			v.Constraints = constraintsAssign(name, specs.Constraints)
 		}
@@ -421,7 +415,7 @@ func specVarsFor(
 	return vars, varOf
 }
 
-func specVarsNeedLang(vars []specVar) bool {
+func libraryVarsNeedLang(vars []libraryVar) bool {
 	for _, v := range vars {
 		if v.UsesLang {
 			return true
@@ -430,7 +424,7 @@ func specVarsNeedLang(vars []specVar) bool {
 	return false
 }
 
-func specVarsNeedTypecheck(vars []specVar) bool {
+func libraryVarsNeedTypecheck(vars []libraryVar) bool {
 	for _, v := range vars {
 		if v.UsesTypecheck {
 			return true
@@ -558,7 +552,7 @@ func {{.FuncName}}(start, end int) parse.Span {
 }
 
 {{end}}func Library() *runtime.Library {
-{{range .SpecVars}}	{{.Name}} := runtime.LibraryWithPath(
+{{range .LibraryVars}}	{{.Name}} := runtime.LibraryWithPath(
 		{{.GoIdent}}.Library(),
 		{{quote .Path}},
 	)

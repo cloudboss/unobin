@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -73,11 +74,16 @@ func Generate(in Input) ([]byte, error) {
 	if err := validateAssetInput(in); err != nil {
 		return nil, err
 	}
-	goImports := aliasImports(in.GoImports)
-	ubImports := aliasImports(in.UBImports)
-	constraintAliases := injectedAliases(in.GoConstraints)
-	defaultAliases := injectedAliases(in.GoDefaults)
-	schemaInjectAliases := schemaAliases(in.GoSchemas)
+	linked, err := linkFactoryLibraries(in.GoImports, in.UBImports)
+	if err != nil {
+		return nil, err
+	}
+	goConstraints := mergeAliasSpecs(in.GoConstraints, linked.representative)
+	goDefaults := mergeAliasSpecs(in.GoDefaults, linked.representative)
+	goSchemas := mergeAliasSchemas(in.GoSchemas, linked.representative)
+	constraintAliases := injectedAliases(goConstraints)
+	defaultAliases := injectedAliases(goDefaults)
+	schemaInjectAliases := schemaAliases(goSchemas)
 	hasLibraryConfigSchemas := len(in.LibraryConfigSchemas) > 0
 	body, source, err := factoryBodyInput(in)
 	if err != nil {
@@ -95,8 +101,9 @@ func Generate(in Input) ([]byte, error) {
 		FactoryLineStarts      string
 		LibraryPath            string
 		FactoryName            string
-		GoImports              []aliasImport
-		UBImports              []aliasImport
+		Imports                []factoryPackageImport
+		Bindings               []aliasImport
+		LibraryVars            []factoryLibraryVar
 		ConstraintAliases      []string
 		GoConstraints          map[string]map[string][]lang.ConstraintSpec
 		DefaultAliases         []string
@@ -116,25 +123,27 @@ func Generate(in Input) ([]byte, error) {
 		FactoryLineStarts:      intSliceLiteral(source.LineStarts),
 		LibraryPath:            in.LibraryPath,
 		FactoryName:            in.FactoryName,
-		GoImports:              goImports,
-		UBImports:              ubImports,
+		Imports:                linked.Imports,
+		Bindings:               linked.Bindings,
+		LibraryVars:            linked.Variables,
 		ConstraintAliases:      constraintAliases,
-		GoConstraints:          in.GoConstraints,
+		GoConstraints:          goConstraints,
 		DefaultAliases:         defaultAliases,
-		GoDefaults:             in.GoDefaults,
+		GoDefaults:             goDefaults,
 		SchemaAliases:          schemaInjectAliases,
-		GoSchemas:              in.GoSchemas,
+		GoSchemas:              goSchemas,
 		LibraryConfigSchemas:   in.LibraryConfigSchemas,
 		HasLibraryConfigSchema: hasLibraryConfigSchemas,
 		HasLang: len(constraintAliases)+len(defaultAliases) > 0 ||
-			schemasNeedLang(in.GoSchemas) ||
+			schemasNeedLang(goSchemas) ||
 			libraryConfigSchemasNeedLang(in.LibraryConfigSchemas) ||
 			strings.Contains(factoryBody, "lang."),
-		HasTypecheck: schemasNeedTypecheck(in.GoSchemas) ||
+		HasTypecheck: schemasNeedTypecheck(goSchemas) ||
 			libraryConfigSchemasNeedTypecheck(in.LibraryConfigSchemas),
 		HasAssets:      in.HasAssets,
 		RootAssetSetID: in.RootAssetSetID,
-		Inject:         len(constraintAliases)+len(defaultAliases)+len(schemaInjectAliases) > 0,
+		Inject: len(constraintAliases)+len(defaultAliases)+len(schemaInjectAliases) > 0 ||
+			len(linked.Variables) > 0,
 	}
 
 	var buf bytes.Buffer
@@ -164,22 +173,120 @@ type aliasImport struct {
 	LocalAlias string
 	GoIdent    string
 	Path       string
+	Variable   string
 }
 
-func aliasImports(m map[string]string) []aliasImport {
-	aliases := sortedKeys(m)
-	used := map[string]bool{}
-	out := make([]aliasImport, 0, len(aliases))
-	for _, alias := range aliases {
-		base := "lib_" + sanitizeIdent(alias)
-		ident := base
-		for i := 2; used[ident]; i++ {
-			ident = fmt.Sprintf("%s_%d", base, i)
-		}
-		used[ident] = true
-		out = append(out, aliasImport{LocalAlias: alias, GoIdent: ident, Path: m[alias]})
+type factoryPackageImport struct {
+	GoIdent string
+	Path    string
+}
+
+type factoryLibraryVar struct {
+	Name    string
+	GoIdent string
+	Path    string
+}
+
+type linkedFactoryLibraries struct {
+	Imports        []factoryPackageImport
+	Bindings       []aliasImport
+	Variables      []factoryLibraryVar
+	representative map[string]string
+}
+
+func linkFactoryLibraries(
+	goImports map[string]string,
+	ubImports map[string]string,
+) (linkedFactoryLibraries, error) {
+	type importGroup struct {
+		name    string
+		imports map[string]string
 	}
-	return out
+	groups := []importGroup{
+		{name: "Go", imports: goImports},
+		{name: "UB", imports: ubImports},
+	}
+
+	linked := linkedFactoryLibraries{representative: map[string]string{}}
+	usedAliases := map[string]bool{}
+	usedIdents := map[string]bool{}
+	groupByPath := map[string]string{}
+	identByPath := map[string]string{}
+	firstAliasByPath := map[string]string{}
+	countByPath := map[string]int{}
+
+	for _, group := range groups {
+		for _, alias := range sortedKeys(group.imports) {
+			path := group.imports[alias]
+			if alias == "" {
+				return linkedFactoryLibraries{}, fmt.Errorf(
+					"codegen: library import alias is required")
+			}
+			if path == "" {
+				return linkedFactoryLibraries{}, fmt.Errorf(
+					"codegen: library %q path is required", alias)
+			}
+			if usedAliases[alias] {
+				return linkedFactoryLibraries{}, fmt.Errorf(
+					"codegen: library alias %q is registered more than once", alias)
+			}
+			usedAliases[alias] = true
+
+			if previous, ok := groupByPath[path]; ok && previous != group.name {
+				return linkedFactoryLibraries{}, fmt.Errorf(
+					"codegen: library path %q has both Go and UB registrations", path)
+			}
+			groupByPath[path] = group.name
+
+			ident, ok := identByPath[path]
+			if !ok {
+				base := "lib_" + sanitizeIdent(alias)
+				ident = base
+				for i := 2; usedIdents[ident]; i++ {
+					ident = fmt.Sprintf("%s_%d", base, i)
+				}
+				usedIdents[ident] = true
+				identByPath[path] = ident
+				firstAliasByPath[path] = alias
+				linked.Imports = append(linked.Imports, factoryPackageImport{
+					GoIdent: ident,
+					Path:    path,
+				})
+			}
+			countByPath[path]++
+			linked.Bindings = append(linked.Bindings, aliasImport{
+				LocalAlias: alias,
+				GoIdent:    ident,
+				Path:       path,
+			})
+		}
+	}
+
+	variableByPath := map[string]string{}
+	usedVariables := map[string]bool{}
+	for _, imported := range linked.Imports {
+		if countByPath[imported.Path] < 2 {
+			continue
+		}
+		base := strings.TrimPrefix(imported.GoIdent, "lib_") + "Lib"
+		name := base
+		for i := 2; usedVariables[name]; i++ {
+			name = fmt.Sprintf("%s%d", base, i)
+		}
+		usedVariables[name] = true
+		variableByPath[imported.Path] = name
+		linked.Variables = append(linked.Variables, factoryLibraryVar{
+			Name:    name,
+			GoIdent: imported.GoIdent,
+			Path:    imported.Path,
+		})
+	}
+	for i := range linked.Bindings {
+		binding := &linked.Bindings[i]
+		binding.Variable = variableByPath[binding.Path]
+		linked.representative[binding.LocalAlias] = firstAliasByPath[binding.Path]
+	}
+	return linked, nil
 }
 
 func sortedKeys(m map[string]string) []string {
@@ -189,6 +296,85 @@ func sortedKeys(m map[string]string) []string {
 	}
 	slices.Sort(keys)
 	return keys
+}
+
+func mergeAliasSpecs[T any](
+	all map[string]map[string][]T,
+	representative map[string]string,
+) map[string]map[string][]T {
+	var merged map[string]map[string][]T
+	for _, alias := range injectedAliases(all) {
+		target := alias
+		if canonical := representative[alias]; canonical != "" {
+			target = canonical
+		}
+		if merged == nil {
+			merged = map[string]map[string][]T{}
+		}
+		if merged[target] == nil {
+			merged[target] = map[string][]T{}
+		}
+		for name, specs := range all[alias] {
+			merged[target][name] = slices.Clone(specs)
+		}
+	}
+	return merged
+}
+
+func mergeAliasSchemas(
+	all map[string]*runtime.LibrarySchema,
+	representative map[string]string,
+) map[string]*runtime.LibrarySchema {
+	var merged map[string]*runtime.LibrarySchema
+	for _, alias := range schemaAliases(all) {
+		target := alias
+		if canonical := representative[alias]; canonical != "" {
+			target = canonical
+		}
+		if merged == nil {
+			merged = map[string]*runtime.LibrarySchema{}
+		}
+		merged[target] = mergeGeneratedLibrarySchema(merged[target], all[alias])
+	}
+	return merged
+}
+
+func mergeGeneratedLibrarySchema(
+	dst *runtime.LibrarySchema,
+	src *runtime.LibrarySchema,
+) *runtime.LibrarySchema {
+	if src == nil {
+		return dst
+	}
+	if dst == nil {
+		dst = &runtime.LibrarySchema{}
+	}
+	dst.Resources = mergeGeneratedMap(dst.Resources, src.Resources)
+	dst.DataSources = mergeGeneratedMap(dst.DataSources, src.DataSources)
+	dst.Actions = mergeGeneratedMap(dst.Actions, src.Actions)
+	dst.Functions = mergeGeneratedMap(dst.Functions, src.Functions)
+	if schemaHasConfigurationData(src) {
+		dst.Configuration = maps.Clone(src.Configuration)
+		dst.ConfigurationFields = slices.Clone(src.ConfigurationFields)
+		dst.ConfigurationDefaults = slices.Clone(src.ConfigurationDefaults)
+		dst.ConfigurationConstraints = slices.Clone(src.ConfigurationConstraints)
+		dst.ConfigurationIdentity = src.ConfigurationIdentity
+		dst.ConfigurationDigest = src.ConfigurationDigest
+		dst.ConfigurationEmpty = src.ConfigurationEmpty
+		dst.HasConfiguration = src.HasConfiguration
+	}
+	return dst
+}
+
+func mergeGeneratedMap[K comparable, V any](dst, src map[K]V) map[K]V {
+	if len(src) == 0 {
+		return dst
+	}
+	if dst == nil {
+		dst = map[K]V{}
+	}
+	maps.Copy(dst, src)
+	return dst
 }
 
 func quote(s string) string {
@@ -711,10 +897,9 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
-{{if .HasTypecheck}}	"github.com/cloudboss/unobin/pkg/typecheck"
-{{end}}{{range .GoImports}}	{{.GoIdent}} {{quote .Path}}
-{{end}}{{range .UBImports}}	{{.GoIdent}} {{quote .Path}}
-{{end -}}
+	{{if .HasTypecheck}}	"github.com/cloudboss/unobin/pkg/typecheck"
+	{{end}}{{range .Imports}}	{{.GoIdent}} {{quote .Path}}
+	{{end -}}
 )
 {{if .HasAssets}}
 //go:embed factory.assets
@@ -745,18 +930,19 @@ var (
 )
 
 func main() {
-{{if .HasLibraryConfigSchema}}	configSchemas := {{lcs .LibraryConfigSchemas}}
-{{end}}{{if .Inject -}}
+	{{if .HasLibraryConfigSchema}}	configSchemas := {{lcs .LibraryConfigSchemas}}
+	{{end}}{{range .LibraryVars}}	{{.Name}} := runtime.LibraryWithPath(
+		{{.GoIdent}}.Library(),
+		{{quote .Path}},
+	)
+	{{end}}{{if .Inject -}}
 	libraries := map[string]*runtime.Library{
-{{range .GoImports}}		{{quote .LocalAlias}}: runtime.LibraryWithPath(
+	{{range .Bindings}}		{{quote .LocalAlias}}:
+		{{if .Variable}}{{.Variable}}{{else}}runtime.LibraryWithPath(
 			{{.GoIdent}}.Library(),
 			{{quote .Path}},
-		),
-{{end}}{{range .UBImports}}		{{quote .LocalAlias}}: runtime.LibraryWithPath(
-			{{.GoIdent}}.Library(),
-			{{quote .Path}},
-		),
-{{end}}	}
+		){{end}},
+	{{end}}	}
 {{range .ConstraintAliases}}	{{injectConstraints . $.GoConstraints}}
 {{end}}{{range .DefaultAliases}}	{{injectDefaults . $.GoDefaults}}
 {{end}}{{range .SchemaAliases}}	{{injectSchema . $.GoSchemas}}
@@ -781,15 +967,11 @@ func main() {
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
 		Libraries: map[string]*runtime.Library{
-{{range .GoImports}}			{{quote .LocalAlias}}: runtime.LibraryWithPath(
+	{{range .Bindings}}			{{quote .LocalAlias}}: runtime.LibraryWithPath(
 				{{.GoIdent}}.Library(),
 				{{quote .Path}},
 			),
-{{end}}{{range .UBImports}}			{{quote .LocalAlias}}: runtime.LibraryWithPath(
-				{{.GoIdent}}.Library(),
-				{{quote .Path}},
-			),
-{{end}}		},
+	{{end}}		},
 {{if .HasAssets}}		AssetBundle:       factoryAssets,
 		RootAssetSetID:    {{quote .RootAssetSetID}},
 {{end -}}

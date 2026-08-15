@@ -394,8 +394,10 @@ func TestGenerateUBLibrarySharesIdentForSamePath(t *testing.T) {
 		"the same path should be imported only once across composites")
 	require.Contains(t, s, `"local": runtime.LibraryWithPath(`)
 	require.Contains(t, s, `"thing": runtime.LibraryWithPath(`)
-	require.Equal(t, 2, strings.Count(s, `lib_local.Library(),`))
-	require.Equal(t, 2,
+	require.Contains(t, s, `localLib := runtime.LibraryWithPath(`)
+	require.Equal(t, 1, strings.Count(s, `lib_local.Library(),`))
+	require.Equal(t, 2, strings.Count(s, `localLib,`))
+	require.Equal(t, 3,
 		strings.Count(s, `"github.com/cloudboss/unobin/pkg/libraries/local",`))
 }
 

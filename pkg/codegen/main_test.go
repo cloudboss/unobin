@@ -322,6 +322,55 @@ func TestGenerateSanitizesImportAliases(t *testing.T) {
 	require.Contains(t, s, `"demo/internal/project-b",`)
 }
 
+func TestGenerateSharesLibraryRegistrationForAliases(t *testing.T) {
+	out, err := Generate(Input{
+		Body:        "description: 'x'\n",
+		FactoryName: "demo",
+		GoImports: map[string]string{
+			"first":  "github.com/example/shared",
+			"second": "github.com/example/shared",
+		},
+		GoDefaults: map[string]map[string][]lang.DefaultSpec{
+			"first": {
+				"resource.one": {{Field: "input.one", Value: "1"}},
+			},
+			"second": {
+				"resource.two": {{Field: "input.two", Value: "2"}},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	s := string(out)
+	require.Equal(t, 2, strings.Count(s, `"github.com/example/shared"`))
+	require.Equal(t, 1, strings.Count(s, `.Library(),`))
+	require.Equal(t, 1, strings.Count(s, `.Defaults =`))
+	require.Contains(t, s, `firstLib := runtime.LibraryWithPath(`)
+	require.Contains(t, s, `"first":  firstLib,`)
+	require.Contains(t, s, `"second": firstLib,`)
+	require.Contains(t, s, `"resource.one":`)
+	require.Contains(t, s, `"resource.two":`)
+
+	fset := token.NewFileSet()
+	_, err = parser.ParseFile(fset, "main.go", out, parser.AllErrors)
+	require.NoError(t, err, "generated source should parse:\n%s", string(out))
+}
+
+func TestGenerateRejectsTwoImplementationsForOnePath(t *testing.T) {
+	_, err := Generate(Input{
+		Body:        "description: 'x'\n",
+		FactoryName: "demo",
+		GoImports: map[string]string{
+			"go-lib": "github.com/example/shared",
+		},
+		UBImports: map[string]string{
+			"ub-lib": "github.com/example/shared",
+		},
+	})
+	require.ErrorContains(t, err,
+		`library path "github.com/example/shared" has both Go and UB registrations`)
+}
+
 func TestGenerateEmbedsFactoryName(t *testing.T) {
 	out, err := Generate(Input{
 		Body:        "description: 'x'\n",
