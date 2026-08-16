@@ -300,11 +300,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	// no longer holds, and the answer is a fresh plan.
 	planned := knownFields(step, step.Inputs)
 	applied := knownFields(step, prep.inputs)
-	inputsSame, err := e.sameResourceInputs(rt, receiver, planned, applied)
-	if err != nil {
-		return err
-	}
-	if !inputsSame {
+	if !sameInputs(planned, applied) {
 		return fmt.Errorf(
 			"resource %s inputs changed since the plan was computed; plan again\n%s",
 			step.Address, diffFields(planned, applied, step.SensitiveInputs))

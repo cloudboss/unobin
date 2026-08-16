@@ -178,7 +178,7 @@ func TestInputEquivalencerKeepsMutableChangeAsUpdate(t *testing.T) {
 	require.Empty(t, step.ReplaceTriggers)
 }
 
-func TestInputEquivalencerAppliesToApplyPremise(t *testing.T) {
+func TestInputEquivalencerDoesNotApplyToApplyPremise(t *testing.T) {
 	store := newStateStore(t)
 	libs := resourcePlanModules(nil)
 	src := resourcePlanFixture(t, "equivalent-input")
@@ -194,7 +194,7 @@ func TestInputEquivalencerAppliesToApplyPremise(t *testing.T) {
 
 	second.Inputs = map[string]any{"n": "alpha"}
 	_, err = planAndApplyExisting(second, plan)
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "inputs changed since the plan was computed")
 }
 
 func TestResourcePlanModifierMarksOutputUnknown(t *testing.T) {
