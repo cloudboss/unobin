@@ -19,6 +19,8 @@ const (
 	NodeLibraryConfig NodeKind = "library-config"
 )
 
+const NodeLibraryConfiguration NodeKind = "library-configuration"
+
 // Node is one addressable element of a stack: a single resource instance,
 // data source, action, output, or composite call site. Address is the
 // dotted form the language uses to reference the node from elsewhere,

@@ -173,6 +173,34 @@ func validateSortedStrings(values []string, subject string) error {
 	return nil
 }
 
+func ValidatePathSyntax(paths []string, subject string) error {
+	if err := validateSortedStrings(paths, subject+" paths"); err != nil {
+		return err
+	}
+	for _, path := range paths {
+		if _, err := parsePointer(path); err != nil {
+			return fmt.Errorf("%s path %q: %w", subject, path, err)
+		}
+	}
+	return nil
+}
+
+func ValidatePaths(
+	value encodedvalue.Value,
+	paths []string,
+	subject string,
+) error {
+	if err := ValidatePathSyntax(paths, subject); err != nil {
+		return err
+	}
+	for _, path := range paths {
+		if _, err := valueAtPointer(value, path); err != nil {
+			return fmt.Errorf("%s path %q: %w", subject, path, err)
+		}
+	}
+	return nil
+}
+
 func validateSensitiveValues(values []SensitiveValueRecord) error {
 	ids := make(map[string]bool, len(values))
 	for i, value := range values {
