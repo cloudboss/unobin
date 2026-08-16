@@ -245,6 +245,30 @@ func TestResourceAliasChangeCurrentReadNoOps(t *testing.T) {
 	}, ent.Binding)
 }
 
+func TestResourceNoOpPersistsObservedOutputs(t *testing.T) {
+	counters := &resourceCounters{}
+	libs := aliasChangeModules(counters, counters)
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	src := applyPlanFixture(t, "resource-alias-change-current-read-1")
+	applyOnce(t, applyPlanTestExecutor(t, src, libs, store, stack))
+
+	exec := applyPlanTestExecutor(t, src, libs, store, stack)
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	step := findStep(t, plan, "resource.one")
+	require.Equal(t, DecisionNoOp, step.Decision)
+	observed := cloneMap(step.ObservedOutputs)
+	observed["read-token"] = "plan-read"
+	step.ObservedOutputs = observed
+
+	_, err = planAndApplyExisting(exec, plan)
+	require.NoError(t, err)
+	snapshot, err := store.Current()
+	require.NoError(t, err)
+	require.Equal(t, "plan-read", snapshot.Find("resource.one").Outputs["read-token"])
+}
+
 func TestResourceAliasChangePriorReadReplaces(t *testing.T) {
 	oldC := &resourceCounters{}
 	newC := &resourceCounters{

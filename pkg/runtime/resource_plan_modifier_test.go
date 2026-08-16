@@ -167,6 +167,28 @@ func TestInputEquivalencerSuppressesReplace(t *testing.T) {
 	require.Empty(t, step.ReplaceTriggers)
 }
 
+func TestInputEquivalencerNoOpPersistsDesiredInputs(t *testing.T) {
+	store := newStateStore(t)
+	libs := resourcePlanModules(nil)
+	initial := resourcePlanExecutor(
+		t,
+		resourcePlanFixture(t, "equivalent-initial"),
+		libs,
+		store,
+	)
+	applyOnce(t, initial)
+
+	exec := resourcePlanExecutor(t, resourcePlanFixture(t, "equivalent-name"), libs, store)
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.one").Decision)
+	_, err = planAndApplyExisting(exec, plan)
+	require.NoError(t, err)
+	snapshot, err := store.Current()
+	require.NoError(t, err)
+	require.Equal(t, "alpha", snapshot.Find("resource.one").Inputs["name"])
+}
+
 func TestInputEquivalencerKeepsMutableChangeAsUpdate(t *testing.T) {
 	store := newStateStore(t)
 	libs := resourcePlanModules(nil)

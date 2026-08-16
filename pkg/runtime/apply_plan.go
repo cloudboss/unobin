@@ -321,7 +321,10 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		}
 		outputs = mapify(result)
 	case DecisionNoOp:
-		outputs = step.PriorOutputs
+		outputs = step.ObservedOutputs
+		if outputs == nil {
+			outputs = step.PriorOutputs
+		}
 	case DecisionUpdate:
 		priorInputs, err := e.resolveAssetMap(step.PriorInputs)
 		if err != nil {
