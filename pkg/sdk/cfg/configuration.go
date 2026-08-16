@@ -1,12 +1,26 @@
 package cfg
 
-import "reflect"
+import (
+	"reflect"
+
+	encodedvalue "github.com/cloudboss/unobin/pkg/encoding/value"
+)
+
+type EncodedValue = encodedvalue.Value
+
+// ConfigurationMigrationFunc updates one older encoded configuration value.
+type ConfigurationMigrationFunc func(
+	oldVersion int,
+	value EncodedValue,
+) (EncodedValue, error)
 
 // Registration is the type-erased view of a library's configuration.
 // Library authors use ConfigurationType with a concrete type parameter;
 // runtime packages consume this interface.
 type Registration interface {
 	DescriptionText() string
+	SchemaVersionNumber() int
+	Migration() ConfigurationMigrationFunc
 	NewAny() any
 	ValueType() reflect.Type
 	Empty() bool
@@ -19,8 +33,10 @@ type Registration interface {
 // types; the schema walker rejects any other field type at library
 // load. Description appears in the schema commands.
 type ConfigurationType[C any] struct {
-	Description string
-	New         func() C
+	Description   string
+	SchemaVersion int
+	New           func() C
+	Migrate       ConfigurationMigrationFunc
 }
 
 func (ct *ConfigurationType[C]) DescriptionText() string {
@@ -28,6 +44,20 @@ func (ct *ConfigurationType[C]) DescriptionText() string {
 		return ""
 	}
 	return ct.Description
+}
+
+func (ct *ConfigurationType[C]) SchemaVersionNumber() int {
+	if ct == nil {
+		return 0
+	}
+	return ct.SchemaVersion
+}
+
+func (ct *ConfigurationType[C]) Migration() ConfigurationMigrationFunc {
+	if ct == nil {
+		return nil
+	}
+	return ct.Migrate
 }
 
 func (ct *ConfigurationType[C]) NewAny() any {
