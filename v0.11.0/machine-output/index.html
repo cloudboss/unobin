@@ -1,0 +1,3913 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://cloudboss.co/docs/unobin/v0.11.0/machine-output/">
+      
+      
+        <link rel="prev" href="../reference/cli/">
+      
+      
+        <link rel="next" href="../reference/api/pkg/asset/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Machine output - unobin</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Cantarell:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Cantarell";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+    
+  
+  
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-MZGMN4NWS2"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag("js", new Date());
+      gtag("config", "G-MZGMN4NWS2");
+    </script>
+  
+  <style>/* The cloudboss look: cloudboss.co palette and typography over Material. */
+
+:root {
+  --md-text-font: "Cantarell";
+  --md-code-font: "SFMono-Regular", "Consolas", "Liberation Mono", "Menlo";
+}
+
+[data-md-color-scheme="default"] {
+  --md-default-fg-color: #1a1a1a;
+  --md-default-fg-color--light: #555555;
+  --md-default-fg-color--lighter: #888888;
+  --md-default-fg-color--lightest: #ebebeb;
+  --md-default-bg-color: #ffffff;
+  --md-typeset-color: #1a1a1a;
+
+  /* White header with dark text, like cloudboss.co. */
+  --md-primary-fg-color: #ffffff;
+  --md-primary-fg-color--light: #ffffff;
+  --md-primary-fg-color--dark: #f5f5f5;
+  --md-primary-bg-color: #1a1a1a;
+  --md-primary-bg-color--light: #555555;
+
+  /* The one accent: cloudboss link blue. */
+  --md-accent-fg-color: #2a7ab5;
+  --md-typeset-a-color: #2a7ab5;
+
+  --md-code-bg-color: #f5f5f5;
+  --md-code-fg-color: #1a1a1a;
+}
+
+.md-header {
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+  box-shadow: none;
+}
+
+/* A bit larger than Material's default 1.2rem logo. */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 1.8rem;
+  width: auto;
+}
+
+.md-typeset {
+  line-height: 1.6;
+}
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3 {
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+
+.md-typeset h2 {
+  margin-top: 1.8em;
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.md-typeset pre > code {
+  border-radius: 9px;
+}
+
+.md-nav__link--active,
+.md-nav__item .md-nav__link--active {
+  font-weight: 700;
+}
+
+/* Admonitions styled like the cloudboss mockup callout: a soft-tinted box with a
+   left accent bar and an uppercase title, no icon and no tinted title bar. Each type
+   sets --cb-admon to its own color; the box, bar, and title all read from it. */
+.md-typeset .admonition,
+.md-typeset details {
+  --cb-admon: var(--md-accent-fg-color);
+  margin: 1.5em 0;
+  padding: 0;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-left: 4px solid var(--cb-admon);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--cb-admon) 9%, #ffffff);
+  box-shadow: none;
+  font-size: 0.8rem;
+}
+
+/* Informational types all share one blue. */
+.md-typeset .note,
+.md-typeset .info,
+.md-typeset .todo,
+.md-typeset .abstract,
+.md-typeset .summary,
+.md-typeset .tldr,
+.md-typeset .tip,
+.md-typeset .hint,
+.md-typeset .important,
+.md-typeset .success,
+.md-typeset .check,
+.md-typeset .done,
+.md-typeset .question,
+.md-typeset .help,
+.md-typeset .faq {
+  --cb-admon: #2a7ab5;
+}
+
+.md-typeset .warning,
+.md-typeset .caution,
+.md-typeset .attention {
+  --cb-admon: #b8730a;
+}
+
+.md-typeset .danger,
+.md-typeset .error,
+.md-typeset .failure,
+.md-typeset .fail,
+.md-typeset .missing,
+.md-typeset .bug {
+  --cb-admon: #c0392b;
+}
+
+.md-typeset .example {
+  --cb-admon: #6a5acd;
+}
+
+.md-typeset .quote,
+.md-typeset .cite {
+  --cb-admon: #6b7280;
+}
+
+.md-typeset .admonition-title {
+  margin: 0;
+  padding: 0.65rem 0.85rem 0;
+  background: transparent;
+  border: 0;
+  color: var(--cb-admon);
+  font-weight: 700;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.md-typeset .admonition-title::before {
+  display: none;
+}
+
+.md-typeset .admonition > :not(.admonition-title) {
+  margin: 0;
+  padding: 0.2rem 0.85rem 0;
+}
+
+.md-typeset .admonition > :last-child {
+  padding-bottom: 0.7rem;
+}</style>
+  
+
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#machine-output" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="unobin" class="md-header__button md-logo" aria-label="unobin" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            unobin
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Machine output
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/cloudboss/unobin" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cloudboss/unobin
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="unobin" class="md-nav__button md-logo" aria-label="unobin" data-md-component="logo">
+      
+  <img src="../assets/logo.svg" alt="logo">
+
+    </a>
+    unobin
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/cloudboss/unobin" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cloudboss/unobin
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Overview
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What is unobin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/terraform/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Unobin vs Terraform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/first-factory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First factory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/compile-plan-apply/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compile, plan, apply
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/dependencies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Language
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Language
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Syntax overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/files-and-blocks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Files and blocks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/strings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Strings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/expressions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Expressions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/for-comprehensions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    For comprehensions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/if-expressions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    If expressions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Builtin types
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/optionals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Optional values and narrowing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language/functions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Builtin functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authoring
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Authoring
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authoring/factories/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factories
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authoring/stack-files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stack files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authoring/composite-libraries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Composite libraries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authoring/project-files-and-locks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project files and locks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authoring/imports-and-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Imports and versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authoring/local-development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Local development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Libraries
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Libraries
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../libraries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cloudboss libraries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Editors
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Editors
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../editors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Editor setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../editors/emacs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Emacs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../editors/vscode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VS Code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../editors/tree-sitter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tree-sitter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../editors/lsp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LSP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go SDK
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Go SDK
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../go-sdk/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../go-sdk/libraries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Libraries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../go-sdk/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../go-sdk/resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../go-sdk/data-sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../go-sdk/actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Actions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../go-sdk/functions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../go-sdk/schemas-constraints-defaults/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schemas, constraints, defaults
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../go-sdk/state-migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    State and migrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../go-sdk/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Machine output
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Machine output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#selecting-an-output-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Selecting an output format
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-machine-output-takes-effect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When machine output takes effect
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#encoding-and-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encoding and values
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Encoding and values">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#deterministic-ordering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deterministic ordering
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#paths-and-sensitive-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paths and sensitive values
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shared-nested-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared nested values
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Shared nested values">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#diagnostic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnostic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#file-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File change
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#factory-identity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Factory identity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#binding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Binding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#target" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Target
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#single-document-contracts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Single-document contracts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Single-document contracts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#command-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command error
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#developer-command-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Developer command results
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Developer command results">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        version
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#check-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        check-result
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compile-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        compile-result
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dependency-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependency results
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generator-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generator results
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-graph-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared graph result
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compiled-factory-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compiled factory results
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Compiled factory results">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#identity-validation-and-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Identity, validation, and schema
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plan-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        plan-summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#refresh-and-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Refresh and output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pin-and-state-inspection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pin and state inspection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#state-mutation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        State mutation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#apply-stream" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Apply stream
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Apply stream">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#command-diagnostic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        command-diagnostic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apply-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        apply-ui
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apply-event" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        apply-event
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apply-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        apply-output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apply-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        apply-result
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apply-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        apply-error
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interrupts-and-terminal-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interrupts and terminal records
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exit-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit status
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../reference/api/pkg/asset/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Go API
+  
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#selecting-an-output-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Selecting an output format
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-machine-output-takes-effect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When machine output takes effect
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#encoding-and-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Encoding and values
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Encoding and values">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#deterministic-ordering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deterministic ordering
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#paths-and-sensitive-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paths and sensitive values
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shared-nested-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared nested values
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Shared nested values">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#diagnostic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnostic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#file-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File change
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#factory-identity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Factory identity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#binding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Binding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#target" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Target
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#single-document-contracts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Single-document contracts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Single-document contracts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#command-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command error
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#developer-command-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Developer command results
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Developer command results">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        version
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#check-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        check-result
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compile-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        compile-result
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dependency-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependency results
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#generator-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generator results
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-graph-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared graph result
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compiled-factory-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compiled factory results
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Compiled factory results">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#identity-validation-and-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Identity, validation, and schema
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plan-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        plan-summary
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#refresh-and-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Refresh and output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pin-and-state-inspection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pin and state inspection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#state-mutation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        State mutation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#apply-stream" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Apply stream
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Apply stream">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#command-diagnostic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        command-diagnostic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apply-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        apply-ui
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apply-event" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        apply-event
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apply-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        apply-output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apply-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        apply-result
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#apply-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        apply-error
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interrupts-and-terminal-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interrupts and terminal records
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exit-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit status
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="machine-output">Machine output<a class="headerlink" href="#machine-output" title="Permanent link">&para;</a></h1>
+<p>Unobin commands use versioned JSON or Unobin output when <code>--format json</code> or
+<code>--format unobin</code> is selected. Most commands write one complete document. Apply
+streams one complete record per line as work progresses; in JSON, this is JSON
+Lines.</p>
+<p>Each actual JSON document or stream record is compact and followed by one newline.
+Examples in this document may be indented for readability. Actual Unobin output
+is also one compact literal per line.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="s2">&quot;version&quot;</span><span class="p">,</span><span class="nt">&quot;format-version&quot;</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="s2">&quot;unobin&quot;</span><span class="p">,</span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="s2">&quot;v0.10.0&quot;</span><span class="p">,</span><span class="nt">&quot;diagnostics&quot;</span><span class="p">:[]}</span>
+</code></pre></div>
+<h2 id="selecting-an-output-format">Selecting an output format<a class="headerlink" href="#selecting-an-output-format" title="Permanent link">&para;</a></h2>
+<p>Standard commands accept <code>--format text|json|unobin</code>; <code>text</code> is the default.
+Developer and compiled <code>print-graph</code> commands additionally accept <code>dot</code>. DOT is a
+payload format, not a versioned machine contract, and its application errors are
+text on stderr.</p>
+<p>An unsupported format is reported as text on stderr, for example:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>--format: unknown &#39;yaml&#39; (want text, json, unobin)
+</code></pre></div>
+<p>Graph errors also list <code>dot</code>.</p>
+<p>The following payload and protocol commands use command-specific output:</p>
+<ul>
+<li><code>unobin fmt</code> writes formatted source, changed paths, or files.</li>
+<li><code>factory schema template</code> writes a <code>.ub</code> stack skeleton or a requested file.</li>
+<li><code>factory state pull</code> writes a raw decrypted JSON snapshot that may contain
+  sensitive values.</li>
+<li><code>unobin lsp</code> owns stdio for the language-server protocol.</li>
+<li>Help remains text, and shell completion retains its protocol output.</li>
+</ul>
+<p>For those commands, <code>--format</code> produces a plain-text unknown-flag error.</p>
+<h2 id="when-machine-output-takes-effect">When machine output takes effect<a class="headerlink" href="#when-machine-output-takes-effect" title="Permanent link">&para;</a></h2>
+<p>Arguments and flags are parsed and validated before the format selected by
+<code>--format</code> takes effect. Help, usage, unknown commands, unknown or malformed
+flags, missing flag values, missing required flags, and positional-argument
+errors are therefore text. Help goes to stdout. Invocation errors go to stderr.
+Shell completion retains its protocol output.</p>
+<p>After invocation validation succeeds, source, state, provider, backend, resolver,
+dependency, and external-tool failures use the selected machine contract.</p>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>stdout</th>
+<th>stderr</th>
+<th>Exit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Help or successful shell completion</td>
+<td>Text or completion protocol</td>
+<td>Empty</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Invocation error</td>
+<td>Empty unless the invocation is a completion request</td>
+<td>Bare text</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Successful text command</td>
+<td>Result or payload</td>
+<td>Warnings, notices, and progress</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Failed text command</td>
+<td>Any command-specific partial output</td>
+<td>Bare error and diagnostics</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Successful single-document machine command</td>
+<td>One result document</td>
+<td>Empty</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Negative machine result</td>
+<td>One result with <code>ok: false</code></td>
+<td>Empty</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Machine operation failure</td>
+<td>One <code>command-error</code> document</td>
+<td>Empty</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Machine apply</td>
+<td>A versioned JSON Lines or Unobin record stream</td>
+<td>Empty</td>
+<td>0 or 1</td>
+</tr>
+<tr>
+<td>Response encoding or stdout write failure</td>
+<td>May be malformed or truncated</td>
+<td>Bare response-channel error if the process survives</td>
+<td>1 or signal status</td>
+</tr>
+</tbody>
+</table>
+<p>Plain-text invocation errors contain the error message followed by one newline.</p>
+<p>After invocation validation succeeds, machine output uses stdout. Response
+encoding or stdout write failures may report a bare response-channel error on
+stderr if the process survives. A closed stdout can also terminate the process
+through SIGPIPE before stderr is written.</p>
+<h2 id="encoding-and-values">Encoding and values<a class="headerlink" href="#encoding-and-values" title="Permanent link">&para;</a></h2>
+<p>Every document and record starts with <code>kind</code> and <code>format-version</code>. All contracts
+in this reference currently use format version <code>1</code>. Single-document results have
+no timestamps.</p>
+<p>JSON documents are UTF-8, compact JSON with HTML escaping disabled and one
+trailing newline. They are encoded completely before the first write. Apply JSON
+is JSON Lines: one complete compact object per line, no blank lines, and a
+trailing newline after every record.</p>
+<p>Unobin documents and stream records use the same logical fields as JSON. Each is
+one compact literal followed by one newline.</p>
+<p>Machine values may contain:</p>
+<ul>
+<li>null, booleans, strings, and finite numbers;</li>
+<li>arrays and slices of permitted values;</li>
+<li>maps with string keys and permitted values;</li>
+<li>response objects composed recursively from those values;</li>
+<li>RFC 3339 Nano timestamps.</li>
+</ul>
+<p>Cycles, non-finite numbers, non-string map keys, duplicate keys after invalid
+UTF-8 replacement, functions, channels, complex numbers, <code>json.Number</code>, raw
+durations in dynamic values, and format-specific custom marshalers are rejected.
+Invalid UTF-8 is replaced with the Unicode replacement character in both formats.</p>
+<p>Required collection fields are always arrays or objects, never null. This applies
+to <code>diagnostics</code>, <code>files</code>, <code>dependencies</code>, <code>inputs</code>, <code>outputs</code>, <code>nodes</code>, <code>edges</code>,
+<code>state-moves</code>, <code>steps</code>, <code>replace-triggers</code>, <code>depends-on</code>, <code>sensitive</code>,
+<code>sensitive-inputs</code>, <code>sensitive-outputs</code>, <code>entries</code>, <code>snapshots</code>, and <code>mismatches</code>.</p>
+<p>In the contract tables below, every field is required unless it is explicitly
+marked "omitted when absent." A field whose type includes null is still required
+and is encoded as null when absent.</p>
+<h3 id="deterministic-ordering">Deterministic ordering<a class="headerlink" href="#deterministic-ordering" title="Permanent link">&para;</a></h3>
+<p>Unobin sorts string map keys, as does Go's JSON encoder. Other collections use
+these rules:</p>
+<ul>
+<li>dependencies and verification mismatches by id;</li>
+<li>composed file changes by path, then action;</li>
+<li>diagnostics by path, position, severity, code, message, and hint;</li>
+<li>graph nodes by address and edges by <code>from</code>, then <code>to</code>;</li>
+<li>schema inputs and outputs in declaration order;</li>
+<li>plan steps by address and state moves in semantic execution order;</li>
+<li>state entries by address and snapshots in backend chronological order;</li>
+<li>sensitivity names, <code>depends-on</code>, and replace triggers lexically;</li>
+<li>apply records by <code>sequence</code>, which is authoritative over timestamps.</li>
+</ul>
+<h2 id="compatibility">Compatibility<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h2>
+<p>Each <code>kind</code> has an independent format-version sequence. Consumers must ignore
+unknown fields. Apply consumers must also ignore unknown nonterminal record kinds,
+but must recognize the last record as <code>apply-result</code> or <code>apply-error</code>. An unknown
+terminal kind is an unsupported stream contract.</p>
+<p>Adding an optional field does not increment a version. Adding a nonterminal apply
+kind starts that kind at version 1 without changing other kinds. Removing or
+renaming a field, changing its type, nullability, semantics, or required ordering,
+making an optional field required, or changing an enum meaning increments the
+containing kind. Adding an enum value also increments the containing kind unless
+that field explicitly accepts unknown values. An incompatible shared nested-value
+change increments every kind that contains it. Changing terminal apply kinds or
+the terminal-last guarantee increments both terminal kinds.</p>
+<h2 id="paths-and-sensitive-values">Paths and sensitive values<a class="headerlink" href="#paths-and-sensitive-values" title="Permanent link">&para;</a></h2>
+<p>Dedicated machine path fields always use forward slashes.</p>
+<ol>
+<li>A user-supplied relative path retains its lexically cleaned relative spelling.</li>
+<li>A user-supplied absolute path remains absolute.</li>
+<li>A file below a user-supplied directory uses that display path plus its suffix.</li>
+<li>Discovered project files are relative to the project.</li>
+<li>Dependency source uses logical dependency display paths.</li>
+<li>Cache roots, temporary directories, module-cache paths, and other discovered
+   local absolute paths are not exposed in dedicated fields or known internal
+   messages.</li>
+<li>An unmappable absolute path is reduced to its base name in a diagnostic path.</li>
+</ol>
+<p>File-change paths are relative to the command working directory unless the
+corresponding destination argument was absolute.</p>
+<p>These guarantees apply to dedicated fields and messages produced by Unobin.
+Opaque provider, resolver, operating-system, and external-tool messages remain
+verbatim except for known workspace, project, cache, and temporary prefixes. They
+may contain paths or sensitive text.</p>
+<p>Asset path and content values remain logical in plans and state. Machine values
+never replace them with a source path, cache path, or embedded content. Consumers
+must treat their encoded strings as opaque references. Text plans render them as
+source-like values such as <code>&lt;asset.lambda.path&gt;</code> and
+<code>&lt;asset.lambda['main.go'].content&gt;</code>.</p>
+<p>Known sensitive values are replaced with exactly <code>&lt;sensitive&gt;</code> in apply outputs,
+output results, state entry inputs and outputs, and text plans. Plan summaries do
+not include values or sensitivity lists. Unobin does not claim to redact arbitrary
+provider or external-tool error strings; those diagnostic messages remain
+verbatim.</p>
+<h2 id="shared-nested-values">Shared nested values<a class="headerlink" href="#shared-nested-values" title="Permanent link">&para;</a></h2>
+<h3 id="diagnostic">Diagnostic<a class="headerlink" href="#diagnostic" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>code</code></td>
+<td>string</td>
+<td>Stable code where one is defined; diagnostic codes are otherwise extensible.</td>
+</tr>
+<tr>
+<td><code>severity</code></td>
+<td>enum</td>
+<td><code>error</code>, <code>warning</code>, or <code>info</code>.</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>string</td>
+<td>Prefix-free diagnostic message.</td>
+</tr>
+<tr>
+<td><code>hint</code></td>
+<td>string</td>
+<td>Omitted when absent.</td>
+</tr>
+<tr>
+<td><code>path</code></td>
+<td>string</td>
+<td>Omitted when absent.</td>
+</tr>
+<tr>
+<td><code>span</code></td>
+<td>span</td>
+<td>Omitted when absent.</td>
+</tr>
+</tbody>
+</table>
+<p>A span has required <code>start</code> and optional, exclusive <code>end</code> positions. Each position
+has required integer <code>line</code>, <code>column</code>, and <code>offset</code> fields. Line and column are
+one-based; column counts bytes. Offset is zero-based bytes from the input start.</p>
+<p>Source error codes initially map to <code>unobin.parse</code>, <code>unobin.lex</code>,
+<code>unobin.schema</code>, <code>unobin.type</code>, <code>unobin.resolve</code>, and the fallback
+<code>unobin.error</code>.</p>
+<h3 id="file-change">File change<a class="headerlink" href="#file-change" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>path</code></td>
+<td>string</td>
+<td>Public path of the attempted mutation.</td>
+</tr>
+<tr>
+<td><code>action</code></td>
+<td>enum</td>
+<td><code>created</code>, <code>updated</code>, <code>removed</code>, or <code>unchanged</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Actions compare the path before its first command mutation with its final observed
+state, including partial failure. Repeated mutations are composed to at most one
+entry per path. An absent path created and then removed has no final effect and is
+omitted.</p>
+<h3 id="factory-identity">Factory identity<a class="headerlink" href="#factory-identity" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Factory name.</td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td>string</td>
+<td>Factory version.</td>
+</tr>
+<tr>
+<td><code>content-revision</code></td>
+<td>string, except nullable in <code>compile-result</code></td>
+<td>Compiled content identity.</td>
+</tr>
+<tr>
+<td><code>library-path</code></td>
+<td>string or null</td>
+<td>Public factory library path, if configured.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="binding">Binding<a class="headerlink" href="#binding" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>library-path</code></td>
+<td>string or null</td>
+<td>Public library path.</td>
+</tr>
+<tr>
+<td><code>alias</code></td>
+<td>string</td>
+<td>Source import alias.</td>
+</tr>
+<tr>
+<td><code>export</code></td>
+<td>string</td>
+<td>Selected library export.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="target">Target<a class="headerlink" href="#target" title="Permanent link">&para;</a></h3>
+<p>A target has required string fields <code>path</code> and <code>type</code>. Target type is one of
+<code>factory</code>, <code>library</code>, <code>stack</code>, <code>project</code>, <code>project-lock</code>, or <code>directory</code>.</p>
+<h2 id="single-document-contracts">Single-document contracts<a class="headerlink" href="#single-document-contracts" title="Permanent link">&para;</a></h2>
+<p>Every successful single-document result has a required <code>diagnostics</code> array. A
+negative result such as <code>ok: false</code> is still a normal result document, not a
+<code>command-error</code>.</p>
+<h3 id="command-error">Command error<a class="headerlink" href="#command-error" title="Permanent link">&para;</a></h3>
+<p>Any single-document command can emit kind <code>command-error</code> version 1.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>command</code></td>
+<td>string</td>
+<td>Command path without the executable name.</td>
+</tr>
+<tr>
+<td><code>code</code></td>
+<td>enum</td>
+<td>Failure class.</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>string</td>
+<td>Stable command-level summary.</td>
+</tr>
+<tr>
+<td><code>diagnostics</code></td>
+<td>diagnostic array</td>
+<td>Every collected and converted cause.</td>
+</tr>
+<tr>
+<td><code>files</code></td>
+<td>file-change array</td>
+<td>Known effects before the failure.</td>
+</tr>
+</tbody>
+</table>
+<p>Command error codes are <code>unobin.command.invalid-args</code>, <code>unobin.command.io</code>,
+<code>unobin.command.failed</code>, and <code>unobin.command.stdout-conflict</code>.</p>
+<h3 id="developer-command-results">Developer command results<a class="headerlink" href="#developer-command-results" title="Permanent link">&para;</a></h3>
+<h4 id="version"><code>version</code><a class="headerlink" href="#version" title="Permanent link">&para;</a></h4>
+<p>Produced by <code>unobin version</code>. Fields are <code>name</code> (<code>unobin</code>), <code>version</code>, and
+<code>diagnostics</code>.</p>
+<h4 id="check-result"><code>check-result</code><a class="headerlink" href="#check-result" title="Permanent link">&para;</a></h4>
+<p>Produced by <code>unobin check</code>. Fields are <code>ok</code>, <code>target</code>, and <code>diagnostics</code>. Error
+diagnostics make <code>ok</code> false and exit 1; warnings do not. Failure before the target
+can be identified uses <code>command-error</code>.</p>
+<h4 id="compile-result"><code>compile-result</code><a class="headerlink" href="#compile-result" title="Permanent link">&para;</a></h4>
+<p>Produced by <code>unobin compile</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>factory</code></td>
+<td>compile factory identity</td>
+<td><code>content-revision</code> is null without <code>--build</code>.</td>
+</tr>
+<tr>
+<td><code>source</code></td>
+<td>object</td>
+<td>Required <code>path</code> and <code>project-dir</code> strings.</td>
+</tr>
+<tr>
+<td><code>output</code></td>
+<td>object</td>
+<td>Required <code>dir</code>, <code>main-go</code>, <code>go-mod</code>, <code>built</code>, and <code>binary</code>; optional <code>assets</code>; <code>binary</code> is string or null.</td>
+</tr>
+<tr>
+<td><code>files</code></td>
+<td>file-change array</td>
+<td>Composed effects for generated Go and UB files, <code>go.sum</code>, and the binary.</td>
+</tr>
+<tr>
+<td><code>diagnostics</code></td>
+<td>diagnostic array</td>
+<td>Includes captured Go tool output in machine mode.</td>
+</tr>
+</tbody>
+</table>
+<p><code>binary</code> and <code>content-revision</code> are non-null only after a build. Machine compile
+rejects <code>-o -</code> with <code>unobin.command.stdout-conflict</code>. External-tool stdout and
+stderr are each bounded to 1 MiB and reported as diagnostics rather than written
+outside the document.</p>
+<p><code>output.assets</code> is the public path to <code>factory.assets</code> and is omitted when the
+compiled source has no captured assets. Changes to the sidecar also appear in
+<code>files</code>, including its removal when a later compile has no assets.</p>
+<h4 id="dependency-results">Dependency results<a class="headerlink" href="#dependency-results" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Command</th>
+<th>Required fields after the common header</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dependency-list</code></td>
+<td><code>unobin deps list</code></td>
+<td><code>dependencies</code>, <code>diagnostics</code></td>
+</tr>
+<tr>
+<td><code>dependency-sync-result</code></td>
+<td><code>unobin deps sync</code></td>
+<td><code>project-file</code>, <code>lock-file</code>, <code>direct</code>, <code>indirect</code>, <code>selected</code>, <code>files</code>, <code>diagnostics</code></td>
+</tr>
+<tr>
+<td><code>dependency-get-result</code></td>
+<td><code>unobin deps get</code></td>
+<td><code>dependency</code>, <code>version</code>, <code>indirect</code>, <code>project-file</code>, <code>lock-file</code>, <code>direct</code>, <code>selected</code>, <code>files</code>, <code>diagnostics</code></td>
+</tr>
+<tr>
+<td><code>dependency-verify-result</code></td>
+<td><code>unobin deps verify</code></td>
+<td><code>ok</code>, <code>checked</code>, <code>mismatches</code>, <code>diagnostics</code></td>
+</tr>
+<tr>
+<td><code>dependency-cache-clean-result</code></td>
+<td><code>unobin deps clean</code></td>
+<td><code>removed</code>, <code>diagnostics</code></td>
+</tr>
+</tbody>
+</table>
+<p>Each dependency entry has required <code>id</code>, <code>kind</code>, <code>version</code>, and <code>indirect</code> fields.
+Dependency kind is <code>ub</code> or <code>go</code>. A verification mismatch has required <code>id</code>,
+<code>expected-hash</code>, <code>actual-hash</code>, and <code>message</code> fields. Mismatches produce
+<code>ok: false</code> and exit 1; fetch or I/O failure uses <code>command-error</code>. <code>removed</code> is
+true only when the dependency cache existed before cleaning.</p>
+<h4 id="generator-results">Generator results<a class="headerlink" href="#generator-results" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Command</th>
+<th>Required fields after the common header</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>factory-generation-result</code></td>
+<td><code>unobin generate factory</code></td>
+<td><code>output-dir</code>, <code>files</code>, <code>diagnostics</code></td>
+</tr>
+<tr>
+<td><code>ub-library-generation-result</code></td>
+<td><code>unobin generate ublibrary</code></td>
+<td><code>output-dir</code>, <code>type</code>, <code>files</code>, <code>diagnostics</code></td>
+</tr>
+<tr>
+<td><code>go-library-generation-result</code></td>
+<td><code>unobin generate golibrary</code></td>
+<td><code>output-dir</code>, <code>module-path</code>, <code>provider</code>, <code>resources</code>, <code>data-sources</code>, <code>files</code>, <code>diagnostics</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>provider</code> preserves the exact requested provider, including an organization
+prefix. Partial generation failures attach known effects to <code>command-error.files</code>.</p>
+<h3 id="shared-graph-result">Shared graph result<a class="headerlink" href="#shared-graph-result" title="Permanent link">&para;</a></h3>
+<p>Developer and compiled <code>print-graph</code> produce kind <code>graph</code>. Fields are <code>name</code>,
+<code>nodes</code>, <code>edges</code>, and <code>diagnostics</code>.</p>
+<p>Each node has required <code>address</code>, <code>category</code>, <code>binding</code>, and <code>composite</code> fields.
+<code>binding</code> is a binding object or null. Category is <code>resource</code>, <code>data-source</code>,
+<code>action</code>, <code>output</code>, or <code>library-config</code>. Each edge has required <code>from</code> and <code>to</code>
+strings. An edge may target an <code>input.*</code> root that is absent from <code>nodes</code>.</p>
+<h3 id="compiled-factory-results">Compiled factory results<a class="headerlink" href="#compiled-factory-results" title="Permanent link">&para;</a></h3>
+<h4 id="identity-validation-and-schema">Identity, validation, and schema<a class="headerlink" href="#identity-validation-and-schema" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Command</th>
+<th>Required fields after the common header</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>factory-version</code></td>
+<td><code>factory version</code></td>
+<td><code>factory</code>, <code>diagnostics</code></td>
+</tr>
+<tr>
+<td><code>validation-result</code></td>
+<td><code>factory validate</code></td>
+<td><code>ok</code>, <code>target</code>, <code>diagnostics</code></td>
+</tr>
+<tr>
+<td><code>schema</code></td>
+<td><code>factory schema show</code></td>
+<td><code>factory</code>, <code>inputs</code>, <code>outputs</code>, <code>diagnostics</code></td>
+</tr>
+</tbody>
+</table>
+<p>Validation error diagnostics make <code>ok</code> false and exit 1; warnings do not. Each
+schema input has required <code>name</code>, <code>type</code>, <code>default</code>, <code>description</code>, and
+<code>sensitive</code> fields. <code>default</code> is canonical Unobin expression text or null. Each
+schema output has required <code>name</code>, <code>description</code>, and <code>sensitive</code> fields. Type is
+canonical Unobin type-expression text. Missing descriptions are empty strings.</p>
+<p>Bare <code>factory schema</code> prints help and exits 0. <code>schema template</code> remains the
+payload command described above.</p>
+<h4 id="plan-summary"><code>plan-summary</code><a class="headerlink" href="#plan-summary" title="Permanent link">&para;</a></h4>
+<p>Produced by <code>factory plan</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>factory</code></td>
+<td>factory identity</td>
+<td>Compiled factory identity.</td>
+</tr>
+<tr>
+<td><code>stack</code></td>
+<td>string</td>
+<td>Stack name.</td>
+</tr>
+<tr>
+<td><code>plan-digest</code></td>
+<td>string or null</td>
+<td><code>sha256:</code> digest of a written sealed artifact.</td>
+</tr>
+<tr>
+<td><code>file</code></td>
+<td>file change or null</td>
+<td>Plan artifact effect.</td>
+</tr>
+<tr>
+<td><code>state-rev</code></td>
+<td>string or null</td>
+<td>State revision used by the plan.</td>
+</tr>
+<tr>
+<td><code>parallelism</code></td>
+<td>integer</td>
+<td>Effective apply parallelism.</td>
+</tr>
+<tr>
+<td><code>destroy</code></td>
+<td>boolean</td>
+<td>Whether this is a destroy plan.</td>
+</tr>
+<tr>
+<td><code>summary</code></td>
+<td>object</td>
+<td>Required count for every decision.</td>
+</tr>
+<tr>
+<td><code>state-moves</code></td>
+<td>array</td>
+<td>Required <code>{from, to}</code> objects in execution order.</td>
+</tr>
+<tr>
+<td><code>steps</code></td>
+<td>array</td>
+<td>Public plan step summaries.</td>
+</tr>
+<tr>
+<td><code>diagnostics</code></td>
+<td>diagnostic array</td>
+<td>Collected notices and warnings.</td>
+</tr>
+</tbody>
+</table>
+<p>The summary has required integer fields <code>create</code>, <code>read</code>, <code>update</code>, <code>replace</code>,
+<code>destroy</code>, <code>rerun</code>, <code>skip</code>, <code>no-op</code>, and <code>eval</code>. These are also all decision enum
+values.</p>
+<p>Each step has required <code>address</code>, <code>category</code>, <code>decision</code>, <code>composite</code>, <code>drift</code>,
+<code>gone</code>, <code>replace-triggers</code>, and <code>deferred-config</code>. <code>deferred-config</code> is string or
+null. Step category uses the graph category enum. A summary contains no input,
+output, prior, or observed values and no sensitivity lists. Without <code>-o</code>, both
+<code>plan-digest</code> and <code>file</code> are null.</p>
+<h4 id="refresh-and-output">Refresh and output<a class="headerlink" href="#refresh-and-output" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Command</th>
+<th>Required fields after the common header</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>refresh-result</code></td>
+<td><code>factory refresh</code></td>
+<td><code>factory</code>, <code>stack</code>, <code>ok</code>, <code>refreshed</code>, <code>removed</code>, <code>state-rev</code>, <code>diagnostics</code></td>
+</tr>
+<tr>
+<td><code>outputs</code></td>
+<td><code>factory output</code></td>
+<td><code>factory</code>, <code>stack</code>, <code>outputs</code>, <code>sensitive</code>, <code>diagnostics</code></td>
+</tr>
+<tr>
+<td><code>output</code></td>
+<td><code>factory output NAME</code></td>
+<td><code>factory</code>, <code>stack</code>, <code>name</code>, <code>value</code>, <code>sensitive</code>, <code>diagnostics</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>refresh-result.state-rev</code> is string or null. If refresh wrote state and then
+failed, it reports <code>ok: false</code>, completed counts, the latest revision, error
+diagnostics, and exits 1. Before any observed write, failure uses <code>command-error</code>.
+Sensitive output values are masked and their names are listed lexically.</p>
+<h4 id="pin-and-state-inspection">Pin and state inspection<a class="headerlink" href="#pin-and-state-inspection" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Command</th>
+<th>Required fields after the common header</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pin-result</code></td>
+<td><code>factory pin</code></td>
+<td><code>stack</code>, <code>action</code>, <code>file</code>, <code>factory</code>, <code>diagnostics</code></td>
+</tr>
+<tr>
+<td><code>state-list</code></td>
+<td><code>factory state list</code></td>
+<td><code>factory</code>, <code>stack</code>, <code>state-rev</code>, <code>entries</code>, <code>diagnostics</code></td>
+</tr>
+<tr>
+<td><code>state-entry</code></td>
+<td><code>factory state show</code></td>
+<td><code>factory</code>, <code>stack</code>, <code>state-rev</code>, <code>entry</code>, <code>diagnostics</code></td>
+</tr>
+<tr>
+<td><code>state-snapshots</code></td>
+<td><code>factory state snapshots list</code></td>
+<td><code>factory</code>, <code>stack</code>, <code>current</code>, <code>snapshots</code>, <code>diagnostics</code></td>
+</tr>
+</tbody>
+</table>
+<p>Pin action is <code>added-factory-block</code>, <code>added-pin-block</code>,
+<code>added-supported-versions</code>, <code>appended-entry</code>, or <code>already-pinned</code>. The last action
+uses an <code>unchanged</code> file change.</p>
+<p><code>state-list.state-rev</code> and <code>state-snapshots.current</code> are string or null. A state
+entry summary has required <code>address</code>, <code>entry-type</code>, <code>category</code>, and <code>binding</code>.
+Entry type is <code>leaf</code>, <code>library-call</code>, <code>action</code>, or <code>data-source</code>. State category is
+<code>resource</code>, <code>data-source</code>, or <code>action</code>. Binding is required for valid current
+entries.</p>
+<p>A detailed <code>state-entry.entry</code> adds required <code>schema-version</code>, <code>trigger-hash</code>,
+<code>inputs</code>, <code>outputs</code>, <code>depends-on</code>, <code>sensitive-inputs</code>, and <code>sensitive-outputs</code>.
+<code>trigger-hash</code> is string or null. Each snapshot has required <code>revision</code> and
+<code>current</code> fields. Snapshots remain in backend chronological order.</p>
+<h4 id="state-mutation">State mutation<a class="headerlink" href="#state-mutation" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Command</th>
+<th>Required fields after the common header</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>state-move-result</code></td>
+<td><code>factory state move</code></td>
+<td><code>factory</code>, <code>stack</code>, <code>ok</code>, <code>from</code>, <code>to</code>, <code>moved</code>, <code>state-rev</code>, <code>diagnostics</code></td>
+</tr>
+<tr>
+<td><code>state-remove-result</code></td>
+<td><code>factory state remove</code></td>
+<td><code>factory</code>, <code>stack</code>, <code>ok</code>, <code>address</code>, <code>state-rev</code>, <code>diagnostics</code></td>
+</tr>
+<tr>
+<td><code>state-gc-result</code></td>
+<td><code>factory state snapshots gc</code></td>
+<td><code>factory</code>, <code>stack</code>, <code>ok</code>, <code>deleted</code>, <code>kept</code>, <code>current</code>, <code>failed-revision</code>, <code>diagnostics</code></td>
+</tr>
+<tr>
+<td><code>state-force-unlock-result</code></td>
+<td><code>factory state force-unlock</code></td>
+<td><code>factory</code>, <code>stack</code>, <code>unlocked</code>, <code>diagnostics</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>state-gc-result.current</code> and <code>failed-revision</code> are string or null. A mutation that
+writes a new current snapshot and then fails, including during unlock, reports its
+normal result kind with <code>ok: false</code>, completed effects, the latest revision, error
+diagnostics, and exit 1. A failure before a new revision is observed uses
+<code>command-error</code>. GC similarly retains completed deletion counts and the failed
+revision.</p>
+<h2 id="apply-stream">Apply stream<a class="headerlink" href="#apply-stream" title="Permanent link">&para;</a></h2>
+<p><code>factory apply --format json</code> emits JSON Lines. Unobin apply emits the equivalent
+one-literal-per-line stream. Every record has required <code>kind</code>, <code>format-version</code>,
+<code>sequence</code>, and <code>timestamp</code> fields. Sequence starts at 1 and increments after each
+complete record write. Timestamp is RFC 3339 Nano UTC and is sampled immediately
+before encoding; sequence defines order.</p>
+<p>The stream order is:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>command-diagnostic*
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>apply-ui?
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>(apply-event | command-diagnostic)*
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>apply-output*
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>apply-result | apply-error
+</code></pre></div>
+<p>Startup diagnostics precede the optional UI record. First-interrupt and
+browser-open diagnostics are asynchronous and may follow runtime events. Their
+sequence records their actual order. No diagnostic or event follows the first
+output. Failure emits no outputs. Runtime failure events go to the UI but are not
+encoded as <code>apply-event</code>; the terminal <code>apply-error</code> represents them.</p>
+<h3 id="command-diagnostic"><code>command-diagnostic</code><a class="headerlink" href="#command-diagnostic" title="Permanent link">&para;</a></h3>
+<p>Adds one required <code>diagnostic</code> object to the common stream fields.</p>
+<h3 id="apply-ui"><code>apply-ui</code><a class="headerlink" href="#apply-ui" title="Permanent link">&para;</a></h3>
+<p>Adds one required <code>url</code> string. It appears at most once. <code>--ui</code> is valid in every
+format. Browser-open failure or the five-second timeout emits a diagnostic with
+code <code>unobin.ui.browser-open</code> and apply continues; UI server startup failure is a
+setup-stage <code>apply-error</code>.</p>
+<h3 id="apply-event"><code>apply-event</code><a class="headerlink" href="#apply-event" title="Permanent link">&para;</a></h3>
+<p>Adds required <code>stage</code>, <code>decision</code>, and <code>address</code>. Stage is <code>start</code> or <code>done</code>.
+<code>elapsed</code> is omitted for <code>start</code> and required for <code>done</code>. Decision uses the plan
+decision enum. Composite boundaries, outputs, no-op resources, and skipped actions
+retain the command's silent-event filtering.</p>
+<h3 id="apply-output"><code>apply-output</code><a class="headerlink" href="#apply-output" title="Permanent link">&para;</a></h3>
+<p>Adds required <code>name</code>, <code>value</code>, and <code>sensitive</code>. Records sort by name. All effective
+values are validated before the first output is written. A sensitive value is
+replaced before validation, so its original value is never inspected by the
+machine encoder. An apply with no outputs emits no output records.</p>
+<h3 id="apply-result"><code>apply-result</code><a class="headerlink" href="#apply-result" title="Permanent link">&para;</a></h3>
+<p>This success terminal adds required <code>started-at</code>, <code>finished-at</code>, <code>elapsed</code>,
+<code>state-rev</code>, and <code>output-count</code>. The timestamps are RFC 3339 Nano UTC; elapsed uses
+Unobin's short duration rendering. <code>output-count</code> equals the number of preceding
+apply-output records.</p>
+<h3 id="apply-error"><code>apply-error</code><a class="headerlink" href="#apply-error" title="Permanent link">&para;</a></h3>
+<p>This failure terminal has the following fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>started-at</code></td>
+<td>timestamp</td>
+<td>Apply stream start.</td>
+</tr>
+<tr>
+<td><code>finished-at</code></td>
+<td>timestamp</td>
+<td>Terminal-record time.</td>
+</tr>
+<tr>
+<td><code>elapsed</code></td>
+<td>duration string</td>
+<td>Total elapsed time.</td>
+</tr>
+<tr>
+<td><code>stage</code></td>
+<td>enum</td>
+<td><code>setup</code>, <code>execute</code>, or <code>finalize</code>.</td>
+</tr>
+<tr>
+<td><code>code</code></td>
+<td>enum</td>
+<td>Stable apply failure code.</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>string</td>
+<td>Stable operation summary.</td>
+</tr>
+<tr>
+<td><code>state-rev</code></td>
+<td>string or null</td>
+<td>Latest observable current revision.</td>
+</tr>
+<tr>
+<td><code>diagnostics</code></td>
+<td>diagnostic array</td>
+<td>Converted underlying causes.</td>
+</tr>
+<tr>
+<td><code>address</code></td>
+<td>string</td>
+<td>Omitted when unavailable.</td>
+</tr>
+<tr>
+<td><code>decision</code></td>
+<td>decision enum</td>
+<td>Omitted when unavailable.</td>
+</tr>
+<tr>
+<td><code>library</code></td>
+<td>string</td>
+<td>Public library path; omitted when unavailable.</td>
+</tr>
+<tr>
+<td><code>skipped</code></td>
+<td>integer</td>
+<td>Required, including zero, when a runtime step error supplies counts; otherwise omitted.</td>
+</tr>
+<tr>
+<td><code>succeeded</code></td>
+<td>integer</td>
+<td>Required, including zero, when a runtime step error supplies counts; otherwise omitted.</td>
+</tr>
+</tbody>
+</table>
+<p>Apply error codes are <code>unobin.apply.setup-failed</code>,
+<code>unobin.apply.step-failed</code>, <code>unobin.apply.finalize-failed</code>, and
+<code>unobin.apply.interrupted</code>. Setup failures omit step fields. Execution step
+failures include available step fields. Finalization includes output evaluation,
+final state persistence, and lock release.</p>
+<h3 id="interrupts-and-terminal-records">Interrupts and terminal records<a class="headerlink" href="#interrupts-and-terminal-records" title="Permanent link">&para;</a></h3>
+<p>The first SIGINT requests a scheduler drain and emits
+<code>unobin.apply.drain-requested</code> with this prefix-free diagnostic message:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Interrupted; letting in-flight steps finish. Press Ctrl-C again or send SIGTERM to abort.
+</code></pre></div>
+<p>After 60 seconds, a second SIGINT, or any SIGTERM, cancellation produces terminal
+code <code>unobin.apply.interrupted</code>. A handled interrupt exits 1 after that terminal
+record. Abrupt process termination uses the platform signal status and may not
+write a terminal record.</p>
+<p>When response encoding and stdout writes succeed, an apply stream contains
+exactly one recognized <code>apply-result</code> or <code>apply-error</code>, and it is the last record.
+An encoding failure may be replaced by a primitive finalization <code>apply-error</code> if
+stdout remains usable. A stdout write failure cannot safely emit another record.</p>
+<p>Consumers must treat malformed output, a partial line, or a stream without a
+recognized terminal record as a transport failure. A transport failure does not
+prove that apply had no effects. Inspect current state and compute a new plan
+before applying again; do not blindly retry the same plan.</p>
+<h2 id="exit-status">Exit status<a class="headerlink" href="#exit-status" title="Permanent link">&para;</a></h2>
+<ul>
+<li>0: successful commands and help, including results with warnings.</li>
+<li>1: invocation errors, text application failures, <code>command-error</code>, negative
+  results such as <code>ok: false</code>, handled interrupts, and <code>apply-error</code>.</li>
+<li>Platform signal status: abrupt termination, including default SIGPIPE behavior.</li>
+</ul>
+<p>There are no additional numeric status classes. Machine consumers classify
+nonzero results by <code>kind</code>, <code>code</code>, and result fields.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright (c) 2026 cloudboss
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.prune", "navigation.sections", "navigation.top", "toc.follow", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../search/main.js"></script>
+      
+    
+  </body>
+</html>
