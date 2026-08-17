@@ -258,22 +258,7 @@ func (s *planningPassState) recordResourceOperation(
 }
 
 func (r resourceReadRequest) digest() (string, error) {
-	if err := validateNodeAddress(r.Address, NodeResource); err != nil {
-		return "", err
-	}
-	if err := r.Binding.Validate(); err != nil {
-		return "", fmt.Errorf("read binding: %w", err)
-	}
-	if err := validatePlanObject(r.Inputs, "read inputs", false); err != nil {
-		return "", err
-	}
-	if err := r.Configuration.Validate(); err != nil {
-		return "", fmt.Errorf("read configuration: %w", err)
-	}
-	if r.Configuration.LibraryPath != r.Binding.LibraryPath {
-		return "", fmt.Errorf("read configuration library path does not match binding")
-	}
-	if err := validatePlanObject(r.PriorOutputs, "read prior outputs", false); err != nil {
+	if err := r.validate(); err != nil {
 		return "", err
 	}
 	encoded, err := json.Marshal(r)
@@ -282,6 +267,28 @@ func (r resourceReadRequest) digest() (string, error) {
 	}
 	digest := sha256.Sum256(encoded)
 	return hex.EncodeToString(digest[:]), nil
+}
+
+func (r resourceReadRequest) validate() error {
+	if err := validateNodeAddress(r.Address, NodeResource); err != nil {
+		return err
+	}
+	if err := r.Binding.Validate(); err != nil {
+		return fmt.Errorf("read binding: %w", err)
+	}
+	if err := validatePlanObject(r.Inputs, "read inputs", false); err != nil {
+		return err
+	}
+	if err := r.Configuration.Validate(); err != nil {
+		return fmt.Errorf("read configuration: %w", err)
+	}
+	if r.Configuration.LibraryPath != r.Binding.LibraryPath {
+		return fmt.Errorf("read configuration library path does not match binding")
+	}
+	if err := validatePlanObject(r.PriorOutputs, "read prior outputs", false); err != nil {
+		return err
+	}
+	return nil
 }
 
 func cloneResourceObservation(observation ResourceObservation) ResourceObservation {
