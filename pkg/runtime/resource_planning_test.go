@@ -11,7 +11,7 @@ import (
 
 type resourcePlanningFixture struct {
 	definition resolvedResourceDefinition[ruleInput, *ruleOutput, NoConfig]
-	request    resourcePlanningRequest[ruleInput, *ruleOutput]
+	request    preparedResourcePlanningRequest[ruleInput, *ruleOutput]
 }
 
 func newResourcePlanningFixture(
@@ -68,7 +68,7 @@ func newResourcePlanningFixture(
 	}
 	return resourcePlanningFixture{
 		definition: resolved,
-		request: resourcePlanningRequest[ruleInput, *ruleOutput]{
+		request: preparedResourcePlanningRequest[ruleInput, *ruleOutput]{
 			Desired: &preparedResourceDesired[ruleInput]{
 				Target: desired,
 				Inputs: inputs,
@@ -215,7 +215,7 @@ func planFixtureOperation(
 	fixture resourcePlanningFixture,
 ) *ResourcePlanOperation {
 	t.Helper()
-	operation, err := fixture.definition.planResourceOperation(fixture.request)
+	operation, err := fixture.definition.planPreparedResourceOperation(fixture.request)
 	require.NoError(t, err)
 	if operation != nil {
 		require.NoError(t, operation.Validate())
@@ -497,14 +497,14 @@ func TestResourcePlanningValidatesGlobalConfigurationObservation(t *testing.T) {
 	)
 	fixture.request.Desired.Target.Configuration.Record = new(record)
 
-	_, err := fixture.definition.planResourceOperation(fixture.request)
+	_, err := fixture.definition.planPreparedResourceOperation(fixture.request)
 	require.ErrorContains(t, err, "global configuration change requires desired observation")
 
 	fixture.request.DesiredConfigurationObservation =
 		&preparedResourceObservation[*ruleOutput]{
 			Observation: ResourceObservation{Status: ObservationAbsent},
 		}
-	_, err = fixture.definition.planResourceOperation(fixture.request)
+	_, err = fixture.definition.planPreparedResourceOperation(fixture.request)
 	require.ErrorContains(t, err, "desired configuration read returned not found")
 
 	fixture.request.DesiredConfigurationObservation =
@@ -527,14 +527,14 @@ func TestResourcePlanningValidatesGlobalConfigurationObservation(t *testing.T) {
 func TestResourcePlanningRejectsUnpreparedStateAndChangedIdentity(t *testing.T) {
 	fixture := newResourcePlanningFixture(t, validRuleDefinition())
 	fixture.request.Prior.Target.SchemaVersion--
-	_, err := fixture.definition.planResourceOperation(fixture.request)
+	_, err := fixture.definition.planPreparedResourceOperation(fixture.request)
 	require.ErrorContains(t, err, "requires migration")
 
 	fixture = newResourcePlanningFixture(t, validRuleDefinition())
 	outputs := *fixture.request.RecordedObservation.Outputs
 	outputs.ID = "bucket-2"
 	setPlanningObservation(t, &fixture, fixture.request.RecordedObservation, &outputs)
-	_, err = fixture.definition.planResourceOperation(fixture.request)
+	_, err = fixture.definition.planPreparedResourceOperation(fixture.request)
 	require.ErrorContains(t, err, `recorded stable ID "bucket-1"`)
 	require.ErrorContains(t, err, `observed stable ID "bucket-2"`)
 }

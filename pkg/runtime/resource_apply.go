@@ -329,7 +329,7 @@ func (d resolvedResourceDefinition[In, Out, Config]) classifyResourceApply(
 		}
 	}
 
-	operation, err := d.planResourceOperation(resourcePlanningRequest[In, Out]{
+	operation, err := d.planPreparedResourceOperation(preparedResourcePlanningRequest[In, Out]{
 		Desired:                         request.Desired,
 		Prior:                           request.Prior,
 		RecordedObservation:             request.Observation,

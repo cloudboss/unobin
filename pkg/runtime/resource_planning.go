@@ -23,7 +23,14 @@ type preparedResourceObservation[Out any] struct {
 	Outputs     Out
 }
 
-type resourcePlanningRequest[In, Out any] struct {
+type resourcePlanningRequest struct {
+	Desired                         *PlannedResourceTarget
+	Prior                           *ResourceTarget
+	RecordedObservation             *ResourceObservation
+	DesiredConfigurationObservation *ResourceObservation
+}
+
+type preparedResourcePlanningRequest[In, Out any] struct {
 	Desired                         *preparedResourceDesired[In]
 	Prior                           *preparedResourcePrior[In, Out]
 	RecordedObservation             *preparedResourceObservation[Out]
@@ -31,7 +38,17 @@ type resourcePlanningRequest[In, Out any] struct {
 }
 
 func (d resolvedResourceDefinition[In, Out, Config]) planResourceOperation(
-	request resourcePlanningRequest[In, Out],
+	request resourcePlanningRequest,
+) (*ResourcePlanOperation, error) {
+	prepared, err := d.prepareResourcePlanningRequest(request)
+	if err != nil {
+		return nil, err
+	}
+	return d.planPreparedResourceOperation(prepared)
+}
+
+func (d resolvedResourceDefinition[In, Out, Config]) planPreparedResourceOperation(
+	request preparedResourcePlanningRequest[In, Out],
 ) (*ResourcePlanOperation, error) {
 	if request.Desired == nil && request.Prior == nil {
 		if request.RecordedObservation != nil ||
