@@ -245,6 +245,116 @@ func registeredOperationConfiguration(
 	return definition, registeredOperationConfigurationRecord(t, definition, endpoint)
 }
 
+func TestPlanRegisteredResourceStepBuildsCompleteStep(t *testing.T) {
+	definition := registeredPlanningDefinition(1, IdentityConfiguration)
+	registration := newRegisteredPlanningResource(
+		t,
+		definition,
+		&registeredPlanningCapture{},
+		"current",
+	)
+	binding := Binding{LibraryPath: "example.com/current", Export: "bucket"}
+	configurationDefinition, configuration := registeredOperationConfiguration(
+		t,
+		binding.LibraryPath,
+		"current",
+	)
+	desired := registeredPlanningDesired(
+		t,
+		registration,
+		binding,
+		configuration,
+		"logs",
+		1,
+	)
+	dependencies := []string{"resource.network"}
+
+	step, err := runFixedPointPlanning(
+		context.Background(),
+		func(pass *planningPassState) (*PlanStepV2, error) {
+			return planRegisteredResourceStep(
+				context.Background(),
+				pass,
+				registeredResourcePlanningRequest{
+					Address:             "resource.logs",
+					DependsOn:           dependencies,
+					Desired:             &desired,
+					DesiredConfigType:   configurationDefinition,
+					DesiredRegistration: registration,
+				},
+			)
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, step)
+	require.Equal(t, "resource.logs", step.Address)
+	require.Equal(t, NodeResource, step.Kind)
+	require.Equal(t, []string{"resource.network"}, step.DependsOn)
+	require.Equal(t, StepResource, step.Operation.Kind)
+	require.Equal(t, DecisionCreate, step.Operation.Resource.Decision)
+	require.Equal(t, desired, *step.Operation.Resource.Desired)
+
+	dependencies[0] = "resource.changed"
+	require.Equal(t, []string{"resource.network"}, step.DependsOn)
+}
+
+func TestPlanRegisteredResourceStepRejectsInvalidDependencies(t *testing.T) {
+	definition := registeredPlanningDefinition(1, IdentityConfiguration)
+	registration := newRegisteredPlanningResource(
+		t,
+		definition,
+		&registeredPlanningCapture{},
+		"current",
+	)
+	binding := Binding{LibraryPath: "example.com/current", Export: "bucket"}
+	configurationDefinition, configuration := registeredOperationConfiguration(
+		t,
+		binding.LibraryPath,
+		"current",
+	)
+	desired := registeredPlanningDesired(
+		t,
+		registration,
+		binding,
+		configuration,
+		"logs",
+		1,
+	)
+
+	_, err := runFixedPointPlanning(
+		context.Background(),
+		func(pass *planningPassState) (*PlanStepV2, error) {
+			return planRegisteredResourceStep(
+				context.Background(),
+				pass,
+				registeredResourcePlanningRequest{
+					Address:             "resource.logs",
+					DependsOn:           []string{"resource.z", "resource.a"},
+					Desired:             &desired,
+					DesiredConfigType:   configurationDefinition,
+					DesiredRegistration: registration,
+				},
+			)
+		},
+	)
+	require.ErrorContains(t, err, "dependencies must be unique and sorted")
+}
+
+func TestPlanRegisteredResourceStepOmitsAbsentResource(t *testing.T) {
+	step, err := runFixedPointPlanning(
+		context.Background(),
+		func(pass *planningPassState) (*PlanStepV2, error) {
+			return planRegisteredResourceStep(
+				context.Background(),
+				pass,
+				registeredResourcePlanningRequest{Address: "resource.logs"},
+			)
+		},
+	)
+	require.NoError(t, err)
+	require.Nil(t, step)
+}
+
 func TestPrepareRegisteredResourceDesiredTarget(t *testing.T) {
 	definition := registeredPlanningDefinition(1, IdentityConfiguration)
 	registration := newRegisteredPlanningResource(

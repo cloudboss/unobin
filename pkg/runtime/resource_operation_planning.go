@@ -3,16 +3,45 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"slices"
 )
 
 type registeredResourcePlanningRequest struct {
 	Address             string
+	DependsOn           []string
 	Desired             *PlannedResourceTarget
 	DesiredConfigType   *resolvedConfigurationDefinition
 	DesiredRegistration *resourceDefinitionRegistration
 	Prior               *ResourceTarget
 	PriorConfigType     *resolvedConfigurationDefinition
 	PriorRegistration   *resourceDefinitionRegistration
+}
+
+func planRegisteredResourceStep(
+	ctx context.Context,
+	pass *planningPassState,
+	request registeredResourcePlanningRequest,
+) (*PlanStepV2, error) {
+	operation, err := planRegisteredResourceOperation(ctx, pass, request)
+	if err != nil {
+		return nil, err
+	}
+	if operation == nil {
+		return nil, nil
+	}
+	step := PlanStepV2{
+		Address:   request.Address,
+		Kind:      NodeResource,
+		DependsOn: slices.Clone(request.DependsOn),
+		Operation: StepOperation{
+			Kind:     StepResource,
+			Resource: operation,
+		},
+	}
+	if err := step.Validate(); err != nil {
+		return nil, fmt.Errorf("resource step: %w", err)
+	}
+	return &step, nil
 }
 
 func prepareRegisteredResourceDesiredTarget(
