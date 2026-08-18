@@ -18,30 +18,73 @@ func (d resolvedResourceDefinition[In, Out, Config]) prepareResourcePlanningRequ
 	}
 	prepared.Desired = desired
 
-	prior, err := d.prepareResourcePrior(request.Prior)
+	bindingChanged := resourceBindingChanged(request.Desired, request.Prior)
+	prior, err := d.prepareResourcePlanningPrior(request.Prior, bindingChanged)
 	if err != nil {
 		return prepared, err
 	}
 	prepared.Prior = prior
 
-	observation, err := prepareResourceObservation[Out](
+	observation, err := prepareResourcePlanningObservation[Out](
 		"recorded-target",
 		request.RecordedObservation,
+		bindingChanged,
 	)
 	if err != nil {
 		return prepared, err
 	}
 	prepared.RecordedObservation = observation
 
-	desiredObservation, err := prepareResourceObservation[Out](
+	desiredObservation, err := prepareResourcePlanningObservation[Out](
 		"desired-configuration",
 		request.DesiredConfigurationObservation,
+		bindingChanged,
 	)
 	if err != nil {
 		return prepared, err
 	}
 	prepared.DesiredConfigurationObservation = desiredObservation
 	return prepared, nil
+}
+
+func resourceBindingChanged(
+	desired *PlannedResourceTarget,
+	prior *ResourceTarget,
+) bool {
+	return desired != nil && prior != nil && desired.Binding != prior.Binding
+}
+
+func (d resolvedResourceDefinition[In, Out, Config]) prepareResourcePlanningPrior(
+	target *ResourceTarget,
+	bindingChanged bool,
+) (*preparedResourcePrior[In, Out], error) {
+	if !bindingChanged {
+		return d.prepareResourcePrior(target)
+	}
+	if err := target.Validate(); err != nil {
+		return nil, fmt.Errorf("prior target: %w", err)
+	}
+	return &preparedResourcePrior[In, Out]{
+		Target: cloneResourceTarget(*target),
+	}, nil
+}
+
+func prepareResourcePlanningObservation[Out any](
+	name string,
+	observation *ResourceObservation,
+	bindingChanged bool,
+) (*preparedResourceObservation[Out], error) {
+	if !bindingChanged {
+		return prepareResourceObservation[Out](name, observation)
+	}
+	if observation == nil {
+		return nil, nil
+	}
+	cloned := cloneResourceObservation(*observation)
+	if err := cloned.Validate(); err != nil {
+		return nil, fmt.Errorf("%s observation: %w", name, err)
+	}
+	return &preparedResourceObservation[Out]{Observation: cloned}, nil
 }
 
 func prepareResourceDesired[In any](

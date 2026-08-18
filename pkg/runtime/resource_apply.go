@@ -194,8 +194,10 @@ func validateResourceApplyPremises[In, Out, Config any](
 		) {
 			return fmt.Errorf("resource observation does not match the saved plan")
 		}
-		if err := validatePreparedResourceObservation(*request.Observation); err != nil {
-			return err
+		if !resourceBindingChanged(operation.Desired, operation.Prior) {
+			if err := validatePreparedResourceObservation(*request.Observation); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
