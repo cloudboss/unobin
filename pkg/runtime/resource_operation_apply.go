@@ -14,7 +14,6 @@ type registeredResourceApplyOperationRequest struct {
 	Prior               *ResourceTarget
 	PriorConfigType     *resolvedConfigurationDefinition
 	PriorRegistration   *resourceDefinitionRegistration
-	Observation         *ResourceObservation
 	DependsOn           []string
 	Persist             func(context.Context, *ResourceTarget) error
 }
@@ -94,7 +93,7 @@ func applyRegisteredResourceOperation(
 			Desired:              request.Desired,
 			DesiredConfiguration: desiredConfiguration,
 			Prior:                prior,
-			Observation:          request.Observation,
+			Observation:          request.Operation.Observation,
 			DependsOn:            request.DependsOn,
 		},
 		callbacks,

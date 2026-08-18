@@ -15,6 +15,7 @@ type registeredApplyCapture struct {
 	readErr        error
 	readInput      registeredApplyInput
 	readPrior      *registeredApplyOutput
+	updatePrior    Prior[registeredApplyInput, *registeredApplyOutput]
 	deletedInput   registeredApplyInput
 	deletedOutput  *registeredApplyOutput
 	migrationCalls int
@@ -57,9 +58,10 @@ func (r *registeredApplyInput) Read(
 func (r *registeredApplyInput) Update(
 	_ context.Context,
 	config *recordedConfiguration,
-	_ Prior[registeredApplyInput, *registeredApplyOutput],
+	prior Prior[registeredApplyInput, *registeredApplyOutput],
 ) (*registeredApplyOutput, error) {
 	r.capture.calls = append(r.capture.calls, "update:"+config.Endpoint)
+	r.capture.updatePrior = prior
 	return r.capture.createResult, nil
 }
 
@@ -274,7 +276,6 @@ func TestApplyRegisteredResourceOperationUsesRecordedRegistrationForReplacement(
 			Prior:               &prior,
 			PriorConfigType:     priorConfigurationDefinition,
 			PriorRegistration:   priorRegistration,
-			Observation:         operation.Observation,
 			DependsOn:           []string{"resource.network"},
 			Persist: func(_ context.Context, target *ResourceTarget) error {
 				capture.calls = append(capture.calls, "persist")
@@ -296,6 +297,87 @@ func TestApplyRegisteredResourceOperationUsesRecordedRegistrationForReplacement(
 	require.Equal(t, desiredBinding, target.Binding)
 	require.Equal(t, []string{"resource.network"}, target.DependsOn)
 	require.Equal(t, "object-2", stringValue(target.Identity.StableID))
+}
+
+func TestApplyRegisteredResourceOperationUsesSavedObservation(t *testing.T) {
+	capture := &registeredApplyCapture{
+		createResult: &registeredApplyOutput{ID: "object-1", Value: "updated"},
+		readResult:   &registeredApplyOutput{ID: "object-1", Value: "observed"},
+	}
+	definition := registeredApplyDefinition(1, nil)
+	registration := newRegisteredApplyResource(t, definition, capture)
+	binding := Binding{LibraryPath: "example.com/current", Export: "bucket"}
+	configurationDefinition, configuration := registeredOperationConfiguration(
+		t,
+		binding.LibraryPath,
+		"current",
+	)
+	prior := registeredApplyTarget(
+		t,
+		definition,
+		registration,
+		binding,
+		configuration,
+		1,
+		registeredApplyInput{Name: "logs", Size: 1},
+		&registeredApplyOutput{ID: "object-1", Value: "recorded"},
+	)
+	desired := registeredApplyDesired(
+		t,
+		registration,
+		binding,
+		configuration,
+		registeredApplyInput{Name: "logs", Size: 2},
+	)
+	operation, err := runFixedPointPlanning(
+		context.Background(),
+		func(pass *planningPassState) (*ResourcePlanOperation, error) {
+			return planRegisteredResourceOperation(
+				context.Background(),
+				pass,
+				registeredResourcePlanningRequest{
+					Address:             "resource.logs",
+					Desired:             &desired,
+					DesiredConfigType:   configurationDefinition,
+					DesiredRegistration: registration,
+					Prior:               &prior,
+					PriorConfigType:     configurationDefinition,
+					PriorRegistration:   registration,
+				},
+			)
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, DecisionUpdate, operation.Decision)
+	capture.calls = nil
+
+	var persisted *ResourceTarget
+	target, err := applyRegisteredResourceOperation(
+		context.Background(),
+		registeredResourceApplyOperationRequest{
+			Address:             "resource.logs",
+			Operation:           *operation,
+			Desired:             &desired,
+			DesiredConfigType:   configurationDefinition,
+			DesiredRegistration: registration,
+			Prior:               &prior,
+			PriorConfigType:     configurationDefinition,
+			PriorRegistration:   registration,
+			DependsOn:           []string{},
+			Persist: func(_ context.Context, target *ResourceTarget) error {
+				capture.calls = append(capture.calls, "persist")
+				persisted = target
+				return nil
+			},
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, []string{"update:current", "persist"}, capture.calls)
+	require.Equal(t, "logs", capture.updatePrior.Inputs.Name)
+	require.Equal(t, 1, capture.updatePrior.Inputs.Size)
+	require.Equal(t, "recorded", capture.updatePrior.Outputs.Value)
+	require.Equal(t, "observed", capture.updatePrior.Observed.Value)
+	require.Equal(t, target, persisted)
 }
 
 func TestApplyRegisteredResourceOperationMigratesRecordedConfiguration(t *testing.T) {
@@ -366,7 +448,6 @@ func TestApplyRegisteredResourceOperationMigratesRecordedConfiguration(t *testin
 			Prior:             &prior,
 			PriorConfigType:   configurationDefinition,
 			PriorRegistration: registration,
-			Observation:       operation.Observation,
 			DependsOn:         []string{},
 			Persist: func(_ context.Context, target *ResourceTarget) error {
 				capture.calls = append(capture.calls, "persist")
@@ -466,7 +547,6 @@ func TestApplyRegisteredResourceOperationMigratesPriorBeforeDestroy(t *testing.T
 			Prior:             &prior,
 			PriorConfigType:   configurationDefinition,
 			PriorRegistration: registration,
-			Observation:       operation.Observation,
 			DependsOn:         []string{},
 			Persist: func(_ context.Context, target *ResourceTarget) error {
 				capture.calls = append(capture.calls, "persist")
@@ -565,7 +645,6 @@ func TestApplyRegisteredResourceOperationRequiresRegistrations(t *testing.T) {
 			Operation:         *operation,
 			Prior:             &prior,
 			PriorRegistration: registration,
-			Observation:       operation.Observation,
 		},
 	)
 	require.ErrorContains(t, err, "prior configuration definition is required")
@@ -578,7 +657,6 @@ func TestApplyRegisteredResourceOperationRequiresRegistrations(t *testing.T) {
 			Operation:       *operation,
 			Prior:           &prior,
 			PriorConfigType: configurationDefinition,
-			Observation:     operation.Observation,
 		},
 	)
 	require.ErrorContains(t, err, "prior resource registration is required")
