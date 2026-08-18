@@ -30,6 +30,7 @@ type resourceRegistrationApplyCallbacks struct {
 }
 
 type resourceDefinitionRegistration struct {
+	identityScope     IdentityScope
 	prepareInputsFunc func(map[string]any) (EncodedValue, error)
 	preparePriorFunc  func(ResourceTarget) (ResourceTarget, error)
 	planFunc          func(resourcePlanningRequest) (*ResourcePlanOperation, error)
@@ -59,6 +60,7 @@ func newResourceDefinitionRegistration[
 	deleteResource := newResourceProviderDelete[In, Out, Config, PT](construct)
 
 	return &resourceDefinitionRegistration{
+		identityScope: resolved.identityScope,
 		prepareInputsFunc: func(values map[string]any) (EncodedValue, error) {
 			encoded, _, err := prepareResourceInputs[In](values)
 			return encoded, err
@@ -151,6 +153,25 @@ func newResourceDefinitionRegistration[
 			return deleteResource(ctx, decodedInputs, config, outputs)
 		},
 	}, nil
+}
+
+func (r *resourceDefinitionRegistration) needsDesiredConfigurationRead(
+	desired *PlannedResourceTarget,
+	prior *ResourceTarget,
+	observation *ResourceObservation,
+) bool {
+	if r == nil || r.identityScope != IdentityGlobal ||
+		desired == nil || prior == nil || observation == nil {
+		return false
+	}
+	if observation.Status != ObservationPresent || desired.Binding != prior.Binding {
+		return false
+	}
+	if desired.Configuration.Kind != PlannedConfigurationConcrete ||
+		desired.Configuration.Record == nil {
+		return false
+	}
+	return desired.Configuration.Record.Digest != prior.Configuration.Digest
 }
 
 func (r *resourceDefinitionRegistration) prepareInputs(

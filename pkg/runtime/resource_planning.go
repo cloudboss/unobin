@@ -77,19 +77,23 @@ func (d resolvedResourceDefinition[In, Out, Config]) planPreparedResourceOperati
 	if err := request.Prior.Target.Validate(); err != nil {
 		return nil, fmt.Errorf("prior target: %w", err)
 	}
-	if request.Prior.Target.SchemaVersion < d.schemaVersion {
-		return nil, fmt.Errorf(
-			"resource schema version %d requires migration to %d",
-			request.Prior.Target.SchemaVersion,
-			d.schemaVersion,
-		)
-	}
-	if request.Prior.Target.SchemaVersion > d.schemaVersion {
-		return nil, fmt.Errorf(
-			"recorded resource schema version %d is newer than registered version %d",
-			request.Prior.Target.SchemaVersion,
-			d.schemaVersion,
-		)
+	bindingChanged := request.Desired != nil &&
+		request.Desired.Target.Binding != request.Prior.Target.Binding
+	if !bindingChanged {
+		if request.Prior.Target.SchemaVersion < d.schemaVersion {
+			return nil, fmt.Errorf(
+				"resource schema version %d requires migration to %d",
+				request.Prior.Target.SchemaVersion,
+				d.schemaVersion,
+			)
+		}
+		if request.Prior.Target.SchemaVersion > d.schemaVersion {
+			return nil, fmt.Errorf(
+				"recorded resource schema version %d is newer than registered version %d",
+				request.Prior.Target.SchemaVersion,
+				d.schemaVersion,
+			)
+		}
 	}
 	if request.RecordedObservation == nil {
 		return nil, fmt.Errorf("resource with prior target requires recorded-target observation")
