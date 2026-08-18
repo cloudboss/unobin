@@ -245,6 +245,118 @@ func registeredOperationConfiguration(
 	return definition, registeredOperationConfigurationRecord(t, definition, endpoint)
 }
 
+func TestPlanRegisteredResourceStepsReevaluatesCompleteSet(t *testing.T) {
+	definition := registeredPlanningDefinition(1, IdentityConfiguration)
+	capture := &registeredPlanningCapture{}
+	registration := newRegisteredPlanningResource(
+		t,
+		definition,
+		capture,
+		"current",
+	)
+	binding := Binding{LibraryPath: "example.com/current", Export: "bucket"}
+	configurationDefinition, configuration := registeredOperationConfiguration(
+		t,
+		binding.LibraryPath,
+		"current",
+	)
+	prior := registeredPlanningTarget(
+		t,
+		definition,
+		registration,
+		binding,
+		configuration,
+		"logs",
+		1,
+		&registeredPlanningOutput{ID: "logs-1", Value: "logs"},
+	)
+	existing := registeredPlanningDesired(
+		t,
+		registration,
+		binding,
+		configuration,
+		"logs",
+		1,
+	)
+	created := registeredPlanningDesired(
+		t,
+		registration,
+		binding,
+		configuration,
+		"archive",
+		1,
+	)
+	evaluations := 0
+
+	steps, err := planRegisteredResourceSteps(
+		context.Background(),
+		func(*planningPassState) ([]registeredResourcePlanningRequest, error) {
+			evaluations++
+			return []registeredResourcePlanningRequest{
+				{
+					Address:             "resource.logs",
+					DependsOn:           []string{},
+					Desired:             &existing,
+					DesiredConfigType:   configurationDefinition,
+					DesiredRegistration: registration,
+					Prior:               &prior,
+					PriorConfigType:     configurationDefinition,
+					PriorRegistration:   registration,
+				},
+				{
+					Address:             "resource.archive",
+					DependsOn:           []string{"resource.logs"},
+					Desired:             &created,
+					DesiredConfigType:   configurationDefinition,
+					DesiredRegistration: registration,
+				},
+				{Address: "resource.omitted"},
+			}, nil
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, 2, evaluations)
+	require.Len(t, capture.reads, 1)
+	require.Equal(t, []string{"current:current"}, capture.reads)
+	require.Len(t, steps, 2)
+	require.Equal(t, "resource.logs", steps[0].Address)
+	require.Equal(t, DecisionNoOp, steps[0].Operation.Resource.Decision)
+	require.Equal(t, "resource.archive", steps[1].Address)
+	require.Equal(t, DecisionCreate, steps[1].Operation.Resource.Decision)
+	require.Equal(t, []string{"resource.logs"}, steps[1].DependsOn)
+}
+
+func TestPlanRegisteredResourceStepsReturnsRequiredEmptySet(t *testing.T) {
+	steps, err := planRegisteredResourceSteps(
+		context.Background(),
+		func(*planningPassState) ([]registeredResourcePlanningRequest, error) {
+			return nil, nil
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, steps)
+	require.Empty(t, steps)
+}
+
+func TestPlanRegisteredResourceStepsRejectsDuplicateAddresses(t *testing.T) {
+	_, err := planRegisteredResourceSteps(
+		context.Background(),
+		func(*planningPassState) ([]registeredResourcePlanningRequest, error) {
+			return []registeredResourcePlanningRequest{
+				{Address: "resource.logs"},
+				{Address: "resource.logs"},
+			}, nil
+		},
+	)
+	require.ErrorContains(t, err, `duplicate resource address "resource.logs"`)
+}
+
+func TestPlanRegisteredResourceStepsRequiresEvaluator(t *testing.T) {
+	steps, err := planRegisteredResourceSteps(context.Background(), nil)
+	require.ErrorContains(t, err, "resource planning evaluator is required")
+	require.Nil(t, steps)
+}
+
 func TestPlanRegisteredResourceStepBuildsCompleteStep(t *testing.T) {
 	definition := registeredPlanningDefinition(1, IdentityConfiguration)
 	registration := newRegisteredPlanningResource(

@@ -17,6 +17,67 @@ type registeredResourcePlanningRequest struct {
 	PriorRegistration   *resourceDefinitionRegistration
 }
 
+func planRegisteredResourceSteps(
+	ctx context.Context,
+	evaluate func(*planningPassState) ([]registeredResourcePlanningRequest, error),
+) ([]PlanStepV2, error) {
+	if evaluate == nil {
+		return nil, fmt.Errorf("resource planning evaluator is required")
+	}
+	return runFixedPointPlanning(
+		ctx,
+		func(pass *planningPassState) ([]PlanStepV2, error) {
+			requests, err := evaluate(pass)
+			if err != nil {
+				return nil, err
+			}
+			addresses := make(map[string]bool, len(requests))
+			for i := range requests {
+				request := requests[i]
+				if err := validateNodeAddress(request.Address, NodeResource); err != nil {
+					return nil, fmt.Errorf("resource request %d: %w", i, err)
+				}
+				if addresses[request.Address] {
+					return nil, fmt.Errorf(
+						"duplicate resource address %q",
+						request.Address,
+					)
+				}
+				addresses[request.Address] = true
+			}
+			for i := range requests {
+				request := requests[i]
+				if request.Desired == nil && request.Prior == nil {
+					continue
+				}
+				if err := validatePlanDependencies(request.DependsOn); err != nil {
+					return nil, fmt.Errorf(
+						"%s: %w",
+						request.Address,
+						err,
+					)
+				}
+			}
+
+			steps := make([]PlanStepV2, 0, len(requests))
+			for i := range requests {
+				step, err := planRegisteredResourceStep(ctx, pass, requests[i])
+				if err != nil {
+					return nil, fmt.Errorf(
+						"%s: %w",
+						requests[i].Address,
+						err,
+					)
+				}
+				if step != nil {
+					steps = append(steps, *step)
+				}
+			}
+			return steps, nil
+		},
+	)
+}
+
 func planRegisteredResourceStep(
 	ctx context.Context,
 	pass *planningPassState,
