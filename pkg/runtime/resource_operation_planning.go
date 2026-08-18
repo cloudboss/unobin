@@ -11,7 +11,7 @@ type registeredResourcePlanningRequest struct {
 	DesiredConfiguration any
 	DesiredRegistration  *resourceDefinitionRegistration
 	Prior                *ResourceTarget
-	PriorConfiguration   any
+	PriorConfigType      *resolvedConfigurationDefinition
 	PriorRegistration    *resourceDefinitionRegistration
 }
 
@@ -78,9 +78,13 @@ func prepareRegisteredResourcePrior(
 	if request.Prior == nil {
 		return nil, nil, nil
 	}
-	prior, err := request.PriorRegistration.preparePrior(*request.Prior)
+	prior, decodedConfiguration, err := prepareRegisteredResourcePriorTarget(
+		*request.Prior,
+		request.PriorConfigType,
+		request.PriorRegistration,
+	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("prepare prior resource: %w", err)
+		return nil, nil, err
 	}
 	observation, err := readRegisteredResourceObservation(
 		ctx,
@@ -90,13 +94,40 @@ func prepareRegisteredResourcePrior(
 		prior.Inputs,
 		prior.Configuration,
 		prior.Outputs,
-		request.PriorConfiguration,
+		decodedConfiguration,
 		request.PriorRegistration,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("read prior resource: %w", err)
 	}
 	return &prior, &observation, nil
+}
+
+func prepareRegisteredResourcePriorTarget(
+	prior ResourceTarget,
+	configurationDefinition *resolvedConfigurationDefinition,
+	registration *resourceDefinitionRegistration,
+) (ResourceTarget, any, error) {
+	if configurationDefinition == nil {
+		return ResourceTarget{}, nil, fmt.Errorf(
+			"prior configuration definition is required",
+		)
+	}
+	configuration, decoded, err := configurationDefinition.prepareConfigurationRecord(
+		prior.Configuration,
+	)
+	if err != nil {
+		return ResourceTarget{}, nil, fmt.Errorf(
+			"prepare prior configuration: %w",
+			err,
+		)
+	}
+	prior.Configuration = configuration
+	prepared, err := registration.preparePrior(prior)
+	if err != nil {
+		return ResourceTarget{}, nil, fmt.Errorf("prepare prior resource: %w", err)
+	}
+	return prepared, decoded, nil
 }
 
 func readDesiredConfigurationObservation(

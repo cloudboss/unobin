@@ -8,10 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type registeredApplyConfig struct {
-	Name string
-}
-
 type registeredApplyCapture struct {
 	calls          []string
 	createResult   *registeredApplyOutput
@@ -38,18 +34,18 @@ type registeredApplyOutput struct {
 
 func (r *registeredApplyInput) Create(
 	_ context.Context,
-	config registeredApplyConfig,
+	config *recordedConfiguration,
 ) (*registeredApplyOutput, error) {
-	r.capture.calls = append(r.capture.calls, "create:"+config.Name)
+	r.capture.calls = append(r.capture.calls, "create:"+config.Endpoint)
 	return r.capture.createResult, nil
 }
 
 func (r *registeredApplyInput) Read(
 	_ context.Context,
-	config registeredApplyConfig,
+	config *recordedConfiguration,
 	prior *registeredApplyOutput,
 ) (*registeredApplyOutput, error) {
-	r.capture.calls = append(r.capture.calls, "read:"+config.Name)
+	r.capture.calls = append(r.capture.calls, "read:"+config.Endpoint)
 	r.capture.readInput = *r
 	r.capture.readPrior = prior
 	if r.capture.readErr != nil {
@@ -60,19 +56,19 @@ func (r *registeredApplyInput) Read(
 
 func (r *registeredApplyInput) Update(
 	_ context.Context,
-	config registeredApplyConfig,
+	config *recordedConfiguration,
 	_ Prior[registeredApplyInput, *registeredApplyOutput],
 ) (*registeredApplyOutput, error) {
-	r.capture.calls = append(r.capture.calls, "update:"+config.Name)
+	r.capture.calls = append(r.capture.calls, "update:"+config.Endpoint)
 	return r.capture.createResult, nil
 }
 
 func (r *registeredApplyInput) Delete(
 	_ context.Context,
-	config registeredApplyConfig,
+	config *recordedConfiguration,
 	outputs *registeredApplyOutput,
 ) error {
-	r.capture.calls = append(r.capture.calls, "delete:"+config.Name)
+	r.capture.calls = append(r.capture.calls, "delete:"+config.Endpoint)
 	r.capture.deletedInput = *r
 	r.capture.deletedOutput = outputs
 	return nil
@@ -84,7 +80,7 @@ func registeredApplyDefinition(
 ) ResourceDefinition[
 	registeredApplyInput,
 	*registeredApplyOutput,
-	registeredApplyConfig,
+	*recordedConfiguration,
 ] {
 	name := InputField(func(value *registeredApplyInput) *string {
 		return &value.Name
@@ -92,7 +88,7 @@ func registeredApplyDefinition(
 	return ResourceDefinition[
 		registeredApplyInput,
 		*registeredApplyOutput,
-		registeredApplyConfig,
+		*recordedConfiguration,
 	]{
 		SchemaVersion: schemaVersion,
 		Migrate:       migrate,
@@ -115,7 +111,7 @@ func newRegisteredApplyResource(
 	definition ResourceDefinition[
 		registeredApplyInput,
 		*registeredApplyOutput,
-		registeredApplyConfig,
+		*recordedConfiguration,
 	],
 	capture *registeredApplyCapture,
 ) *resourceDefinitionRegistration {
@@ -123,7 +119,7 @@ func newRegisteredApplyResource(
 	registration, err := newResourceDefinitionRegistration[
 		registeredApplyInput,
 		*registeredApplyOutput,
-		registeredApplyConfig,
+		*recordedConfiguration,
 		*registeredApplyInput,
 	](definition, func() *registeredApplyInput {
 		return &registeredApplyInput{capture: capture}
@@ -137,7 +133,7 @@ func registeredApplyTarget(
 	definition ResourceDefinition[
 		registeredApplyInput,
 		*registeredApplyOutput,
-		registeredApplyConfig,
+		*recordedConfiguration,
 	],
 	registration *resourceDefinitionRegistration,
 	binding Binding,
@@ -217,8 +213,16 @@ func TestApplyRegisteredResourceOperationUsesRecordedRegistrationForReplacement(
 	desiredRegistration := newRegisteredApplyResource(t, definition, capture)
 	priorBinding := Binding{LibraryPath: "example.com/prior", Export: "bucket"}
 	desiredBinding := Binding{LibraryPath: "example.com/current", Export: "archive"}
-	priorConfiguration := registrationConfigurationRecord(t, priorBinding.LibraryPath)
-	desiredConfiguration := registrationConfigurationRecord(t, desiredBinding.LibraryPath)
+	priorConfigurationDefinition, priorConfiguration := registeredOperationConfiguration(
+		t,
+		priorBinding.LibraryPath,
+		"prior",
+	)
+	_, desiredConfiguration := registeredOperationConfiguration(
+		t,
+		desiredBinding.LibraryPath,
+		"desired",
+	)
 	prior := registeredApplyTarget(
 		t,
 		definition,
@@ -245,10 +249,10 @@ func TestApplyRegisteredResourceOperationUsesRecordedRegistrationForReplacement(
 				registeredResourcePlanningRequest{
 					Address:              "resource.logs",
 					Desired:              &desired,
-					DesiredConfiguration: registeredApplyConfig{Name: "desired"},
+					DesiredConfiguration: &recordedConfiguration{Endpoint: "desired"},
 					DesiredRegistration:  desiredRegistration,
 					Prior:                &prior,
-					PriorConfiguration:   registeredApplyConfig{Name: "prior"},
+					PriorConfigType:      priorConfigurationDefinition,
 					PriorRegistration:    priorRegistration,
 				},
 			)
@@ -265,10 +269,10 @@ func TestApplyRegisteredResourceOperationUsesRecordedRegistrationForReplacement(
 			Address:              "resource.logs",
 			Operation:            *operation,
 			Desired:              &desired,
-			DesiredConfiguration: registeredApplyConfig{Name: "desired"},
+			DesiredConfiguration: &recordedConfiguration{Endpoint: "desired"},
 			DesiredRegistration:  desiredRegistration,
 			Prior:                &prior,
-			PriorConfiguration:   registeredApplyConfig{Name: "prior"},
+			PriorConfigType:      priorConfigurationDefinition,
 			PriorRegistration:    priorRegistration,
 			Observation:          operation.Observation,
 			DependsOn:            []string{"resource.network"},
@@ -292,6 +296,94 @@ func TestApplyRegisteredResourceOperationUsesRecordedRegistrationForReplacement(
 	require.Equal(t, desiredBinding, target.Binding)
 	require.Equal(t, []string{"resource.network"}, target.DependsOn)
 	require.Equal(t, "object-2", stringValue(target.Identity.StableID))
+}
+
+func TestApplyRegisteredResourceOperationMigratesRecordedConfiguration(t *testing.T) {
+	capture := &registeredApplyCapture{
+		readResult: &registeredApplyOutput{ID: "object-1", Value: "fresh"},
+	}
+	definition := registeredApplyDefinition(1, nil)
+	registration := newRegisteredApplyResource(t, definition, capture)
+	binding := Binding{LibraryPath: "example.com/current", Export: "bucket"}
+	_, oldConfiguration := registeredOperationConfiguration(
+		t,
+		binding.LibraryPath,
+		"old",
+	)
+	prior := registeredApplyTarget(
+		t,
+		definition,
+		registration,
+		binding,
+		oldConfiguration,
+		1,
+		registeredApplyInput{Name: "logs", Size: 1},
+		&registeredApplyOutput{ID: "object-1", Value: "recorded"},
+	)
+	configurationMigrationCalls := 0
+	configurationDefinition := registeredOperationConfigurationDefinition(
+		t,
+		binding.LibraryPath,
+		2,
+		func(oldVersion int, value EncodedValue) (EncodedValue, error) {
+			configurationMigrationCalls++
+			require.Equal(t, 1, oldVersion)
+			fields, ok := value.ObjectFields()
+			require.True(t, ok)
+			fields["endpoint"] = StringValue("migrated")
+			return ObjectValue(fields)
+		},
+	)
+
+	operation, err := runFixedPointPlanning(
+		context.Background(),
+		func(pass *planningPassState) (*ResourcePlanOperation, error) {
+			return planRegisteredResourceOperation(
+				context.Background(),
+				pass,
+				registeredResourcePlanningRequest{
+					Address:           "resource.logs",
+					Prior:             &prior,
+					PriorConfigType:   configurationDefinition,
+					PriorRegistration: registration,
+				},
+			)
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, configurationMigrationCalls)
+	require.Equal(t, 2, operation.Prior.Configuration.SchemaVersion)
+	require.Equal(t, []string{"read:migrated"}, capture.calls)
+
+	configurationMigrationCalls = 0
+	capture.calls = nil
+	removed := false
+	target, err := applyRegisteredResourceOperation(
+		context.Background(),
+		registeredResourceApplyOperationRequest{
+			Address:           "resource.logs",
+			Operation:         *operation,
+			Prior:             &prior,
+			PriorConfigType:   configurationDefinition,
+			PriorRegistration: registration,
+			Observation:       operation.Observation,
+			DependsOn:         []string{},
+			Persist: func(_ context.Context, target *ResourceTarget) error {
+				capture.calls = append(capture.calls, "persist")
+				removed = target == nil
+				return nil
+			},
+		},
+	)
+	require.NoError(t, err)
+	require.Nil(t, target)
+	require.True(t, removed)
+	require.Equal(t, 1, configurationMigrationCalls)
+	require.Equal(
+		t,
+		[]string{"read:migrated", "delete:migrated", "persist"},
+		capture.calls,
+	)
 }
 
 func TestApplyRegisteredResourceOperationMigratesPriorBeforeDestroy(t *testing.T) {
@@ -328,7 +420,11 @@ func TestApplyRegisteredResourceOperationMigratesPriorBeforeDestroy(t *testing.T
 	)
 	registration := newRegisteredApplyResource(t, definition, capture)
 	binding := Binding{LibraryPath: "example.com/current", Export: "bucket"}
-	configuration := registrationConfigurationRecord(t, binding.LibraryPath)
+	configurationDefinition, configuration := registeredOperationConfiguration(
+		t,
+		binding.LibraryPath,
+		"prior",
+	)
 	prior := registeredApplyTarget(
 		t,
 		definition,
@@ -346,10 +442,10 @@ func TestApplyRegisteredResourceOperationMigratesPriorBeforeDestroy(t *testing.T
 				context.Background(),
 				pass,
 				registeredResourcePlanningRequest{
-					Address:            "resource.logs",
-					Prior:              &prior,
-					PriorConfiguration: registeredApplyConfig{Name: "prior"},
-					PriorRegistration:  registration,
+					Address:           "resource.logs",
+					Prior:             &prior,
+					PriorConfigType:   configurationDefinition,
+					PriorRegistration: registration,
 				},
 			)
 		},
@@ -365,13 +461,13 @@ func TestApplyRegisteredResourceOperationMigratesPriorBeforeDestroy(t *testing.T
 	target, err := applyRegisteredResourceOperation(
 		context.Background(),
 		registeredResourceApplyOperationRequest{
-			Address:            "resource.logs",
-			Operation:          *operation,
-			Prior:              &prior,
-			PriorConfiguration: registeredApplyConfig{Name: "prior"},
-			PriorRegistration:  registration,
-			Observation:        operation.Observation,
-			DependsOn:          []string{},
+			Address:           "resource.logs",
+			Operation:         *operation,
+			Prior:             &prior,
+			PriorConfigType:   configurationDefinition,
+			PriorRegistration: registration,
+			Observation:       operation.Observation,
+			DependsOn:         []string{},
 			Persist: func(_ context.Context, target *ResourceTarget) error {
 				capture.calls = append(capture.calls, "persist")
 				removed = target == nil
@@ -398,7 +494,11 @@ func TestApplyRegisteredResourceOperationRequiresRegistrations(t *testing.T) {
 	definition := registeredApplyDefinition(1, nil)
 	registration := newRegisteredApplyResource(t, definition, capture)
 	binding := Binding{LibraryPath: "example.com/current", Export: "bucket"}
-	configuration := registrationConfigurationRecord(t, binding.LibraryPath)
+	configurationDefinition, configuration := registeredOperationConfiguration(
+		t,
+		binding.LibraryPath,
+		"prior",
+	)
 	desired := registeredApplyDesired(
 		t,
 		registration,
@@ -436,10 +536,10 @@ func TestApplyRegisteredResourceOperationRequiresRegistrations(t *testing.T) {
 				context.Background(),
 				pass,
 				registeredResourcePlanningRequest{
-					Address:            "resource.logs",
-					Prior:              &prior,
-					PriorConfiguration: registeredApplyConfig{Name: "prior"},
-					PriorRegistration:  registration,
+					Address:           "resource.logs",
+					Prior:             &prior,
+					PriorConfigType:   configurationDefinition,
+					PriorRegistration: registration,
 				},
 			)
 		},
@@ -450,11 +550,24 @@ func TestApplyRegisteredResourceOperationRequiresRegistrations(t *testing.T) {
 	_, err = applyRegisteredResourceOperation(
 		context.Background(),
 		registeredResourceApplyOperationRequest{
-			Address:            "resource.logs",
-			Operation:          *operation,
-			Prior:              &prior,
-			PriorConfiguration: registeredApplyConfig{Name: "prior"},
-			Observation:        operation.Observation,
+			Address:           "resource.logs",
+			Operation:         *operation,
+			Prior:             &prior,
+			PriorRegistration: registration,
+			Observation:       operation.Observation,
+		},
+	)
+	require.ErrorContains(t, err, "prior configuration definition is required")
+	require.Empty(t, capture.calls)
+
+	_, err = applyRegisteredResourceOperation(
+		context.Background(),
+		registeredResourceApplyOperationRequest{
+			Address:         "resource.logs",
+			Operation:       *operation,
+			Prior:           &prior,
+			PriorConfigType: configurationDefinition,
+			Observation:     operation.Observation,
 		},
 	)
 	require.ErrorContains(t, err, "prior resource registration is required")

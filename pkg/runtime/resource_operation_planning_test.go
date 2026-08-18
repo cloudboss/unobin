@@ -5,15 +5,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-)
 
-type registeredPlanningConfig struct {
-	Region string
-}
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
+)
 
 type registeredPlanningCapture struct {
 	reads []string
-	read  func(string, registeredPlanningConfig, *registeredPlanningOutput) (
+	read  func(string, *recordedConfiguration, *registeredPlanningOutput) (
 		*registeredPlanningOutput,
 		error,
 	)
@@ -34,17 +32,17 @@ type registeredPlanningOutput struct {
 
 func (r *registeredPlanningInput) Create(
 	context.Context,
-	registeredPlanningConfig,
+	*recordedConfiguration,
 ) (*registeredPlanningOutput, error) {
 	return &registeredPlanningOutput{ID: r.Name, Value: r.Name}, nil
 }
 
 func (r *registeredPlanningInput) Read(
 	_ context.Context,
-	config registeredPlanningConfig,
+	config *recordedConfiguration,
 	prior *registeredPlanningOutput,
 ) (*registeredPlanningOutput, error) {
-	r.capture.reads = append(r.capture.reads, r.registration+":"+config.Region)
+	r.capture.reads = append(r.capture.reads, r.registration+":"+config.Endpoint)
 	if r.capture.read != nil {
 		return r.capture.read(r.registration, config, prior)
 	}
@@ -53,7 +51,7 @@ func (r *registeredPlanningInput) Read(
 
 func (r *registeredPlanningInput) Update(
 	context.Context,
-	registeredPlanningConfig,
+	*recordedConfiguration,
 	Prior[registeredPlanningInput, *registeredPlanningOutput],
 ) (*registeredPlanningOutput, error) {
 	return &registeredPlanningOutput{ID: r.Name, Value: r.Name}, nil
@@ -61,7 +59,7 @@ func (r *registeredPlanningInput) Update(
 
 func (*registeredPlanningInput) Delete(
 	context.Context,
-	registeredPlanningConfig,
+	*recordedConfiguration,
 	*registeredPlanningOutput,
 ) error {
 	return nil
@@ -73,7 +71,7 @@ func registeredPlanningDefinition(
 ) ResourceDefinition[
 	registeredPlanningInput,
 	*registeredPlanningOutput,
-	registeredPlanningConfig,
+	*recordedConfiguration,
 ] {
 	name := InputField(func(value *registeredPlanningInput) *string {
 		return &value.Name
@@ -81,7 +79,7 @@ func registeredPlanningDefinition(
 	return ResourceDefinition[
 		registeredPlanningInput,
 		*registeredPlanningOutput,
-		registeredPlanningConfig,
+		*recordedConfiguration,
 	]{
 		SchemaVersion: schemaVersion,
 		Identity: ResourceIdentity[
@@ -106,7 +104,7 @@ func newRegisteredPlanningResource(
 	definition ResourceDefinition[
 		registeredPlanningInput,
 		*registeredPlanningOutput,
-		registeredPlanningConfig,
+		*recordedConfiguration,
 	],
 	capture *registeredPlanningCapture,
 	name string,
@@ -115,7 +113,7 @@ func newRegisteredPlanningResource(
 	registration, err := newResourceDefinitionRegistration[
 		registeredPlanningInput,
 		*registeredPlanningOutput,
-		registeredPlanningConfig,
+		*recordedConfiguration,
 		*registeredPlanningInput,
 	](definition, func() *registeredPlanningInput {
 		return &registeredPlanningInput{
@@ -132,7 +130,7 @@ func registeredPlanningTarget(
 	definition ResourceDefinition[
 		registeredPlanningInput,
 		*registeredPlanningOutput,
-		registeredPlanningConfig,
+		*recordedConfiguration,
 	],
 	registration *resourceDefinitionRegistration,
 	binding Binding,
@@ -201,16 +199,27 @@ func registeredPlanningDesired(
 	return target
 }
 
-func registeredPlanningConfiguration(
+func registeredOperationConfigurationDefinition(
 	t *testing.T,
+	libraryPath string,
+	version int,
+	migrate cfg.ConfigurationMigrationFunc,
+) *resolvedConfigurationDefinition {
+	t.Helper()
+	definition, err := resolveConfigurationDefinition(
+		libraryPath,
+		configurationRegistration(version, migrate),
+	)
+	require.NoError(t, err)
+	return &definition
+}
+
+func registeredOperationConfigurationRecord(
+	t *testing.T,
+	definition *resolvedConfigurationDefinition,
 	endpoint string,
 ) ConfigurationRecord {
 	t.Helper()
-	definition, err := resolveConfigurationDefinition(
-		configurationLibraryPath,
-		configurationRegistration(1, nil),
-	)
-	require.NoError(t, err)
 	fields, ok := testConfigurationValue(t).ObjectFields()
 	require.True(t, ok)
 	fields["endpoint"] = StringValue(endpoint)
@@ -224,6 +233,16 @@ func registeredPlanningConfiguration(
 	)
 	require.NoError(t, err)
 	return record
+}
+
+func registeredOperationConfiguration(
+	t *testing.T,
+	libraryPath string,
+	endpoint string,
+) (*resolvedConfigurationDefinition, ConfigurationRecord) {
+	t.Helper()
+	definition := registeredOperationConfigurationDefinition(t, libraryPath, 1, nil)
+	return definition, registeredOperationConfigurationRecord(t, definition, endpoint)
 }
 
 func TestPlanRegisteredResourceOperationHandlesTargetPresence(t *testing.T) {
@@ -244,7 +263,11 @@ func TestPlanRegisteredResourceOperationHandlesTargetPresence(t *testing.T) {
 	capture := &registeredPlanningCapture{}
 	registration := newRegisteredPlanningResource(t, definition, capture, "current")
 	binding := Binding{LibraryPath: "example.com/current", Export: "bucket"}
-	configuration := registrationConfigurationRecord(t, binding.LibraryPath)
+	configurationDefinition, configuration := registeredOperationConfiguration(
+		t,
+		binding.LibraryPath,
+		"current",
+	)
 	desired := registeredPlanningDesired(
 		t,
 		registration,
@@ -288,10 +311,10 @@ func TestPlanRegisteredResourceOperationHandlesTargetPresence(t *testing.T) {
 				context.Background(),
 				pass,
 				registeredResourcePlanningRequest{
-					Address:            "resource.logs",
-					Prior:              &prior,
-					PriorConfiguration: registeredPlanningConfig{Region: "current"},
-					PriorRegistration:  registration,
+					Address:           "resource.logs",
+					Prior:             &prior,
+					PriorConfigType:   configurationDefinition,
+					PriorRegistration: registration,
 				},
 			)
 		},
@@ -319,12 +342,22 @@ func TestPlanRegisteredResourceOperationUsesPriorRegistrationForReplacement(t *t
 	)
 	priorBinding := Binding{LibraryPath: "example.com/prior", Export: "bucket"}
 	desiredBinding := Binding{LibraryPath: "example.com/current", Export: "archive"}
+	priorConfigurationDefinition, priorConfiguration := registeredOperationConfiguration(
+		t,
+		priorBinding.LibraryPath,
+		"old",
+	)
+	_, desiredConfiguration := registeredOperationConfiguration(
+		t,
+		desiredBinding.LibraryPath,
+		"new",
+	)
 	prior := registeredPlanningTarget(
 		t,
 		priorDefinition,
 		priorRegistration,
 		priorBinding,
-		registrationConfigurationRecord(t, priorBinding.LibraryPath),
+		priorConfiguration,
 		"old",
 		1,
 		&registeredPlanningOutput{ID: "object-1", Value: "recorded"},
@@ -333,7 +366,7 @@ func TestPlanRegisteredResourceOperationUsesPriorRegistrationForReplacement(t *t
 		t,
 		desiredRegistration,
 		desiredBinding,
-		registrationConfigurationRecord(t, desiredBinding.LibraryPath),
+		desiredConfiguration,
 		"new",
 		2,
 	)
@@ -347,10 +380,10 @@ func TestPlanRegisteredResourceOperationUsesPriorRegistrationForReplacement(t *t
 				registeredResourcePlanningRequest{
 					Address:              "resource.logs",
 					Desired:              &desired,
-					DesiredConfiguration: registeredPlanningConfig{Region: "new"},
+					DesiredConfiguration: &recordedConfiguration{Endpoint: "new"},
 					DesiredRegistration:  desiredRegistration,
 					Prior:                &prior,
-					PriorConfiguration:   registeredPlanningConfig{Region: "old"},
+					PriorConfigType:      priorConfigurationDefinition,
 					PriorRegistration:    priorRegistration,
 				},
 			)
@@ -367,23 +400,29 @@ func TestPlanRegisteredResourceOperationReadsGlobalIdentityWithDesiredConfig(t *
 	capture := &registeredPlanningCapture{}
 	capture.read = func(
 		_ string,
-		config registeredPlanningConfig,
+		config *recordedConfiguration,
 		_ *registeredPlanningOutput,
 	) (*registeredPlanningOutput, error) {
 		return &registeredPlanningOutput{
 			ID:    "object-1",
-			Value: "observed-" + config.Region,
+			Value: "observed-" + config.Endpoint,
 		}, nil
 	}
 	definition := registeredPlanningDefinition(1, IdentityGlobal)
 	registration := newRegisteredPlanningResource(t, definition, capture, "shared")
 	binding := Binding{LibraryPath: configurationLibraryPath, Export: "bucket"}
+	configurationDefinition := registeredOperationConfigurationDefinition(
+		t,
+		binding.LibraryPath,
+		1,
+		nil,
+	)
 	prior := registeredPlanningTarget(
 		t,
 		definition,
 		registration,
 		binding,
-		registeredPlanningConfiguration(t, "https://old.example"),
+		registeredOperationConfigurationRecord(t, configurationDefinition, "old"),
 		"logs",
 		1,
 		&registeredPlanningOutput{ID: "object-1", Value: "recorded"},
@@ -392,7 +431,7 @@ func TestPlanRegisteredResourceOperationReadsGlobalIdentityWithDesiredConfig(t *
 		t,
 		registration,
 		binding,
-		registeredPlanningConfiguration(t, "https://new.example"),
+		registeredOperationConfigurationRecord(t, configurationDefinition, "new"),
 		"logs",
 		1,
 	)
@@ -406,10 +445,10 @@ func TestPlanRegisteredResourceOperationReadsGlobalIdentityWithDesiredConfig(t *
 				registeredResourcePlanningRequest{
 					Address:              "resource.logs",
 					Desired:              &desired,
-					DesiredConfiguration: registeredPlanningConfig{Region: "new"},
+					DesiredConfiguration: &recordedConfiguration{Endpoint: "new"},
 					DesiredRegistration:  registration,
 					Prior:                &prior,
-					PriorConfiguration:   registeredPlanningConfig{Region: "old"},
+					PriorConfigType:      configurationDefinition,
 					PriorRegistration:    registration,
 				},
 			)
@@ -430,7 +469,7 @@ func TestPlanRegisteredResourceOperationNormalizesMissingPrior(t *testing.T) {
 	capture := &registeredPlanningCapture{
 		read: func(
 			string,
-			registeredPlanningConfig,
+			*recordedConfiguration,
 			*registeredPlanningOutput,
 		) (*registeredPlanningOutput, error) {
 			return nil, ErrNotFound
@@ -439,7 +478,11 @@ func TestPlanRegisteredResourceOperationNormalizesMissingPrior(t *testing.T) {
 	definition := registeredPlanningDefinition(1, IdentityConfiguration)
 	registration := newRegisteredPlanningResource(t, definition, capture, "current")
 	binding := Binding{LibraryPath: "example.com/current", Export: "bucket"}
-	configuration := registrationConfigurationRecord(t, binding.LibraryPath)
+	configurationDefinition, configuration := registeredOperationConfiguration(
+		t,
+		binding.LibraryPath,
+		"current",
+	)
 	prior := registeredPlanningTarget(
 		t,
 		definition,
@@ -468,10 +511,10 @@ func TestPlanRegisteredResourceOperationNormalizesMissingPrior(t *testing.T) {
 				registeredResourcePlanningRequest{
 					Address:              "resource.logs",
 					Desired:              &desired,
-					DesiredConfiguration: registeredPlanningConfig{Region: "current"},
+					DesiredConfiguration: &recordedConfiguration{Endpoint: "current"},
 					DesiredRegistration:  registration,
 					Prior:                &prior,
-					PriorConfiguration:   registeredPlanningConfig{Region: "current"},
+					PriorConfigType:      configurationDefinition,
 					PriorRegistration:    registration,
 				},
 			)
@@ -489,7 +532,11 @@ func TestPlanRegisteredResourceOperationRequiresRegistrations(t *testing.T) {
 	capture := &registeredPlanningCapture{}
 	registration := newRegisteredPlanningResource(t, definition, capture, "current")
 	binding := Binding{LibraryPath: "example.com/current", Export: "bucket"}
-	configuration := registrationConfigurationRecord(t, binding.LibraryPath)
+	configurationDefinition, configuration := registeredOperationConfiguration(
+		t,
+		binding.LibraryPath,
+		"current",
+	)
 	desired := registeredPlanningDesired(
 		t,
 		registration,
@@ -525,11 +572,20 @@ func TestPlanRegisteredResourceOperationRequiresRegistrations(t *testing.T) {
 		{
 			name: "prior",
 			request: registeredResourcePlanningRequest{
-				Address:            "resource.logs",
-				Prior:              &prior,
-				PriorConfiguration: registeredPlanningConfig{},
+				Address:         "resource.logs",
+				Prior:           &prior,
+				PriorConfigType: configurationDefinition,
 			},
 			message: "prior resource registration is required",
+		},
+		{
+			name: "prior configuration",
+			request: registeredResourcePlanningRequest{
+				Address:           "resource.logs",
+				Prior:             &prior,
+				PriorRegistration: registration,
+			},
+			message: "prior configuration definition is required",
 		},
 	}
 

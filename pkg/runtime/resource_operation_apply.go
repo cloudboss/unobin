@@ -12,7 +12,7 @@ type registeredResourceApplyOperationRequest struct {
 	DesiredConfiguration any
 	DesiredRegistration  *resourceDefinitionRegistration
 	Prior                *ResourceTarget
-	PriorConfiguration   any
+	PriorConfigType      *resolvedConfigurationDefinition
 	PriorRegistration    *resourceDefinitionRegistration
 	Observation          *ResourceObservation
 	DependsOn            []string
@@ -41,7 +41,7 @@ func applyRegisteredResourceOperation(
 		return nil, fmt.Errorf("prior resource registration is required")
 	}
 
-	prior, err := prepareRegisteredResourceApplyPrior(request)
+	prior, priorConfiguration, err := prepareRegisteredResourceApplyPrior(request)
 	if err != nil {
 		return nil, err
 	}
@@ -65,14 +65,14 @@ func applyRegisteredResourceOperation(
 					Configuration: prior.Configuration,
 					PriorOutputs:  prior.Outputs,
 				},
-				request.PriorConfiguration,
+				priorConfiguration,
 			)
 		}
 		callbacks.DeletePrior = func(ctx context.Context, outputs EncodedValue) error {
 			return request.PriorRegistration.deleteResource(
 				ctx,
 				prior.Inputs,
-				request.PriorConfiguration,
+				priorConfiguration,
 				outputs,
 			)
 		}
@@ -95,13 +95,17 @@ func applyRegisteredResourceOperation(
 
 func prepareRegisteredResourceApplyPrior(
 	request registeredResourceApplyOperationRequest,
-) (*ResourceTarget, error) {
+) (*ResourceTarget, any, error) {
 	if request.Prior == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
-	prior, err := request.PriorRegistration.preparePrior(*request.Prior)
+	prior, configuration, err := prepareRegisteredResourcePriorTarget(
+		*request.Prior,
+		request.PriorConfigType,
+		request.PriorRegistration,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("prepare prior resource: %w", err)
+		return nil, nil, err
 	}
-	return &prior, nil
+	return &prior, configuration, nil
 }
