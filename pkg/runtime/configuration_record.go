@@ -256,6 +256,34 @@ func (d resolvedConfigurationDefinition) migrateConfigurationRecord(
 	)
 }
 
+func (d resolvedConfigurationDefinition) prepareConfigurationRecord(
+	prior ConfigurationRecord,
+) (ConfigurationRecord, any, error) {
+	prepared, err := d.migrateConfigurationRecord(prior)
+	if err != nil {
+		return ConfigurationRecord{}, nil, err
+	}
+	if d.noConfig {
+		return prepared, NoConfig{}, nil
+	}
+	fields, _ := prepared.Value.ObjectFields()
+	raw, err := encodedConfigurationObject(fields)
+	if err != nil {
+		return ConfigurationRecord{}, nil, fmt.Errorf(
+			"decode recorded configuration: %w",
+			err,
+		)
+	}
+	decoded, err := decodeLibraryConfig(d.library, raw)
+	if err != nil {
+		return ConfigurationRecord{}, nil, fmt.Errorf(
+			"decode recorded configuration: %w",
+			err,
+		)
+	}
+	return prepared, decoded, nil
+}
+
 func (d resolvedConfigurationDefinition) validateConfigurationValue(
 	address string,
 	value EncodedValue,

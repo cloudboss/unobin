@@ -641,6 +641,75 @@ func TestNoConfigRecordIsCanonical(t *testing.T) {
 	require.ErrorContains(t, err, "NoConfig must not declare sensitive paths")
 }
 
+func TestPrepareConfigurationRecordDecodesRecordedValue(t *testing.T) {
+	definition, err := resolveConfigurationDefinition(
+		configurationLibraryPath,
+		configurationRegistration(1, nil),
+	)
+	require.NoError(t, err)
+	prior := validConfigurationRecord(t)
+
+	prepared, decoded, err := definition.prepareConfigurationRecord(prior)
+	require.NoError(t, err)
+	require.Equal(t, prior, prepared)
+	require.Equal(t, &recordedConfiguration{
+		Endpoint: "https://api.example",
+		Credentials: struct {
+			Token string
+			Empty []string
+		}{
+			Token: "secret",
+			Empty: []string{},
+		},
+		Servers: []string{"first", "second"},
+		Labels: map[string]string{
+			"01":    "numeric-secret",
+			"a/b~":  "label-secret",
+			"plain": "visible",
+		},
+	}, decoded)
+}
+
+func TestPrepareConfigurationRecordMigratesBeforeDecoding(t *testing.T) {
+	prior := validConfigurationRecord(t)
+	migrationCalls := 0
+	definition, err := resolveConfigurationDefinition(
+		configurationLibraryPath,
+		configurationRegistration(
+			2,
+			func(oldVersion int, value EncodedValue) (EncodedValue, error) {
+				migrationCalls++
+				require.Equal(t, 1, oldVersion)
+				fields, ok := value.ObjectFields()
+				require.True(t, ok)
+				fields["endpoint"] = StringValue("https://migrated.example")
+				return ObjectValue(fields)
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	prepared, decoded, err := definition.prepareConfigurationRecord(prior)
+	require.NoError(t, err)
+	require.Equal(t, 1, migrationCalls)
+	require.Equal(t, 2, prepared.SchemaVersion)
+	require.Equal(t, "https://migrated.example", decoded.(*recordedConfiguration).Endpoint)
+}
+
+func TestPrepareConfigurationRecordReturnsCanonicalNoConfig(t *testing.T) {
+	definition, err := resolveConfigurationDefinition(configurationLibraryPath, nil)
+	require.NoError(t, err)
+	empty, err := ObjectValue(nil)
+	require.NoError(t, err)
+	prior, err := definition.newConfigurationRecord("", empty, nil, nil)
+	require.NoError(t, err)
+
+	prepared, decoded, err := definition.prepareConfigurationRecord(prior)
+	require.NoError(t, err)
+	require.Equal(t, prior, prepared)
+	require.Equal(t, NoConfig{}, decoded)
+}
+
 func TestConfiguredRecordRequiresAddressAndCurrentSchema(t *testing.T) {
 	definition, err := resolveConfigurationDefinition(
 		configurationLibraryPath,
