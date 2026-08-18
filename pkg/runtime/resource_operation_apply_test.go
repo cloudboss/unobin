@@ -203,6 +203,26 @@ func registeredApplyDesired(
 	return desired
 }
 
+func registeredApplyStep(
+	t *testing.T,
+	address string,
+	dependsOn []string,
+	operation *ResourcePlanOperation,
+) PlanStepV2 {
+	t.Helper()
+	step := PlanStepV2{
+		Address:   address,
+		Kind:      NodeResource,
+		DependsOn: dependsOn,
+		Operation: StepOperation{
+			Kind:     StepResource,
+			Resource: operation,
+		},
+	}
+	require.NoError(t, step.Validate())
+	return step
+}
+
 func TestApplyRegisteredResourceOperationUsesRecordedRegistrationForReplacement(
 	t *testing.T,
 ) {
@@ -268,15 +288,18 @@ func TestApplyRegisteredResourceOperationUsesRecordedRegistrationForReplacement(
 	target, err := applyRegisteredResourceOperation(
 		context.Background(),
 		registeredResourceApplyOperationRequest{
-			Address:             "resource.logs",
-			Operation:           *operation,
+			Step: registeredApplyStep(
+				t,
+				"resource.logs",
+				[]string{"resource.network"},
+				operation,
+			),
 			Desired:             &desired,
 			DesiredConfigType:   desiredConfigurationDefinition,
 			DesiredRegistration: desiredRegistration,
 			Prior:               &prior,
 			PriorConfigType:     priorConfigurationDefinition,
 			PriorRegistration:   priorRegistration,
-			DependsOn:           []string{"resource.network"},
 			Persist: func(_ context.Context, target *ResourceTarget) error {
 				capture.calls = append(capture.calls, "persist")
 				persisted = target
@@ -355,15 +378,18 @@ func TestApplyRegisteredResourceOperationUsesSavedObservation(t *testing.T) {
 	target, err := applyRegisteredResourceOperation(
 		context.Background(),
 		registeredResourceApplyOperationRequest{
-			Address:             "resource.logs",
-			Operation:           *operation,
+			Step: registeredApplyStep(
+				t,
+				"resource.logs",
+				[]string{"resource.network"},
+				operation,
+			),
 			Desired:             &desired,
 			DesiredConfigType:   configurationDefinition,
 			DesiredRegistration: registration,
 			Prior:               &prior,
 			PriorConfigType:     configurationDefinition,
 			PriorRegistration:   registration,
-			DependsOn:           []string{},
 			Persist: func(_ context.Context, target *ResourceTarget) error {
 				capture.calls = append(capture.calls, "persist")
 				persisted = target
@@ -377,6 +403,7 @@ func TestApplyRegisteredResourceOperationUsesSavedObservation(t *testing.T) {
 	require.Equal(t, 1, capture.updatePrior.Inputs.Size)
 	require.Equal(t, "recorded", capture.updatePrior.Outputs.Value)
 	require.Equal(t, "observed", capture.updatePrior.Observed.Value)
+	require.Equal(t, []string{"resource.network"}, target.DependsOn)
 	require.Equal(t, target, persisted)
 }
 
@@ -443,12 +470,10 @@ func TestApplyRegisteredResourceOperationMigratesRecordedConfiguration(t *testin
 	target, err := applyRegisteredResourceOperation(
 		context.Background(),
 		registeredResourceApplyOperationRequest{
-			Address:           "resource.logs",
-			Operation:         *operation,
+			Step:              registeredApplyStep(t, "resource.logs", []string{}, operation),
 			Prior:             &prior,
 			PriorConfigType:   configurationDefinition,
 			PriorRegistration: registration,
-			DependsOn:         []string{},
 			Persist: func(_ context.Context, target *ResourceTarget) error {
 				capture.calls = append(capture.calls, "persist")
 				removed = target == nil
@@ -542,12 +567,10 @@ func TestApplyRegisteredResourceOperationMigratesPriorBeforeDestroy(t *testing.T
 	target, err := applyRegisteredResourceOperation(
 		context.Background(),
 		registeredResourceApplyOperationRequest{
-			Address:           "resource.logs",
-			Operation:         *operation,
+			Step:              registeredApplyStep(t, "resource.logs", []string{}, operation),
 			Prior:             &prior,
 			PriorConfigType:   configurationDefinition,
 			PriorRegistration: registration,
-			DependsOn:         []string{},
 			Persist: func(_ context.Context, target *ResourceTarget) error {
 				capture.calls = append(capture.calls, "persist")
 				removed = target == nil
@@ -592,9 +615,8 @@ func TestApplyRegisteredResourceOperationRequiresRegistrations(t *testing.T) {
 	_, err = applyRegisteredResourceOperation(
 		context.Background(),
 		registeredResourceApplyOperationRequest{
-			Address:   "resource.logs",
-			Operation: *create,
-			Desired:   &desired,
+			Step:    registeredApplyStep(t, "resource.logs", []string{}, create),
+			Desired: &desired,
 		},
 	)
 	require.ErrorContains(t, err, "desired resource registration is required")
@@ -602,8 +624,7 @@ func TestApplyRegisteredResourceOperationRequiresRegistrations(t *testing.T) {
 	_, err = applyRegisteredResourceOperation(
 		context.Background(),
 		registeredResourceApplyOperationRequest{
-			Address:             "resource.logs",
-			Operation:           *create,
+			Step:                registeredApplyStep(t, "resource.logs", []string{}, create),
 			Desired:             &desired,
 			DesiredRegistration: registration,
 		},
@@ -641,8 +662,7 @@ func TestApplyRegisteredResourceOperationRequiresRegistrations(t *testing.T) {
 	_, err = applyRegisteredResourceOperation(
 		context.Background(),
 		registeredResourceApplyOperationRequest{
-			Address:           "resource.logs",
-			Operation:         *operation,
+			Step:              registeredApplyStep(t, "resource.logs", []string{}, operation),
 			Prior:             &prior,
 			PriorRegistration: registration,
 		},
@@ -653,12 +673,35 @@ func TestApplyRegisteredResourceOperationRequiresRegistrations(t *testing.T) {
 	_, err = applyRegisteredResourceOperation(
 		context.Background(),
 		registeredResourceApplyOperationRequest{
-			Address:         "resource.logs",
-			Operation:       *operation,
+			Step:            registeredApplyStep(t, "resource.logs", []string{}, operation),
 			Prior:           &prior,
 			PriorConfigType: configurationDefinition,
 		},
 	)
 	require.ErrorContains(t, err, "prior resource registration is required")
 	require.Empty(t, capture.calls)
+}
+
+func TestApplyRegisteredResourceOperationRejectsNonResourceStep(t *testing.T) {
+	desired := validPlannedActionTarget(t)
+	operation := ActionPlanOperation{
+		Decision: DecisionRerun,
+		Desired:  &desired,
+	}
+	step := PlanStepV2{
+		Address:   "action.notify",
+		Kind:      NodeAction,
+		DependsOn: []string{},
+		Operation: StepOperation{
+			Kind:   StepAction,
+			Action: &operation,
+		},
+	}
+	require.NoError(t, step.Validate())
+
+	_, err := applyRegisteredResourceOperation(
+		context.Background(),
+		registeredResourceApplyOperationRequest{Step: step},
+	)
+	require.ErrorContains(t, err, "saved resource step must be a resource")
 }

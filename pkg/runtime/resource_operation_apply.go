@@ -6,15 +6,13 @@ import (
 )
 
 type registeredResourceApplyOperationRequest struct {
-	Address             string
-	Operation           ResourcePlanOperation
+	Step                PlanStepV2
 	Desired             *PlannedResourceTarget
 	DesiredConfigType   *resolvedConfigurationDefinition
 	DesiredRegistration *resourceDefinitionRegistration
 	Prior               *ResourceTarget
 	PriorConfigType     *resolvedConfigurationDefinition
 	PriorRegistration   *resourceDefinitionRegistration
-	DependsOn           []string
 	Persist             func(context.Context, *ResourceTarget) error
 }
 
@@ -25,17 +23,18 @@ func applyRegisteredResourceOperation(
 	if ctx == nil {
 		return nil, fmt.Errorf("resource apply context is required")
 	}
-	if err := validateNodeAddress(request.Address, NodeResource); err != nil {
-		return nil, err
+	if err := request.Step.Validate(); err != nil {
+		return nil, fmt.Errorf("saved resource step: %w", err)
 	}
-	if err := request.Operation.Validate(); err != nil {
-		return nil, fmt.Errorf("saved resource operation: %w", err)
+	if request.Step.Kind != NodeResource {
+		return nil, fmt.Errorf("saved resource step must be a resource")
 	}
-	if (request.Operation.Desired != nil || request.Desired != nil) &&
+	operation := *request.Step.Operation.Resource
+	if (operation.Desired != nil || request.Desired != nil) &&
 		request.DesiredRegistration == nil {
 		return nil, fmt.Errorf("desired resource registration is required")
 	}
-	if (request.Operation.Prior != nil || request.Prior != nil) &&
+	if (operation.Prior != nil || request.Prior != nil) &&
 		request.PriorRegistration == nil {
 		return nil, fmt.Errorf("prior resource registration is required")
 	}
@@ -53,7 +52,7 @@ func applyRegisteredResourceOperation(
 		return nil, err
 	}
 	registration := request.DesiredRegistration
-	if request.Operation.Desired == nil {
+	if operation.Desired == nil {
 		registration = request.PriorRegistration
 	}
 	if registration == nil {
@@ -66,7 +65,7 @@ func applyRegisteredResourceOperation(
 			return request.PriorRegistration.readResourceObservation(
 				ctx,
 				resourceReadRequest{
-					Address:       request.Address,
+					Address:       request.Step.Address,
 					Binding:       prior.Binding,
 					Inputs:        prior.Inputs,
 					Configuration: prior.Configuration,
@@ -88,13 +87,13 @@ func applyRegisteredResourceOperation(
 	return registration.applyResourceOperation(
 		ctx,
 		resourceRegistrationApplyRequest{
-			Address:              request.Address,
-			Operation:            request.Operation,
+			Address:              request.Step.Address,
+			Operation:            operation,
 			Desired:              request.Desired,
 			DesiredConfiguration: desiredConfiguration,
 			Prior:                prior,
-			Observation:          request.Operation.Observation,
-			DependsOn:            request.DependsOn,
+			Observation:          operation.Observation,
+			DependsOn:            request.Step.DependsOn,
 		},
 		callbacks,
 	)
