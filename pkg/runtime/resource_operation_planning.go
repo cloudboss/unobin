@@ -6,13 +6,53 @@ import (
 )
 
 type registeredResourcePlanningRequest struct {
-	Address              string
-	Desired              *PlannedResourceTarget
-	DesiredConfiguration any
-	DesiredRegistration  *resourceDefinitionRegistration
-	Prior                *ResourceTarget
-	PriorConfigType      *resolvedConfigurationDefinition
-	PriorRegistration    *resourceDefinitionRegistration
+	Address             string
+	Desired             *PlannedResourceTarget
+	DesiredConfigType   *resolvedConfigurationDefinition
+	DesiredRegistration *resourceDefinitionRegistration
+	Prior               *ResourceTarget
+	PriorConfigType     *resolvedConfigurationDefinition
+	PriorRegistration   *resourceDefinitionRegistration
+}
+
+func prepareRegisteredResourceDesiredTarget(
+	desired *PlannedResourceTarget,
+	configurationDefinition *resolvedConfigurationDefinition,
+) (*PlannedResourceTarget, any, error) {
+	if desired == nil {
+		return nil, nil, nil
+	}
+	if configurationDefinition == nil {
+		return nil, nil, fmt.Errorf(
+			"desired configuration definition is required",
+		)
+	}
+	target := clonePlannedResourceTarget(*desired)
+	if err := target.Validate(); err != nil {
+		return nil, nil, fmt.Errorf("desired target: %w", err)
+	}
+	if configurationDefinition.libraryPath != target.Binding.LibraryPath {
+		return nil, nil, fmt.Errorf(
+			"desired configuration definition does not match binding",
+		)
+	}
+	if target.Configuration.Kind == PlannedConfigurationPending {
+		return &target, nil, nil
+	}
+	configuration, decoded, err := configurationDefinition.prepareConfigurationRecord(
+		*target.Configuration.Record,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf(
+			"prepare desired configuration: %w",
+			err,
+		)
+	}
+	target.Configuration.Record = &configuration
+	if err := target.Validate(); err != nil {
+		return nil, nil, fmt.Errorf("prepared desired target: %w", err)
+	}
+	return &target, decoded, nil
 }
 
 func planRegisteredResourceOperation(
@@ -39,6 +79,14 @@ func planRegisteredResourceOperation(
 		return nil, nil
 	}
 
+	desired, desiredConfiguration, err := prepareRegisteredResourceDesiredTarget(
+		request.Desired,
+		request.DesiredConfigType,
+	)
+	if err != nil {
+		return nil, err
+	}
+	request.Desired = desired
 	prior, observation, err := prepareRegisteredResourcePrior(ctx, pass, request)
 	if err != nil {
 		return nil, err
@@ -49,6 +97,7 @@ func planRegisteredResourceOperation(
 		request,
 		prior,
 		observation,
+		desiredConfiguration,
 	)
 	if err != nil {
 		return nil, err
@@ -136,6 +185,7 @@ func readDesiredConfigurationObservation(
 	request registeredResourcePlanningRequest,
 	prior *ResourceTarget,
 	observation *ResourceObservation,
+	desiredConfiguration any,
 ) (*ResourceObservation, error) {
 	if !request.DesiredRegistration.needsDesiredConfigurationRead(
 		request.Desired,
@@ -153,7 +203,7 @@ func readDesiredConfigurationObservation(
 		prior.Inputs,
 		*desired.Configuration.Record,
 		prior.Outputs,
-		request.DesiredConfiguration,
+		desiredConfiguration,
 		request.DesiredRegistration,
 	)
 	if err != nil {

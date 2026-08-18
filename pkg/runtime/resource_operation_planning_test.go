@@ -245,6 +245,76 @@ func registeredOperationConfiguration(
 	return definition, registeredOperationConfigurationRecord(t, definition, endpoint)
 }
 
+func TestPrepareRegisteredResourceDesiredTarget(t *testing.T) {
+	definition := registeredPlanningDefinition(1, IdentityConfiguration)
+	registration := newRegisteredPlanningResource(
+		t,
+		definition,
+		&registeredPlanningCapture{},
+		"current",
+	)
+	binding := Binding{LibraryPath: "example.com/current", Export: "bucket"}
+	configurationDefinition, configuration := registeredOperationConfiguration(
+		t,
+		binding.LibraryPath,
+		"current",
+	)
+	desired := registeredPlanningDesired(
+		t,
+		registration,
+		binding,
+		configuration,
+		"logs",
+		1,
+	)
+
+	prepared, decoded, err := prepareRegisteredResourceDesiredTarget(
+		&desired,
+		configurationDefinition,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, prepared)
+	require.NotSame(t, &desired, prepared)
+	require.True(t, sameConfigurationRecord(configuration, *prepared.Configuration.Record))
+	decodedConfiguration, ok := decoded.(*recordedConfiguration)
+	require.True(t, ok)
+	require.Equal(t, "current", decodedConfiguration.Endpoint)
+
+	pending := desired
+	pending.Configuration = PlannedConfiguration{
+		Kind:        PlannedConfigurationPending,
+		PendingRefs: []string{"resource.region.id"},
+	}
+	prepared, decoded, err = prepareRegisteredResourceDesiredTarget(
+		&pending,
+		configurationDefinition,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, prepared)
+	require.Equal(t, pending.Configuration, prepared.Configuration)
+	require.Nil(t, decoded)
+
+	otherDefinition, _ := registeredOperationConfiguration(
+		t,
+		"example.com/other",
+		"other",
+	)
+	_, _, err = prepareRegisteredResourceDesiredTarget(&pending, otherDefinition)
+	require.ErrorContains(
+		t,
+		err,
+		"desired configuration definition does not match binding",
+	)
+
+	prepared, decoded, err = prepareRegisteredResourceDesiredTarget(nil, nil)
+	require.NoError(t, err)
+	require.Nil(t, prepared)
+	require.Nil(t, decoded)
+
+	_, _, err = prepareRegisteredResourceDesiredTarget(&desired, nil)
+	require.ErrorContains(t, err, "desired configuration definition is required")
+}
+
 func TestPlanRegisteredResourceOperationHandlesTargetPresence(t *testing.T) {
 	operation, err := runFixedPointPlanning(
 		context.Background(),
@@ -285,6 +355,7 @@ func TestPlanRegisteredResourceOperationHandlesTargetPresence(t *testing.T) {
 				registeredResourcePlanningRequest{
 					Address:             "resource.logs",
 					Desired:             &desired,
+					DesiredConfigType:   configurationDefinition,
 					DesiredRegistration: registration,
 				},
 			)
@@ -347,7 +418,7 @@ func TestPlanRegisteredResourceOperationUsesPriorRegistrationForReplacement(t *t
 		priorBinding.LibraryPath,
 		"old",
 	)
-	_, desiredConfiguration := registeredOperationConfiguration(
+	desiredConfigurationDefinition, desiredConfiguration := registeredOperationConfiguration(
 		t,
 		desiredBinding.LibraryPath,
 		"new",
@@ -378,13 +449,13 @@ func TestPlanRegisteredResourceOperationUsesPriorRegistrationForReplacement(t *t
 				context.Background(),
 				pass,
 				registeredResourcePlanningRequest{
-					Address:              "resource.logs",
-					Desired:              &desired,
-					DesiredConfiguration: &recordedConfiguration{Endpoint: "new"},
-					DesiredRegistration:  desiredRegistration,
-					Prior:                &prior,
-					PriorConfigType:      priorConfigurationDefinition,
-					PriorRegistration:    priorRegistration,
+					Address:             "resource.logs",
+					Desired:             &desired,
+					DesiredConfigType:   desiredConfigurationDefinition,
+					DesiredRegistration: desiredRegistration,
+					Prior:               &prior,
+					PriorConfigType:     priorConfigurationDefinition,
+					PriorRegistration:   priorRegistration,
 				},
 			)
 		},
@@ -443,13 +514,13 @@ func TestPlanRegisteredResourceOperationReadsGlobalIdentityWithDesiredConfig(t *
 				context.Background(),
 				pass,
 				registeredResourcePlanningRequest{
-					Address:              "resource.logs",
-					Desired:              &desired,
-					DesiredConfiguration: &recordedConfiguration{Endpoint: "new"},
-					DesiredRegistration:  registration,
-					Prior:                &prior,
-					PriorConfigType:      configurationDefinition,
-					PriorRegistration:    registration,
+					Address:             "resource.logs",
+					Desired:             &desired,
+					DesiredConfigType:   configurationDefinition,
+					DesiredRegistration: registration,
+					Prior:               &prior,
+					PriorConfigType:     configurationDefinition,
+					PriorRegistration:   registration,
 				},
 			)
 		},
@@ -509,13 +580,13 @@ func TestPlanRegisteredResourceOperationNormalizesMissingPrior(t *testing.T) {
 				context.Background(),
 				pass,
 				registeredResourcePlanningRequest{
-					Address:              "resource.logs",
-					Desired:              &desired,
-					DesiredConfiguration: &recordedConfiguration{Endpoint: "current"},
-					DesiredRegistration:  registration,
-					Prior:                &prior,
-					PriorConfigType:      configurationDefinition,
-					PriorRegistration:    registration,
+					Address:             "resource.logs",
+					Desired:             &desired,
+					DesiredConfigType:   configurationDefinition,
+					DesiredRegistration: registration,
+					Prior:               &prior,
+					PriorConfigType:     configurationDefinition,
+					PriorRegistration:   registration,
 				},
 			)
 		},
@@ -577,6 +648,15 @@ func TestPlanRegisteredResourceOperationRequiresRegistrations(t *testing.T) {
 				PriorConfigType: configurationDefinition,
 			},
 			message: "prior resource registration is required",
+		},
+		{
+			name: "desired configuration",
+			request: registeredResourcePlanningRequest{
+				Address:             "resource.logs",
+				Desired:             &desired,
+				DesiredRegistration: registration,
+			},
+			message: "desired configuration definition is required",
 		},
 		{
 			name: "prior configuration",

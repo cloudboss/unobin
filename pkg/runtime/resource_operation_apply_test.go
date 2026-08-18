@@ -218,7 +218,7 @@ func TestApplyRegisteredResourceOperationUsesRecordedRegistrationForReplacement(
 		priorBinding.LibraryPath,
 		"prior",
 	)
-	_, desiredConfiguration := registeredOperationConfiguration(
+	desiredConfigurationDefinition, desiredConfiguration := registeredOperationConfiguration(
 		t,
 		desiredBinding.LibraryPath,
 		"desired",
@@ -247,13 +247,13 @@ func TestApplyRegisteredResourceOperationUsesRecordedRegistrationForReplacement(
 				context.Background(),
 				pass,
 				registeredResourcePlanningRequest{
-					Address:              "resource.logs",
-					Desired:              &desired,
-					DesiredConfiguration: &recordedConfiguration{Endpoint: "desired"},
-					DesiredRegistration:  desiredRegistration,
-					Prior:                &prior,
-					PriorConfigType:      priorConfigurationDefinition,
-					PriorRegistration:    priorRegistration,
+					Address:             "resource.logs",
+					Desired:             &desired,
+					DesiredConfigType:   desiredConfigurationDefinition,
+					DesiredRegistration: desiredRegistration,
+					Prior:               &prior,
+					PriorConfigType:     priorConfigurationDefinition,
+					PriorRegistration:   priorRegistration,
 				},
 			)
 		},
@@ -266,16 +266,16 @@ func TestApplyRegisteredResourceOperationUsesRecordedRegistrationForReplacement(
 	target, err := applyRegisteredResourceOperation(
 		context.Background(),
 		registeredResourceApplyOperationRequest{
-			Address:              "resource.logs",
-			Operation:            *operation,
-			Desired:              &desired,
-			DesiredConfiguration: &recordedConfiguration{Endpoint: "desired"},
-			DesiredRegistration:  desiredRegistration,
-			Prior:                &prior,
-			PriorConfigType:      priorConfigurationDefinition,
-			PriorRegistration:    priorRegistration,
-			Observation:          operation.Observation,
-			DependsOn:            []string{"resource.network"},
+			Address:             "resource.logs",
+			Operation:           *operation,
+			Desired:             &desired,
+			DesiredConfigType:   desiredConfigurationDefinition,
+			DesiredRegistration: desiredRegistration,
+			Prior:               &prior,
+			PriorConfigType:     priorConfigurationDefinition,
+			PriorRegistration:   priorRegistration,
+			Observation:         operation.Observation,
+			DependsOn:           []string{"resource.network"},
 			Persist: func(_ context.Context, target *ResourceTarget) error {
 				capture.calls = append(capture.calls, "persist")
 				persisted = target
@@ -518,6 +518,17 @@ func TestApplyRegisteredResourceOperationRequiresRegistrations(t *testing.T) {
 		},
 	)
 	require.ErrorContains(t, err, "desired resource registration is required")
+
+	_, err = applyRegisteredResourceOperation(
+		context.Background(),
+		registeredResourceApplyOperationRequest{
+			Address:             "resource.logs",
+			Operation:           *create,
+			Desired:             &desired,
+			DesiredRegistration: registration,
+		},
+	)
+	require.ErrorContains(t, err, "desired configuration definition is required")
 
 	prior := registeredApplyTarget(
 		t,

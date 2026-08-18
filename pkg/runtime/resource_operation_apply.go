@@ -6,17 +6,17 @@ import (
 )
 
 type registeredResourceApplyOperationRequest struct {
-	Address              string
-	Operation            ResourcePlanOperation
-	Desired              *PlannedResourceTarget
-	DesiredConfiguration any
-	DesiredRegistration  *resourceDefinitionRegistration
-	Prior                *ResourceTarget
-	PriorConfigType      *resolvedConfigurationDefinition
-	PriorRegistration    *resourceDefinitionRegistration
-	Observation          *ResourceObservation
-	DependsOn            []string
-	Persist              func(context.Context, *ResourceTarget) error
+	Address             string
+	Operation           ResourcePlanOperation
+	Desired             *PlannedResourceTarget
+	DesiredConfigType   *resolvedConfigurationDefinition
+	DesiredRegistration *resourceDefinitionRegistration
+	Prior               *ResourceTarget
+	PriorConfigType     *resolvedConfigurationDefinition
+	PriorRegistration   *resourceDefinitionRegistration
+	Observation         *ResourceObservation
+	DependsOn           []string
+	Persist             func(context.Context, *ResourceTarget) error
 }
 
 func applyRegisteredResourceOperation(
@@ -41,6 +41,14 @@ func applyRegisteredResourceOperation(
 		return nil, fmt.Errorf("prior resource registration is required")
 	}
 
+	desired, desiredConfiguration, err := prepareRegisteredResourceDesiredTarget(
+		request.Desired,
+		request.DesiredConfigType,
+	)
+	if err != nil {
+		return nil, err
+	}
+	request.Desired = desired
 	prior, priorConfiguration, err := prepareRegisteredResourceApplyPrior(request)
 	if err != nil {
 		return nil, err
@@ -84,7 +92,7 @@ func applyRegisteredResourceOperation(
 			Address:              request.Address,
 			Operation:            request.Operation,
 			Desired:              request.Desired,
-			DesiredConfiguration: request.DesiredConfiguration,
+			DesiredConfiguration: desiredConfiguration,
 			Prior:                prior,
 			Observation:          request.Observation,
 			DependsOn:            request.DependsOn,
