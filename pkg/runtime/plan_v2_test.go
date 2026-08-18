@@ -1,12 +1,212 @@
 package runtime
 
 import (
+	"bytes"
+	"encoding/json"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestPlanFileV2Codec(t *testing.T) {
+	plan := validPlanFileV2(t)
+
+	encoded, err := encodePlanFileV2(plan)
+	require.NoError(t, err)
+	require.True(t, bytes.HasSuffix(encoded, []byte{'\n'}))
+
+	decoded, err := decodePlanFileV2(encoded)
+	require.NoError(t, err)
+	require.Equal(t, plan, decoded)
+}
+
+func TestPlanFileV2CodecPreservesEveryOperationKind(t *testing.T) {
+	addresses := map[NodeKind]string{
+		NodeResource:             "resource.api",
+		NodeAction:               "action.notify",
+		NodeDataSource:           "data-source.image",
+		NodeLibraryConfiguration: "library-config.cloud",
+		NodeOutput:               "output.url",
+	}
+	steps := make([]PlanStepV2, 0, len(addresses)+1)
+	for kind, operation := range validStepOperations(t) {
+		steps = append(steps, PlanStepV2{
+			Address:   addresses[kind],
+			Kind:      kind,
+			DependsOn: []string{},
+			Operation: operation,
+		})
+	}
+	compositePrior := operationCompositeState(t, NodeResource)
+	steps = append(steps, PlanStepV2{
+		Address:   "resource.application",
+		Kind:      NodeResource,
+		DependsOn: []string{},
+		Operation: StepOperation{
+			Kind: StepComposite,
+			Composite: &CompositePlanOperation{
+				Decision: DecisionDestroy,
+				Prior:    &compositePrior,
+			},
+		},
+	})
+
+	for _, step := range steps {
+		t.Run(string(step.Operation.Kind), func(t *testing.T) {
+			plan := validPlanFileV2(t)
+			plan.Steps = []PlanStepV2{step}
+			plan.Digest = ""
+			var err error
+			plan.Digest, err = planFileV2Digest(plan)
+			require.NoError(t, err)
+
+			encoded, err := encodePlanFileV2(plan)
+			require.NoError(t, err)
+			decoded, err := decodePlanFileV2(encoded)
+			require.NoError(t, err)
+			require.Equal(t, plan, decoded)
+		})
+	}
+}
+
+func TestEncodePlanFileV2RejectsInvalidPlan(t *testing.T) {
+	plan := validPlanFileV2(t)
+	plan.Digest = strings.Repeat("f", 64)
+
+	encoded, err := encodePlanFileV2(plan)
+	require.ErrorContains(t, err, "digest does not match plan contents")
+	require.Nil(t, encoded)
+}
+
+func TestDecodePlanFileV2RejectsInvalidJSONContract(t *testing.T) {
+	valid := marshalPlanFileV2(t, validPlanFileV2(t))
+	tests := []struct {
+		name    string
+		old     string
+		new     string
+		message string
+	}{
+		{
+			name:    "duplicate version member",
+			old:     `"format-version":2,`,
+			new:     `"format-version":2,"format-version":1,`,
+			message: `$.format-version: duplicate member`,
+		},
+		{
+			name:    "duplicate nested member",
+			old:     `"factory":{"name":"deploy",`,
+			new:     `"factory":{"name":"deploy","name":"again",`,
+			message: `$.factory.name: duplicate member`,
+		},
+		{
+			name:    "unknown nested member",
+			old:     `"operation":{"kind":"resource",`,
+			new:     `"operation":{"kind":"resource","unexpected":true,`,
+			message: `$.steps[0].operation.unexpected: unknown member`,
+		},
+		{
+			name:    "missing required member",
+			old:     `"parallelism":4,`,
+			new:     "",
+			message: `$.parallelism: member is required`,
+		},
+		{
+			name:    "missing nested required member",
+			old:     `"depends-on":[],`,
+			new:     "",
+			message: `$.steps[0].depends-on: member is required`,
+		},
+		{
+			name:    "null optional member",
+			old:     `"parallelism":4,`,
+			new:     `"backend":null,"parallelism":4,`,
+			message: `$.backend: null is not allowed`,
+		},
+		{
+			name:    "noncanonical integer",
+			old:     `"parallelism":4,`,
+			new:     `"parallelism":-0,`,
+			message: `$.parallelism: noncanonical integer "-0"`,
+		},
+		{
+			name:    "invalid version type",
+			old:     `"format-version":2,`,
+			new:     `"format-version":"2",`,
+			message: `$.format-version: invalid value`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := replacePlanFileV2JSON(t, valid, tt.old, tt.new)
+			plan, err := decodePlanFileV2(input)
+			require.ErrorContains(t, err, tt.message)
+			require.Equal(t, PlanFileV2{}, plan)
+		})
+	}
+}
+
+func TestDecodePlanFileV2RejectsTrailingValue(t *testing.T) {
+	input := append(marshalPlanFileV2(t, validPlanFileV2(t)), []byte(` {}`)...)
+
+	plan, err := decodePlanFileV2(input)
+	require.ErrorContains(t, err, "$: unexpected value after JSON value")
+	require.Equal(t, PlanFileV2{}, plan)
+}
+
+func TestDecodePlanFileV2RequiresFalseBooleanMembers(t *testing.T) {
+	plan := validPlanFileV2(t)
+	plan.Steps = []PlanStepV2{{
+		Address:   "output.url",
+		Kind:      NodeOutput,
+		DependsOn: []string{},
+		Operation: validStepOperations(t)[NodeOutput],
+	}}
+	plan.Digest = ""
+	var err error
+	plan.Digest, err = planFileV2Digest(plan)
+	require.NoError(t, err)
+	valid := marshalPlanFileV2(t, plan)
+	input := replacePlanFileV2JSON(t, valid, `,"sensitive":false`, "")
+
+	decoded, err := decodePlanFileV2(input)
+	require.ErrorContains(
+		t,
+		err,
+		"$.steps[0].operation.output.sensitive: member is required",
+	)
+	require.Equal(t, PlanFileV2{}, decoded)
+}
+
+func TestDecodePlanFileV2RejectsObsoleteAlphaFormat(t *testing.T) {
+	plan, err := decodePlanFileV2([]byte(`{"format-version":1}`))
+	require.ErrorContains(t, err, "obsolete alpha format; create a new plan or state")
+	require.Equal(t, PlanFileV2{}, plan)
+}
+
+func TestDecodePlanFileV2VerifiesDigest(t *testing.T) {
+	valid := marshalPlanFileV2(t, validPlanFileV2(t))
+	input := replacePlanFileV2JSON(t, valid, `"stack":"production"`, `"stack":"other"`)
+
+	plan, err := decodePlanFileV2(input)
+	require.ErrorContains(t, err, "digest does not match plan contents")
+	require.Equal(t, PlanFileV2{}, plan)
+}
+
+func marshalPlanFileV2(t *testing.T, plan PlanFileV2) []byte {
+	t.Helper()
+	encoded, err := json.Marshal(plan)
+	require.NoError(t, err)
+	return encoded
+}
+
+func replacePlanFileV2JSON(t *testing.T, input []byte, old, new string) []byte {
+	t.Helper()
+	require.Contains(t, string(input), old)
+	return bytes.Replace(input, []byte(old), []byte(new), 1)
+}
 
 func TestFinalizePlanFileV2ComputesDigest(t *testing.T) {
 	draft := validPlanFileV2(t)
