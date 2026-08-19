@@ -77,3 +77,49 @@ func TestOpenPlanRejectsUnknownEnvelopeVersion(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "envelope-version 99")
 }
+
+func TestSealOpenPlanFileV2PreservesPlan(t *testing.T) {
+	plan := validPlanFileV2(t)
+
+	sealed, err := sealPlanFileV2(plan, reversingEncrypter{})
+	require.NoError(t, err)
+
+	opened, err := openPlanFileV2(
+		sealed,
+		func(ref *StateRef) (encrypt.Encrypter, error) {
+			require.NotNil(t, ref)
+			assert.Equal(t, "reversing", ref.Name)
+			assert.Equal(t, "backward", ref.Body["direction"])
+			return reversingEncrypter{}, nil
+		},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, plan, opened)
+}
+
+func TestSealPlanFileV2RejectsInvalidPlan(t *testing.T) {
+	plan := validPlanFileV2(t)
+	plan.Stack = ""
+
+	sealed, err := sealPlanFileV2(plan, reversingEncrypter{})
+	require.ErrorContains(t, err, "stack is required")
+	assert.Nil(t, sealed)
+}
+
+func TestOpenPlanFileV2RejectsObsoletePlan(t *testing.T) {
+	sealed, err := state.Seal(
+		[]byte(`{"format-version":1}`),
+		state.PayloadTypePlan,
+		reversingEncrypter{},
+	)
+	require.NoError(t, err)
+
+	plan, err := openPlanFileV2(
+		sealed,
+		func(*StateRef) (encrypt.Encrypter, error) {
+			return reversingEncrypter{}, nil
+		},
+	)
+	require.ErrorContains(t, err, "obsolete alpha format")
+	assert.Equal(t, PlanFileV2{}, plan)
+}

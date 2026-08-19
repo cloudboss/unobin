@@ -34,3 +34,22 @@ func OpenPlan(
 	}
 	return DecodePlan(body)
 }
+
+func sealPlanFileV2(plan PlanFileV2, enc encrypt.Encrypter) ([]byte, error) {
+	body, err := encodePlanFileV2(plan)
+	if err != nil {
+		return nil, err
+	}
+	return state.Seal(body, state.PayloadTypePlan, enc)
+}
+
+func openPlanFileV2(
+	b []byte,
+	resolveEnc func(*StateRef) (encrypt.Encrypter, error),
+) (PlanFileV2, error) {
+	body, err := state.Open(b, state.PayloadTypePlan, resolveEnc)
+	if err != nil {
+		return PlanFileV2{}, err
+	}
+	return decodePlanFileV2(body)
+}
