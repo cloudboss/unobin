@@ -162,11 +162,17 @@ func validate(parsed *jsonValue, typeOf reflect.Type, path string) error {
 		}
 		typeOf = typeOf.Elem()
 	}
+	if typeOf.Kind() == reflect.Interface {
+		return validateScalar(parsed.raw, typeOf, path)
+	}
 	if parsed.kind == valueNull {
 		return fmt.Errorf("%s: null is not allowed", path)
 	}
 	if reflect.PointerTo(typeOf).Implements(jsonUnmarshalerType) {
 		return validateCustomValue(parsed.raw, typeOf, path)
+	}
+	if typeOf.Kind() == reflect.Slice && typeOf.Elem().Kind() == reflect.Uint8 {
+		return validateScalar(parsed.raw, typeOf, path)
 	}
 
 	switch typeOf.Kind() {

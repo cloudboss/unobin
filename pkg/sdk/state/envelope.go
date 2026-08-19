@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cloudboss/unobin/internal/strictjson"
 	"github.com/cloudboss/unobin/pkg/sdk/encrypt"
 )
 
@@ -90,7 +91,7 @@ func Open(
 	resolveEnc func(*Ref) (encrypt.Encrypter, error),
 ) ([]byte, error) {
 	var env Envelope
-	if err := json.Unmarshal(b, &env); err != nil {
+	if err := strictjson.Decode(b, &env); err != nil {
 		return nil, fmt.Errorf("envelope: %w", err)
 	}
 	if env.EnvelopeVersion != EnvelopeVersion {

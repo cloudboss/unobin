@@ -113,6 +113,115 @@ func TestOpenRejectsUnknownEnvelopeVersion(t *testing.T) {
 	require.Contains(t, err.Error(), "envelope-version 99")
 }
 
+func TestOpenRejectsInvalidJSONContract(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name: "duplicate envelope version",
+			input: `{"envelope-version":1,"envelope-version":1,` +
+				`"ciphertext":"eA=="}`,
+			want: `$.envelope-version: duplicate member`,
+		},
+		{
+			name: "duplicate encrypter member",
+			input: `{"envelope-version":1,"encrypter":{"name":"first",` +
+				`"name":"second"},"ciphertext":"eA=="}`,
+			want: `$.encrypter.name: duplicate member`,
+		},
+		{
+			name: "duplicate opaque body member",
+			input: `{"envelope-version":1,"encrypter":{"name":"test",` +
+				`"body":{"region":"east","region":"west"}},"ciphertext":"eA=="}`,
+			want: `$.encrypter.body.region: duplicate member`,
+		},
+		{
+			name:  "unknown envelope member",
+			input: `{"envelope-version":1,"other":true,"ciphertext":"eA=="}`,
+			want:  `$.other: unknown member`,
+		},
+		{
+			name: "unknown encrypter member",
+			input: `{"envelope-version":1,"encrypter":{"name":"test",` +
+				`"other":true},"ciphertext":"eA=="}`,
+			want: `$.encrypter.other: unknown member`,
+		},
+		{
+			name:  "missing encrypter name",
+			input: `{"envelope-version":1,"encrypter":{},"ciphertext":"eA=="}`,
+			want:  `$.encrypter.name: member is required`,
+		},
+		{
+			name:  "null encrypter",
+			input: `{"envelope-version":1,"encrypter":null,"ciphertext":"eA=="}`,
+			want:  `$.encrypter: null is not allowed`,
+		},
+		{
+			name: "non-object encrypter body",
+			input: `{"envelope-version":1,"encrypter":{"name":"test",` +
+				`"body":[]},"ciphertext":"eA=="}`,
+			want: `$.encrypter.body: expected object`,
+		},
+		{
+			name:  "missing envelope version",
+			input: `{"ciphertext":"eA=="}`,
+			want:  `$.envelope-version: member is required`,
+		},
+		{
+			name:  "missing ciphertext",
+			input: `{"envelope-version":1}`,
+			want:  `$.ciphertext: member is required`,
+		},
+		{
+			name:  "null ciphertext",
+			input: `{"envelope-version":1,"ciphertext":null}`,
+			want:  `$.ciphertext: null is not allowed`,
+		},
+		{
+			name:  "non-string ciphertext",
+			input: `{"envelope-version":1,"ciphertext":1}`,
+			want:  `$.ciphertext: invalid value`,
+		},
+		{
+			name:  "trailing value",
+			input: `{"envelope-version":1,"ciphertext":"eA=="} {}`,
+			want:  `$: unexpected value after JSON value`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			called := false
+			_, err := Open(
+				[]byte(tt.input),
+				PayloadTypeState,
+				func(*Ref) (encrypt.Encrypter, error) {
+					called = true
+					return reversingEncrypter{}, nil
+				},
+			)
+			require.ErrorContains(t, err, tt.want)
+			assert.False(t, called)
+		})
+	}
+}
+
+func TestOpenAcceptsNullOpaqueBodyValue(t *testing.T) {
+	raw := []byte(
+		`{"envelope-version":1,"encrypter":{"name":"test",` +
+			`"body":{"optional":null}},"ciphertext":"eA=="}`,
+	)
+
+	body, err := Open(raw, PayloadTypeState, func(ref *Ref) (encrypt.Encrypter, error) {
+		require.NotNil(t, ref)
+		assert.Equal(t, map[string]any{"optional": nil}, ref.Body)
+		return reversingEncrypter{}, nil
+	})
+	require.NoError(t, err)
+	require.Equal(t, []byte("x"), body)
+}
+
 func TestOpenRejectsMismatchedPayloadType(t *testing.T) {
 	raw, err := json.Marshal(Envelope{
 		EnvelopeVersion: EnvelopeVersion,
