@@ -3,6 +3,7 @@ package state
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -309,6 +310,84 @@ func (s *SnapshotV2) Find(address string) *StateEntryV2 {
 		}
 	}
 	return nil
+}
+
+func (s *SnapshotV2) SetEntry(entry StateEntryV2) error {
+	if s == nil {
+		return fmt.Errorf("snapshot is required")
+	}
+	if err := s.Validate(); err != nil {
+		return fmt.Errorf("snapshot: %w", err)
+	}
+	if err := entry.Validate(); err != nil {
+		return fmt.Errorf("entry: %w", err)
+	}
+
+	next := *s
+	next.Entries = slices.Clone(s.Entries)
+	index, found := slices.BinarySearchFunc(
+		next.Entries,
+		entry.Address,
+		func(candidate StateEntryV2, address string) int {
+			return strings.Compare(candidate.Address, address)
+		},
+	)
+	entry, err := cloneStateEntryV2(entry)
+	if err != nil {
+		return err
+	}
+	if found {
+		next.Entries[index] = entry
+	} else {
+		next.Entries = slices.Insert(next.Entries, index, entry)
+	}
+	if err := next.Validate(); err != nil {
+		return fmt.Errorf("snapshot: %w", err)
+	}
+	*s = next
+	return nil
+}
+
+func (s *SnapshotV2) RemoveEntry(address string) error {
+	if s == nil {
+		return fmt.Errorf("snapshot is required")
+	}
+	if err := s.Validate(); err != nil {
+		return fmt.Errorf("snapshot: %w", err)
+	}
+	if _, err := stateAddressCategory(address); err != nil {
+		return fmt.Errorf("entry address is invalid: %w", err)
+	}
+	index, found := slices.BinarySearchFunc(
+		s.Entries,
+		address,
+		func(candidate StateEntryV2, address string) int {
+			return strings.Compare(candidate.Address, address)
+		},
+	)
+	if !found {
+		return nil
+	}
+
+	next := *s
+	next.Entries = slices.Delete(slices.Clone(s.Entries), index, index+1)
+	if err := next.Validate(); err != nil {
+		return fmt.Errorf("snapshot: %w", err)
+	}
+	*s = next
+	return nil
+}
+
+func cloneStateEntryV2(entry StateEntryV2) (StateEntryV2, error) {
+	encoded, err := json.Marshal(entry)
+	if err != nil {
+		return StateEntryV2{}, fmt.Errorf("copy entry: %w", err)
+	}
+	var result StateEntryV2
+	if err := json.Unmarshal(encoded, &result); err != nil {
+		return StateEntryV2{}, fmt.Errorf("copy entry: %w", err)
+	}
+	return result, nil
 }
 
 func (s SnapshotV2) Validate() error {

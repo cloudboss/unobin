@@ -521,6 +521,112 @@ func TestSnapshotV2Find(t *testing.T) {
 	require.Nil(t, missing.Find("resource.api"))
 }
 
+func TestSnapshotV2SetEntry(t *testing.T) {
+	snapshot := validSnapshotV2(t)
+	dataSource := validV2DataSourcePayload(t)
+	entry := StateEntryV2{
+		Address: "data-source.image",
+		Kind:    StateDataSource,
+		Payload: StatePayload{
+			Kind:       StateDataSource,
+			DataSource: &dataSource,
+		},
+	}
+
+	require.NoError(t, snapshot.SetEntry(entry))
+	require.Equal(t, []string{
+		"action.notify",
+		"data-source.image",
+		"resource.api",
+	}, snapshotEntryAddresses(snapshot))
+	require.Equal(t, entry, *snapshot.Find(entry.Address))
+	require.NoError(t, snapshot.Validate())
+
+	entry.Payload.DataSource.DependsOn = []string{"resource.network"}
+	require.Empty(t, snapshot.Find(entry.Address).Payload.DataSource.DependsOn)
+
+	action := validV2ActionPayload(t)
+	action.TriggerHash = "trigger-2"
+	replacement := StateEntryV2{
+		Address: "action.notify",
+		Kind:    StateAction,
+		Payload: StatePayload{Kind: StateAction, Action: &action},
+	}
+	require.NoError(t, snapshot.SetEntry(replacement))
+	require.Equal(t, replacement, *snapshot.Find(replacement.Address))
+	require.Equal(t, []string{
+		"action.notify",
+		"data-source.image",
+		"resource.api",
+	}, snapshotEntryAddresses(snapshot))
+
+	empty := validSnapshotV2(t)
+	empty.Entries = []StateEntryV2{}
+	require.NoError(t, empty.SetEntry(entry))
+	require.Equal(t, []string{"data-source.image"}, snapshotEntryAddresses(empty))
+}
+
+func TestSnapshotV2SetEntryRejectsInvalidMutation(t *testing.T) {
+	snapshot := validSnapshotV2(t)
+	before, err := encodeSnapshotV2(snapshot)
+	require.NoError(t, err)
+	resource := ResourceStatePayload{Target: validV2ResourceTarget(t)}
+
+	err = snapshot.SetEntry(StateEntryV2{
+		Address: "action.api",
+		Kind:    StateResource,
+		Payload: StatePayload{Kind: StateResource, Resource: &resource},
+	})
+	require.ErrorContains(t, err, "address category action does not match resource")
+	after, encodeErr := encodeSnapshotV2(snapshot)
+	require.NoError(t, encodeErr)
+	require.Equal(t, before, after)
+
+	var missing *SnapshotV2
+	err = missing.SetEntry(StateEntryV2{})
+	require.ErrorContains(t, err, "snapshot is required")
+}
+
+func TestSnapshotV2RemoveEntry(t *testing.T) {
+	snapshot := validSnapshotV2(t)
+
+	require.NoError(t, snapshot.RemoveEntry("action.notify"))
+	require.Equal(t, []string{"resource.api"}, snapshotEntryAddresses(snapshot))
+	require.Nil(t, snapshot.Find("action.notify"))
+	require.NoError(t, snapshot.Validate())
+
+	require.NoError(t, snapshot.RemoveEntry("resource.missing"))
+	require.Equal(t, []string{"resource.api"}, snapshotEntryAddresses(snapshot))
+	require.NoError(t, snapshot.RemoveEntry("resource.api"))
+	require.NotNil(t, snapshot.Entries)
+	require.Empty(t, snapshot.Entries)
+	require.NoError(t, snapshot.Validate())
+}
+
+func TestSnapshotV2RemoveEntryRejectsInvalidMutation(t *testing.T) {
+	snapshot := validSnapshotV2(t)
+	before, err := encodeSnapshotV2(snapshot)
+	require.NoError(t, err)
+
+	err = snapshot.RemoveEntry("not-an-address")
+	require.ErrorContains(t, err, "entry address is invalid")
+	after, encodeErr := encodeSnapshotV2(snapshot)
+	require.NoError(t, encodeErr)
+	require.Equal(t, before, after)
+
+	var missing *SnapshotV2
+	err = missing.RemoveEntry("resource.api")
+	require.ErrorContains(t, err, "snapshot is required")
+}
+
+func snapshotEntryAddresses(snapshot SnapshotV2) []string {
+	addresses := make([]string, len(snapshot.Entries))
+	for i := range snapshot.Entries {
+		addresses[i] = snapshot.Entries[i].Address
+	}
+	return addresses
+}
+
 func TestStateEntryV2Validation(t *testing.T) {
 	resource := ResourceStatePayload{Target: validV2ResourceTarget(t)}
 	entry := StateEntryV2{
