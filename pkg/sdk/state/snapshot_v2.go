@@ -312,6 +312,27 @@ func (s *SnapshotV2) Find(address string) *StateEntryV2 {
 	return nil
 }
 
+func (s *SnapshotV2) SetOutputs(
+	outputs encodedvalue.Value,
+	sensitivePaths []string,
+) error {
+	if s == nil {
+		return fmt.Errorf("snapshot is required")
+	}
+	if err := s.Validate(); err != nil {
+		return fmt.Errorf("snapshot: %w", err)
+	}
+
+	next := *s
+	next.Outputs = outputs
+	next.SensitivePaths = slices.Clone(sensitivePaths)
+	if err := next.Validate(); err != nil {
+		return fmt.Errorf("snapshot: %w", err)
+	}
+	*s = next
+	return nil
+}
+
 func (s *SnapshotV2) SetEntry(entry StateEntryV2) error {
 	if s == nil {
 		return fmt.Errorf("snapshot is required")

@@ -521,6 +521,56 @@ func TestSnapshotV2Find(t *testing.T) {
 	require.Nil(t, missing.Find("resource.api"))
 }
 
+func TestSnapshotV2SetOutputs(t *testing.T) {
+	snapshot := validSnapshotV2(t)
+	outputs := v2Object(t, map[string]encodedvalue.Value{
+		"token": encodedvalue.String("secret"),
+		"url":   encodedvalue.String("https://example.com"),
+	})
+	sensitivePaths := []string{"/token"}
+
+	require.NoError(t, snapshot.SetOutputs(outputs, sensitivePaths))
+	require.Equal(t, outputs, snapshot.Outputs)
+	require.Equal(t, []string{"/token"}, snapshot.SensitivePaths)
+	require.NoError(t, snapshot.Validate())
+
+	sensitivePaths[0] = "/url"
+	require.Equal(t, []string{"/token"}, snapshot.SensitivePaths)
+
+	empty := v2Object(t, map[string]encodedvalue.Value{})
+	require.NoError(t, snapshot.SetOutputs(empty, []string{}))
+	fields, ok := snapshot.Outputs.ObjectFields()
+	require.True(t, ok)
+	require.Empty(t, fields)
+	require.NotNil(t, snapshot.SensitivePaths)
+	require.Empty(t, snapshot.SensitivePaths)
+}
+
+func TestSnapshotV2SetOutputsRejectsInvalidMutation(t *testing.T) {
+	snapshot := validSnapshotV2(t)
+	before, err := encodeSnapshotV2(snapshot)
+	require.NoError(t, err)
+	outputs := v2Object(t, map[string]encodedvalue.Value{
+		"url": encodedvalue.String("https://example.com"),
+	})
+
+	err = snapshot.SetOutputs(outputs, []string{"/missing"})
+	require.ErrorContains(t, err, "does not resolve")
+	after, encodeErr := encodeSnapshotV2(snapshot)
+	require.NoError(t, encodeErr)
+	require.Equal(t, before, after)
+
+	err = snapshot.SetOutputs(outputs, nil)
+	require.ErrorContains(t, err, "sensitive paths are required")
+	after, encodeErr = encodeSnapshotV2(snapshot)
+	require.NoError(t, encodeErr)
+	require.Equal(t, before, after)
+
+	var missing *SnapshotV2
+	err = missing.SetOutputs(outputs, []string{})
+	require.ErrorContains(t, err, "snapshot is required")
+}
+
 func TestSnapshotV2SetEntry(t *testing.T) {
 	snapshot := validSnapshotV2(t)
 	dataSource := validV2DataSourcePayload(t)
