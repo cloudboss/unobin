@@ -279,6 +279,38 @@ type SnapshotV2 struct {
 	SensitivePaths []string           `json:"sensitive-paths"`
 }
 
+func NewSnapshotV2(factory FactoryInfo, stack string) (*SnapshotV2, error) {
+	outputs, err := encodedvalue.Object(map[string]encodedvalue.Value{})
+	if err != nil {
+		return nil, fmt.Errorf("initialize snapshot outputs: %w", err)
+	}
+	snapshot := &SnapshotV2{
+		FormatVersion:  SnapshotFormatVersionV2,
+		Factory:        factory,
+		Stack:          stack,
+		GeneratedAt:    time.Now().UTC(),
+		Entries:        []StateEntryV2{},
+		Outputs:        outputs,
+		SensitivePaths: []string{},
+	}
+	if err := snapshot.Validate(); err != nil {
+		return nil, fmt.Errorf("snapshot: %w", err)
+	}
+	return snapshot, nil
+}
+
+func (s *SnapshotV2) Find(address string) *StateEntryV2 {
+	if s == nil {
+		return nil
+	}
+	for i := range s.Entries {
+		if s.Entries[i].Address == address {
+			return &s.Entries[i]
+		}
+	}
+	return nil
+}
+
 func (s SnapshotV2) Validate() error {
 	if s.FormatVersion != SnapshotFormatVersionV2 {
 		return fmt.Errorf("format version must be %d", SnapshotFormatVersionV2)

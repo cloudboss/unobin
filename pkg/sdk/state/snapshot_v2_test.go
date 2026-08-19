@@ -432,6 +432,95 @@ func validSnapshotV2(t *testing.T) SnapshotV2 {
 	}
 }
 
+func TestNewSnapshotV2InitializesValidSnapshot(t *testing.T) {
+	before := time.Now().UTC()
+	factory := FactoryInfo{
+		Name:            "deploy",
+		Version:         "v1.0.0",
+		ContentRevision: "revision-1",
+	}
+	snapshot, err := NewSnapshotV2(factory, "production")
+	after := time.Now().UTC()
+
+	require.NoError(t, err)
+	require.Equal(t, SnapshotFormatVersionV2, snapshot.FormatVersion)
+	require.Equal(t, factory, snapshot.Factory)
+	require.Equal(t, "production", snapshot.Stack)
+	require.False(t, snapshot.GeneratedAt.Before(before))
+	require.False(t, snapshot.GeneratedAt.After(after))
+	require.NotNil(t, snapshot.Entries)
+	require.Empty(t, snapshot.Entries)
+	outputs, ok := snapshot.Outputs.ObjectFields()
+	require.True(t, ok)
+	require.Empty(t, outputs)
+	require.NotNil(t, snapshot.SensitivePaths)
+	require.Empty(t, snapshot.SensitivePaths)
+	require.NoError(t, snapshot.Validate())
+}
+
+func TestNewSnapshotV2RejectsInvalidMetadata(t *testing.T) {
+	tests := []struct {
+		name    string
+		factory FactoryInfo
+		stack   string
+		message string
+	}{
+		{
+			name:    "missing factory name",
+			factory: FactoryInfo{Version: "v1.0.0", ContentRevision: "revision-1"},
+			stack:   "production",
+			message: "factory name is required",
+		},
+		{
+			name: "missing factory version",
+			factory: FactoryInfo{
+				Name:            "deploy",
+				ContentRevision: "revision-1",
+			},
+			stack:   "production",
+			message: "factory version is required",
+		},
+		{
+			name: "missing factory content revision",
+			factory: FactoryInfo{
+				Name:    "deploy",
+				Version: "v1.0.0",
+			},
+			stack:   "production",
+			message: "factory content revision is required",
+		},
+		{
+			name: "missing stack",
+			factory: FactoryInfo{
+				Name:            "deploy",
+				Version:         "v1.0.0",
+				ContentRevision: "revision-1",
+			},
+			message: "stack is required",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot, err := NewSnapshotV2(test.factory, test.stack)
+			require.ErrorContains(t, err, test.message)
+			require.Nil(t, snapshot)
+		})
+	}
+}
+
+func TestSnapshotV2Find(t *testing.T) {
+	snapshot := validSnapshotV2(t)
+
+	entry := snapshot.Find("resource.api")
+	require.NotNil(t, entry)
+	require.Equal(t, snapshot.Entries[1], *entry)
+	require.Nil(t, snapshot.Find("resource.missing"))
+
+	var missing *SnapshotV2
+	require.Nil(t, missing.Find("resource.api"))
+}
+
 func TestStateEntryV2Validation(t *testing.T) {
 	resource := ResourceStatePayload{Target: validV2ResourceTarget(t)}
 	entry := StateEntryV2{
