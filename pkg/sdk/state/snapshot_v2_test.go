@@ -509,6 +509,56 @@ func TestNewSnapshotV2RejectsInvalidMetadata(t *testing.T) {
 	}
 }
 
+func TestSnapshotV2CloneCreatesDetachedCopy(t *testing.T) {
+	snapshot := validSnapshotV2(t)
+
+	cloned, err := snapshot.Clone()
+	require.NoError(t, err)
+	require.Equal(t, &snapshot, cloned)
+	require.NotSame(t, &snapshot, cloned)
+	require.NotSame(t, &snapshot.Entries[0], &cloned.Entries[0])
+	require.NotSame(
+		t,
+		snapshot.Entries[0].Payload.Action,
+		cloned.Entries[0].Payload.Action,
+	)
+	require.NotSame(
+		t,
+		snapshot.Entries[1].Payload.Resource.Target.Identity.StableID,
+		cloned.Entries[1].Payload.Resource.Target.Identity.StableID,
+	)
+	require.NoError(t, cloned.Validate())
+
+	cloned.Entries[0].Payload.Action.DependsOn[0] = "resource.database"
+	*cloned.Entries[1].Payload.Resource.Target.Identity.StableID = "server-456"
+	cloned.SensitivePaths[0] = "/other"
+
+	require.Equal(
+		t,
+		[]string{"resource.api"},
+		snapshot.Entries[0].Payload.Action.DependsOn,
+	)
+	require.Equal(
+		t,
+		"server-123",
+		*snapshot.Entries[1].Payload.Resource.Target.Identity.StableID,
+	)
+	require.Equal(t, []string{"/url"}, snapshot.SensitivePaths)
+}
+
+func TestSnapshotV2CloneRejectsInvalidSource(t *testing.T) {
+	var missing *SnapshotV2
+	cloned, err := missing.Clone()
+	require.ErrorContains(t, err, "snapshot is required")
+	require.Nil(t, cloned)
+
+	invalid := validSnapshotV2(t)
+	invalid.Entries = nil
+	cloned, err = invalid.Clone()
+	require.ErrorContains(t, err, "entries are required")
+	require.Nil(t, cloned)
+}
+
 func TestSnapshotV2Find(t *testing.T) {
 	snapshot := validSnapshotV2(t)
 

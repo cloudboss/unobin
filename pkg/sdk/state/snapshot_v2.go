@@ -300,6 +300,21 @@ func NewSnapshotV2(factory FactoryInfo, stack string) (*SnapshotV2, error) {
 	return snapshot, nil
 }
 
+func (s *SnapshotV2) Clone() (*SnapshotV2, error) {
+	if s == nil {
+		return nil, fmt.Errorf("snapshot is required")
+	}
+	encoded, err := encodeSnapshotV2(*s)
+	if err != nil {
+		return nil, fmt.Errorf("copy snapshot: %w", err)
+	}
+	cloned, err := decodeSnapshotV2(encoded)
+	if err != nil {
+		return nil, fmt.Errorf("copy snapshot: %w", err)
+	}
+	return &cloned, nil
+}
+
 func (s *SnapshotV2) Find(address string) *StateEntryV2 {
 	if s == nil {
 		return nil
