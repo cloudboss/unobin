@@ -428,6 +428,104 @@ func TestApplyStateV2SerializesResourcePersistence(t *testing.T) {
 	)
 }
 
+func TestApplyStateV2PersistsOutputs(t *testing.T) {
+	original := newRegisteredApplySnapshot(t, nil)
+	var persisted *state.SnapshotV2
+	applyState, err := newApplyStateV2(
+		original,
+		func(_ context.Context, snapshot *state.SnapshotV2) error {
+			persisted = snapshot
+			return nil
+		},
+	)
+	require.NoError(t, err)
+	generatedAt := time.Date(2026, time.August, 19, 19, 0, 0, 0, time.UTC)
+	applyState.now = func() time.Time { return generatedAt }
+	outputs, err := ObjectValue(map[string]EncodedValue{
+		"endpoint": StringValue("https://example.com"),
+		"token":    StringValue("secret"),
+	})
+	require.NoError(t, err)
+
+	err = applyState.persistOutputs(
+		context.Background(),
+		outputs,
+		[]string{"/token"},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, persisted)
+	require.Equal(t, generatedAt, persisted.GeneratedAt)
+	require.Equal(t, outputs, persisted.Outputs)
+	require.Equal(t, []string{"/token"}, persisted.SensitivePaths)
+	require.NotEqual(t, outputs, original.Outputs)
+	require.Empty(t, original.SensitivePaths)
+
+	current, err := applyState.snapshotCopy()
+	require.NoError(t, err)
+	require.Equal(t, persisted, current)
+	persisted.SensitivePaths[0] = "/endpoint"
+	current, err = applyState.snapshotCopy()
+	require.NoError(t, err)
+	require.Equal(t, []string{"/token"}, current.SensitivePaths)
+}
+
+func TestApplyStateV2KeepsOutputsOnFailure(t *testing.T) {
+	expectedErr := errors.New("state write failed")
+	persisted := false
+	applyState, err := newApplyStateV2(
+		newRegisteredApplySnapshot(t, nil),
+		func(_ context.Context, _ *state.SnapshotV2) error {
+			persisted = true
+			return expectedErr
+		},
+	)
+	require.NoError(t, err)
+	before, err := applyState.snapshotCopy()
+	require.NoError(t, err)
+	outputs, err := ObjectValue(map[string]EncodedValue{
+		"endpoint": StringValue("https://example.com"),
+	})
+	require.NoError(t, err)
+
+	err = applyState.persistOutputs(context.Background(), outputs, []string{})
+	require.ErrorIs(t, err, expectedErr)
+	require.True(t, persisted)
+	after, copyErr := applyState.snapshotCopy()
+	require.NoError(t, copyErr)
+	require.Equal(t, before, after)
+}
+
+func TestApplyStateV2RejectsInvalidOutputPersistence(t *testing.T) {
+	persisted := false
+	applyState, err := newApplyStateV2(
+		newRegisteredApplySnapshot(t, nil),
+		func(_ context.Context, _ *state.SnapshotV2) error {
+			persisted = true
+			return nil
+		},
+	)
+	require.NoError(t, err)
+	before, err := applyState.snapshotCopy()
+	require.NoError(t, err)
+	outputs, err := ObjectValue(map[string]EncodedValue{})
+	require.NoError(t, err)
+	var nilContext context.Context
+
+	err = applyState.persistOutputs(nilContext, outputs, []string{})
+	require.ErrorContains(t, err, "output persistence context is required")
+	err = applyState.persistOutputs(context.Background(), NullValue(), []string{})
+	require.ErrorContains(t, err, "outputs must be an object")
+	err = applyState.persistOutputs(context.Background(), outputs, nil)
+	require.ErrorContains(t, err, "sensitive paths are required")
+	var missing *applyStateV2
+	err = missing.persistOutputs(context.Background(), outputs, []string{})
+	require.ErrorContains(t, err, "apply state is required")
+	require.False(t, persisted)
+	after, copyErr := applyState.snapshotCopy()
+	require.NoError(t, copyErr)
+	require.Equal(t, before, after)
+}
+
 func TestNewApplyStateV2RejectsInvalidSetup(t *testing.T) {
 	valid := newRegisteredApplySnapshot(t, nil)
 	tests := []struct {

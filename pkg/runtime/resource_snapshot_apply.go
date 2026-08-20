@@ -91,18 +91,13 @@ func (s *applyStateV2) persistResourceTarget(
 	if ctx == nil {
 		return fmt.Errorf("resource persistence context is required")
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	next, err := s.snapshot.Clone()
-	if err != nil {
-		return fmt.Errorf("copy apply snapshot: %w", err)
-	}
-	if target == nil {
-		if err := next.RemoveEntry(address); err != nil {
-			return fmt.Errorf("remove resource state: %w", err)
+	return s.persistSnapshotUpdate(ctx, func(next *state.SnapshotV2) error {
+		if target == nil {
+			if err := next.RemoveEntry(address); err != nil {
+				return fmt.Errorf("remove resource state: %w", err)
+			}
+			return nil
 		}
-	} else {
 		if err := next.SetEntry(state.StateEntryV2{
 			Address: address,
 			Kind:    state.StateResource,
@@ -115,6 +110,41 @@ func (s *applyStateV2) persistResourceTarget(
 		}); err != nil {
 			return fmt.Errorf("set resource state: %w", err)
 		}
+		return nil
+	})
+}
+
+func (s *applyStateV2) persistOutputs(
+	ctx context.Context,
+	outputs EncodedValue,
+	sensitivePaths []string,
+) error {
+	if s == nil {
+		return fmt.Errorf("apply state is required")
+	}
+	if ctx == nil {
+		return fmt.Errorf("output persistence context is required")
+	}
+	return s.persistSnapshotUpdate(ctx, func(next *state.SnapshotV2) error {
+		if err := next.SetOutputs(outputs, sensitivePaths); err != nil {
+			return fmt.Errorf("set snapshot outputs: %w", err)
+		}
+		return nil
+	})
+}
+
+func (s *applyStateV2) persistSnapshotUpdate(
+	ctx context.Context,
+	update func(*state.SnapshotV2) error,
+) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	next, err := s.snapshot.Clone()
+	if err != nil {
+		return fmt.Errorf("copy apply snapshot: %w", err)
+	}
+	if err := update(next); err != nil {
+		return err
 	}
 	next.GeneratedAt = s.now().UTC()
 	toPersist, err := next.Clone()
