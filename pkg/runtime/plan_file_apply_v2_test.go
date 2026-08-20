@@ -39,6 +39,7 @@ func TestApplyPlanFileV2AppliesMovesBeforeSteps(t *testing.T) {
 	err = applyPlanFileV2(
 		context.Background(),
 		applyState,
+		applyPlanFileV2StartingState(plan),
 		plan,
 		applyPlanFileV2Callbacks(func(
 			_ context.Context,
@@ -133,6 +134,7 @@ func TestApplyPlanFileV2RejectsSetupBeforeStateMoves(t *testing.T) {
 			err = applyPlanFileV2(
 				context.Background(),
 				applyState,
+				applyPlanFileV2StartingState(plan),
 				plan,
 				callbacks,
 			)
@@ -163,11 +165,97 @@ func TestApplyPlanFileV2RejectsMissingContextAndState(t *testing.T) {
 	require.NoError(t, err)
 
 	var missingContext context.Context
-	err = applyPlanFileV2(missingContext, applyState, plan, callbacks)
+	start := applyPlanFileV2StartingState(plan)
+	err = applyPlanFileV2(missingContext, applyState, start, plan, callbacks)
 	require.ErrorContains(t, err, "apply context is required")
 
-	err = applyPlanFileV2(context.Background(), nil, plan, callbacks)
+	err = applyPlanFileV2(context.Background(), nil, start, plan, callbacks)
 	require.ErrorContains(t, err, "version 2 apply state is required")
+}
+
+func TestApplyPlanFileV2RejectsChangedStartingStateBeforeStateMoves(t *testing.T) {
+	tests := []struct {
+		name    string
+		change  func(*applyPlanFileV2Start)
+		message string
+	}{
+		{
+			name: "factory name",
+			change: func(start *applyPlanFileV2Start) {
+				start.Factory.Name = "other"
+			},
+			message: "saved plan factory does not match the running factory",
+		},
+		{
+			name: "factory version",
+			change: func(start *applyPlanFileV2Start) {
+				start.Factory.Version = "v2.0.0"
+			},
+			message: "saved plan factory does not match the running factory",
+		},
+		{
+			name: "factory content revision",
+			change: func(start *applyPlanFileV2Start) {
+				start.Factory.ContentRevision = "revision-2"
+			},
+			message: "saved plan factory does not match the running factory",
+		},
+		{
+			name: "stack",
+			change: func(start *applyPlanFileV2Start) {
+				start.Stack = "staging"
+			},
+			message: "saved plan stack does not match the apply stack",
+		},
+		{
+			name: "state revision",
+			change: func(start *applyPlanFileV2Start) {
+				start.StateRevision = "state-2"
+			},
+			message: "state revision changed",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			plan := applyPlanFileV2Plan(t, "resource.old", "resource.api")
+			start := applyPlanFileV2StartingState(plan)
+			test.change(&start)
+
+			persisted := false
+			applyState, err := newApplyStateV2(
+				applyPlanFileV2Snapshot(t),
+				func(context.Context, *state.SnapshotV2) error {
+					persisted = true
+					return nil
+				},
+			)
+			require.NoError(t, err)
+			applied := false
+
+			err = applyPlanFileV2(
+				context.Background(),
+				applyState,
+				start,
+				plan,
+				applyPlanFileV2Callbacks(func(
+					context.Context,
+					*applyStateV2,
+					PlanStepV2,
+				) error {
+					applied = true
+					return nil
+				}),
+			)
+			require.ErrorContains(t, err, test.message)
+			require.False(t, persisted)
+			require.False(t, applied)
+			current, copyErr := applyState.snapshotCopy()
+			require.NoError(t, copyErr)
+			require.NotNil(t, current.Find("resource.old"))
+			require.Nil(t, current.Find("resource.api"))
+		})
+	}
 }
 
 func TestApplyPlanFileV2StopsStepsWhenStateMoveFails(t *testing.T) {
@@ -186,6 +274,7 @@ func TestApplyPlanFileV2StopsStepsWhenStateMoveFails(t *testing.T) {
 	err = applyPlanFileV2(
 		context.Background(),
 		applyState,
+		applyPlanFileV2StartingState(plan),
 		plan,
 		applyPlanFileV2Callbacks(func(
 			context.Context,
@@ -217,6 +306,7 @@ func TestApplyPlanFileV2KeepsPersistedMoveAfterStepFailure(t *testing.T) {
 	err = applyPlanFileV2(
 		context.Background(),
 		applyState,
+		applyPlanFileV2StartingState(plan),
 		plan,
 		applyPlanFileV2Callbacks(func(
 			context.Context,
@@ -260,6 +350,18 @@ func finalizeApplyPlanFileV2(t *testing.T, plan PlanFileV2) PlanFileV2 {
 	finalized, err := finalizePlanFileV2(plan)
 	require.NoError(t, err)
 	return finalized
+}
+
+func applyPlanFileV2StartingState(plan PlanFileV2) applyPlanFileV2Start {
+	return applyPlanFileV2Start{
+		Factory: state.FactoryInfo{
+			Name:            plan.Factory.Name,
+			Version:         plan.Factory.Version,
+			ContentRevision: plan.Factory.ContentRevision,
+		},
+		Stack:         plan.Stack,
+		StateRevision: plan.StateRevision,
+	}
 }
 
 func applyPlanFileV2Snapshot(t *testing.T) *state.SnapshotV2 {
