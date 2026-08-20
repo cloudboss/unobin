@@ -33,23 +33,14 @@ func applyPlanStepsV2(
 	if applyState == nil {
 		return fmt.Errorf("version 2 apply state is required")
 	}
-	if callbacks.Output == nil {
-		return fmt.Errorf("output evaluator is required")
+	if err := validateApplyPlanStepsV2(steps, callbacks); err != nil {
+		return err
 	}
 
 	outputSteps := make([]PlanStepV2, 0)
 	for i := range steps {
-		step := steps[i]
-		if err := step.Validate(); err != nil {
-			return fmt.Errorf("step %d: %w", i, err)
-		}
-		if step.Operation.Kind == StepOutput {
-			outputSteps = append(outputSteps, step)
-			continue
-		}
-		callback, name := callbacks.callback(step.Operation.Kind)
-		if callback == nil {
-			return fmt.Errorf("%s apply callback is required", name)
+		if steps[i].Operation.Kind == StepOutput {
+			outputSteps = append(outputSteps, steps[i])
 		}
 	}
 
@@ -72,6 +63,33 @@ func applyPlanStepsV2(
 	}
 
 	return applyOutputSteps(ctx, applyState, outputSteps, callbacks.Output)
+}
+
+func validateApplyPlanStepsV2(
+	steps []PlanStepV2,
+	callbacks applyPlanStepsV2Callbacks,
+) error {
+	if callbacks.Output == nil {
+		return fmt.Errorf("output evaluator is required")
+	}
+
+	for i := range steps {
+		step := steps[i]
+		if err := step.Validate(); err != nil {
+			return fmt.Errorf("step %d: %w", i, err)
+		}
+		if step.Operation.Kind == StepOutput {
+			continue
+		}
+		callback, name := callbacks.callback(step.Operation.Kind)
+		if callback == nil {
+			return fmt.Errorf("%s apply callback is required", name)
+		}
+	}
+	if _, _, err := buildApplyScheduleV2Graph(steps); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c applyPlanStepsV2Callbacks) callback(
