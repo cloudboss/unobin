@@ -20,7 +20,7 @@ func TestApplyPlanFileV2WithStateLockKeepsLockThroughApply(t *testing.T) {
 	var current []string
 	resourceApplied := false
 
-	err := applyPlanFileV2WithStateLock(
+	result, err := applyPlanFileV2WithStateLock(
 		context.Background(),
 		backend,
 		applyPlanFileV2Factory(plan),
@@ -53,6 +53,11 @@ func TestApplyPlanFileV2WithStateLockKeepsLockThroughApply(t *testing.T) {
 		}),
 	)
 	require.NoError(t, err)
+	require.Len(t, persisted, 2)
+	require.NotNil(t, result)
+	require.Equal(t, "state-3", result.WrittenRevision)
+	require.Equal(t, persisted[1], result.Snapshot)
+	require.NotSame(t, persisted[1], result.Snapshot)
 	require.True(t, resourceApplied)
 	require.False(t, backend.locked)
 	require.Equal(t, []string{
@@ -67,10 +72,12 @@ func TestApplyPlanFileV2WithStateLockKeepsLockThroughApply(t *testing.T) {
 		"set-current:state-3",
 		"unlock",
 	}, backend.events)
-	require.Len(t, persisted, 2)
 	require.Equal(t, []string{"state-2", "state-3"}, current)
 	require.Nil(t, persisted[0].Find("resource.old"))
 	require.NotNil(t, persisted[0].Find("resource.api"))
+	require.NotNil(t, persisted[1].Find("resource.api"))
+	require.NoError(t, result.Snapshot.RemoveEntry("resource.api"))
+	require.NotNil(t, persisted[1].Find("resource.api"))
 }
 
 func TestApplyPlanFileV2WithStateLockInitializesNewSnapshot(t *testing.T) {
@@ -86,7 +93,7 @@ func TestApplyPlanFileV2WithStateLockInitializesNewSnapshot(t *testing.T) {
 	loaded := false
 	var persisted []*state.SnapshotV2
 
-	err := applyPlanFileV2WithStateLock(
+	result, err := applyPlanFileV2WithStateLock(
 		context.Background(),
 		backend,
 		applyPlanFileV2Factory(plan),
@@ -115,6 +122,11 @@ func TestApplyPlanFileV2WithStateLockInitializesNewSnapshot(t *testing.T) {
 		}),
 	)
 	require.NoError(t, err)
+	require.Len(t, persisted, 1)
+	require.NotNil(t, result)
+	require.Equal(t, "state-1", result.WrittenRevision)
+	require.Equal(t, persisted[0], result.Snapshot)
+	require.NotSame(t, persisted[0], result.Snapshot)
 	require.False(t, loaded)
 	require.Equal(t, []string{
 		"lock",
@@ -124,7 +136,6 @@ func TestApplyPlanFileV2WithStateLockInitializesNewSnapshot(t *testing.T) {
 		"set-current:state-1",
 		"unlock",
 	}, backend.events)
-	require.Len(t, persisted, 1)
 	require.Equal(t, applyPlanFileV2Factory(plan), persisted[0].Factory)
 	require.Equal(t, plan.Stack, persisted[0].Stack)
 	require.Empty(t, persisted[0].Entries)
@@ -144,7 +155,7 @@ func TestApplyPlanFileV2WithStateLockRejectsRevisionDriftBeforeStatePreparation(
 	}
 	loaded := false
 
-	err := applyPlanFileV2WithStateLock(
+	_, err := applyPlanFileV2WithStateLock(
 		context.Background(),
 		backend,
 		applyPlanFileV2Factory(plan),
@@ -216,7 +227,7 @@ func TestApplyPlanFileV2WithStateLockReleasesAfterSetupFailures(t *testing.T) {
 				return test.load(revision)
 			}
 
-			err := applyPlanFileV2WithStateLock(
+			_, err := applyPlanFileV2WithStateLock(
 				context.Background(),
 				test.backend,
 				applyPlanFileV2Factory(plan),
@@ -246,7 +257,7 @@ func TestApplyPlanFileV2WithStateLockRejectsNilLoadedSnapshot(t *testing.T) {
 		revision: plan.StateRevision,
 	}
 
-	err := applyPlanFileV2WithStateLock(
+	_, err := applyPlanFileV2WithStateLock(
 		context.Background(),
 		backend,
 		applyPlanFileV2Factory(plan),
@@ -277,7 +288,7 @@ func TestApplyPlanFileV2WithStateLockStopsWhenLockFails(t *testing.T) {
 	}
 	loaded := false
 
-	err := applyPlanFileV2WithStateLock(
+	_, err := applyPlanFileV2WithStateLock(
 		context.Background(),
 		backend,
 		applyPlanFileV2Factory(plan),
@@ -313,7 +324,7 @@ func TestApplyPlanFileV2WithStateLockJoinsApplyAndUnlockFailures(t *testing.T) {
 		unlockErr: unlockErr,
 	}
 
-	err := applyPlanFileV2WithStateLock(
+	result, err := applyPlanFileV2WithStateLock(
 		context.Background(),
 		backend,
 		applyPlanFileV2Factory(plan),
@@ -332,6 +343,7 @@ func TestApplyPlanFileV2WithStateLockJoinsApplyAndUnlockFailures(t *testing.T) {
 		}),
 	)
 	require.ErrorIs(t, err, applyErr)
+	require.Nil(t, result)
 	var stateUnlockErr *StateUnlockError
 	require.ErrorAs(t, err, &stateUnlockErr)
 	require.ErrorIs(t, stateUnlockErr.Cause, unlockErr)
@@ -382,7 +394,7 @@ func TestApplyPlanFileV2WithStateLockStopsAfterSnapshotPersistenceFailure(
 			}
 			resourceApplied := false
 
-			err := applyPlanFileV2WithStateLock(
+			result, err := applyPlanFileV2WithStateLock(
 				context.Background(),
 				backend,
 				applyPlanFileV2Factory(plan),
@@ -411,6 +423,7 @@ func TestApplyPlanFileV2WithStateLockStopsAfterSnapshotPersistenceFailure(
 				}),
 			)
 			require.ErrorIs(t, err, expectedErr)
+			require.Nil(t, result)
 			require.False(t, resourceApplied)
 			require.False(t, backend.locked)
 			require.Equal(t, test.wantEvents, backend.events)
@@ -527,7 +540,7 @@ func TestApplyPlanFileV2WithStateLockRejectsInvalidSetupBeforeLock(t *testing.T)
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := applyPlanFileV2WithStateLock(
+			_, err := applyPlanFileV2WithStateLock(
 				test.ctx,
 				test.backend,
 				applyPlanFileV2Factory(plan),

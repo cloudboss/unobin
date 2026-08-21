@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
@@ -11,6 +12,11 @@ type applyPlanFileV2SnapshotCallbacks struct {
 	Load       func(string) (*state.SnapshotV2, error)
 	Write      func(*state.SnapshotV2) (string, error)
 	SetCurrent func(string) error
+}
+
+type applyPlanFileV2Result struct {
+	Snapshot        *state.SnapshotV2
+	WrittenRevision string
 }
 
 func (c applyPlanFileV2SnapshotCallbacks) persist(
@@ -50,35 +56,47 @@ func applyPlanFileV2WithStateLock(
 	plan PlanFileV2,
 	snapshots applyPlanFileV2SnapshotCallbacks,
 	callbacks applyPlanStepsV2Callbacks,
-) (err error) {
+) (result *applyPlanFileV2Result, err error) {
 	if ctx == nil {
-		return fmt.Errorf("apply context is required")
+		return nil, fmt.Errorf("apply context is required")
 	}
 	if store == nil {
-		return fmt.Errorf("state store is required")
+		return nil, fmt.Errorf("state store is required")
 	}
 	if snapshots.Load == nil {
-		return fmt.Errorf("version 2 snapshot loader is required")
+		return nil, fmt.Errorf("version 2 snapshot loader is required")
 	}
 	if snapshots.Write == nil {
-		return fmt.Errorf("version 2 snapshot writer is required")
+		return nil, fmt.Errorf("version 2 snapshot writer is required")
 	}
 	if snapshots.SetCurrent == nil {
-		return fmt.Errorf("version 2 current snapshot setter is required")
+		return nil, fmt.Errorf("version 2 current snapshot setter is required")
 	}
 	if err := plan.Validate(); err != nil {
-		return fmt.Errorf("saved plan: %w", err)
+		return nil, fmt.Errorf("saved plan: %w", err)
 	}
 	if err := validateApplyPlanStepsV2(plan.Steps, callbacks); err != nil {
-		return err
+		return nil, err
 	}
 	if err := ctx.Err(); err != nil {
-		return err
+		return nil, err
+	}
+	setCurrent := snapshots.SetCurrent
+	var revisionMu sync.Mutex
+	writtenRevision := ""
+	snapshots.SetCurrent = func(revision string) error {
+		if err := setCurrent(revision); err != nil {
+			return err
+		}
+		revisionMu.Lock()
+		writtenRevision = revision
+		revisionMu.Unlock()
+		return nil
 	}
 
 	release, err := AcquireStateLock(ctx, store)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer func() {
 		err = release(err)
@@ -86,7 +104,7 @@ func applyPlanFileV2WithStateLock(
 
 	currentRevision, err := checkedCurrentRevision(store)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	start := applyPlanFileV2Start{
 		Factory:       factory,
@@ -94,17 +112,30 @@ func applyPlanFileV2WithStateLock(
 		StateRevision: currentRevision,
 	}
 	if err := validateApplyPlanFileV2Start(start, plan); err != nil {
-		return err
+		return nil, err
 	}
 	if err := ctx.Err(); err != nil {
-		return err
+		return nil, err
 	}
 
 	applyState, err := prepareApplyPlanFileV2State(ctx, start, snapshots)
 	if err != nil {
-		return fmt.Errorf("prepare version 2 apply state: %w", err)
+		return nil, fmt.Errorf("prepare version 2 apply state: %w", err)
 	}
-	return applyPlanFileV2(ctx, applyState, start, plan, callbacks)
+	if err := applyPlanFileV2(ctx, applyState, start, plan, callbacks); err != nil {
+		return nil, err
+	}
+	finalSnapshot, err := applyState.snapshotCopy()
+	if err != nil {
+		return nil, fmt.Errorf("copy applied version 2 snapshot: %w", err)
+	}
+	revisionMu.Lock()
+	finalRevision := writtenRevision
+	revisionMu.Unlock()
+	return &applyPlanFileV2Result{
+		Snapshot:        finalSnapshot,
+		WrittenRevision: finalRevision,
+	}, nil
 }
 
 func prepareApplyPlanFileV2State(
