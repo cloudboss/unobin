@@ -17,6 +17,7 @@ func TestApplyPlanFileV2WithStateLockKeepsLockThroughApply(t *testing.T) {
 		revision: plan.StateRevision,
 	}
 	var persisted []*state.SnapshotV2
+	var current []string
 	resourceApplied := false
 
 	err := applyPlanFileV2WithStateLock(
@@ -29,9 +30,15 @@ func TestApplyPlanFileV2WithStateLockKeepsLockThroughApply(t *testing.T) {
 				backend.recordLocked(t, "load:"+revision)
 				return applyPlanFileV2Snapshot(t), nil
 			},
-			Persist: func(_ context.Context, snapshot *state.SnapshotV2) error {
-				backend.recordLocked(t, "persist")
+			Write: func(snapshot *state.SnapshotV2) (string, error) {
+				backend.recordLocked(t, "write")
+				revision := []string{"state-2", "state-3"}[len(persisted)]
 				persisted = append(persisted, snapshot)
+				return revision, nil
+			},
+			SetCurrent: func(revision string) error {
+				backend.recordLocked(t, "set-current:"+revision)
+				current = append(current, revision)
 				return nil
 			},
 		},
@@ -53,12 +60,15 @@ func TestApplyPlanFileV2WithStateLockKeepsLockThroughApply(t *testing.T) {
 		"current-revision",
 		"stack",
 		"load:" + plan.StateRevision,
-		"persist",
+		"write",
+		"set-current:state-2",
 		"resource",
-		"persist",
+		"write",
+		"set-current:state-3",
 		"unlock",
 	}, backend.events)
 	require.Len(t, persisted, 2)
+	require.Equal(t, []string{"state-2", "state-3"}, current)
 	require.Nil(t, persisted[0].Find("resource.old"))
 	require.NotNil(t, persisted[0].Find("resource.api"))
 }
@@ -86,9 +96,13 @@ func TestApplyPlanFileV2WithStateLockInitializesNewSnapshot(t *testing.T) {
 				loaded = true
 				return nil, errors.New("unexpected snapshot load")
 			},
-			Persist: func(_ context.Context, snapshot *state.SnapshotV2) error {
-				backend.recordLocked(t, "persist")
+			Write: func(snapshot *state.SnapshotV2) (string, error) {
+				backend.recordLocked(t, "write")
 				persisted = append(persisted, snapshot)
+				return "state-1", nil
+			},
+			SetCurrent: func(revision string) error {
+				backend.recordLocked(t, "set-current:"+revision)
 				return nil
 			},
 		},
@@ -106,7 +120,8 @@ func TestApplyPlanFileV2WithStateLockInitializesNewSnapshot(t *testing.T) {
 		"lock",
 		"current-revision",
 		"stack",
-		"persist",
+		"write",
+		"set-current:state-1",
 		"unlock",
 	}, backend.events)
 	require.Len(t, persisted, 1)
@@ -134,13 +149,12 @@ func TestApplyPlanFileV2WithStateLockRejectsRevisionDriftBeforeStatePreparation(
 		backend,
 		applyPlanFileV2Factory(plan),
 		plan,
-		applyPlanFileV2SnapshotCallbacks{
-			Load: func(string) (*state.SnapshotV2, error) {
+		noopApplyPlanFileV2SnapshotCallbacks(
+			func(string) (*state.SnapshotV2, error) {
 				loaded = true
 				return applyPlanFileV2Snapshot(t), nil
 			},
-			Persist: func(context.Context, *state.SnapshotV2) error { return nil },
-		},
+		),
 		applyPlanFileV2Callbacks(func(
 			context.Context,
 			*applyStateV2,
@@ -207,10 +221,7 @@ func TestApplyPlanFileV2WithStateLockReleasesAfterSetupFailures(t *testing.T) {
 				test.backend,
 				applyPlanFileV2Factory(plan),
 				plan,
-				applyPlanFileV2SnapshotCallbacks{
-					Load:    load,
-					Persist: func(context.Context, *state.SnapshotV2) error { return nil },
-				},
+				noopApplyPlanFileV2SnapshotCallbacks(load),
 				applyPlanFileV2Callbacks(func(
 					context.Context,
 					*applyStateV2,
@@ -240,10 +251,9 @@ func TestApplyPlanFileV2WithStateLockRejectsNilLoadedSnapshot(t *testing.T) {
 		backend,
 		applyPlanFileV2Factory(plan),
 		plan,
-		applyPlanFileV2SnapshotCallbacks{
-			Load:    func(string) (*state.SnapshotV2, error) { return nil, nil },
-			Persist: func(context.Context, *state.SnapshotV2) error { return nil },
-		},
+		noopApplyPlanFileV2SnapshotCallbacks(
+			func(string) (*state.SnapshotV2, error) { return nil, nil },
+		),
 		applyPlanFileV2Callbacks(func(
 			context.Context,
 			*applyStateV2,
@@ -272,13 +282,12 @@ func TestApplyPlanFileV2WithStateLockStopsWhenLockFails(t *testing.T) {
 		backend,
 		applyPlanFileV2Factory(plan),
 		plan,
-		applyPlanFileV2SnapshotCallbacks{
-			Load: func(string) (*state.SnapshotV2, error) {
+		noopApplyPlanFileV2SnapshotCallbacks(
+			func(string) (*state.SnapshotV2, error) {
 				loaded = true
 				return applyPlanFileV2Snapshot(t), nil
 			},
-			Persist: func(context.Context, *state.SnapshotV2) error { return nil },
-		},
+		),
 		applyPlanFileV2Callbacks(func(
 			context.Context,
 			*applyStateV2,
@@ -309,12 +318,11 @@ func TestApplyPlanFileV2WithStateLockJoinsApplyAndUnlockFailures(t *testing.T) {
 		backend,
 		applyPlanFileV2Factory(plan),
 		plan,
-		applyPlanFileV2SnapshotCallbacks{
-			Load: func(string) (*state.SnapshotV2, error) {
+		noopApplyPlanFileV2SnapshotCallbacks(
+			func(string) (*state.SnapshotV2, error) {
 				return applyPlanFileV2Snapshot(t), nil
 			},
-			Persist: func(context.Context, *state.SnapshotV2) error { return nil },
-		},
+		),
 		applyPlanFileV2Callbacks(func(
 			context.Context,
 			*applyStateV2,
@@ -335,6 +343,81 @@ func TestApplyPlanFileV2WithStateLockJoinsApplyAndUnlockFailures(t *testing.T) {
 	}, backend.events)
 }
 
+func TestApplyPlanFileV2WithStateLockStopsAfterSnapshotPersistenceFailure(
+	t *testing.T,
+) {
+	plan := applyPlanFileV2Plan(t, "resource.old", "resource.api")
+	expectedErr := errors.New("state unavailable")
+	tests := []struct {
+		name          string
+		writeErr      error
+		setCurrentErr error
+		wantEvents    []string
+	}{
+		{
+			name:       "write",
+			writeErr:   expectedErr,
+			wantEvents: []string{"lock", "current-revision", "stack", "load", "write", "unlock"},
+		},
+		{
+			name:          "set current",
+			setCurrentErr: expectedErr,
+			wantEvents: []string{
+				"lock",
+				"current-revision",
+				"stack",
+				"load",
+				"write",
+				"set-current:state-2",
+				"unlock",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			backend := &applyPlanFileV2LockBackend{
+				stack:    plan.Stack,
+				revision: plan.StateRevision,
+			}
+			resourceApplied := false
+
+			err := applyPlanFileV2WithStateLock(
+				context.Background(),
+				backend,
+				applyPlanFileV2Factory(plan),
+				plan,
+				applyPlanFileV2SnapshotCallbacks{
+					Load: func(string) (*state.SnapshotV2, error) {
+						backend.recordLocked(t, "load")
+						return applyPlanFileV2Snapshot(t), nil
+					},
+					Write: func(*state.SnapshotV2) (string, error) {
+						backend.recordLocked(t, "write")
+						return "state-2", test.writeErr
+					},
+					SetCurrent: func(revision string) error {
+						backend.recordLocked(t, "set-current:"+revision)
+						return test.setCurrentErr
+					},
+				},
+				applyPlanFileV2Callbacks(func(
+					context.Context,
+					*applyStateV2,
+					PlanStepV2,
+				) error {
+					resourceApplied = true
+					return nil
+				}),
+			)
+			require.ErrorIs(t, err, expectedErr)
+			require.False(t, resourceApplied)
+			require.False(t, backend.locked)
+			require.Equal(t, test.wantEvents, backend.events)
+		})
+	}
+}
+
 func TestApplyPlanFileV2WithStateLockRejectsInvalidSetupBeforeLock(t *testing.T) {
 	plan := applyPlanFileV2Plan(t, "resource.old", "resource.api")
 	canceledContext, cancel := context.WithCancel(context.Background())
@@ -346,12 +429,11 @@ func TestApplyPlanFileV2WithStateLockRejectsInvalidSetupBeforeLock(t *testing.T)
 		}
 	}
 	validSnapshots := func() applyPlanFileV2SnapshotCallbacks {
-		return applyPlanFileV2SnapshotCallbacks{
-			Load: func(string) (*state.SnapshotV2, error) {
+		return noopApplyPlanFileV2SnapshotCallbacks(
+			func(string) (*state.SnapshotV2, error) {
 				return applyPlanFileV2Snapshot(t), nil
 			},
-			Persist: func(context.Context, *state.SnapshotV2) error { return nil },
-		}
+		)
 	}
 	callbacks := applyPlanFileV2Callbacks(func(
 		context.Context,
@@ -387,22 +469,41 @@ func TestApplyPlanFileV2WithStateLockRejectsInvalidSetupBeforeLock(t *testing.T)
 			ctx:     context.Background(),
 			backend: validBackend(),
 			snapshots: applyPlanFileV2SnapshotCallbacks{
-				Persist: func(context.Context, *state.SnapshotV2) error { return nil },
+				Write: func(*state.SnapshotV2) (string, error) {
+					return "state-2", nil
+				},
+				SetCurrent: func(string) error { return nil },
 			},
 			callbacks: callbacks,
 			message:   "version 2 snapshot loader is required",
 		},
 		{
-			name:    "missing snapshot persistence",
+			name:    "missing snapshot writer",
 			ctx:     context.Background(),
 			backend: validBackend(),
 			snapshots: applyPlanFileV2SnapshotCallbacks{
 				Load: func(string) (*state.SnapshotV2, error) {
 					return applyPlanFileV2Snapshot(t), nil
 				},
+				SetCurrent: func(string) error { return nil },
 			},
 			callbacks: callbacks,
-			message:   "version 2 snapshot persistence callback is required",
+			message:   "version 2 snapshot writer is required",
+		},
+		{
+			name:    "missing current snapshot setter",
+			ctx:     context.Background(),
+			backend: validBackend(),
+			snapshots: applyPlanFileV2SnapshotCallbacks{
+				Load: func(string) (*state.SnapshotV2, error) {
+					return applyPlanFileV2Snapshot(t), nil
+				},
+				Write: func(*state.SnapshotV2) (string, error) {
+					return "state-2", nil
+				},
+			},
+			callbacks: callbacks,
+			message:   "version 2 current snapshot setter is required",
 		},
 		{
 			name:      "missing step callback",
@@ -447,6 +548,18 @@ func applyPlanFileV2Factory(plan PlanFileV2) state.FactoryInfo {
 		Name:            plan.Factory.Name,
 		Version:         plan.Factory.Version,
 		ContentRevision: plan.Factory.ContentRevision,
+	}
+}
+
+func noopApplyPlanFileV2SnapshotCallbacks(
+	load func(string) (*state.SnapshotV2, error),
+) applyPlanFileV2SnapshotCallbacks {
+	return applyPlanFileV2SnapshotCallbacks{
+		Load: load,
+		Write: func(*state.SnapshotV2) (string, error) {
+			return "state-2", nil
+		},
+		SetCurrent: func(string) error { return nil },
 	}
 }
 

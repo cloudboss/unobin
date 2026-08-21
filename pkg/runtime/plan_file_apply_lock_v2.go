@@ -8,8 +8,39 @@ import (
 )
 
 type applyPlanFileV2SnapshotCallbacks struct {
-	Load    func(string) (*state.SnapshotV2, error)
-	Persist func(context.Context, *state.SnapshotV2) error
+	Load       func(string) (*state.SnapshotV2, error)
+	Write      func(*state.SnapshotV2) (string, error)
+	SetCurrent func(string) error
+}
+
+func (c applyPlanFileV2SnapshotCallbacks) persist(
+	ctx context.Context,
+	snapshot *state.SnapshotV2,
+) error {
+	if ctx == nil {
+		return fmt.Errorf("snapshot persistence context is required")
+	}
+	if snapshot == nil {
+		return fmt.Errorf("version 2 snapshot is required")
+	}
+	if c.Write == nil {
+		return fmt.Errorf("version 2 snapshot writer is required")
+	}
+	if c.SetCurrent == nil {
+		return fmt.Errorf("version 2 current snapshot setter is required")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	revision, err := c.Write(snapshot)
+	if err != nil {
+		return fmt.Errorf("write version 2 snapshot: %w", err)
+	}
+	if err := c.SetCurrent(revision); err != nil {
+		return fmt.Errorf("set current version 2 snapshot %q: %w", revision, err)
+	}
+	return nil
 }
 
 func applyPlanFileV2WithStateLock(
@@ -29,8 +60,11 @@ func applyPlanFileV2WithStateLock(
 	if snapshots.Load == nil {
 		return fmt.Errorf("version 2 snapshot loader is required")
 	}
-	if snapshots.Persist == nil {
-		return fmt.Errorf("version 2 snapshot persistence callback is required")
+	if snapshots.Write == nil {
+		return fmt.Errorf("version 2 snapshot writer is required")
+	}
+	if snapshots.SetCurrent == nil {
+		return fmt.Errorf("version 2 current snapshot setter is required")
 	}
 	if err := plan.Validate(); err != nil {
 		return fmt.Errorf("saved plan: %w", err)
@@ -84,8 +118,11 @@ func prepareApplyPlanFileV2State(
 	if snapshots.Load == nil {
 		return nil, fmt.Errorf("version 2 snapshot loader is required")
 	}
-	if snapshots.Persist == nil {
-		return nil, fmt.Errorf("version 2 snapshot persistence callback is required")
+	if snapshots.Write == nil {
+		return nil, fmt.Errorf("version 2 snapshot writer is required")
+	}
+	if snapshots.SetCurrent == nil {
+		return nil, fmt.Errorf("version 2 current snapshot setter is required")
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -118,7 +155,7 @@ func prepareApplyPlanFileV2State(
 		return nil, err
 	}
 
-	applyState, err := newApplyStateV2(snapshot, snapshots.Persist)
+	applyState, err := newApplyStateV2(snapshot, snapshots.persist)
 	if err != nil {
 		return nil, fmt.Errorf("initialize version 2 apply state: %w", err)
 	}
