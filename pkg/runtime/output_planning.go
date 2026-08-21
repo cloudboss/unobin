@@ -3,6 +3,8 @@ package runtime
 import "fmt"
 
 type outputPlanningRequest struct {
+	Address   string
+	DependsOn []string
 	Value     EncodedValue
 	Sensitive bool
 }

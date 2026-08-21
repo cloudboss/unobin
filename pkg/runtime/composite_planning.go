@@ -6,9 +6,11 @@ import (
 )
 
 type compositePlanningRequest struct {
-	Category NodeKind
-	Desired  *PlannedCompositeTarget
-	Prior    *CompositeStatePayload
+	Address   string
+	DependsOn []string
+	Category  NodeKind
+	Desired   *PlannedCompositeTarget
+	Prior     *CompositeStatePayload
 }
 
 func planCompositeOperation(

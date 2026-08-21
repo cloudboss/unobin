@@ -8,8 +8,10 @@ import (
 )
 
 type actionPlanningRequest struct {
-	Desired *PlannedActionTarget
-	Prior   *ActionStatePayload
+	Address   string
+	DependsOn []string
+	Desired   *PlannedActionTarget
+	Prior     *ActionStatePayload
 }
 
 func planActionOperation(request actionPlanningRequest) (*ActionPlanOperation, error) {

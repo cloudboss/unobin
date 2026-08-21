@@ -9,8 +9,10 @@ import (
 )
 
 type dataSourcePlanningRequest struct {
-	Desired *PlannedDataSourceTarget
-	Prior   *DataSourceStatePayload
+	Address   string
+	DependsOn []string
+	Desired   *PlannedDataSourceTarget
+	Prior     *DataSourceStatePayload
 }
 
 type dataSourcePlanningCallbacks struct {

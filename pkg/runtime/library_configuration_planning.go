@@ -8,7 +8,9 @@ import (
 )
 
 type libraryConfigurationPlanningRequest struct {
-	Inputs EncodedValue
+	Address   string
+	DependsOn []string
+	Inputs    EncodedValue
 }
 
 type libraryConfigurationPlanningCallbacks struct {
