@@ -24,16 +24,16 @@ func TestApplyPlanFileV2WithStateLockKeepsLockThroughApply(t *testing.T) {
 		backend,
 		applyPlanFileV2Factory(plan),
 		plan,
-		func(context.Context) (*applyStateV2, error) {
-			backend.recordLocked(t, "prepare")
-			return newApplyStateV2(
-				applyPlanFileV2Snapshot(t),
-				func(_ context.Context, snapshot *state.SnapshotV2) error {
-					backend.recordLocked(t, "persist")
-					persisted = append(persisted, snapshot)
-					return nil
-				},
-			)
+		applyPlanFileV2SnapshotCallbacks{
+			Load: func(revision string) (*state.SnapshotV2, error) {
+				backend.recordLocked(t, "load:"+revision)
+				return applyPlanFileV2Snapshot(t), nil
+			},
+			Persist: func(_ context.Context, snapshot *state.SnapshotV2) error {
+				backend.recordLocked(t, "persist")
+				persisted = append(persisted, snapshot)
+				return nil
+			},
 		},
 		applyPlanFileV2Callbacks(func(
 			context.Context,
@@ -52,7 +52,7 @@ func TestApplyPlanFileV2WithStateLockKeepsLockThroughApply(t *testing.T) {
 		"lock",
 		"current-revision",
 		"stack",
-		"prepare",
+		"load:" + plan.StateRevision,
 		"persist",
 		"resource",
 		"persist",
@@ -63,6 +63,62 @@ func TestApplyPlanFileV2WithStateLockKeepsLockThroughApply(t *testing.T) {
 	require.NotNil(t, persisted[0].Find("resource.api"))
 }
 
+func TestApplyPlanFileV2WithStateLockInitializesNewSnapshot(t *testing.T) {
+	plan := validPlanFileV2(t)
+	plan.StateRevision = ""
+	plan.StateMoves = []PlannedEntryMove{}
+	plan.Steps = []PlanStepV2{}
+	plan = finalizeApplyPlanFileV2(t, plan)
+	backend := &applyPlanFileV2LockBackend{
+		stack:      plan.Stack,
+		currentErr: state.ErrNoCurrent,
+	}
+	loaded := false
+	var persisted []*state.SnapshotV2
+
+	err := applyPlanFileV2WithStateLock(
+		context.Background(),
+		backend,
+		applyPlanFileV2Factory(plan),
+		plan,
+		applyPlanFileV2SnapshotCallbacks{
+			Load: func(string) (*state.SnapshotV2, error) {
+				loaded = true
+				return nil, errors.New("unexpected snapshot load")
+			},
+			Persist: func(_ context.Context, snapshot *state.SnapshotV2) error {
+				backend.recordLocked(t, "persist")
+				persisted = append(persisted, snapshot)
+				return nil
+			},
+		},
+		applyPlanFileV2Callbacks(func(
+			context.Context,
+			*applyStateV2,
+			PlanStepV2,
+		) error {
+			return errors.New("unexpected resource apply")
+		}),
+	)
+	require.NoError(t, err)
+	require.False(t, loaded)
+	require.Equal(t, []string{
+		"lock",
+		"current-revision",
+		"stack",
+		"persist",
+		"unlock",
+	}, backend.events)
+	require.Len(t, persisted, 1)
+	require.Equal(t, applyPlanFileV2Factory(plan), persisted[0].Factory)
+	require.Equal(t, plan.Stack, persisted[0].Stack)
+	require.Empty(t, persisted[0].Entries)
+	emptyOutputs, object := persisted[0].Outputs.ObjectFields()
+	require.True(t, object)
+	require.Empty(t, emptyOutputs)
+	require.Empty(t, persisted[0].SensitivePaths)
+}
+
 func TestApplyPlanFileV2WithStateLockRejectsRevisionDriftBeforeStatePreparation(
 	t *testing.T,
 ) {
@@ -71,16 +127,19 @@ func TestApplyPlanFileV2WithStateLockRejectsRevisionDriftBeforeStatePreparation(
 		stack:    plan.Stack,
 		revision: "state-2",
 	}
-	prepared := false
+	loaded := false
 
 	err := applyPlanFileV2WithStateLock(
 		context.Background(),
 		backend,
 		applyPlanFileV2Factory(plan),
 		plan,
-		func(context.Context) (*applyStateV2, error) {
-			prepared = true
-			return nil, nil
+		applyPlanFileV2SnapshotCallbacks{
+			Load: func(string) (*state.SnapshotV2, error) {
+				loaded = true
+				return applyPlanFileV2Snapshot(t), nil
+			},
+			Persist: func(context.Context, *state.SnapshotV2) error { return nil },
 		},
 		applyPlanFileV2Callbacks(func(
 			context.Context,
@@ -91,7 +150,7 @@ func TestApplyPlanFileV2WithStateLockRejectsRevisionDriftBeforeStatePreparation(
 		}),
 	)
 	require.ErrorContains(t, err, "state revision changed")
-	require.False(t, prepared)
+	require.False(t, loaded)
 	require.Equal(t, []string{
 		"lock",
 		"current-revision",
@@ -104,11 +163,11 @@ func TestApplyPlanFileV2WithStateLockReleasesAfterSetupFailures(t *testing.T) {
 	plan := applyPlanFileV2Plan(t, "resource.old", "resource.api")
 	expectedErr := errors.New("state unavailable")
 	tests := []struct {
-		name       string
-		backend    *applyPlanFileV2LockBackend
-		prepare    applyPlanFileV2StatePreparer
-		message    string
-		prepareRun bool
+		name    string
+		backend *applyPlanFileV2LockBackend
+		load    func(string) (*state.SnapshotV2, error)
+		message string
+		loaded  bool
 	}{
 		{
 			name: "current revision",
@@ -116,31 +175,31 @@ func TestApplyPlanFileV2WithStateLockReleasesAfterSetupFailures(t *testing.T) {
 				stack:      plan.Stack,
 				currentErr: expectedErr,
 			},
-			prepare: func(context.Context) (*applyStateV2, error) {
-				return nil, nil
+			load: func(string) (*state.SnapshotV2, error) {
+				return applyPlanFileV2Snapshot(t), nil
 			},
 			message: "current revision",
 		},
 		{
-			name: "state preparation",
+			name: "snapshot load",
 			backend: &applyPlanFileV2LockBackend{
 				stack:    plan.Stack,
 				revision: plan.StateRevision,
 			},
-			prepare: func(context.Context) (*applyStateV2, error) {
+			load: func(string) (*state.SnapshotV2, error) {
 				return nil, expectedErr
 			},
-			message:    "prepare version 2 apply state",
-			prepareRun: true,
+			message: "load version 2 snapshot",
+			loaded:  true,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			prepared := false
-			prepare := func(ctx context.Context) (*applyStateV2, error) {
-				prepared = true
-				return test.prepare(ctx)
+			loaded := false
+			load := func(revision string) (*state.SnapshotV2, error) {
+				loaded = true
+				return test.load(revision)
 			}
 
 			err := applyPlanFileV2WithStateLock(
@@ -148,7 +207,10 @@ func TestApplyPlanFileV2WithStateLockReleasesAfterSetupFailures(t *testing.T) {
 				test.backend,
 				applyPlanFileV2Factory(plan),
 				plan,
-				prepare,
+				applyPlanFileV2SnapshotCallbacks{
+					Load:    load,
+					Persist: func(context.Context, *state.SnapshotV2) error { return nil },
+				},
 				applyPlanFileV2Callbacks(func(
 					context.Context,
 					*applyStateV2,
@@ -159,14 +221,14 @@ func TestApplyPlanFileV2WithStateLockReleasesAfterSetupFailures(t *testing.T) {
 			)
 			require.ErrorContains(t, err, test.message)
 			require.ErrorIs(t, err, expectedErr)
-			require.Equal(t, test.prepareRun, prepared)
+			require.Equal(t, test.loaded, loaded)
 			require.False(t, test.backend.locked)
 			require.Equal(t, "unlock", test.backend.events[len(test.backend.events)-1])
 		})
 	}
 }
 
-func TestApplyPlanFileV2WithStateLockRejectsNilPreparedState(t *testing.T) {
+func TestApplyPlanFileV2WithStateLockRejectsNilLoadedSnapshot(t *testing.T) {
 	plan := applyPlanFileV2Plan(t, "resource.old", "resource.api")
 	backend := &applyPlanFileV2LockBackend{
 		stack:    plan.Stack,
@@ -178,7 +240,10 @@ func TestApplyPlanFileV2WithStateLockRejectsNilPreparedState(t *testing.T) {
 		backend,
 		applyPlanFileV2Factory(plan),
 		plan,
-		func(context.Context) (*applyStateV2, error) { return nil, nil },
+		applyPlanFileV2SnapshotCallbacks{
+			Load:    func(string) (*state.SnapshotV2, error) { return nil, nil },
+			Persist: func(context.Context, *state.SnapshotV2) error { return nil },
+		},
 		applyPlanFileV2Callbacks(func(
 			context.Context,
 			*applyStateV2,
@@ -187,7 +252,7 @@ func TestApplyPlanFileV2WithStateLockRejectsNilPreparedState(t *testing.T) {
 			return nil
 		}),
 	)
-	require.ErrorContains(t, err, "callback returned nil state")
+	require.ErrorContains(t, err, "loader returned nil snapshot")
 	require.False(t, backend.locked)
 	require.Equal(t, "unlock", backend.events[len(backend.events)-1])
 }
@@ -200,16 +265,19 @@ func TestApplyPlanFileV2WithStateLockStopsWhenLockFails(t *testing.T) {
 		revision: plan.StateRevision,
 		lockErr:  expectedErr,
 	}
-	prepared := false
+	loaded := false
 
 	err := applyPlanFileV2WithStateLock(
 		context.Background(),
 		backend,
 		applyPlanFileV2Factory(plan),
 		plan,
-		func(context.Context) (*applyStateV2, error) {
-			prepared = true
-			return nil, nil
+		applyPlanFileV2SnapshotCallbacks{
+			Load: func(string) (*state.SnapshotV2, error) {
+				loaded = true
+				return applyPlanFileV2Snapshot(t), nil
+			},
+			Persist: func(context.Context, *state.SnapshotV2) error { return nil },
 		},
 		applyPlanFileV2Callbacks(func(
 			context.Context,
@@ -221,7 +289,7 @@ func TestApplyPlanFileV2WithStateLockStopsWhenLockFails(t *testing.T) {
 	)
 	require.ErrorIs(t, err, expectedErr)
 	require.ErrorContains(t, err, "acquire lock")
-	require.False(t, prepared)
+	require.False(t, loaded)
 	require.False(t, backend.locked)
 	require.Equal(t, []string{"lock"}, backend.events)
 }
@@ -241,11 +309,11 @@ func TestApplyPlanFileV2WithStateLockJoinsApplyAndUnlockFailures(t *testing.T) {
 		backend,
 		applyPlanFileV2Factory(plan),
 		plan,
-		func(context.Context) (*applyStateV2, error) {
-			return newApplyStateV2(
-				applyPlanFileV2Snapshot(t),
-				func(context.Context, *state.SnapshotV2) error { return nil },
-			)
+		applyPlanFileV2SnapshotCallbacks{
+			Load: func(string) (*state.SnapshotV2, error) {
+				return applyPlanFileV2Snapshot(t), nil
+			},
+			Persist: func(context.Context, *state.SnapshotV2) error { return nil },
 		},
 		applyPlanFileV2Callbacks(func(
 			context.Context,
@@ -277,11 +345,13 @@ func TestApplyPlanFileV2WithStateLockRejectsInvalidSetupBeforeLock(t *testing.T)
 			revision: plan.StateRevision,
 		}
 	}
-	prepare := func(context.Context) (*applyStateV2, error) {
-		return newApplyStateV2(
-			applyPlanFileV2Snapshot(t),
-			func(context.Context, *state.SnapshotV2) error { return nil },
-		)
+	validSnapshots := func() applyPlanFileV2SnapshotCallbacks {
+		return applyPlanFileV2SnapshotCallbacks{
+			Load: func(string) (*state.SnapshotV2, error) {
+				return applyPlanFileV2Snapshot(t), nil
+			},
+			Persist: func(context.Context, *state.SnapshotV2) error { return nil },
+		}
 	}
 	callbacks := applyPlanFileV2Callbacks(func(
 		context.Context,
@@ -294,36 +364,51 @@ func TestApplyPlanFileV2WithStateLockRejectsInvalidSetupBeforeLock(t *testing.T)
 		name      string
 		ctx       context.Context
 		backend   state.Backend
-		prepare   applyPlanFileV2StatePreparer
+		snapshots applyPlanFileV2SnapshotCallbacks
 		callbacks applyPlanStepsV2Callbacks
 		message   string
 	}{
 		{
 			name:      "missing context",
 			backend:   validBackend(),
-			prepare:   prepare,
+			snapshots: validSnapshots(),
 			callbacks: callbacks,
 			message:   "apply context is required",
 		},
 		{
 			name:      "missing backend",
 			ctx:       context.Background(),
-			prepare:   prepare,
+			snapshots: validSnapshots(),
 			callbacks: callbacks,
 			message:   "state store is required",
 		},
 		{
-			name:      "missing state preparer",
-			ctx:       context.Background(),
-			backend:   validBackend(),
-			callbacks: callbacks,
-			message:   "version 2 apply state preparer is required",
-		},
-		{
-			name:    "missing step callback",
+			name:    "missing snapshot loader",
 			ctx:     context.Background(),
 			backend: validBackend(),
-			prepare: prepare,
+			snapshots: applyPlanFileV2SnapshotCallbacks{
+				Persist: func(context.Context, *state.SnapshotV2) error { return nil },
+			},
+			callbacks: callbacks,
+			message:   "version 2 snapshot loader is required",
+		},
+		{
+			name:    "missing snapshot persistence",
+			ctx:     context.Background(),
+			backend: validBackend(),
+			snapshots: applyPlanFileV2SnapshotCallbacks{
+				Load: func(string) (*state.SnapshotV2, error) {
+					return applyPlanFileV2Snapshot(t), nil
+				},
+			},
+			callbacks: callbacks,
+			message:   "version 2 snapshot persistence callback is required",
+		},
+		{
+			name:      "missing step callback",
+			ctx:       context.Background(),
+			backend:   validBackend(),
+			snapshots: validSnapshots(),
 			callbacks: applyPlanStepsV2Callbacks{
 				Output: callbacks.Output,
 			},
@@ -333,7 +418,7 @@ func TestApplyPlanFileV2WithStateLockRejectsInvalidSetupBeforeLock(t *testing.T)
 			name:      "canceled context",
 			ctx:       canceledContext,
 			backend:   validBackend(),
-			prepare:   prepare,
+			snapshots: validSnapshots(),
 			callbacks: callbacks,
 			message:   "context canceled",
 		},
@@ -346,7 +431,7 @@ func TestApplyPlanFileV2WithStateLockRejectsInvalidSetupBeforeLock(t *testing.T)
 				test.backend,
 				applyPlanFileV2Factory(plan),
 				plan,
-				test.prepare,
+				test.snapshots,
 				test.callbacks,
 			)
 			require.ErrorContains(t, err, test.message)
