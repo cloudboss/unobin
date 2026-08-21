@@ -68,6 +68,45 @@ func TestApplyPlanFileV2AppliesMovesBeforeSteps(t *testing.T) {
 	require.Equal(t, emptyOutputs, persisted[1].Outputs)
 }
 
+func TestApplyPlanFileV2PreparesSnapshotMetadata(t *testing.T) {
+	plan := applyPlanFileV2Plan(t, "resource.old", "resource.api")
+	snapshot := applyPlanFileV2Snapshot(t)
+	snapshot.Stack = "previous"
+	priorFactory := snapshot.Factory
+	var persisted []*state.SnapshotV2
+	applyState, err := newApplyStateV2(
+		snapshot,
+		func(_ context.Context, next *state.SnapshotV2) error {
+			persisted = append(persisted, next)
+			return nil
+		},
+	)
+	require.NoError(t, err)
+
+	err = applyPlanFileV2(
+		context.Background(),
+		applyState,
+		applyPlanFileV2StartingState(plan),
+		plan,
+		applyPlanFileV2Callbacks(func(
+			context.Context,
+			*applyStateV2,
+			PlanStepV2,
+		) error {
+			return nil
+		}),
+	)
+	require.NoError(t, err)
+	require.Len(t, persisted, 2)
+	wantFactory := applyPlanFileV2Factory(plan)
+	for i := range persisted {
+		require.Equal(t, wantFactory, persisted[i].Factory)
+		require.Equal(t, plan.Stack, persisted[i].Stack)
+	}
+	require.Equal(t, priorFactory, snapshot.Factory)
+	require.Equal(t, "previous", snapshot.Stack)
+}
+
 func TestApplyPlanFileV2RejectsSetupBeforeStateMoves(t *testing.T) {
 	tests := []struct {
 		name      string

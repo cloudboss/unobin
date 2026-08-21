@@ -46,6 +46,28 @@ func newApplyStateV2(
 	}, nil
 }
 
+func (s *applyStateV2) prepareSnapshot(
+	factory state.FactoryInfo,
+	stack string,
+) error {
+	if s == nil {
+		return fmt.Errorf("apply state is required")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	next, err := s.snapshot.Clone()
+	if err != nil {
+		return fmt.Errorf("copy apply snapshot: %w", err)
+	}
+	next.Factory = factory
+	next.Stack = stack
+	if err := next.Validate(); err != nil {
+		return fmt.Errorf("apply snapshot: %w", err)
+	}
+	s.snapshot = next
+	return nil
+}
+
 func (s *applyStateV2) snapshotCopy() (*state.SnapshotV2, error) {
 	if s == nil {
 		return nil, fmt.Errorf("apply state is required")
