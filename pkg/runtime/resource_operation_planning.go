@@ -24,58 +24,63 @@ func planRegisteredResourceSteps(
 	if evaluate == nil {
 		return nil, fmt.Errorf("resource planning evaluator is required")
 	}
-	return runFixedPointPlanning(
+	return planStepsV2(
 		ctx,
-		func(pass *planningPassState) ([]PlanStepV2, error) {
+		func(pass *planningPassState) ([]planStepV2Request, error) {
 			requests, err := evaluate(pass)
 			if err != nil {
 				return nil, err
 			}
-			addresses := make(map[string]bool, len(requests))
-			for i := range requests {
-				request := requests[i]
-				if err := validateNodeAddress(request.Address, NodeResource); err != nil {
-					return nil, fmt.Errorf("resource request %d: %w", i, err)
-				}
-				if addresses[request.Address] {
-					return nil, fmt.Errorf(
-						"duplicate resource address %q",
-						request.Address,
-					)
-				}
-				addresses[request.Address] = true
+			if err := validateRegisteredResourcePlanningRequests(requests); err != nil {
+				return nil, err
 			}
+			planningRequests := make([]planStepV2Request, 0, len(requests))
 			for i := range requests {
 				request := requests[i]
 				if request.Desired == nil && request.Prior == nil {
 					continue
 				}
-				if err := validatePlanDependencies(request.DependsOn); err != nil {
-					return nil, fmt.Errorf(
-						"%s: %w",
-						request.Address,
-						err,
-					)
-				}
+				planningRequests = append(planningRequests, planStepV2Request{
+					Address:   request.Address,
+					Kind:      NodeResource,
+					DependsOn: request.DependsOn,
+					Plan: func(
+						ctx context.Context,
+						pass *planningPassState,
+					) (*PlanStepV2, error) {
+						return planRegisteredResourceStep(ctx, pass, request)
+					},
+				})
 			}
-
-			steps := make([]PlanStepV2, 0, len(requests))
-			for i := range requests {
-				step, err := planRegisteredResourceStep(ctx, pass, requests[i])
-				if err != nil {
-					return nil, fmt.Errorf(
-						"%s: %w",
-						requests[i].Address,
-						err,
-					)
-				}
-				if step != nil {
-					steps = append(steps, *step)
-				}
-			}
-			return steps, nil
+			return planningRequests, nil
 		},
 	)
+}
+
+func validateRegisteredResourcePlanningRequests(
+	requests []registeredResourcePlanningRequest,
+) error {
+	addresses := make(map[string]bool, len(requests))
+	for i := range requests {
+		request := requests[i]
+		if err := validateNodeAddress(request.Address, NodeResource); err != nil {
+			return fmt.Errorf("resource request %d: %w", i, err)
+		}
+		if addresses[request.Address] {
+			return fmt.Errorf("duplicate resource address %q", request.Address)
+		}
+		addresses[request.Address] = true
+	}
+	for i := range requests {
+		request := requests[i]
+		if request.Desired == nil && request.Prior == nil {
+			continue
+		}
+		if err := validatePlanDependencies(request.DependsOn); err != nil {
+			return fmt.Errorf("%s: %w", request.Address, err)
+		}
+	}
+	return nil
 }
 
 func planRegisteredResourceStep(
