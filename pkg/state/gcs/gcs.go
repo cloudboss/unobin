@@ -32,6 +32,7 @@ var (
 )
 
 var _ sdkstate.Backend = (*Store)(nil)
+var _ sdkstate.SnapshotBackendV2 = (*Store)(nil)
 
 type objectInfo struct {
 	name       string
@@ -130,6 +131,19 @@ func (s *Store) Get(rev string) (*sdkstate.Snapshot, error) {
 	return sdkstate.DecodeSnapshot(body)
 }
 
+// GetV2 returns the strict version-2 snapshot with the given revision.
+func (s *Store) GetV2(rev string) (*sdkstate.SnapshotV2, error) {
+	sealed, err := s.client.getObject(context.Background(), s.snapshotKey(rev))
+	if err != nil {
+		return nil, fmt.Errorf("gcs store: get %s: %w", rev, err)
+	}
+	snapshot, err := sdkstate.OpenSnapshotV2(sealed, s.enc)
+	if err != nil {
+		return nil, fmt.Errorf("gcs store: open %s: %w", rev, err)
+	}
+	return &snapshot, nil
+}
+
 func (s *Store) Write(snap *sdkstate.Snapshot) (string, error) {
 	body, err := sdkstate.EncodeSnapshot(snap)
 	if err != nil {
@@ -139,6 +153,10 @@ func (s *Store) Write(snap *sdkstate.Snapshot) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	return s.writeSealedSnapshot(sealed)
+}
+
+func (s *Store) writeSealedSnapshot(sealed []byte) (string, error) {
 	base := now().UTC().Format(time.RFC3339Nano)
 	rev := base
 	for attempt := range maxRevAttempts {
@@ -157,8 +175,22 @@ func (s *Store) Write(snap *sdkstate.Snapshot) (string, error) {
 		}
 		return "", fmt.Errorf("gcs store: write %s: %w", rev, err)
 	}
-	return "", fmt.Errorf("gcs store: could not allocate fresh revision after %d attempts",
-		maxRevAttempts)
+	return "", fmt.Errorf(
+		"gcs store: could not allocate fresh revision after %d attempts",
+		maxRevAttempts,
+	)
+}
+
+// WriteV2 commits a strict version-2 snapshot and returns its revision.
+func (s *Store) WriteV2(snap *sdkstate.SnapshotV2) (string, error) {
+	if snap == nil {
+		return "", fmt.Errorf("snapshot is required")
+	}
+	sealed, err := sdkstate.SealSnapshotV2(*snap, s.enc)
+	if err != nil {
+		return "", err
+	}
+	return s.writeSealedSnapshot(sealed)
 }
 
 func (s *Store) SetCurrent(rev string) error {
