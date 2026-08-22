@@ -17,11 +17,14 @@ func TestPlanPlanFileV2FromStateUsesExactCurrentSnapshot(t *testing.T) {
 		From: "resource.old",
 		To:   "resource.current",
 	}}
+	loaded := applyPlanFileV2Snapshot(t)
 	backend := &planFileV2StateBackend{
 		stack:    "production",
 		revision: "state-1",
+		load: func(string) (*state.SnapshotV2, error) {
+			return loaded, nil
+		},
 	}
-	loaded := applyPlanFileV2Snapshot(t)
 	var evaluatedSnapshots []*state.SnapshotV2
 	request.Evaluate = func(
 		snapshot *state.SnapshotV2,
@@ -42,12 +45,6 @@ func TestPlanPlanFileV2FromStateUsesExactCurrentSnapshot(t *testing.T) {
 		context.Background(),
 		backend,
 		request,
-		planFileV2PlanningSnapshotCallbacks{
-			Load: func(revision string) (*state.SnapshotV2, error) {
-				backend.events = append(backend.events, "load:"+revision)
-				return loaded, nil
-			},
-		},
 	)
 	require.NoError(t, err)
 	require.NoError(t, plan.Validate())
@@ -73,11 +70,15 @@ func TestPlanPlanFileV2FromStateUsesExactCurrentSnapshot(t *testing.T) {
 
 func TestPlanPlanFileV2FromStateInitializesNewSnapshot(t *testing.T) {
 	request := validPlanFileV2StateRequest(t)
+	loaded := false
 	backend := &planFileV2StateBackend{
 		stack:      "preview",
 		currentErr: state.ErrNoCurrent,
+		load: func(string) (*state.SnapshotV2, error) {
+			loaded = true
+			return nil, errors.New("unexpected snapshot load")
+		},
 	}
-	loaded := false
 	request.Evaluate = func(
 		snapshot *state.SnapshotV2,
 		_ *planningPassState,
@@ -94,12 +95,6 @@ func TestPlanPlanFileV2FromStateInitializesNewSnapshot(t *testing.T) {
 		context.Background(),
 		backend,
 		request,
-		planFileV2PlanningSnapshotCallbacks{
-			Load: func(string) (*state.SnapshotV2, error) {
-				loaded = true
-				return nil, errors.New("unexpected snapshot load")
-			},
-		},
 	)
 	require.NoError(t, err)
 	require.False(t, loaded)
@@ -110,11 +105,6 @@ func TestPlanPlanFileV2FromStateInitializesNewSnapshot(t *testing.T) {
 
 func TestPlanPlanFileV2FromStateRejectsInvalidSetupBeforeStateAccess(t *testing.T) {
 	request := validPlanFileV2StateRequest(t)
-	validSnapshots := planFileV2PlanningSnapshotCallbacks{
-		Load: func(string) (*state.SnapshotV2, error) {
-			return nil, errors.New("unexpected snapshot load")
-		},
-	}
 
 	var missingContext context.Context
 	backend := &planFileV2StateBackend{stack: "production", revision: "state-1"}
@@ -122,7 +112,6 @@ func TestPlanPlanFileV2FromStateRejectsInvalidSetupBeforeStateAccess(t *testing.
 		missingContext,
 		backend,
 		request,
-		validSnapshots,
 	)
 	require.ErrorContains(t, err, "planning context is required")
 	require.Equal(t, PlanFileV2{}, plan)
@@ -132,21 +121,9 @@ func TestPlanPlanFileV2FromStateRejectsInvalidSetupBeforeStateAccess(t *testing.
 		context.Background(),
 		nil,
 		request,
-		validSnapshots,
 	)
 	require.ErrorContains(t, err, "state store is required")
 	require.Equal(t, PlanFileV2{}, plan)
-
-	backend = &planFileV2StateBackend{stack: "production", revision: "state-1"}
-	plan, err = planPlanFileV2FromState(
-		context.Background(),
-		backend,
-		request,
-		planFileV2PlanningSnapshotCallbacks{},
-	)
-	require.ErrorContains(t, err, "version 2 snapshot loader is required")
-	require.Equal(t, PlanFileV2{}, plan)
-	require.Empty(t, backend.events)
 
 	backend = &planFileV2StateBackend{stack: "production", revision: "state-1"}
 	request.Evaluate = nil
@@ -154,7 +131,6 @@ func TestPlanPlanFileV2FromStateRejectsInvalidSetupBeforeStateAccess(t *testing.
 		context.Background(),
 		backend,
 		request,
-		validSnapshots,
 	)
 	require.ErrorContains(t, err, "plan step evaluator is required")
 	require.Equal(t, PlanFileV2{}, plan)
@@ -168,9 +144,21 @@ func TestPlanPlanFileV2FromStateRejectsInvalidSetupBeforeStateAccess(t *testing.
 		canceledContext,
 		backend,
 		request,
-		validSnapshots,
 	)
 	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, PlanFileV2{}, plan)
+	require.Empty(t, backend.events)
+}
+
+func TestPlanPlanFileV2FromStateRequiresVersion2BackendBeforeStateAccess(t *testing.T) {
+	backend := &planFileV2OldBackend{}
+
+	plan, err := planPlanFileV2FromState(
+		context.Background(),
+		backend,
+		validPlanFileV2StateRequest(t),
+	)
+	require.ErrorContains(t, err, "state store does not support version 2 snapshots")
 	require.Equal(t, PlanFileV2{}, plan)
 	require.Empty(t, backend.events)
 }
@@ -178,11 +166,15 @@ func TestPlanPlanFileV2FromStateRejectsInvalidSetupBeforeStateAccess(t *testing.
 func TestPlanPlanFileV2FromStateStopsAfterCurrentRevisionFailure(t *testing.T) {
 	request := validPlanFileV2StateRequest(t)
 	expectedErr := errors.New("current snapshot unavailable")
+	loaded := false
 	backend := &planFileV2StateBackend{
 		stack:      "production",
 		currentErr: expectedErr,
+		load: func(string) (*state.SnapshotV2, error) {
+			loaded = true
+			return nil, nil
+		},
 	}
-	loaded := false
 	evaluated := false
 	request.Evaluate = func(
 		*state.SnapshotV2,
@@ -196,12 +188,6 @@ func TestPlanPlanFileV2FromStateStopsAfterCurrentRevisionFailure(t *testing.T) {
 		context.Background(),
 		backend,
 		request,
-		planFileV2PlanningSnapshotCallbacks{
-			Load: func(string) (*state.SnapshotV2, error) {
-				loaded = true
-				return nil, nil
-			},
-		},
 	)
 	require.ErrorIs(t, err, expectedErr)
 	require.Equal(t, PlanFileV2{}, plan)
@@ -236,11 +222,15 @@ func TestPlanPlanFileV2FromStateRejectsMetadataBeforeSnapshotLoad(t *testing.T) 
 		t.Run(test.name, func(t *testing.T) {
 			request := validPlanFileV2StateRequest(t)
 			test.change(&request)
+			loaded := false
 			backend := &planFileV2StateBackend{
 				stack:    "production",
 				revision: "state-1",
+				load: func(string) (*state.SnapshotV2, error) {
+					loaded = true
+					return nil, nil
+				},
 			}
-			loaded := false
 			evaluated := false
 			request.Evaluate = func(
 				*state.SnapshotV2,
@@ -254,12 +244,6 @@ func TestPlanPlanFileV2FromStateRejectsMetadataBeforeSnapshotLoad(t *testing.T) 
 				context.Background(),
 				backend,
 				request,
-				planFileV2PlanningSnapshotCallbacks{
-					Load: func(string) (*state.SnapshotV2, error) {
-						loaded = true
-						return nil, nil
-					},
-				},
 			)
 			require.ErrorContains(t, err, test.message)
 			require.Equal(t, PlanFileV2{}, plan)
@@ -279,11 +263,12 @@ func TestPlanPlanFileV2FromStateRejectsInvalidMoveBeforeEvaluation(t *testing.T)
 		From: "resource.old",
 		To:   "data-source.current",
 	}}
+	loaded := applyPlanFileV2Snapshot(t)
 	backend := &planFileV2StateBackend{
 		stack:    "production",
 		revision: "state-1",
+		load:     func(string) (*state.SnapshotV2, error) { return loaded, nil },
 	}
-	loaded := applyPlanFileV2Snapshot(t)
 	evaluated := false
 	request.Evaluate = func(
 		*state.SnapshotV2,
@@ -297,9 +282,6 @@ func TestPlanPlanFileV2FromStateRejectsInvalidMoveBeforeEvaluation(t *testing.T)
 		context.Background(),
 		backend,
 		request,
-		planFileV2PlanningSnapshotCallbacks{
-			Load: func(string) (*state.SnapshotV2, error) { return loaded, nil },
-		},
 	)
 	require.ErrorContains(t, err, "address category data-source does not match resource")
 	require.Equal(t, PlanFileV2{}, plan)
@@ -337,6 +319,7 @@ type planFileV2StateBackend struct {
 	stack      string
 	revision   string
 	currentErr error
+	load       func(string) (*state.SnapshotV2, error)
 	events     []string
 }
 
@@ -353,4 +336,32 @@ func (b *planFileV2StateBackend) CurrentRev() (string, error) {
 func (b *planFileV2StateBackend) Lock(context.Context) (state.Lock, error) {
 	b.events = append(b.events, "lock")
 	return nil, errors.New("planning must not acquire the state lock")
+}
+
+func (b *planFileV2StateBackend) GetV2(revision string) (*state.SnapshotV2, error) {
+	b.events = append(b.events, "load:"+revision)
+	if b.load == nil {
+		return nil, errors.New("unexpected snapshot load")
+	}
+	return b.load(revision)
+}
+
+func (b *planFileV2StateBackend) WriteV2(*state.SnapshotV2) (string, error) {
+	b.events = append(b.events, "write")
+	return "", errors.New("planning must not write state")
+}
+
+type planFileV2OldBackend struct {
+	state.Backend
+	events []string
+}
+
+func (b *planFileV2OldBackend) Stack() string {
+	b.events = append(b.events, "stack")
+	return "production"
+}
+
+func (b *planFileV2OldBackend) CurrentRev() (string, error) {
+	b.events = append(b.events, "current-revision")
+	return "state-1", nil
 }

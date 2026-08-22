@@ -22,11 +22,22 @@ type planFileV2StateRequest struct {
 	) ([]planStepV2Request, error)
 }
 
+func planFileV2PlanningSnapshots(
+	store state.Backend,
+) (planFileV2PlanningSnapshotCallbacks, error) {
+	snapshots, ok := store.(state.SnapshotBackendV2)
+	if !ok {
+		return planFileV2PlanningSnapshotCallbacks{}, fmt.Errorf(
+			"state store does not support version 2 snapshots",
+		)
+	}
+	return planFileV2PlanningSnapshotCallbacks{Load: snapshots.GetV2}, nil
+}
+
 func planPlanFileV2FromState(
 	ctx context.Context,
 	store state.Backend,
 	request planFileV2StateRequest,
-	snapshots planFileV2PlanningSnapshotCallbacks,
 ) (PlanFileV2, error) {
 	if ctx == nil {
 		return PlanFileV2{}, fmt.Errorf("planning context is required")
@@ -34,8 +45,9 @@ func planPlanFileV2FromState(
 	if store == nil {
 		return PlanFileV2{}, fmt.Errorf("state store is required")
 	}
-	if snapshots.Load == nil {
-		return PlanFileV2{}, fmt.Errorf("version 2 snapshot loader is required")
+	snapshots, err := planFileV2PlanningSnapshots(store)
+	if err != nil {
+		return PlanFileV2{}, err
 	}
 	if request.Evaluate == nil {
 		return PlanFileV2{}, fmt.Errorf("plan step evaluator is required")
