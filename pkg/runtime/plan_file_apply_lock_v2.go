@@ -19,6 +19,22 @@ type applyPlanFileV2Result struct {
 	WrittenRevision string
 }
 
+func applyPlanFileV2Snapshots(
+	store state.Backend,
+) (applyPlanFileV2SnapshotCallbacks, error) {
+	snapshots, ok := store.(state.SnapshotBackendV2)
+	if !ok {
+		return applyPlanFileV2SnapshotCallbacks{}, fmt.Errorf(
+			"state store does not support version 2 snapshots",
+		)
+	}
+	return applyPlanFileV2SnapshotCallbacks{
+		Load:       snapshots.GetV2,
+		Write:      snapshots.WriteV2,
+		SetCurrent: store.SetCurrent,
+	}, nil
+}
+
 func (c applyPlanFileV2SnapshotCallbacks) persist(
 	ctx context.Context,
 	snapshot *state.SnapshotV2,
@@ -54,7 +70,6 @@ func applyPlanFileV2WithStateLock(
 	store state.Backend,
 	factory state.FactoryInfo,
 	plan PlanFileV2,
-	snapshots applyPlanFileV2SnapshotCallbacks,
 	callbacks applyPlanStepsV2Callbacks,
 ) (result *applyPlanFileV2Result, err error) {
 	if ctx == nil {
@@ -63,14 +78,9 @@ func applyPlanFileV2WithStateLock(
 	if store == nil {
 		return nil, fmt.Errorf("state store is required")
 	}
-	if snapshots.Load == nil {
-		return nil, fmt.Errorf("version 2 snapshot loader is required")
-	}
-	if snapshots.Write == nil {
-		return nil, fmt.Errorf("version 2 snapshot writer is required")
-	}
-	if snapshots.SetCurrent == nil {
-		return nil, fmt.Errorf("version 2 current snapshot setter is required")
+	snapshots, err := applyPlanFileV2Snapshots(store)
+	if err != nil {
+		return nil, err
 	}
 	if err := plan.Validate(); err != nil {
 		return nil, fmt.Errorf("saved plan: %w", err)
