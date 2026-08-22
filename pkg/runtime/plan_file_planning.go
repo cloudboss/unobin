@@ -30,6 +30,24 @@ func planPlanFileV2(
 		return PlanFileV2{}, fmt.Errorf("plan step evaluator is required")
 	}
 
+	plan, err := preparePlanFileV2(request)
+	if err != nil {
+		return PlanFileV2{}, err
+	}
+
+	steps, err := planStepsV2(ctx, request.Evaluate)
+	if err != nil {
+		return PlanFileV2{}, err
+	}
+	plan.Steps = steps
+	plan, err = finalizePlanFileV2(plan)
+	if err != nil {
+		return PlanFileV2{}, fmt.Errorf("finalize version 2 plan: %w", err)
+	}
+	return plan, nil
+}
+
+func preparePlanFileV2(request planFileV2Request) (PlanFileV2, error) {
 	plan, err := finalizePlanFileV2(PlanFileV2{
 		Factory:       request.Factory,
 		Stack:         request.Stack,
@@ -44,16 +62,6 @@ func planPlanFileV2(
 	})
 	if err != nil {
 		return PlanFileV2{}, fmt.Errorf("prepare version 2 plan: %w", err)
-	}
-
-	steps, err := planStepsV2(ctx, request.Evaluate)
-	if err != nil {
-		return PlanFileV2{}, err
-	}
-	plan.Steps = steps
-	plan, err = finalizePlanFileV2(plan)
-	if err != nil {
-		return PlanFileV2{}, fmt.Errorf("finalize version 2 plan: %w", err)
 	}
 	return plan, nil
 }
