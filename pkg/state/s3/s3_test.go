@@ -57,6 +57,22 @@ func sampleSnapshot() *sdkstate.Snapshot {
 	}
 }
 
+func sampleSnapshotV2(t *testing.T) *sdkstate.SnapshotV2 {
+	t.Helper()
+	snapshot, err := sdkstate.NewSnapshotV2(
+		sdkstate.FactoryInfo{
+			Name:            "cluster-deploy",
+			Version:         "v2.0.3",
+			ContentRevision: "abc123def456",
+		},
+		"prod-east-alpha",
+	)
+	require.NoError(t, err)
+	snapshot.GeneratedAt = time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC)
+	require.NoError(t, snapshot.Validate())
+	return snapshot
+}
+
 func setKey(t *testing.T, envVar string) {
 	t.Helper()
 	key := make([]byte, 32)
@@ -190,6 +206,35 @@ func TestStoreWriteAndRead(t *testing.T) {
 	got, err := store.Get(rev)
 	require.NoError(t, err)
 	assert.Equal(t, snap, got)
+}
+
+func TestStoreWriteAndReadV2(t *testing.T) {
+	store, _ := testStore(t)
+	snapshot := sampleSnapshotV2(t)
+
+	revision, err := store.WriteV2(snapshot)
+	require.NoError(t, err)
+	require.NotEmpty(t, revision)
+
+	got, err := store.GetV2(revision)
+	require.NoError(t, err)
+	assert.Equal(t, snapshot, got)
+}
+
+func TestStoreGetV2RejectsVersionOneSnapshot(t *testing.T) {
+	store, _ := testStore(t)
+	revision, err := store.Write(sampleSnapshot())
+	require.NoError(t, err)
+
+	_, err = store.GetV2(revision)
+	require.ErrorContains(t, err, "obsolete alpha format")
+}
+
+func TestStoreWriteV2RejectsNilSnapshot(t *testing.T) {
+	store, _ := testStore(t)
+
+	_, err := store.WriteV2(nil)
+	require.ErrorContains(t, err, "snapshot is required")
 }
 
 func TestStoreSetCurrent(t *testing.T) {

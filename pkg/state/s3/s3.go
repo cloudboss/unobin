@@ -52,6 +52,7 @@ const (
 var now = time.Now
 
 var _ sdkstate.Backend = (*Store)(nil)
+var _ sdkstate.SnapshotBackendV2 = (*Store)(nil)
 
 // Store reads and writes snapshots under a per-stack key prefix in
 // one bucket. KMSKeyID, when set, requests SSE-KMS with that key on
@@ -142,6 +143,19 @@ func (s *Store) Get(rev string) (*sdkstate.Snapshot, error) {
 	return sdkstate.DecodeSnapshot(body)
 }
 
+// GetV2 returns the strict version-2 snapshot with the given revision.
+func (s *Store) GetV2(rev string) (*sdkstate.SnapshotV2, error) {
+	sealed, err := s.getObject(s.snapshotKey(rev))
+	if err != nil {
+		return nil, fmt.Errorf("s3 store: get %s: %w", rev, err)
+	}
+	snapshot, err := sdkstate.OpenSnapshotV2(sealed, s.enc)
+	if err != nil {
+		return nil, fmt.Errorf("s3 store: open %s: %w", rev, err)
+	}
+	return &snapshot, nil
+}
+
 // Write commits snap to the bucket and returns its rev. The caller
 // advances the current pointer with SetCurrent. Each rev starts as an
 // RFC3339Nano timestamp; the snapshot object is created with
@@ -158,6 +172,10 @@ func (s *Store) Write(snap *sdkstate.Snapshot) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	return s.writeSealedSnapshot(sealed)
+}
+
+func (s *Store) writeSealedSnapshot(sealed []byte) (string, error) {
 	base := now().UTC().Format(time.RFC3339Nano)
 	rev := base
 	for attempt := range maxRevAttempts {
@@ -175,6 +193,18 @@ func (s *Store) Write(snap *sdkstate.Snapshot) (string, error) {
 	}
 	return "", fmt.Errorf("s3 store: could not allocate fresh revision after %d attempts",
 		maxRevAttempts)
+}
+
+// WriteV2 commits a strict version-2 snapshot to the bucket and returns its revision.
+func (s *Store) WriteV2(snap *sdkstate.SnapshotV2) (string, error) {
+	if snap == nil {
+		return "", fmt.Errorf("snapshot is required")
+	}
+	sealed, err := sdkstate.SealSnapshotV2(*snap, s.enc)
+	if err != nil {
+		return "", err
+	}
+	return s.writeSealedSnapshot(sealed)
 }
 
 // SetCurrent atomically points "current" at the named rev. The
