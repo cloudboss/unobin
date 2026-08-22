@@ -86,6 +86,35 @@ func TestStoreWriteAndRead(t *testing.T) {
 	require.Equal(t, snap, got)
 }
 
+func TestStoreWriteAndReadV2(t *testing.T) {
+	s := newStore(t)
+	snap := sampleSnapshotV2(t)
+
+	rev, err := s.WriteV2(snap)
+	require.NoError(t, err)
+	require.NotEmpty(t, rev)
+
+	got, err := s.GetV2(rev)
+	require.NoError(t, err)
+	require.Equal(t, snap, got)
+}
+
+func TestStoreGetV2RejectsVersionOneSnapshot(t *testing.T) {
+	s := newStore(t)
+	rev, err := s.Write(sampleSnapshot())
+	require.NoError(t, err)
+
+	_, err = s.GetV2(rev)
+	require.ErrorContains(t, err, "obsolete alpha format")
+}
+
+func TestStoreWriteV2RejectsNilSnapshot(t *testing.T) {
+	s := newStore(t)
+
+	_, err := s.WriteV2(nil)
+	require.ErrorContains(t, err, "snapshot is required")
+}
+
 func TestStoreSetCurrent(t *testing.T) {
 	s := newStore(t)
 	snap := sampleSnapshot()

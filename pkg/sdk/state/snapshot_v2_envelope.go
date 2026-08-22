@@ -2,7 +2,8 @@ package state
 
 import "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 
-func sealSnapshotV2(snapshot SnapshotV2, enc encrypt.Encrypter) ([]byte, error) {
+// SealSnapshotV2 encodes and seals a strict version-2 snapshot.
+func SealSnapshotV2(snapshot SnapshotV2, enc encrypt.Encrypter) ([]byte, error) {
 	body, err := encodeSnapshotV2(snapshot)
 	if err != nil {
 		return nil, err
@@ -10,7 +11,9 @@ func sealSnapshotV2(snapshot SnapshotV2, enc encrypt.Encrypter) ([]byte, error) 
 	return Seal(body, PayloadTypeState, enc)
 }
 
-func openSnapshotV2(data []byte, enc encrypt.Encrypter) (SnapshotV2, error) {
+// OpenSnapshotV2 opens and decodes a strict version-2 snapshot using the
+// backend-configured encrypter.
+func OpenSnapshotV2(data []byte, enc encrypt.Encrypter) (SnapshotV2, error) {
 	body, err := Open(
 		data,
 		PayloadTypeState,

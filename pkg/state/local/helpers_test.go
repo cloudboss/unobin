@@ -34,6 +34,22 @@ func sampleSnapshot() *sdkstate.Snapshot {
 	}
 }
 
+func sampleSnapshotV2(t *testing.T) *sdkstate.SnapshotV2 {
+	t.Helper()
+	snapshot, err := sdkstate.NewSnapshotV2(
+		sdkstate.FactoryInfo{
+			Name:            "cluster-deploy",
+			Version:         "v2.0.3",
+			ContentRevision: "abc123def456",
+		},
+		"prod-east-alpha",
+	)
+	require.NoError(t, err)
+	snapshot.GeneratedAt = time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC)
+	require.NoError(t, snapshot.Validate())
+	return snapshot
+}
+
 func setKey(t *testing.T, envVar string) {
 	t.Helper()
 	key := make([]byte, 32)

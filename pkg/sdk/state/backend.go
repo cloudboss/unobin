@@ -25,6 +25,14 @@ type Backend interface {
 	ForceUnlock() error
 }
 
+// SnapshotBackendV2 reads and writes strict version-2 snapshots by revision.
+// CurrentRev and SetCurrent remain on Backend so snapshot persistence can keep
+// the existing write-before-current-pointer contract.
+type SnapshotBackendV2 interface {
+	GetV2(rev string) (*SnapshotV2, error)
+	WriteV2(snap *SnapshotV2) (string, error)
+}
+
 // Lock is a held exclusion on one stack. Callers must invoke
 // Unlock; a leaked lock blocks future apply and refresh runs until an
 // operator calls ForceUnlock.
