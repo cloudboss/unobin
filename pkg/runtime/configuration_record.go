@@ -84,13 +84,14 @@ func validPendingReference(ref string) bool {
 }
 
 type resolvedConfigurationDefinition struct {
-	libraryPath   string
-	schemaVersion int
-	schemaDigest  string
-	migrate       cfg.ConfigurationMigrationFunc
-	schemaFields  []typecheck.ObjectField
-	library       *Library
-	noConfig      bool
+	libraryPath    string
+	schemaVersion  int
+	schemaDigest   string
+	migrate        cfg.ConfigurationMigrationFunc
+	schemaFields   []typecheck.ObjectField
+	schemaDefaults []lang.DefaultSpec
+	library        *Library
+	noConfig       bool
 }
 
 func resolveConfigurationDefinition(
@@ -144,12 +145,13 @@ func resolveLibraryConfigurationDefinition(
 		)
 	}
 	return resolvedConfigurationDefinition{
-		libraryPath:   libraryPath,
-		schemaVersion: registration.SchemaVersionNumber(),
-		schemaDigest:  schema.Digest,
-		migrate:       registration.Migration(),
-		schemaFields:  slices.Clone(schema.Fields),
-		library:       library,
+		libraryPath:    libraryPath,
+		schemaVersion:  registration.SchemaVersionNumber(),
+		schemaDigest:   schema.Digest,
+		migrate:        registration.Migration(),
+		schemaFields:   slices.Clone(schema.Fields),
+		schemaDefaults: slices.Clone(schema.Defaults),
+		library:        library,
 	}, nil
 }
 

@@ -1,14 +1,38 @@
 package runtime
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cloudboss/unobin/internal/ubtest"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
+
+type planEvaluationV2CloudConfiguration struct {
+	Endpoint cfg.String
+	Region   *cfg.String
+}
+
+func planEvaluationV2Libraries() map[string]*Library {
+	return map[string]*Library{
+		"cloud": {
+			LibraryPath: "example.com/cloud",
+			Configuration: &cfg.ConfigurationType[*planEvaluationV2CloudConfiguration]{
+				SchemaVersion: 1,
+				New: func() *planEvaluationV2CloudConfiguration {
+					return &planEvaluationV2CloudConfiguration{
+						Region: &cfg.String{Default: "us-east-1"},
+					}
+				},
+			},
+		},
+	}
+}
 
 func newPlanEvaluationV2Snapshot(t *testing.T) *state.SnapshotV2 {
 	t.Helper()
@@ -304,6 +328,185 @@ func TestPreparePlanEvaluationV2ReturnsFreshState(t *testing.T) {
 	_, err = Eval(parseValue(t, "resource.upstream.id"), second.run.eval)
 	require.ErrorIs(t, err, ErrEvalNotFound)
 	require.Equal(t, original, snapshot)
+}
+
+func TestPlanEvaluationV2PlansLibraryConfiguration(t *testing.T) {
+	libraries := planEvaluationV2Libraries()
+	sourceText := ubtest.ReadValidFixture(
+		t,
+		"testdata/ub/plan-evaluator-v2",
+		"library-configuration",
+	)
+	dag, source := syntaxDAGAndBody(t, sourceText, libraries)
+	executor := &Executor{DAG: dag, SyntaxSource: source, Libraries: libraries}
+	inputs := operationObject(t, map[string]EncodedValue{
+		"token": StringValue("secret"),
+	})
+	snapshot := newPlanEvaluationV2Snapshot(t)
+	pass := newPlanEvaluationV2Pass(newPlanEvaluationV2Facts())
+	evaluation, err := executor.preparePlanEvaluationV2(inputs, snapshot, pass)
+	require.NoError(t, err)
+
+	node := dag.Nodes["library-config.cloud"]
+	request, err := executor.planEvaluationV2LibraryConfigurationRequest(evaluation, node)
+	require.NoError(t, err)
+	require.Equal(t, "library-config.cloud", request.Address)
+	require.Equal(t, NodeLibraryConfiguration, request.Kind)
+	require.NotNil(t, request.DependsOn)
+	require.Empty(t, request.DependsOn)
+
+	step, err := request.Plan(context.Background(), pass)
+	require.NoError(t, err)
+	require.Equal(t, "library-config.cloud", step.Address)
+	require.Equal(t, NodeLibraryConfiguration, step.Kind)
+	require.Equal(t, StepLibraryConfiguration, step.Operation.Kind)
+	result := step.Operation.LibraryConfiguration.Result
+	require.Equal(t, PlannedConfigurationConcrete, result.Kind)
+	require.NotNil(t, result.Record)
+	require.Equal(t, operationObject(t, map[string]EncodedValue{
+		"endpoint": StringValue("secret"),
+		"region":   StringValue("us-east-1"),
+	}), result.Record.Value)
+	require.Equal(t, []string{"/endpoint"}, result.Record.SensitivePaths)
+	require.Len(t, result.Record.SensitiveValues, 1)
+	require.Equal(t, "/endpoint", result.Record.SensitiveValues[0].Path)
+
+	configuration := evaluation.configurations["library-config.cloud"]
+	require.Equal(t, result, configuration.planned)
+	decoded, ok := configuration.decoded.(*planEvaluationV2CloudConfiguration)
+	require.True(t, ok)
+	require.Equal(t, "secret", decoded.Endpoint.Value)
+	require.Equal(t, "us-east-1", decoded.Region.Value)
+
+	action := operationActionState(t)
+	action.Configuration = *result.Record
+	addPlanEvaluationV2Entry(t, snapshot, state.StateEntryV2{
+		Address: "action.prior",
+		Kind:    state.StateAction,
+		Payload: state.StatePayload{
+			Kind:   state.StateAction,
+			Action: &action,
+		},
+	})
+	secondPass := newPlanEvaluationV2Pass(newPlanEvaluationV2Facts())
+	secondEvaluation, err := executor.preparePlanEvaluationV2(inputs, snapshot, secondPass)
+	require.NoError(t, err)
+	secondRequest, err := executor.planEvaluationV2LibraryConfigurationRequest(
+		secondEvaluation,
+		node,
+	)
+	require.NoError(t, err)
+	secondStep, err := secondRequest.Plan(context.Background(), secondPass)
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		*result.Record,
+		*secondStep.Operation.LibraryConfiguration.Result.Record,
+	)
+}
+
+func TestPlanEvaluationV2DefersPendingLibraryConfiguration(t *testing.T) {
+	libraries := planEvaluationV2Libraries()
+	node := &Node{
+		Address: "library-config.cloud",
+		Kind:    NodeLibraryConfig,
+		Alias:   "cloud",
+		Body:    parseValue(t, "{ endpoint: resource.endpoint.url }"),
+	}
+	executor := &Executor{
+		DAG: &DAG{
+			Nodes: map[string]*Node{
+				"library-config.cloud": node,
+				"resource.endpoint": {
+					Address: "resource.endpoint",
+					Kind:    NodeResource,
+				},
+			},
+			Edges: map[string][]string{
+				"library-config.cloud": {"resource.endpoint"},
+				"resource.endpoint":    nil,
+			},
+		},
+		Libraries: libraries,
+	}
+	pass := newPlanEvaluationV2Pass(newPlanEvaluationV2Facts())
+	evaluation, err := executor.preparePlanEvaluationV2(
+		operationObject(t, map[string]EncodedValue{}),
+		newPlanEvaluationV2Snapshot(t),
+		pass,
+	)
+	require.NoError(t, err)
+
+	request, err := executor.planEvaluationV2LibraryConfigurationRequest(evaluation, node)
+	require.NoError(t, err)
+	require.Equal(t, []string{"resource.endpoint"}, request.DependsOn)
+	request.DependsOn[0] = "resource.changed"
+	step, err := request.Plan(context.Background(), pass)
+	require.NoError(t, err)
+	require.Equal(t, []string{"resource.endpoint"}, step.DependsOn)
+	result := step.Operation.LibraryConfiguration.Result
+	require.Equal(t, PlannedConfigurationPending, result.Kind)
+	require.Equal(t, []string{"resource.endpoint.url"}, result.PendingRefs)
+	fields, ok := step.Operation.LibraryConfiguration.Inputs.ObjectFields()
+	require.True(t, ok)
+	refs, ok := fields["endpoint"].PendingRefs()
+	require.True(t, ok)
+	require.Equal(t, []string{"resource.endpoint.url"}, refs)
+	require.Nil(t, evaluation.configurations["library-config.cloud"].decoded)
+}
+
+func TestPlanEvaluationV2LibraryConfigurationRejectsInvalidSetup(t *testing.T) {
+	libraries := planEvaluationV2Libraries()
+	node := &Node{
+		Address: "library-config.cloud",
+		Kind:    NodeLibraryConfig,
+		Alias:   "cloud",
+		Body:    parseValue(t, "{ endpoint: 'https://api.example' }"),
+	}
+	executor := &Executor{
+		DAG: &DAG{
+			Nodes: map[string]*Node{node.Address: node},
+			Edges: map[string][]string{node.Address: nil},
+		},
+		Libraries: libraries,
+	}
+	pass := newPlanEvaluationV2Pass(newPlanEvaluationV2Facts())
+	evaluation, err := executor.preparePlanEvaluationV2(
+		operationObject(t, map[string]EncodedValue{}),
+		newPlanEvaluationV2Snapshot(t),
+		pass,
+	)
+	require.NoError(t, err)
+
+	var missingExecutor *Executor
+	_, err = missingExecutor.planEvaluationV2LibraryConfigurationRequest(evaluation, node)
+	require.ErrorContains(t, err, "executor is required")
+
+	_, err = (&Executor{}).planEvaluationV2LibraryConfigurationRequest(evaluation, node)
+	require.ErrorContains(t, err, "dependency graph is required")
+
+	_, err = executor.planEvaluationV2LibraryConfigurationRequest(nil, node)
+	require.ErrorContains(t, err, "version 2 plan evaluation is required")
+
+	_, err = executor.planEvaluationV2LibraryConfigurationRequest(evaluation, nil)
+	require.ErrorContains(t, err, "library-configuration node is required")
+
+	wrongKind := *node
+	wrongKind.Kind = NodeResource
+	_, err = executor.planEvaluationV2LibraryConfigurationRequest(evaluation, &wrongKind)
+	require.ErrorContains(t, err, "is not a library configuration")
+
+	missingLibrary := *node
+	missingLibrary.Alias = "missing"
+	_, err = executor.planEvaluationV2LibraryConfigurationRequest(evaluation, &missingLibrary)
+	require.ErrorContains(t, err, `library "missing" is not imported`)
+
+	badValue := *node
+	badValue.Body = parseValue(t, "{ endpoint: 2 }")
+	request, err := executor.planEvaluationV2LibraryConfigurationRequest(evaluation, &badValue)
+	require.NoError(t, err)
+	_, err = request.Plan(context.Background(), pass)
+	require.ErrorContains(t, err, `field "endpoint": expected string, got an integer`)
 }
 
 func TestPreparePlanEvaluationV2RejectsInvalidSetup(t *testing.T) {
