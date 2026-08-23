@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"maps"
 	"slices"
 
 	internalconfig "github.com/cloudboss/unobin/internal/configuration"
@@ -327,74 +326,7 @@ func (d resolvedConfigurationDefinition) validateConfigurationValue(
 func encodedConfigurationObject(
 	fields map[string]EncodedValue,
 ) (map[string]any, error) {
-	raw := make(map[string]any, len(fields))
-	for _, name := range slices.Sorted(maps.Keys(fields)) {
-		value, present, err := encodedConfigurationValue(fields[name])
-		if err != nil {
-			return nil, fmt.Errorf("configuration field %q: %w", name, err)
-		}
-		if present {
-			raw[name] = value
-		}
-	}
-	return raw, nil
-}
-
-func encodedConfigurationValue(value EncodedValue) (any, bool, error) {
-	switch value.Kind() {
-	case EncodedValueAbsent:
-		return nil, false, nil
-	case EncodedValueNull:
-		return nil, true, nil
-	case EncodedValueBoolean:
-		result, _ := value.Boolean()
-		return result, true, nil
-	case EncodedValueString:
-		result, _ := value.String()
-		return result, true, nil
-	case EncodedValueInteger:
-		result, _ := value.Integer()
-		return result, true, nil
-	case EncodedValueNumber:
-		result, _ := value.Number()
-		return result, true, nil
-	case EncodedValueList:
-		items, _ := value.Items()
-		result := make([]any, len(items))
-		for i, item := range items {
-			decoded, present, err := encodedConfigurationValue(item)
-			if err != nil {
-				return nil, false, err
-			}
-			if !present {
-				return nil, false, fmt.Errorf("list element %d is absent", i)
-			}
-			result[i] = decoded
-		}
-		return result, true, nil
-	case EncodedValueMap:
-		entries, _ := value.MapEntries()
-		result := make(map[string]any, len(entries))
-		for _, key := range slices.Sorted(maps.Keys(entries)) {
-			decoded, present, err := encodedConfigurationValue(entries[key])
-			if err != nil {
-				return nil, false, err
-			}
-			if !present {
-				return nil, false, fmt.Errorf("map value %q is absent", key)
-			}
-			result[key] = decoded
-		}
-		return result, true, nil
-	case EncodedValueObject:
-		fields, _ := value.ObjectFields()
-		result, err := encodedConfigurationObject(fields)
-		return result, true, err
-	case EncodedValuePending:
-		return nil, false, fmt.Errorf("configuration value must be concrete")
-	default:
-		return nil, false, fmt.Errorf("configuration value kind is invalid")
-	}
+	return decodeConcreteObjectFields(fields, "configuration")
 }
 
 func randomSensitiveValueID() (string, error) {

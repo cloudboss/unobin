@@ -356,6 +356,20 @@ type runState struct {
 }
 
 func (e *Executor) initRun() (*runState, error) {
+	rs, err := e.newEvaluationRunState(e.Inputs)
+	if err != nil {
+		return nil, err
+	}
+	rs.next = state.NewSnapshot(e.Factory, e.Store.Stack())
+	prior, err := e.Store.Current()
+	if err != nil && !errors.Is(err, state.ErrNoCurrent) {
+		return nil, err
+	}
+	rs.prior = prior
+	return rs, nil
+}
+
+func (e *Executor) newEvaluationRunState(inputs map[string]any) (*runState, error) {
 	order, err := e.DAG.TopologicalOrder()
 	if err != nil {
 		return nil, err
@@ -366,7 +380,7 @@ func (e *Executor) initRun() (*runState, error) {
 	}
 	rs := &runState{
 		eval: &EvalContext{
-			Inputs:     e.Inputs,
+			Inputs:     inputs,
 			Resources:  make(map[string]any),
 			Data:       make(map[string]any),
 			Actions:    make(map[string]any),
@@ -379,13 +393,7 @@ func (e *Executor) initRun() (*runState, error) {
 		outputs:          make(map[string]any),
 		composites:       make(map[string]*EvalContext),
 		forEachInstances: make(map[string]map[string]any),
-		next:             state.NewSnapshot(e.Factory, e.Store.Stack()),
 	}
-	prior, err := e.Store.Current()
-	if err != nil && !errors.Is(err, state.ErrNoCurrent) {
-		return nil, err
-	}
-	rs.prior = prior
 	return rs, nil
 }
 
