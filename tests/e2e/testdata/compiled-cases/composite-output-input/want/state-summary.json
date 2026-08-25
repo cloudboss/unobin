@@ -1,0 +1,150 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "composite-output-input",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "entries": [
+    {
+      "address": "resource.nested",
+      "entry-kind": "library-call",
+      "category": "resource",
+      "binding": {
+        "alias": "self",
+        "library-path": "composite-output-input/internal/self",
+        "kind": "nested"
+      },
+      "inputs": {
+        "e2e-config": {
+          "base-dir": ".",
+          "event-log-path": "events.ndjson",
+          "nested": {
+            "enabled": true,
+            "label": "nested"
+          },
+          "prefix": ""
+        },
+        "value": "d1990f97a1f4fe7b8e86da8c03c9dd3f7d536c14aa4a6f9eedab07f34cd961b0"
+      },
+      "outputs": {
+        "marker": "d1990f97a1f4fe7b8e86da8c03c9dd3f7d536c14aa4a6f9eedab07f34cd961b0"
+      },
+      "depends-on": [
+        "resource.nested/resource.consumer"
+      ]
+    },
+    {
+      "address": "resource.nested/resource.consumer",
+      "entry-kind": "library-call",
+      "category": "resource",
+      "binding": {
+        "alias": "lib",
+        "library-path": "composite-output-input/internal/lib",
+        "kind": "consumer"
+      },
+      "inputs": {
+        "e2e-config": {
+          "base-dir": ".",
+          "event-log-path": "events.ndjson",
+          "nested": {
+            "enabled": true,
+            "label": "nested"
+          },
+          "prefix": ""
+        },
+        "value": "d1990f97a1f4fe7b8e86da8c03c9dd3f7d536c14aa4a6f9eedab07f34cd961b0"
+      },
+      "outputs": {
+        "marker": "d1990f97a1f4fe7b8e86da8c03c9dd3f7d536c14aa4a6f9eedab07f34cd961b0"
+      },
+      "depends-on": [
+        "resource.nested/resource.consumer/resource.file",
+        "resource.producer"
+      ]
+    },
+    {
+      "address": "resource.nested/resource.consumer/resource.file",
+      "entry-kind": "leaf",
+      "category": "resource",
+      "binding": {
+        "alias": "e2e",
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "d1990f97a1f4fe7b8e86da8c03c9dd3f7d536c14aa4a6f9eedab07f34cd961b0",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/consumer.txt"
+      },
+      "outputs": {
+        "content": "d1990f97a1f4fe7b8e86da8c03c9dd3f7d536c14aa4a6f9eedab07f34cd961b0",
+        "exists": true,
+        "path": "files/consumer.txt",
+        "sha256": "937269e326eb5a8085521458226e255da389bcf17f514c46634ff7c814953f1e",
+        "size": 64
+      },
+      "depends-on": [
+        "resource.producer"
+      ]
+    },
+    {
+      "address": "resource.producer",
+      "entry-kind": "library-call",
+      "category": "resource",
+      "binding": {
+        "alias": "lib",
+        "library-path": "composite-output-input/internal/lib",
+        "kind": "producer"
+      },
+      "inputs": {
+        "e2e-config": {
+          "base-dir": ".",
+          "event-log-path": "events.ndjson",
+          "nested": {
+            "enabled": true,
+            "label": "nested"
+          },
+          "prefix": ""
+        },
+        "output-error": false
+      },
+      "outputs": {
+        "value": "d1990f97a1f4fe7b8e86da8c03c9dd3f7d536c14aa4a6f9eedab07f34cd961b0"
+      },
+      "depends-on": [
+        "resource.producer/resource.file"
+      ]
+    },
+    {
+      "address": "resource.producer/resource.file",
+      "entry-kind": "leaf",
+      "category": "resource",
+      "binding": {
+        "alias": "e2e",
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "producer",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/producer.txt"
+      },
+      "outputs": {
+        "content": "producer",
+        "exists": true,
+        "path": "files/producer.txt",
+        "sha256": "d1990f97a1f4fe7b8e86da8c03c9dd3f7d536c14aa4a6f9eedab07f34cd961b0",
+        "size": 8
+      }
+    }
+  ],
+  "outputs": {
+    "marker": "d1990f97a1f4fe7b8e86da8c03c9dd3f7d536c14aa4a6f9eedab07f34cd961b0"
+  }
+}

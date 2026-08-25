@@ -1,0 +1,21 @@
+nested: resource {
+  inputs: {
+    value:      { type: string }
+    e2e-config: { type: library-config('example.com/unobin/e2elib') }
+  }
+
+  imports: {
+    lib: './libraries'
+  }
+
+  resources: {
+    consumer: lib.consumer {
+      value:      input.value
+      e2e-config: input.e2e-config
+    }
+  }
+
+  outputs: {
+    marker: { value: resource.consumer.marker }
+  }
+}

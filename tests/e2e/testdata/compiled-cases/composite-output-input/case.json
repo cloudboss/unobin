@@ -1,0 +1,51 @@
+{
+  "name": "composite-output-input",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/composite-output-input",
+  "build": true,
+  "commands": [
+    {
+      "name": "validate",
+      "args": ["validate", "-c", "stacks/dev.ub"],
+      "stdout": "want/validate.stdout",
+      "stderr": "want/validate.stderr"
+    },
+    {
+      "name": "plan-output-error",
+      "args": ["plan", "--ascii", "-c", "stacks/error.ub", "-o", "error.ubp"],
+      "stderr": "want/plan-output-error.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-create",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "create.ubp"],
+      "stdout": "want/plan-create.stdout",
+      "stderr": "want/plan-create.stderr"
+    },
+    {
+      "name": "apply-create",
+      "args": ["apply", "--format", "json", "create.ubp"],
+      "stdout": "want/apply-create.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "output",
+      "args": ["output", "--format", "json", "-c", "stacks/dev.ub"],
+      "stdout": "want/output.json",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-noop",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "noop.ubp"],
+      "stdout": "want/plan-noop.stdout",
+      "stderr": "want/plan-noop.stderr"
+    }
+  ],
+  "files": [
+    { "path": "events.ndjson", "want": "want/events.ndjson" },
+    { "path": "files/consumer.txt", "want": "want/consumer.txt" }
+  ],
+  "absentFiles": ["error.ubp"],
+  "stateSummary": "want/state-summary.json",
+  "deterministic": true
+}

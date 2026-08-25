@@ -1,0 +1,2 @@
+{"operation":"create","kind":"file","path":"files/producer.txt","sha256":"d1990f97a1f4fe7b8e86da8c03c9dd3f7d536c14aa4a6f9eedab07f34cd961b0"}
+{"operation":"create","kind":"file","path":"files/consumer.txt","sha256":"937269e326eb5a8085521458226e255da389bcf17f514c46634ff7c814953f1e"}

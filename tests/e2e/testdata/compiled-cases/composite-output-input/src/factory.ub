@@ -1,0 +1,34 @@
+factory: {
+  inputs: {
+    output-error: { type: boolean, default: false }
+    e2e-config: {
+      type: library-config('example.com/unobin/e2elib')
+      default: {
+        base-dir:       '.'
+        event-log-path: 'events.ndjson'
+        nested:         { label: 'nested' }
+      }
+    }
+  }
+
+  imports: {
+    lib:  './libraries'
+    self: '.'
+  }
+
+  resources: {
+    producer: lib.producer {
+      output-error: input.output-error
+      e2e-config:   input.e2e-config
+    }
+
+    nested: self.nested {
+      value:      resource.producer.value
+      e2e-config: input.e2e-config
+    }
+  }
+
+  outputs: {
+    marker: { value: resource.nested.marker }
+  }
+}

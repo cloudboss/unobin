@@ -24,7 +24,7 @@ func TestCompositeOutputsUseSyntaxBody(t *testing.T) {
 	require.Equal(t, map[string]any{"path": "hello!"}, got)
 }
 
-func TestPlanCompositeOutputsUseSyntaxBody(t *testing.T) {
+func TestPlanCompositeOutputsKeepPendingFields(t *testing.T) {
 	composite := parseSyntaxCompositeFixture(t,
 		ubtest.ReadValidFixture(t, "testdata/ub/composite-body", "plan-pending-output"))
 	body := composite.body
@@ -34,7 +34,10 @@ func TestPlanCompositeOutputsUseSyntaxBody(t *testing.T) {
 	got, err := planCompositeOutputs(node, scope)
 
 	require.NoError(t, err)
-	require.Equal(t, map[string]any{"ready": "ok"}, got)
+	require.Equal(t, map[string]any{
+		"ready": "ok",
+		"later": PendingValue{Refs: []string{"resource.later.id"}},
+	}, got)
 }
 
 func TestSeedCompositeOutputsUsesSyntaxBody(t *testing.T) {

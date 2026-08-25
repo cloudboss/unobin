@@ -1,0 +1,27 @@
+producer: resource {
+  inputs: {
+    output-error: { type: boolean }
+    e2e-config:   { type: library-config('example.com/unobin/e2elib') }
+  }
+
+  imports: {
+    e2e: 'example.com/unobin/e2elib'
+  }
+
+  library-configs: {
+    e2e: input.e2e-config
+  }
+
+  resources: {
+    file: e2e.file {
+      path:    'files/producer.txt'
+      content: 'producer'
+    }
+  }
+
+  outputs: {
+    value: {
+      value: if input.output-error then @core.to-json(1 / 0) else resource.file.sha256
+    }
+  }
+}

@@ -304,10 +304,11 @@ type ExecResult struct {
 }
 
 type runState struct {
-	eval    *EvalContext
-	outputs map[string]any
-	prior   *state.Snapshot
-	next    *state.Snapshot
+	eval     *EvalContext
+	outputs  map[string]any
+	prior    *state.Snapshot
+	next     *state.Snapshot
+	planning bool
 
 	// order is the DAG's topological order, computed once per run.
 	// Plan's walk and per-instance composite expansion both follow it.
@@ -504,7 +505,12 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 		}
 		bodyScope = childScopeWithEach(parent, instKey, value)
 	}
-	args, err := evalBody(boundary.Body, bodyScope)
+	var args map[string]any
+	if rs.planning {
+		args, _, err = planEvalBody(boundary.Body, bodyScope)
+	} else {
+		args, err = evalBody(boundary.Body, bodyScope)
+	}
 	if err != nil {
 		return nil, diagnostic.Context(
 			fmt.Sprintf("composite %s: eval call args", callSite), err,
@@ -691,10 +697,10 @@ func scopeMapForKind(scope *EvalContext, kind NodeKind) map[string]any {
 // enclosing scope so its parent can reach them, and writes one
 // EntryLibraryCall record. instAddr is the address actually being
 // finalized: equal to n.Address for a plain composite, with a
-// trailing `['key']` for a `@for-each` instance. inputs is the call
-// site arg map evaluated for this instance.
+// trailing `['key']` for a `@for-each` instance. The scope's Inputs
+// are the call site arguments evaluated for this instance.
 func (e *Executor) finalizeComposite(
-	rs *runState, n *Node, instAddr string, inputs map[string]any,
+	rs *runState, n *Node, instAddr string,
 	sensitiveInputs, sensitiveOutputs []string,
 ) error {
 	rs.mu.Lock()
@@ -723,7 +729,7 @@ func (e *Executor) finalizeComposite(
 		Type:             state.EntryLibraryCall,
 		Category:         string(n.Kind),
 		Binding:          bindingForNode(n),
-		Inputs:           inputs,
+		Inputs:           scope.Inputs,
 		Outputs:          outputs,
 		SensitiveInputs:  sensitiveInputs,
 		SensitiveOutputs: sensitiveOutputs,

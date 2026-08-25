@@ -1,0 +1,25 @@
+consumer: resource {
+  inputs: {
+    value:      { type: string }
+    e2e-config: { type: library-config('example.com/unobin/e2elib') }
+  }
+
+  imports: {
+    e2e: 'example.com/unobin/e2elib'
+  }
+
+  library-configs: {
+    e2e: input.e2e-config
+  }
+
+  resources: {
+    file: e2e.file {
+      path:    'files/consumer.txt'
+      content: input.value
+    }
+  }
+
+  outputs: {
+    marker: { value: resource.file.content }
+  }
+}

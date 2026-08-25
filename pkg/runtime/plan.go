@@ -19,11 +19,55 @@ import (
 // upstream source addresses the expression reads, so the plan renderer shows
 // `<resource.X.field>` at the value's real position, including inside a list
 // or object, rather than collapsing the whole field to one marker. It is
-// recorded for display only: withoutPending resets every unresolved field for
-// the plan walk's decisions, and knownFields removes it before seeding or the
-// apply premise check, so a PendingValue never reaches a resource.
+// recorded for planning and display only: Eval treats it as unavailable when
+// it appears in a composite's plan-time scope, withoutPending resets every
+// unresolved field for decisions, and knownFields removes it before a resource
+// or apply premise check receives it.
 type PendingValue struct {
 	Refs []string
+}
+
+func pendingValueRefs(value any) ([]string, bool) {
+	var refs []string
+	found := false
+	var visit func(any)
+	visit = func(current any) {
+		switch current := current.(type) {
+		case PendingValue:
+			found = true
+			refs = append(refs, current.Refs...)
+		case []any:
+			for _, element := range current {
+				visit(element)
+			}
+		case map[string]any:
+			keys := make([]string, 0, len(current))
+			for key := range current {
+				keys = append(keys, key)
+			}
+			slices.Sort(keys)
+			for _, key := range keys {
+				visit(current[key])
+			}
+		}
+	}
+	visit(value)
+	return dedupe(refs), found
+}
+
+func unresolvedInputRefs(inputs map[string]any) map[string][]string {
+	var unresolved map[string][]string
+	for name, value := range inputs {
+		refs, pending := pendingValueRefs(value)
+		if !pending {
+			continue
+		}
+		if unresolved == nil {
+			unresolved = map[string][]string{}
+		}
+		unresolved[name] = refs
+	}
+	return unresolved
 }
 
 // planEvalBody evaluates a body field by field against the plan-time scope. A
@@ -468,6 +512,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	liveAddresses := make(map[string]bool)
 	var constraintErrs []error
 	if !e.Destroy {
+		rs.planning = true
 		rs.plannedByTemplate = map[string][]*PlanStep{}
 		for _, addr := range rs.order {
 			node := e.DAG.Nodes[addr]
@@ -745,6 +790,9 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 		switch ent.Type {
 		case state.EntryAction:
 			scope, err := e.scopeForAddress(rs, ent.Address)
+			if errors.Is(err, ErrEvalNotFound) {
+				continue
+			}
 			if err != nil {
 				return err
 			}
@@ -759,6 +807,9 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 			}
 		case state.EntryLeaf:
 			scope, err := e.scopeForAddress(rs, ent.Address)
+			if errors.Is(err, ErrEvalNotFound) {
+				continue
+			}
 			if err != nil {
 				return err
 			}
@@ -837,8 +888,8 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 // its internals, so its scope already holds what each internal
 // seeded; the outputs block is reduced against that scope and the
 // result seeded at the call site in the boundary's enclosing scope.
-// A field reading a value not yet known is left out, so a reader of
-// it waits for apply exactly as it would for the internal itself.
+// A field reading a value not yet known remains a PendingValue, so a
+// reader of it waits for apply exactly as it would for the internal itself.
 func (e *Executor) seedCompositeOutputs(rs *runState, step *PlanStep) error {
 	node, ok := e.DAG.Nodes[templateAddress(step.Address)]
 	if !ok || !node.IsComposite() {
@@ -1186,15 +1237,26 @@ func (e *Executor) planComposite(rs *runState, n *Node) (*PlanStep, error) {
 	if prior != nil {
 		priorOut = prior.Outputs
 	}
+	step := newCompositePlanStep(n, n.Address, scope, priorOut)
+	step.Binding = bindingForNode(n)
+	return step, nil
+}
+
+func newCompositePlanStep(
+	n *Node,
+	address string,
+	scope *EvalContext,
+	priorOutputs map[string]any,
+) *PlanStep {
 	return &PlanStep{
-		Address:      n.Address,
-		Kind:         n.Kind,
-		Binding:      bindingForNode(n),
-		Composite:    true,
-		Decision:     DecisionEval,
-		Inputs:       scope.Inputs,
-		PriorOutputs: priorOut,
-	}, nil
+		Address:          address,
+		Kind:             n.Kind,
+		Composite:        true,
+		Decision:         DecisionEval,
+		Inputs:           scope.Inputs,
+		UnresolvedInputs: unresolvedInputRefs(scope.Inputs),
+		PriorOutputs:     priorOutputs,
+	}
 }
 
 // planOneAction plans a single action instance against the given scope

@@ -115,7 +115,11 @@ func evalCompositeOutputDecls(
 		}
 		val, err := Eval(inner, scope)
 		if deferMissing && errors.Is(err, ErrEvalNotFound) {
-			continue
+			var locals map[string]lang.Expr
+			if scope != nil && scope.locals != nil {
+				locals = scope.locals.exprs
+			}
+			val, _, err = partialValue(inner, scope, locals)
 		}
 		if err != nil {
 			return nil, diagnostic.Context(fmt.Sprintf(

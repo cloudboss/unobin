@@ -79,6 +79,17 @@ func (ctx *EvalContext) withBindings(binds map[string]any) *EvalContext {
 // literals, bare identifiers (as their name string); array and object
 // literals (recursive); and the `input.X[.Y...]` address form.
 func Eval(e lang.Expr, ctx *EvalContext) (any, error) {
+	value, err := evalExpr(e, ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, pending := pendingValueRefs(value); pending {
+		return nil, ErrEvalNotFound
+	}
+	return value, nil
+}
+
+func evalExpr(e lang.Expr, ctx *EvalContext) (any, error) {
 	switch v := e.(type) {
 	case *lang.StringLit:
 		return v.Value, nil

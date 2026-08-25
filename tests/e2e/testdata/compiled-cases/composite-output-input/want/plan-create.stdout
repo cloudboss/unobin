@@ -1,0 +1,21 @@
+  (create)  resource.nested  (composite)
+      e2e-config: {base-dir: '.', event-log-path: 'events.ndjson', nested: {enabled: true, label: 'nested'}, prefix: ''}
+      value: <resource.producer.value>
+    (create)  resource.consumer  (composite)
+        e2e-config: {base-dir: '.', event-log-path: 'events.ndjson', nested: {enabled: true, label: 'nested'}, prefix: ''}
+        value: <input.value>
+      (create)  resource.file
+          content: <input.value>
+          create-parents: true
+          mode: 420
+          path: 'files/consumer.txt'
+  (create)  resource.producer  (composite)
+      e2e-config: {base-dir: '.', event-log-path: 'events.ndjson', nested: {enabled: true, label: 'nested'}, prefix: ''}
+      output-error: false
+    (create)  resource.file
+        content: 'producer'
+        create-parents: true
+        mode: 420
+        path: 'files/producer.txt'
+
+Plan: 2 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.

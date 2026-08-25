@@ -87,14 +87,8 @@ func (e *Executor) planForEachComposite(
 				priorOut = prior.Outputs
 			}
 		}
-		steps = append(steps, &PlanStep{
-			Address:      instAddr,
-			Kind:         boundary.Kind,
-			Composite:    true,
-			Decision:     DecisionEval,
-			Inputs:       scope.Inputs,
-			PriorOutputs: priorOut,
-		})
+		steps = append(steps,
+			newCompositePlanStep(boundary, instAddr, scope, priorOut))
 	}
 	return steps, nil
 }
@@ -166,14 +160,7 @@ func (e *Executor) planInternalUnder(
 				priorOut = prior.Outputs
 			}
 		}
-		return []*PlanStep{{
-			Address:      addr,
-			Kind:         n.Kind,
-			Composite:    true,
-			Decision:     DecisionEval,
-			Inputs:       own.Inputs,
-			PriorOutputs: priorOut,
-		}}, nil
+		return []*PlanStep{newCompositePlanStep(n, addr, own, priorOut)}, nil
 	}
 	scope, err := e.scopeForAddress(rs, addr)
 	if err != nil {

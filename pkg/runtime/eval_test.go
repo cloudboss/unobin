@@ -89,6 +89,43 @@ func TestEvalVarMissingKey(t *testing.T) {
 	require.Contains(t, err.Error(), "not found")
 }
 
+func TestEvalTreatsPendingValuesAsNotFound(t *testing.T) {
+	resources := map[string]any{
+		"producer": map[string]any{
+			"ready": "known",
+			"value": PendingValue{Refs: []string{"resource.producer/resource.file.sha256"}},
+		},
+	}
+	tests := []struct {
+		name        string
+		src         string
+		want        any
+		wantPending bool
+	}{
+		{
+			name:        "pending field",
+			src:         "resource.producer.value",
+			wantPending: true,
+		},
+		{
+			name: "known sibling",
+			src:  "resource.producer.ready",
+			want: "known",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Eval(parseValue(t, tt.src), &EvalContext{Resources: resources})
+			if tt.wantPending {
+				require.ErrorIs(t, err, ErrEvalNotFound)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
 // outcome is the expected result of one evaluation: a value, or an
 // error when err is set. It lets a case state a different expectation
 // for strict and lenient navigation of the same input.

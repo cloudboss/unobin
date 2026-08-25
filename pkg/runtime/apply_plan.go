@@ -86,17 +86,17 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (result *ExecRes
 		return nil, NewApplyFailure(ApplyFailureSetup, err)
 	}
 
-	// Composite scopes seed from the plan: each composite step carries
-	// its evaluated call site args as Inputs, so internals see the
-	// right Inputs without needing the root inputs again. Libraries comes
-	// from the boundary node so functions invoked in the composite's
-	// outputs or internals resolve against the composite's own imports.
-	// A `@for-each` composite emits one step per instance, each at a
-	// `<boundary>['<key>']` address; the cache key is the instance
-	// address so distinct instances get distinct scopes.
+	// Composite scopes with settled arguments seed from the plan. A scope
+	// with unresolved arguments is built when its first internal step runs,
+	// after the scheduler completes its dependencies. A `@for-each`
+	// composite emits one step per instance, each at a
+	// `<boundary>['<key>']` address; the cache key is the instance address.
 	for i := range pf.Steps {
 		step := &pf.Steps[i]
 		if !step.Composite || step.Decision == DecisionDestroy {
+			continue
+		}
+		if len(step.UnresolvedInputs) > 0 {
 			continue
 		}
 		boundary, ok := e.DAG.Nodes[templateAddress(step.Address)]
@@ -176,7 +176,7 @@ func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) 
 		if !ok || !node.IsComposite() {
 			return fmt.Errorf("composite: node %q not in DAG", step.Address)
 		}
-		return e.finalizeComposite(rs, node, step.Address, step.Inputs,
+		return e.finalizeComposite(rs, node, step.Address,
 			step.SensitiveInputs, step.SensitiveOutputs)
 	}
 	switch step.Kind {
