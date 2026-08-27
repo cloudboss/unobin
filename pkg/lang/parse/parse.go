@@ -45,6 +45,23 @@ func ParseExpr(path string, b []byte) (Expr, error) {
 	return f.Body.Fields[0].Value, nil
 }
 
+func parseExprAt(path string, b []byte, base Position) (Expr, error) {
+	if base.File == "" {
+		base.File = path
+	}
+	v, err := Parse(path, b,
+		Entrypoint("ExprFile"),
+		GlobalStore("file", path),
+		GlobalStore("base", base),
+		GlobalStore("source", b),
+		Recover(false),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return v.(Expr), nil
+}
+
 // ParseType parses b as a UB type expression and returns its AST.
 func ParseType(path string, b []byte) (TypeExpr, error) {
 	return ParseTypeAt(path, b, Position{File: path, Line: 1, Column: 1})

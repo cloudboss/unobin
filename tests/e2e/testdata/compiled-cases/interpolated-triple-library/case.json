@@ -1,0 +1,15 @@
+{
+  "name": "interpolated-triple-library",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/interpolated-triple-library",
+  "build": true,
+  "commands": [
+    {
+      "name": "validate",
+      "args": ["validate", "-c", "stacks/dev.ub"],
+      "stdout": "want/validate.stdout",
+      "stderr": "want/validate.stderr"
+    }
+  ],
+  "deterministic": true
+}

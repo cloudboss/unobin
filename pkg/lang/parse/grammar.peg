@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 // span returns a Span whose Start is the parser's current position. End is
@@ -390,13 +391,35 @@ func buildInterpolatedString(s Span, parts any, form StringForm) (any, error) {
 	return &InterpolatedString{S: s, Parts: out, Form: form}, nil
 }
 
-// parseExprFn indirects ParseExpr so the grammar's triple-quote action
+// parseExprAtFn indirects parseExprAt so the grammar's triple-quote action
 // helpers can parse a slot's sub-expression. The indirection is assigned
 // in init() rather than statically so the package-level grammar value `g`
-// does not refer to itself through ParseExpr at initialization time.
-var parseExprFn func(string, []byte) (Expr, error)
+// does not refer to itself through parseExprAt at initialization time.
+var parseExprAtFn func(string, []byte, Position) (Expr, error)
 
-func init() { parseExprFn = ParseExpr }
+func init() { parseExprAtFn = parseExprAt }
+
+type interpolatedTripleSource struct {
+	start Position
+	full  []byte
+	body  string
+}
+
+func newInterpolatedTripleSource(start Position, full []byte) interpolatedTripleSource {
+	return interpolatedTripleSource{
+		start: start,
+		full:  full,
+		body:  string(full[1:]),
+	}
+}
+
+func (s interpolatedTripleSource) position(offset int) Position {
+	return positionAt(s.start, s.full, offset+1)
+}
+
+func (s interpolatedTripleSource) span(start, end int) Span {
+	return spanAt(s.start, s.full, start+1, end+1)
+}
 
 // buildInterpolatedTriple builds an InterpolatedString from a triple-
 // quoted, `$`-prefixed match. full is the whole matched text including
@@ -410,7 +433,8 @@ func buildInterpolatedTriple(span Span, full []byte, startCol int, sigil string)
 	// On error return a typed (empty) node, not nil: pigeon still treats
 	// the rule as matched and downstream expression rules type-assert the
 	// value, so a nil would panic before the recorded error surfaces.
-	subbed, slots, err := scanInterpolatedSlots(string(full[1:]))
+	source := newInterpolatedTripleSource(span.Start, full)
+	subbed, slots, err := scanInterpolatedSlots(source)
 	if err != nil {
 		return &InterpolatedString{S: span}, err
 	}
@@ -418,7 +442,7 @@ func buildInterpolatedTriple(span Span, full []byte, startCol int, sigil string)
 	if err != nil {
 		return &InterpolatedString{S: span}, err
 	}
-	parts, err := splitInterpolatedValue(value, slots)
+	parts, err := splitInterpolatedValue(value, slots, span)
 	if err != nil {
 		return &InterpolatedString{S: span}, err
 	}
@@ -429,9 +453,10 @@ func buildInterpolatedTriple(span Span, full []byte, startCol int, sigil string)
 // `{{ ... }}` slot with a `\x00<index>\x00` sentinel and returning the
 // parsed slots in order. A backslash escape is copied as two bytes, so
 // `\{{` never opens a slot. A slot may not span a newline (V1).
-func scanInterpolatedSlots(s string) (string, []InterpolatedPart, error) {
+func scanInterpolatedSlots(source interpolatedTripleSource) (string, []InterpolatedPart, error) {
 	var out strings.Builder
 	var slots []InterpolatedPart
+	s := source.body
 	for i := 0; i < len(s); {
 		c := s[i]
 		if c == '\\' && i+1 < len(s) {
@@ -441,7 +466,7 @@ func scanInterpolatedSlots(s string) (string, []InterpolatedPart, error) {
 			continue
 		}
 		if c == '{' && i+1 < len(s) && s[i+1] == '{' {
-			end, part, err := parseInterpolatedSlot(s, i)
+			end, part, err := parseInterpolatedSlot(source, i)
 			if err != nil {
 				return "", nil, err
 			}
@@ -462,7 +487,11 @@ func scanInterpolatedSlots(s string) (string, []InterpolatedPart, error) {
 // returns the index just past the closing "}}". The matching "}}" is the
 // first at bracket depth zero outside a string; a depth-zero ':' splits
 // off a printf verb.
-func parseInterpolatedSlot(s string, start int) (int, InterpolatedPart, error) {
+func parseInterpolatedSlot(
+	source interpolatedTripleSource,
+	start int,
+) (int, InterpolatedPart, error) {
+	s := source.body
 	depth := 0
 	inStr := false
 	colon := -1
@@ -497,7 +526,7 @@ func parseInterpolatedSlot(s string, start int) (int, InterpolatedPart, error) {
 			if depth > 0 {
 				depth--
 			} else if j+1 < len(s) && s[j+1] == '}' {
-				part, err := finishInterpolatedSlot(s, start+2, colon, j)
+				part, err := finishInterpolatedSlot(source, start, start+2, colon, j)
 				return j + 2, part, err
 			}
 		}
@@ -508,7 +537,11 @@ func parseInterpolatedSlot(s string, start int) (int, InterpolatedPart, error) {
 
 // finishInterpolatedSlot parses the expression (and optional verb) of a
 // slot whose body runs from exprStart up to the closing "}}" at close.
-func finishInterpolatedSlot(s string, exprStart, colon, close int) (InterpolatedPart, error) {
+func finishInterpolatedSlot(
+	source interpolatedTripleSource,
+	slotStart, exprStart, colon, close int,
+) (InterpolatedPart, error) {
+	s := source.body
 	exprEnd := close
 	verb := ""
 	if colon >= 0 {
@@ -518,23 +551,39 @@ func finishInterpolatedSlot(s string, exprStart, colon, close int) (Interpolated
 			return InterpolatedPart{}, fmt.Errorf("interpolation directive must be a printf verb like %%03d")
 		}
 	}
-	exprText := strings.TrimSpace(s[exprStart:exprEnd])
+	rawExpr := s[exprStart:exprEnd]
+	exprText := strings.TrimSpace(rawExpr)
 	if exprText == "" {
 		return InterpolatedPart{}, fmt.Errorf("empty interpolation slot")
 	}
-	expr, err := parseExprFn("", []byte(exprText))
+	leftTrimmed := strings.TrimLeftFunc(rawExpr, unicode.IsSpace)
+	exprOffset := exprStart + len(rawExpr) - len(leftTrimmed)
+	expr, err := parseExprAtFn(
+		source.start.File,
+		[]byte(exprText),
+		source.position(exprOffset),
+	)
 	if err != nil {
 		return InterpolatedPart{}, err
 	}
-	return InterpolatedPart{Expr: expr, Verb: verb}, nil
+	return InterpolatedPart{
+		S:    source.span(slotStart, close+2),
+		Expr: expr,
+		Verb: verb,
+	}, nil
 }
 
 // splitInterpolatedValue splits a laid-out triple-quote value on its
 // sentinels, interleaving decoded literal runs with the parsed slots.
-func splitInterpolatedValue(value string, slots []InterpolatedPart) ([]InterpolatedPart, error) {
+func splitInterpolatedValue(
+	value string,
+	slots []InterpolatedPart,
+	span Span,
+) ([]InterpolatedPart, error) {
 	var parts []InterpolatedPart
 	var lit strings.Builder
-	flush := func() error {
+	literalStart := span.Start
+	flush := func(end Position) error {
 		if lit.Len() == 0 {
 			return nil
 		}
@@ -542,15 +591,15 @@ func splitInterpolatedValue(value string, slots []InterpolatedPart) ([]Interpola
 		if err != nil {
 			return err
 		}
-		parts = append(parts, InterpolatedPart{Lit: dec})
+		parts = append(parts, InterpolatedPart{
+			S:   Span{Start: literalStart, End: end},
+			Lit: dec,
+		})
 		lit.Reset()
 		return nil
 	}
 	for i := 0; i < len(value); {
 		if value[i] == 0 {
-			if err := flush(); err != nil {
-				return nil, err
-			}
 			j := i + 1
 			for j < len(value) && value[j] != 0 {
 				j++
@@ -559,14 +608,18 @@ func splitInterpolatedValue(value string, slots []InterpolatedPart) ([]Interpola
 			if err != nil || idx < 0 || idx >= len(slots) {
 				return nil, fmt.Errorf("interpolation: bad slot marker")
 			}
+			if err := flush(slots[idx].S.Start); err != nil {
+				return nil, err
+			}
 			parts = append(parts, slots[idx])
+			literalStart = slots[idx].S.End
 			i = j + 1
 			continue
 		}
 		lit.WriteByte(value[i])
 		i++
 	}
-	if err := flush(); err != nil {
+	if err := flush(span.End); err != nil {
 		return nil, err
 	}
 	return parts, nil
@@ -640,6 +693,10 @@ File <- _ pairs:Pair* EOF {
 
 TypeFile <- _ t:TypeExprRule _ EOF {
 	return t, nil
+}
+
+ExprFile <- _ e:Value _ EOF {
+	return e, nil
 }
 
 TypeExprRule <- OpenType / OptionalType / ListType / MapType / TupleType / ObjectType / LibraryConfigType / AtomicType

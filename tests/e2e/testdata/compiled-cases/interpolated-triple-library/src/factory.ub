@@ -1,0 +1,15 @@
+factory: {
+  imports: {
+    text: './libraries/text'
+  }
+
+  data-sources: {
+    greeting: text.greeting {
+      name: 'world'
+    }
+  }
+
+  outputs: {
+    greeting: { value: data-source.greeting.value }
+  }
+}

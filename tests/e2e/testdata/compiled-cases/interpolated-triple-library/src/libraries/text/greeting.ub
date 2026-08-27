@@ -1,0 +1,15 @@
+greeting: data-source {
+  inputs: {
+    name: { type: string }
+  }
+
+  locals: {
+    value: $'''|-
+      hello {{ input.name }}
+      '''
+  }
+
+  outputs: {
+    value: { value: local.value }
+  }
+}

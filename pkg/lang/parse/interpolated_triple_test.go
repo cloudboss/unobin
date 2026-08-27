@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -85,6 +86,12 @@ func TestInterpolatedTripleForms(t *testing.T) {
 			is := interpolatedString(t, tt.src)
 			require.Equal(t, tt.form, is.Form, "form")
 			require.Equal(t, tt.repr, reprParts(is), "parts")
+			for _, part := range is.Parts {
+				assert.Equal(t, "test.ub", part.S.Start.File)
+				if part.Expr != nil {
+					assert.Equal(t, "test.ub", part.Expr.Span().Start.File)
+				}
+			}
 		})
 	}
 }
@@ -97,6 +104,31 @@ func TestInterpolatedTripleSlotExpr(t *testing.T) {
 	require.True(t, ok, "want *DotPath, got %T", is.Parts[1].Expr)
 	require.Equal(t, "input", dp.Root.Name)
 	require.Equal(t, "region", dp.Segments[0].Name)
+}
+
+func TestInterpolatedTripleSourceSpans(t *testing.T) {
+	src := "x: $'''|-\n  pre {{ input.name }} post\n  '''\n"
+	f, err := ParseSource("test.ub", []byte(src))
+	require.NoError(t, err)
+	is := f.Body.Fields[0].Value.(*InterpolatedString)
+	require.Len(t, is.Parts, 3)
+
+	source := NewSourceFile("test.ub", LineStarts([]byte(src)))
+	stringStart := strings.Index(src, "$'''")
+	stringEnd := strings.LastIndex(src, "'''") + len("'''")
+	slotStart := strings.Index(src, "{{")
+	slotEnd := slotStart + len("{{ input.name }}")
+	exprStart := strings.Index(src, "input.name")
+	segmentStart := strings.Index(src, ".name")
+
+	assert.Equal(t, source.Span(stringStart, slotStart), is.Parts[0].S)
+	assert.Equal(t, source.Span(slotStart, slotEnd), is.Parts[1].S)
+	assert.Equal(t, source.Span(slotEnd, stringEnd), is.Parts[2].S)
+
+	dot := is.Parts[1].Expr.(*DotPath)
+	assert.Equal(t, source.Position(exprStart), dot.S.Start)
+	assert.Equal(t, source.Position(exprStart), dot.Root.S.Start)
+	assert.Equal(t, source.Position(segmentStart), dot.Segments[0].S.Start)
 }
 
 func TestInterpolatedTripleInvalid(t *testing.T) {

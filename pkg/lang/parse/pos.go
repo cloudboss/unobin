@@ -73,6 +73,27 @@ func (f SourceFile) Span(start, end int) Span {
 	return Span{Start: f.Position(start), End: f.Position(end)}
 }
 
+func positionAt(start Position, source []byte, offset int) Position {
+	position := start
+	for _, b := range source[:offset] {
+		position.Offset++
+		if b == '\n' {
+			position.Line++
+			position.Column = 1
+		} else {
+			position.Column++
+		}
+	}
+	return position
+}
+
+func spanAt(start Position, source []byte, from, to int) Span {
+	return Span{
+		Start: positionAt(start, source, from),
+		End:   positionAt(start, source, to),
+	}
+}
+
 func (p Position) String() string {
 	if p.File == "" {
 		return fmt.Sprintf("%d:%d", p.Line, p.Column)
