@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -286,7 +285,7 @@ func planForwardRefConstraintErr(t *testing.T, specs []lang.ConstraintSpec, body
 	t.Helper()
 	c := &resourceCounters{}
 	libs := resourceModules(c)
-	libs["core"].Resources["plain"] = MakeResourceWith[countingResource, any, any](
+	libs["core"].Resources["plain"] = MakeResourceWith[countingResource, *countingResourceOutput, any](
 		func() *countingResource { return &countingResource{counters: c} },
 	)
 	libs["core"].Constraints = map[string][]lang.ConstraintSpec{"resource.thing": specs}
@@ -1000,12 +999,10 @@ func TestPlanUpdateRevertsDrift(t *testing.T) {
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, planTestExecutor(t, src, libs, store, stack))
 
-	c.readFn = func(prior any) (any, error) {
-		m, _ := prior.(map[string]any)
-		out := map[string]any{}
-		maps.Copy(out, m)
-		out["size"] = int64(99)
-		return out, nil
+	c.readFn = func(prior *countingResourceOutput) (*countingResourceOutput, error) {
+		out := *prior
+		out.Size = 99
+		return &out, nil
 	}
 
 	plan := runPlan(t, src, libs, store)
@@ -1028,19 +1025,17 @@ func TestUpdateSeesObservedDriftAtApply(t *testing.T) {
 	applyOnce(t, planTestExecutor(t, src, libs, store, stack))
 
 	// Reality drifts to size 99; the re-apply plans a revert Update.
-	c.readFn = func(prior any) (any, error) {
-		m, _ := prior.(map[string]any)
-		out := map[string]any{}
-		maps.Copy(out, m)
-		out["size"] = int64(99)
-		return out, nil
+	c.readFn = func(prior *countingResourceOutput) (*countingResourceOutput, error) {
+		out := *prior
+		out.Size = 99
+		return &out, nil
 	}
 	applyOnce(t, planTestExecutor(t, src, libs, store, stack))
 
 	require.NotNil(t, c.gotUpdatePrior)
-	require.Equal(t, int64(1), c.gotUpdatePrior.Outputs.(map[string]any)["size"],
+	require.Equal(t, int64(1), c.gotUpdatePrior.Outputs.Size,
 		"Outputs is the result recorded by the last apply")
-	require.Equal(t, int64(99), c.gotUpdatePrior.Observed.(map[string]any)["size"],
+	require.Equal(t, int64(99), c.gotUpdatePrior.Observed.Size,
 		"Observed is what the plan-time Read saw, the drifted reality")
 }
 
@@ -1068,10 +1063,12 @@ func TestPlanMigratesPriorOutputsOnSchemaBump(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[migratingCountingResource, any, any](
+				"thing": MakeResourceWith[
+					migratingCountingResource, *migratedCountingResourceOutput, any,
+				](
 					func() *migratingCountingResource {
 						return &migratingCountingResource{
-							countingResource: countingResource{counters: &c},
+							counters: &c,
 						}
 					},
 				),
@@ -1079,8 +1076,10 @@ func TestPlanMigratesPriorOutputsOnSchemaBump(t *testing.T) {
 		},
 	}
 
-	var seenByRead any
-	c.readFn = func(prior any) (any, error) {
+	var seenByRead *migratedCountingResourceOutput
+	c.migratedReadFn = func(
+		prior *migratedCountingResourceOutput,
+	) (*migratedCountingResourceOutput, error) {
 		seenByRead = prior
 		return prior, nil
 	}
@@ -1090,10 +1089,9 @@ func TestPlanMigratesPriorOutputsOnSchemaBump(t *testing.T) {
 	require.NotNil(t, step)
 	require.Equal(t, DecisionNoOp, step.Decision)
 
-	rcv, ok := seenByRead.(map[string]any)
-	require.True(t, ok)
-	require.NotContains(t, rcv, "id", "Read should see the migrated outputs")
-	require.Equal(t, "fake-alpha", rcv["name-id"])
+	require.Equal(t, &migratedCountingResourceOutput{
+		NameID: "fake-alpha", Name: "alpha", Size: 1,
+	}, seenByRead)
 	require.NotContains(t, step.PriorOutputs, "id",
 		"PriorOutputs on the plan step should be the migrated outputs")
 	require.Equal(t, "fake-alpha", step.PriorOutputs["name-id"])
@@ -1123,10 +1121,10 @@ func TestPlanErrorsWhenSchemaBumpHasNoMigrate(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[countingResourceV2, any, any](
+				"thing": MakeResourceWith[countingResourceV2, *countingResourceOutput, any](
 					func() *countingResourceV2 {
 						return &countingResourceV2{
-							countingResource: countingResource{counters: &c},
+							counters: &c,
 						}
 					},
 				),
@@ -1209,6 +1207,9 @@ func TestApplyUpdateReceivesMigratedPriorInputs(t *testing.T) {
 	require.Equal(t, "alpha", c.gotInputMigratePrior.Inputs.Name,
 		"Update should see the migrated prior input name, not the raw v1 entry")
 	require.EqualValues(t, 1, c.gotInputMigratePrior.Inputs.Size)
+	require.Equal(t, &migratedCountingResourceOutput{
+		NameID: "fake-alpha", Name: "alpha", Size: 1,
+	}, c.gotInputMigratePrior.Outputs)
 
 	snap, err := store.Current()
 	require.NoError(t, err)
@@ -1218,6 +1219,9 @@ func TestApplyUpdateReceivesMigratedPriorInputs(t *testing.T) {
 	require.NotContains(t, ent.Inputs, "label")
 	require.Equal(t, "alpha", ent.Inputs["name"])
 	require.EqualValues(t, 2, ent.Inputs["size"])
+	require.Equal(t, map[string]any{
+		"name-id": "fake-alpha", "name": "alpha", "size": float64(2),
+	}, ent.Outputs)
 }
 
 // seedPrior writes entries as store's current snapshot, so a test can
@@ -1248,7 +1252,7 @@ func TestPlanDefaultsOverlayPreventsSpuriousUpdate(t *testing.T) {
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha"},
-		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},
+		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": float64(7)},
 	})
 
 	var c resourceCounters
@@ -1302,7 +1306,7 @@ func TestApplyDefaultsOverlayAdditiveFieldMakesNoCloudUpdate(t *testing.T) {
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha"},
-		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},
+		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": float64(7)},
 	})
 
 	var c resourceCounters
@@ -1338,7 +1342,7 @@ func TestApplyDefaultsOverlayUpdateSeesFilledPriorDefault(t *testing.T) {
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha"},
-		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},
+		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": float64(7)},
 	})
 
 	var c resourceCounters
@@ -1372,7 +1376,7 @@ func TestApplyDefaultsOverlayForEachIsNoOp(t *testing.T) {
 			Binding:       &state.Binding{Alias: "core", Export: "thing"},
 			SchemaVersion: 1,
 			Inputs:        map[string]any{"name": "alpha"},
-			Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},
+			Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": float64(7)},
 		},
 		&state.Entry{
 			Address:       "resource.many['beta']",
@@ -1381,7 +1385,7 @@ func TestApplyDefaultsOverlayForEachIsNoOp(t *testing.T) {
 			Binding:       &state.Binding{Alias: "core", Export: "thing"},
 			SchemaVersion: 1,
 			Inputs:        map[string]any{"name": "beta"},
-			Outputs:       map[string]any{"id": "fake-beta", "name": "beta"},
+			Outputs:       map[string]any{"id": "fake-beta", "name": "beta", "size": float64(7)},
 		},
 	)
 
@@ -1916,7 +1920,9 @@ func TestPlanCreateWhenResourceIsGone(t *testing.T) {
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, planTestExecutor(t, src, libs, store, stack))
 
-	c.readFn = func(any) (any, error) { return nil, ErrNotFound }
+	c.readFn = func(*countingResourceOutput) (*countingResourceOutput, error) {
+		return nil, ErrNotFound
+	}
 
 	plan := runPlan(t, src, libs, store)
 	step := stepFor(plan, "resource.one")
@@ -2084,7 +2090,7 @@ func TestPlanReadsResourcesInParallel(t *testing.T) {
 	applyOnce(t, planTestExecutor(t, src, libs, store, stack))
 
 	const delay = 150 * time.Millisecond
-	c.readFn = func(prior any) (any, error) {
+	c.readFn = func(prior *countingResourceOutput) (*countingResourceOutput, error) {
 		time.Sleep(delay)
 		return prior, nil
 	}
@@ -2112,7 +2118,7 @@ func TestPlanReadsAreSerialAtP1(t *testing.T) {
 	applyOnce(t, planTestExecutor(t, src, libs, store, stack))
 
 	const delay = 80 * time.Millisecond
-	c.readFn = func(prior any) (any, error) {
+	c.readFn = func(prior *countingResourceOutput) (*countingResourceOutput, error) {
 		time.Sleep(delay)
 		return prior, nil
 	}
@@ -2136,7 +2142,9 @@ func TestPlanPropagatesReadError(t *testing.T) {
 	applyOnce(t, planTestExecutor(t, src, libs, store, stack))
 
 	wantErr := errors.New("cloud is unwell")
-	c.readFn = func(any) (any, error) { return nil, wantErr }
+	c.readFn = func(*countingResourceOutput) (*countingResourceOutput, error) {
+		return nil, wantErr
+	}
 
 	exec := planTestExecutor(t, src, libs, store, stack)
 	_, err := exec.Plan(context.Background())

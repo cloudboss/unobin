@@ -93,10 +93,10 @@ func bindingChangeModules(oldC, newC *resourceCounters) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"old": MakeResourceWith[countingResource, any, any](
+				"old": MakeResourceWith[countingResource, *countingResourceOutput, any](
 					func() *countingResource { return &countingResource{counters: oldC} },
 				),
-				"new": MakeResourceWith[countingResource, any, any](
+				"new": MakeResourceWith[countingResource, *countingResourceOutput, any](
 					func() *countingResource { return &countingResource{counters: newC} },
 				),
 			},
@@ -110,7 +110,7 @@ func aliasChangeModules(oldC, newC *resourceCounters) map[string]*Library {
 		"old": LibraryWithPath(&Library{
 			Name: "old",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[countingResource, any, any](
+				"thing": MakeResourceWith[countingResource, *countingResourceOutput, any](
 					func() *countingResource { return &countingResource{counters: oldC} },
 				),
 			},
@@ -118,7 +118,7 @@ func aliasChangeModules(oldC, newC *resourceCounters) map[string]*Library {
 		"new": LibraryWithPath(&Library{
 			Name: "new",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[countingResource, any, any](
+				"thing": MakeResourceWith[countingResource, *countingResourceOutput, any](
 					func() *countingResource { return &countingResource{counters: newC} },
 				),
 			},
@@ -272,7 +272,9 @@ func TestResourceNoOpPersistsObservedOutputs(t *testing.T) {
 func TestResourceAliasChangePriorReadReplaces(t *testing.T) {
 	oldC := &resourceCounters{}
 	newC := &resourceCounters{
-		readFn: func(any) (any, error) { return nil, ErrNotFound },
+		readFn: func(*countingResourceOutput) (*countingResourceOutput, error) {
+			return nil, ErrNotFound
+		},
 	}
 	libs := aliasChangeModules(oldC, newC)
 	store := newStateStore(t)
@@ -303,10 +305,14 @@ func TestResourceAliasChangePriorReadReplaces(t *testing.T) {
 
 func TestResourceAliasChangeCreatesWhenBothReadsMiss(t *testing.T) {
 	oldC := &resourceCounters{
-		readFn: func(any) (any, error) { return nil, ErrNotFound },
+		readFn: func(*countingResourceOutput) (*countingResourceOutput, error) {
+			return nil, ErrNotFound
+		},
 	}
 	newC := &resourceCounters{
-		readFn: func(any) (any, error) { return nil, ErrNotFound },
+		readFn: func(*countingResourceOutput) (*countingResourceOutput, error) {
+			return nil, ErrNotFound
+		},
 	}
 	libs := aliasChangeModules(oldC, newC)
 	store := newStateStore(t)
@@ -334,7 +340,9 @@ func TestResourceAliasChangeCreatesWhenBothReadsMiss(t *testing.T) {
 func TestResourceAliasChangeMissingPriorBindingExplainsRecovery(t *testing.T) {
 	oldC := &resourceCounters{}
 	newC := &resourceCounters{
-		readFn: func(any) (any, error) { return nil, ErrNotFound },
+		readFn: func(*countingResourceOutput) (*countingResourceOutput, error) {
+			return nil, ErrNotFound
+		},
 	}
 	libs := aliasChangeModules(oldC, newC)
 	store := newStateStore(t)
@@ -794,7 +802,9 @@ func TestDestroySkipsDeleteForAlreadyGoneResource(t *testing.T) {
 	require.NoError(t, err)
 
 	// The resource vanishes out of band; its read now reports it gone.
-	c.readFn = func(any) (any, error) { return nil, ErrNotFound }
+	c.readFn = func(*countingResourceOutput) (*countingResourceOutput, error) {
+		return nil, ErrNotFound
+	}
 
 	destroyer := applyPlanTestExecutor(t, src, libs, store, stack)
 	destroyer.Destroy = true
@@ -1509,7 +1519,7 @@ func TestActionRerunsWhenTriggerSourceChanges(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[countingResource, any, any](
+				"thing": MakeResourceWith[countingResource, *countingResourceOutput, any](
 					func() *countingResource {
 						return &countingResource{counters: &resCounters}
 					},

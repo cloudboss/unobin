@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"context"
-	"maps"
 	"testing"
 	"time"
 
@@ -39,12 +38,10 @@ func TestRefreshUpdatesLeafOutputs(t *testing.T) {
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, refreshTestExecutor(t, src, libs, store, stack))
 
-	c.readFn = func(prior any) (any, error) {
-		m, _ := prior.(map[string]any)
-		out := map[string]any{}
-		maps.Copy(out, m)
-		out["size"] = int64(99)
-		return out, nil
+	c.readFn = func(prior *countingResourceOutput) (*countingResourceOutput, error) {
+		out := *prior
+		out.Size = 99
+		return &out, nil
 	}
 
 	exec := refreshTestExecutor(t, src, libs, store, stack)
@@ -69,12 +66,10 @@ func TestRefreshUsesShortAddressBinding(t *testing.T) {
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, refreshTestExecutor(t, src, libs, store, stack))
 
-	c.readFn = func(prior any) (any, error) {
-		m, _ := prior.(map[string]any)
-		out := map[string]any{}
-		maps.Copy(out, m)
-		out["size"] = int64(99)
-		return out, nil
+	c.readFn = func(prior *countingResourceOutput) (*countingResourceOutput, error) {
+		out := *prior
+		out.Size = 99
+		return &out, nil
 	}
 
 	exec := refreshTestExecutor(t, src, libs, store, stack)
@@ -113,7 +108,9 @@ func TestRefreshDropsResourceThatIsGone(t *testing.T) {
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, refreshTestExecutor(t, src, libs, store, stack))
 
-	c.readFn = func(any) (any, error) { return nil, ErrNotFound }
+	c.readFn = func(*countingResourceOutput) (*countingResourceOutput, error) {
+		return nil, ErrNotFound
+	}
 
 	exec := refreshTestExecutor(t, src, libs, store, stack)
 	res, err := exec.Refresh(context.Background())
@@ -179,12 +176,10 @@ func TestRefreshUpdatesCompositeInternalLeaf(t *testing.T) {
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	applyOnce(t, refreshTestExecutor(t, src, libs, store, stack))
 
-	c.readFn = func(prior any) (any, error) {
-		m, _ := prior.(map[string]any)
-		out := map[string]any{}
-		maps.Copy(out, m)
-		out["size"] = int64(42)
-		return out, nil
+	c.readFn = func(prior *countingResourceOutput) (*countingResourceOutput, error) {
+		out := *prior
+		out.Size = 42
+		return &out, nil
 	}
 
 	exec := refreshTestExecutor(t, src, libs, store, stack)
@@ -217,7 +212,7 @@ func TestRefreshReadsLeavesInParallel(t *testing.T) {
 	applyOnce(t, refreshTestExecutor(t, src, libs, store, stack))
 
 	const delay = 150 * time.Millisecond
-	c.readFn = func(prior any) (any, error) {
+	c.readFn = func(prior *countingResourceOutput) (*countingResourceOutput, error) {
 		time.Sleep(delay)
 		return prior, nil
 	}

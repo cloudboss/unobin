@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"context"
-	"maps"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -178,12 +177,10 @@ func TestApplyReconcilesMutatedDependency(t *testing.T) {
 
 	// A sibling-induced side effect is modeled as a live Read returning a
 	// different size than the resource was created with.
-	c.readFn = func(prior any) (any, error) {
-		m, _ := prior.(map[string]any)
-		out := map[string]any{}
-		maps.Copy(out, m)
-		out["size"] = int64(99)
-		return out, nil
+	c.readFn = func(prior *countingResourceOutput) (*countingResourceOutput, error) {
+		out := *prior
+		out.Size = 99
+		return &out, nil
 	}
 
 	dag, syntaxSource := syntaxDAGAndBody(t,
@@ -213,12 +210,10 @@ func TestApplyReconciledValueReachesOutputs(t *testing.T) {
 	libs := resourceModules(&c)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 
-	c.readFn = func(prior any) (any, error) {
-		m, _ := prior.(map[string]any)
-		out := map[string]any{}
-		maps.Copy(out, m)
-		out["size"] = int64(99)
-		return out, nil
+	c.readFn = func(prior *countingResourceOutput) (*countingResourceOutput, error) {
+		out := *prior
+		out.Size = 99
+		return &out, nil
 	}
 
 	dag, syntaxSource := syntaxDAGAndBody(t,
@@ -267,14 +262,12 @@ func TestApplyReconcilesPreExistingDependency(t *testing.T) {
 	}
 	plan, err := exec.Plan(ctx)
 	require.NoError(t, err)
-	c.readFn = func(prior any) (any, error) {
-		m, _ := prior.(map[string]any)
-		out := map[string]any{}
-		maps.Copy(out, m)
-		if out["name"] == "a" {
-			out["size"] = int64(99)
+	c.readFn = func(prior *countingResourceOutput) (*countingResourceOutput, error) {
+		out := *prior
+		if out.Name == "a" {
+			out.Size = 99
 		}
-		return out, nil
+		return &out, nil
 	}
 	encoded, err := EncodePlan(plan)
 	require.NoError(t, err)
@@ -295,15 +288,19 @@ func TestApplyReconcilesPreExistingDependency(t *testing.T) {
 func TestApplyReconcileFailureKeepsAppliedOutputs(t *testing.T) {
 	tests := []struct {
 		name   string
-		readFn func(prior any) (any, error)
+		readFn func(prior *countingResourceOutput) (*countingResourceOutput, error)
 	}{
 		{
-			name:   "read error",
-			readFn: func(any) (any, error) { return nil, context.DeadlineExceeded },
+			name: "read error",
+			readFn: func(*countingResourceOutput) (*countingResourceOutput, error) {
+				return nil, context.DeadlineExceeded
+			},
 		},
 		{
-			name:   "resource reports absent",
-			readFn: func(any) (any, error) { return nil, ErrNotFound },
+			name: "resource reports absent",
+			readFn: func(*countingResourceOutput) (*countingResourceOutput, error) {
+				return nil, ErrNotFound
+			},
 		},
 	}
 	for _, tt := range tests {
