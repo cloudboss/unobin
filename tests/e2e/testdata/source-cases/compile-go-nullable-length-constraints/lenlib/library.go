@@ -11,7 +11,9 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "lenlib",
 		Resources: map[string]runtime.ResourceRegistration{
-			"length": runtime.MakeResource[LengthInputs, *LengthOutput, any](),
+			"length": runtime.MakeResource[LengthInputs, *LengthOutput, any](
+				LengthInputsDefinition(),
+			),
 		},
 	}
 }
@@ -51,7 +53,15 @@ type LengthOutput struct {
 	ID string
 }
 
-func (v *LengthInputs) SchemaVersion() int { return 1 }
+func LengthInputsDefinition() runtime.ResourceDefinition[LengthInputs, *LengthOutput, any] {
+	return runtime.ResourceDefinition[LengthInputs, *LengthOutput, any]{
+		SchemaVersion: 1,
+		Identity: runtime.ResourceIdentity[LengthInputs, *LengthOutput]{
+			Version: 1,
+			Scope:   runtime.IdentityConfiguration,
+		},
+	}
+}
 
 func (v *LengthInputs) Create(context.Context, any) (*LengthOutput, error) {
 	return &LengthOutput{ID: v.Name}, nil
@@ -70,5 +80,3 @@ func (v *LengthInputs) Update(
 }
 
 func (v *LengthInputs) Delete(context.Context, any, *LengthOutput) error { return nil }
-
-func (v *LengthInputs) ReplaceFields() []string { return nil }

@@ -8,13 +8,14 @@ func Library() *runtime.Library {
         Name:        "files",
         Description: "File resources.",
         Resources: map[string]runtime.ResourceRegistration{
-            "file": runtime.MakeResource[File, *FileOutput, runtime.NoConfig](),
+            "file": runtime.MakeResource[File, *FileOutput, runtime.NoConfig](fileDefinition()),
         },
     }
 }
 ```
 
-The main fields are:
+The [resource definition](resources.md) declares the schema, validation, identity, and replacement
+rules. The main library fields are:
 
 - `Name` and `Description` for human-readable metadata.
 - `Configuration` for an optional library configuration schema.

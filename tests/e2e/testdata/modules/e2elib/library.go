@@ -59,14 +59,22 @@ func Library() *ubruntime.Library {
 				ArchiveZIPFile,
 				*ArchiveZIPFileOutput,
 				*Configuration,
-			](),
-			"file":   ubruntime.MakeResource[File, *FileOutput, *Configuration](),
-			"object": ubruntime.MakeResource[Object, *ObjectOutput, *Configuration](),
+			](
+				ArchiveZIPFileDefinition(),
+			),
+			"file": ubruntime.MakeResource[File, *FileOutput, *Configuration](
+				FileDefinition(),
+			),
+			"object": ubruntime.MakeResource[Object, *ObjectOutput, *Configuration](
+				ObjectDefinition(),
+			),
 			"secret": ubruntime.MakeResource[
 				SecretResource,
 				*SecretResourceOutput,
 				*Configuration,
-			](),
+			](
+				SecretResourceDefinition(),
+			),
 		},
 		DataSources: map[string]ubruntime.DataSourceRegistration{
 			"read-file": ubruntime.MakeDataSource[ReadFile, *ReadFileOutput, *Configuration](),
@@ -129,9 +137,26 @@ func (a ArchiveZIPFile) Constraints() []constraint.Constraint {
 	}
 }
 
-func (a *ArchiveZIPFile) SchemaVersion() int { return 1 }
-
-func (a *ArchiveZIPFile) ReplaceFields() []string { return []string{"path"} }
+func ArchiveZIPFileDefinition() ubruntime.ResourceDefinition[
+	ArchiveZIPFile,
+	*ArchiveZIPFileOutput,
+	*Configuration,
+] {
+	return ubruntime.ResourceDefinition[
+		ArchiveZIPFile,
+		*ArchiveZIPFileOutput,
+		*Configuration,
+	]{
+		SchemaVersion: 1,
+		Identity: ubruntime.ResourceIdentity[ArchiveZIPFile, *ArchiveZIPFileOutput]{
+			Version: 1,
+			Scope:   ubruntime.IdentityConfiguration,
+			AddressInputs: []ubruntime.AnyInputField[ArchiveZIPFile]{
+				ubruntime.InputField(func(v *ArchiveZIPFile) *string { return &v.Path }),
+			},
+		},
+	}
+}
 
 func (a *ArchiveZIPFile) Create(
 	_ context.Context,
@@ -447,9 +472,18 @@ func (f File) Constraints() []constraint.Constraint {
 	}
 }
 
-func (f *File) SchemaVersion() int { return 1 }
-
-func (f *File) ReplaceFields() []string { return []string{"path"} }
+func FileDefinition() ubruntime.ResourceDefinition[File, *FileOutput, *Configuration] {
+	return ubruntime.ResourceDefinition[File, *FileOutput, *Configuration]{
+		SchemaVersion: 1,
+		Identity: ubruntime.ResourceIdentity[File, *FileOutput]{
+			Version: 1,
+			Scope:   ubruntime.IdentityConfiguration,
+			AddressInputs: []ubruntime.AnyInputField[File]{
+				ubruntime.InputField(func(v *File) *string { return &v.Path }),
+			},
+		},
+	}
+}
 
 func (f *File) Create(_ context.Context, config *Configuration) (*FileOutput, error) {
 	return f.write(config, "create")
@@ -531,7 +565,7 @@ func (f *File) write(config *Configuration, operation string) (*FileOutput, erro
 
 type Object struct {
 	Name      string
-	Body      map[string]any
+	Body      map[string]string
 	Tags      *map[string]string
 	SubnetIDs *[]string `ub:"subnet-ids"`
 }
@@ -539,7 +573,7 @@ type Object struct {
 type ObjectOutput struct {
 	ID     string
 	Path   string
-	Body   map[string]any
+	Body   map[string]string
 	SHA256 string
 }
 
@@ -549,9 +583,18 @@ func (o Object) Constraints() []constraint.Constraint {
 	}
 }
 
-func (o *Object) SchemaVersion() int { return 1 }
-
-func (o *Object) ReplaceFields() []string { return []string{"name"} }
+func ObjectDefinition() ubruntime.ResourceDefinition[Object, *ObjectOutput, *Configuration] {
+	return ubruntime.ResourceDefinition[Object, *ObjectOutput, *Configuration]{
+		SchemaVersion: 1,
+		Identity: ubruntime.ResourceIdentity[Object, *ObjectOutput]{
+			Version: 1,
+			Scope:   ubruntime.IdentityConfiguration,
+			AddressInputs: []ubruntime.AnyInputField[Object]{
+				ubruntime.InputField(func(v *Object) *string { return &v.Name }),
+			},
+		},
+	}
+}
 
 func (o *Object) Create(_ context.Context, config *Configuration) (*ObjectOutput, error) {
 	return o.write(config, "create")
@@ -573,7 +616,7 @@ func (o *Object) Read(
 		}
 		return nil, err
 	}
-	var value map[string]any
+	var value map[string]string
 	if err := json.Unmarshal(body, &value); err != nil {
 		return nil, err
 	}
@@ -736,9 +779,23 @@ type SecretResourceOutput struct {
 	Label string
 }
 
-func (s *SecretResource) SchemaVersion() int { return 1 }
-
-func (s *SecretResource) ReplaceFields() []string { return nil }
+func SecretResourceDefinition() ubruntime.ResourceDefinition[
+	SecretResource,
+	*SecretResourceOutput,
+	*Configuration,
+] {
+	return ubruntime.ResourceDefinition[
+		SecretResource,
+		*SecretResourceOutput,
+		*Configuration,
+	]{
+		SchemaVersion: 1,
+		Identity: ubruntime.ResourceIdentity[SecretResource, *SecretResourceOutput]{
+			Version: 1,
+			Scope:   ubruntime.IdentityConfiguration,
+		},
+	}
+}
 
 func (s *SecretResource) Create(
 	_ context.Context,
@@ -924,7 +981,7 @@ func fileOutput(path string, body []byte, size int64) *FileOutput {
 func objectOutput(
 	config *Configuration,
 	name string,
-	value map[string]any,
+	value map[string]string,
 	body []byte,
 ) *ObjectOutput {
 	return &ObjectOutput{

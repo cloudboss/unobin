@@ -829,67 +829,6 @@ func sameInputs(a, b map[string]any) bool {
 	return bytes.Equal(aj, bj)
 }
 
-func (e *Executor) sameResourceInputs(
-	rt ResourceRegistration, receiver any, prior, current map[string]any,
-) (bool, error) {
-	if sameInputs(prior, current) {
-		return true, nil
-	}
-	resolvedPrior, err := e.resolveAssetMap(prior)
-	if err != nil {
-		return false, diagnostic.Context("prior inputs", err)
-	}
-	for _, field := range inputFieldNames(prior, current) {
-		if sameValue(prior[field], current[field]) {
-			continue
-		}
-		if rt.EquivalentInput(receiver, field, resolvedPrior) {
-			continue
-		}
-		return false, nil
-	}
-	return true, nil
-}
-
-func inputFieldNames(a, b map[string]any) []string {
-	seen := map[string]bool{}
-	for name := range a {
-		seen[name] = true
-	}
-	for name := range b {
-		seen[name] = true
-	}
-	fields := make([]string, 0, len(seen))
-	for name := range seen {
-		fields = append(fields, name)
-	}
-	slices.Sort(fields)
-	return fields
-}
-
-func (e *Executor) changedReplaceFieldsForResource(
-	rt ResourceRegistration,
-	receiver any,
-	replaceFields []string,
-	prior, current map[string]any,
-) ([]string, error) {
-	resolvedPrior, err := e.resolveAssetMap(prior)
-	if err != nil {
-		return nil, diagnostic.Context("prior inputs", err)
-	}
-	var changed []string
-	for _, field := range replaceFields {
-		if sameValue(prior[field], current[field]) {
-			continue
-		}
-		if rt.EquivalentInput(receiver, field, resolvedPrior) {
-			continue
-		}
-		changed = append(changed, field)
-	}
-	return changed, nil
-}
-
 func sameValue(a, b any) bool {
 	aj, err := json.Marshal(a)
 	if err != nil {

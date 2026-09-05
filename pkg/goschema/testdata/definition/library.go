@@ -14,7 +14,7 @@ func Library() *runtime.Library {
 			New: func() *Config { return &Config{} },
 		},
 		Resources: map[string]runtime.ResourceRegistration{
-			"server": runtime.MakeResource[Server, *ServerOutput, any](),
+			"server": runtime.MakeResource[Server, *ServerOutput, any](ServerDefinition()),
 		},
 		DataSources: map[string]runtime.DataSourceRegistration{
 			"lookup": runtime.MakeDataSource[Lookup, *LookupOutput, any](),
@@ -37,6 +37,16 @@ type Server struct {
 	ID       string
 	Name     string `ub:"server-name"`
 	Settings shared.Settings
+}
+
+func ServerDefinition() runtime.ResourceDefinition[Server, *ServerOutput, any] {
+	return runtime.ResourceDefinition[Server, *ServerOutput, any]{
+		SchemaVersion: 1,
+		Identity: runtime.ResourceIdentity[Server, *ServerOutput]{
+			Version: 1,
+			Scope:   runtime.IdentityConfiguration,
+		},
+	}
 }
 
 type ServerOutput struct {

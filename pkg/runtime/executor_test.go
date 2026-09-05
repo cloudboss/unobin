@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -216,18 +215,48 @@ func (r *countingResource) Delete(_ context.Context, _ any, _ *countingResourceO
 	return nil
 }
 
-func (r *countingResource) ReplaceFields() []string {
-	return []string{"name"}
+func countingResourceDefinition() ResourceDefinition[
+	countingResource,
+	*countingResourceOutput,
+	any,
+] {
+	return ResourceDefinition[countingResource, *countingResourceOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[countingResource, *countingResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+		Replacement: ReplacementRules[countingResource, *countingResourceOutput]{
+			Inputs: []ReplacementRule[countingResource]{
+				ReplaceWhenChanged(InputField(func(v *countingResource) *string { return &v.Name })),
+			},
+		},
+	}
 }
-
-func (r *countingResource) SchemaVersion() int { return 1 }
 
 // countingResourceV2 is countingResource with SchemaVersion bumped
 // to 2 and no Migrate, used by plan tests that exercise the
 // missing-migration error path.
 type countingResourceV2 countingResource
 
-func (r *countingResourceV2) SchemaVersion() int { return 2 }
+func countingResourceV2Definition() ResourceDefinition[
+	countingResourceV2,
+	*countingResourceOutput,
+	any,
+] {
+	return ResourceDefinition[countingResourceV2, *countingResourceOutput, any]{
+		SchemaVersion: 2,
+		Identity: ResourceIdentity[countingResourceV2, *countingResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+		Replacement: ReplacementRules[countingResourceV2, *countingResourceOutput]{
+			Inputs: []ReplacementRule[countingResourceV2]{
+				ReplaceWhenChanged(InputField(func(v *countingResourceV2) *string { return &v.Name })),
+			},
+		},
+	}
+}
 
 func (r *countingResourceV2) Create(
 	ctx context.Context, cfg any,
@@ -255,14 +284,39 @@ func (r *countingResourceV2) Delete(
 	return (*countingResource)(r).Delete(ctx, cfg, prior)
 }
 
-func (r *countingResourceV2) ReplaceFields() []string { return []string{"name"} }
-
-// migratingCountingResource is countingResourceV2 with a Migrate
-// method that rewrites `id` to `name-id` in state, used by the plan
-// test for the migration happy path.
+// migratingCountingResource uses a definition migration that renames
+// the recorded output field `id` to `name-id`.
 type migratingCountingResource countingResource
 
-func (r *migratingCountingResource) SchemaVersion() int { return 2 }
+func migratingCountingResourceDefinition() ResourceDefinition[
+	migratingCountingResource,
+	*migratedCountingResourceOutput,
+	any,
+] {
+	return ResourceDefinition[
+		migratingCountingResource,
+		*migratedCountingResourceOutput,
+		any,
+	]{
+		Migrate:       migrateCountingResource,
+		SchemaVersion: 2,
+		Identity: ResourceIdentity[
+			migratingCountingResource,
+			*migratedCountingResourceOutput,
+		]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+		Replacement: ReplacementRules[
+			migratingCountingResource,
+			*migratedCountingResourceOutput,
+		]{
+			Inputs: []ReplacementRule[migratingCountingResource]{
+				ReplaceWhenChanged(InputField(func(v *migratingCountingResource) *string { return &v.Name })),
+			},
+		},
+	}
+}
 
 func (r *migratingCountingResource) Create(
 	_ context.Context, _ any,
@@ -301,13 +355,12 @@ func (r *migratingCountingResource) Delete(
 	return nil
 }
 
-func (r *migratingCountingResource) ReplaceFields() []string { return []string{"name"} }
-
-func (r *migratingCountingResource) Migrate(_ int, prior MigrationState) (MigrationState, error) {
-	return MigrationState{
+func migrateCountingResource(_ int, prior ResourceMigrationState) (ResourceMigrationState, error) {
+	outputs, err := renamedKey(prior.Outputs, "id", "name-id")
+	return ResourceMigrationState{
 		Inputs:  prior.Inputs,
-		Outputs: renamedKey(prior.Outputs, "id", "name-id"),
-	}, nil
+		Outputs: outputs,
+	}, err
 }
 
 // inputMigratingResource bumps SchemaVersion to 2 and migrates both
@@ -317,7 +370,35 @@ func (r *migratingCountingResource) Migrate(_ int, prior MigrationState) (Migrat
 // through plan and apply.
 type inputMigratingResource countingResource
 
-func (r *inputMigratingResource) SchemaVersion() int { return 2 }
+func inputMigratingResourceDefinition() ResourceDefinition[
+	inputMigratingResource,
+	*migratedCountingResourceOutput,
+	any,
+] {
+	return ResourceDefinition[
+		inputMigratingResource,
+		*migratedCountingResourceOutput,
+		any,
+	]{
+		Migrate:       migrateResourceInputs,
+		SchemaVersion: 2,
+		Identity: ResourceIdentity[
+			inputMigratingResource,
+			*migratedCountingResourceOutput,
+		]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+		Replacement: ReplacementRules[
+			inputMigratingResource,
+			*migratedCountingResourceOutput,
+		]{
+			Inputs: []ReplacementRule[inputMigratingResource]{
+				ReplaceWhenChanged(InputField(func(v *inputMigratingResource) *string { return &v.Name })),
+			},
+		},
+	}
+}
 
 func (r *inputMigratingResource) Create(
 	ctx context.Context, cfg any,
@@ -349,25 +430,27 @@ func (r *inputMigratingResource) Delete(
 	return (*migratingCountingResource)(r).Delete(ctx, cfg, prior)
 }
 
-func (r *inputMigratingResource) ReplaceFields() []string { return []string{"name"} }
-
-func (r *inputMigratingResource) Migrate(_ int, prior MigrationState) (MigrationState, error) {
-	return MigrationState{
-		Inputs:  renamedKey(prior.Inputs, "label", "name"),
-		Outputs: renamedKey(prior.Outputs, "id", "name-id"),
-	}, nil
+func migrateResourceInputs(_ int, prior ResourceMigrationState) (ResourceMigrationState, error) {
+	inputs, err := renamedKey(prior.Inputs, "label", "name")
+	if err != nil {
+		return ResourceMigrationState{}, err
+	}
+	outputs, err := renamedKey(prior.Outputs, "id", "name-id")
+	return ResourceMigrationState{Inputs: inputs, Outputs: outputs}, err
 }
 
 // renamedKey returns a copy of m with the value at from moved to to,
 // modeling a renamed field across a schema bump.
-func renamedKey(m map[string]any, from, to string) map[string]any {
-	out := map[string]any{}
-	maps.Copy(out, m)
+func renamedKey(value EncodedValue, from, to string) (EncodedValue, error) {
+	out, ok := value.ObjectFields()
+	if !ok {
+		return EncodedValue{}, fmt.Errorf("migration value must be an object")
+	}
 	if v, ok := out[from]; ok {
 		out[to] = v
 		delete(out, from)
 	}
-	return out
+	return ObjectValue(out)
 }
 
 func resourceModules(c *resourceCounters) map[string]*Library {
@@ -376,6 +459,8 @@ func resourceModules(c *resourceCounters) map[string]*Library {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
 				"thing": MakeResourceWith[countingResource, *countingResourceOutput, any](
+					countingResourceDefinition(),
+
 					func() *countingResource { return &countingResource{counters: c} },
 				),
 			},
@@ -395,6 +480,8 @@ func inputMigratingLibs(c *resourceCounters) map[string]*Library {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
 				"thing": MakeResourceWith[inputMigratingResource, *migratedCountingResourceOutput, any](
+					inputMigratingResourceDefinition(),
+
 					func() *inputMigratingResource {
 						return &inputMigratingResource{
 							counters: c,
@@ -415,6 +502,8 @@ func defaultingLibs(c *resourceCounters) map[string]*Library {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
 				"thing": MakeResourceWith[countingResource, *countingResourceOutput, any](
+					countingResourceDefinition(),
+
 					func() *countingResource { return &countingResource{counters: c} },
 				),
 			},

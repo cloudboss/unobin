@@ -23,7 +23,15 @@ type subnetLikeOutput struct {
 	ID  string
 }
 
-func (r *subnetLike) SchemaVersion() int { return 1 }
+func subnetLikeDefinition() ResourceDefinition[subnetLike, *subnetLikeOutput, any] {
+	return ResourceDefinition[subnetLike, *subnetLikeOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[subnetLike, *subnetLikeOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+	}
+}
 
 func (r *subnetLike) Create(_ context.Context, _ any) (*subnetLikeOutput, error) {
 	return &subnetLikeOutput{Tag: r.Tag, ID: "subnet-1"}, nil
@@ -49,7 +57,6 @@ func (r *subnetLike) Update(
 }
 
 func (r *subnetLike) Delete(_ context.Context, _ any, _ *subnetLikeOutput) error { return nil }
-func (r *subnetLike) ReplaceFields() []string                                    { return nil }
 
 // instanceLike replace-marks its ref field, like an instance pinned
 // to a subnet id.
@@ -62,7 +69,20 @@ type instanceLikeOutput struct {
 	ID  string
 }
 
-func (r *instanceLike) SchemaVersion() int { return 1 }
+func instanceLikeDefinition() ResourceDefinition[instanceLike, *instanceLikeOutput, any] {
+	return ResourceDefinition[instanceLike, *instanceLikeOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[instanceLike, *instanceLikeOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+		Replacement: ReplacementRules[instanceLike, *instanceLikeOutput]{
+			Inputs: []ReplacementRule[instanceLike]{
+				ReplaceWhenChanged(InputField(func(v *instanceLike) *string { return &v.Ref })),
+			},
+		},
+	}
+}
 
 func (r *instanceLike) Create(_ context.Context, _ any) (*instanceLikeOutput, error) {
 	return &instanceLikeOutput{Ref: r.Ref, ID: "inst-1"}, nil
@@ -88,9 +108,6 @@ func (r *instanceLike) Update(
 }
 
 func (r *instanceLike) Delete(_ context.Context, _ any, _ *instanceLikeOutput) error { return nil }
-func (r *instanceLike) ReplaceFields() []string {
-	return []string{"ref"}
-}
 
 // pinnedResource replace-marks its tag and mints a fresh id on every
 // create, so replacing it hands downstream readers a new value. Its
@@ -106,7 +123,20 @@ type pinnedResourceOutput struct {
 	ID  string
 }
 
-func (r *pinnedResource) SchemaVersion() int { return 1 }
+func pinnedResourceDefinition() ResourceDefinition[pinnedResource, *pinnedResourceOutput, any] {
+	return ResourceDefinition[pinnedResource, *pinnedResourceOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[pinnedResource, *pinnedResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+		Replacement: ReplacementRules[pinnedResource, *pinnedResourceOutput]{
+			Inputs: []ReplacementRule[pinnedResource]{
+				ReplaceWhenChanged(InputField(func(v *pinnedResource) *string { return &v.Tag })),
+			},
+		},
+	}
+}
 
 func (r *pinnedResource) Create(_ context.Context, _ any) (*pinnedResourceOutput, error) {
 	*r.gen++
@@ -133,18 +163,21 @@ func (r *pinnedResource) Update(
 func (r *pinnedResource) Delete(_ context.Context, _ any, _ *pinnedResourceOutput) error {
 	return nil
 }
-func (r *pinnedResource) ReplaceFields() []string { return []string{"tag"} }
 
-// An update preserves the object, so its prior outputs stay readable
-// during the plan: a tag sync upstream diffs the downstream against
-// the still-valid id and plans no-op instead of a replace.
-func TestUpdateKeepsPriorOutputsSeeded(t *testing.T) {
+// Every Update output becomes pending, including a provider ID that the
+// implementation happens to preserve. A dependent immutable input must
+// therefore plan replacement until its value becomes known at apply.
+func TestUpdateMakesDownstreamReplacementInputPending(t *testing.T) {
 	libs := map[string]*Library{
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"subnet":   MakeResource[subnetLike, *subnetLikeOutput, any](),
-				"instance": MakeResource[instanceLike, *instanceLikeOutput, any](),
+				"subnet": MakeResource[subnetLike, *subnetLikeOutput, any](
+					subnetLikeDefinition(),
+				),
+				"instance": MakeResource[instanceLike, *instanceLikeOutput, any](
+					instanceLikeDefinition(),
+				),
 			},
 		},
 	}
@@ -166,9 +199,8 @@ func TestUpdateKeepsPriorOutputsSeeded(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.a").Decision)
 	inst := findStep(t, plan, "resource.it")
-	require.Equal(t, DecisionNoOp, inst.Decision)
-	require.Empty(t, inst.UnresolvedInputs)
-	require.Equal(t, "subnet-1", inst.Inputs["ref"])
+	require.Equal(t, DecisionReplace, inst.Decision)
+	require.Equal(t, []string{"resource.a.id"}, inst.UnresolvedInputs["ref"])
 
 	_, err = planAndApplyExisting(second, plan)
 	require.NoError(t, err)
@@ -193,9 +225,13 @@ func TestReplaceSuppressesPriorOutputs(t *testing.T) {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
 				"pinned": MakeResourceWith[pinnedResource, *pinnedResourceOutput, any](
+					pinnedResourceDefinition(),
+
 					func() *pinnedResource { return &pinnedResource{gen: &gen} },
 				),
-				"instance": MakeResource[instanceLike, *instanceLikeOutput, any](),
+				"instance": MakeResource[instanceLike, *instanceLikeOutput, any](
+					instanceLikeDefinition(),
+				),
 			},
 		},
 	}
@@ -241,8 +277,12 @@ func TestCompositeOutputsSeedAtPlan(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"subnet":   MakeResource[subnetLike, *subnetLikeOutput, any](),
-				"instance": MakeResource[instanceLike, *instanceLikeOutput, any](),
+				"subnet": MakeResource[subnetLike, *subnetLikeOutput, any](
+					subnetLikeDefinition(),
+				),
+				"instance": MakeResource[instanceLike, *instanceLikeOutput, any](
+					instanceLikeDefinition(),
+				),
 			},
 		},
 		"w": {
@@ -284,9 +324,13 @@ func TestCompositeOutputPendingWhenInternalReplaces(t *testing.T) {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
 				"pinned": MakeResourceWith[pinnedResource, *pinnedResourceOutput, any](
+					pinnedResourceDefinition(),
+
 					func() *pinnedResource { return &pinnedResource{gen: &gen} },
 				),
-				"instance": MakeResource[instanceLike, *instanceLikeOutput, any](),
+				"instance": MakeResource[instanceLike, *instanceLikeOutput, any](
+					instanceLikeDefinition(),
+				),
 			},
 		},
 		"w": {
@@ -332,8 +376,12 @@ func TestForEachKeyWithSlashSeedsPriorOutputs(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"subnet":   MakeResource[subnetLike, *subnetLikeOutput, any](),
-				"instance": MakeResource[instanceLike, *instanceLikeOutput, any](),
+				"subnet": MakeResource[subnetLike, *subnetLikeOutput, any](
+					subnetLikeDefinition(),
+				),
+				"instance": MakeResource[instanceLike, *instanceLikeOutput, any](
+					instanceLikeDefinition(),
+				),
 			},
 		},
 	}
@@ -368,8 +416,12 @@ func TestForEachCompositeOutputsSeedAtPlan(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"subnet":   MakeResource[subnetLike, *subnetLikeOutput, any](),
-				"instance": MakeResource[instanceLike, *instanceLikeOutput, any](),
+				"subnet": MakeResource[subnetLike, *subnetLikeOutput, any](
+					subnetLikeDefinition(),
+				),
+				"instance": MakeResource[instanceLike, *instanceLikeOutput, any](
+					instanceLikeDefinition(),
+				),
 			},
 		},
 		"w": {

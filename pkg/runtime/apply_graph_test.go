@@ -185,8 +185,12 @@ func TestBuildStepGraphPairKeyNarrowsForEachCrossDeps(t *testing.T) {
 		"aws": {
 			Name: "aws",
 			Resources: map[string]ResourceRegistration{
-				"instance": MakeResource[plainResource, *plainResourceOutput, any](),
-				"volume":   MakeResource[plainResource, *plainResourceOutput, any](),
+				"instance": MakeResource[plainResource, *plainResourceOutput, any](
+					plainResourceDefinition(),
+				),
+				"volume": MakeResource[plainResource, *plainResourceOutput, any](
+					plainResourceDefinition(),
+				),
 			},
 		},
 	}

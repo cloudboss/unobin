@@ -17,7 +17,9 @@ func TestApplyAcceptsEmptyInputs(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResource[trackedResource, *trackedResourceOutput, any](),
+				"thing": MakeResource[trackedResource, *trackedResourceOutput, any](
+					trackedResourceDefinition(),
+				),
 			},
 		},
 	}

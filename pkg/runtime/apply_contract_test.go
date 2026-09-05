@@ -26,7 +26,15 @@ type ghostResourceOutput struct {
 	ID  string
 }
 
-func (r *ghostResource) SchemaVersion() int { return 1 }
+func ghostResourceDefinition() ResourceDefinition[ghostResource, *ghostResourceOutput, any] {
+	return ResourceDefinition[ghostResource, *ghostResourceOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[ghostResource, *ghostResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+	}
+}
 
 func (r *ghostResource) Create(_ context.Context, _ any) (*ghostResourceOutput, error) {
 	*r.gen++
@@ -54,7 +62,6 @@ func (r *ghostResource) Update(
 func (r *ghostResource) Delete(_ context.Context, _ any, _ *ghostResourceOutput) error {
 	return nil
 }
-func (r *ghostResource) ReplaceFields() []string { return nil }
 
 // A concrete plan-time input that evaluates differently at apply
 // fails the step: the decision was computed from a premise that no
@@ -70,9 +77,13 @@ func TestApplyErrorsWhenResourceInputChangedSincePlan(t *testing.T) {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
 				"ghost": MakeResourceWith[ghostResource, *ghostResourceOutput, any](
+					ghostResourceDefinition(),
+
 					func() *ghostResource { return &ghostResource{gen: &gen, gone: &gone} },
 				),
-				"thing": MakeResource[trackedResource, *trackedResourceOutput, any](),
+				"thing": MakeResource[trackedResource, *trackedResourceOutput, any](
+					trackedResourceDefinition(),
+				),
 			},
 		},
 	}
@@ -147,9 +158,13 @@ func TestApplyAcceptsResolvedPendingInput(t *testing.T) {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
 				"ghost": MakeResourceWith[ghostResource, *ghostResourceOutput, any](
+					ghostResourceDefinition(),
+
 					func() *ghostResource { return &ghostResource{gen: &gen, gone: &gone} },
 				),
-				"thing": MakeResource[trackedResource, *trackedResourceOutput, any](),
+				"thing": MakeResource[trackedResource, *trackedResourceOutput, any](
+					trackedResourceDefinition(),
+				),
 			},
 		},
 	}

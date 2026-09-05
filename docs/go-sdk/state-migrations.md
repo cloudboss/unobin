@@ -1,34 +1,35 @@
 # State and migrations
 
-A resource type declares its current persisted schema version:
+A resource definition declares its current persisted schema version and an optional migration:
 
 ```go
-func (r *Bucket) SchemaVersion() int { return 2 }
-```
-
-When a prior state entry has an older schema version, the runtime asks the resource registration to migrate it before planning or applying.
-
-Implement `runtime.Migrator` on the resource type:
-
-```go
-func (r *Bucket) Migrate(
+definition.SchemaVersion = 2
+definition.Migrate = func(
     oldVersion int,
-    prior runtime.MigrationState,
-) (runtime.MigrationState, error) {
-    switch oldVersion {
-    case 1:
-        prior.Inputs["name"] = prior.Inputs["bucket"]
-        delete(prior.Inputs, "bucket")
-        return prior, nil
-    default:
-        return runtime.MigrationState{}, fmt.Errorf("unsupported version %d", oldVersion)
+    prior runtime.ResourceMigrationState,
+) (runtime.ResourceMigrationState, error) {
+    if oldVersion != 1 {
+        return runtime.ResourceMigrationState{}, fmt.Errorf("unsupported version %d", oldVersion)
     }
+    inputs, ok := prior.Inputs.ObjectFields()
+    if !ok {
+        return runtime.ResourceMigrationState{}, errors.New("inputs must be an object")
+    }
+    inputs["name"] = inputs["bucket"]
+    delete(inputs, "bucket")
+    migrated, err := runtime.ObjectValue(inputs)
+    if err != nil {
+        return runtime.ResourceMigrationState{}, err
+    }
+    return runtime.ResourceMigrationState{Inputs: migrated, Outputs: prior.Outputs}, nil
 }
 ```
 
-`runtime.MigrationState` contains both maps from the persisted entry:
+`ResourceMigrationState` contains encoded `Inputs` and `Outputs` from the last successful apply.
+Read older objects through their encoded fields instead of decoding them into the current Go
+struct. Return both values at the current schema version. A missing migration or a migration
+error prevents the runtime from using an older resource schema.
 
-- `Inputs`, the evaluated inputs from the last apply.
-- `Outputs`, the resource outputs from the last apply.
-
-Migrate the whole entry together. The returned entry is stamped with the current `SchemaVersion`.
+Resource schema versions and identity versions are independent. Increment the schema version
+when persisted resource values need migration. Increment the identity version when the address
+or stable-ID interpretation changes, and provide `Identity.Migrate` for older identity records.

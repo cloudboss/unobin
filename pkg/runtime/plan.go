@@ -396,11 +396,9 @@ type PlanStep struct {
 	// new object (a resource replace, an action rerun), so every prior
 	// output dies with the old one. The plan walk must not seed them: a
 	// downstream reader sees those fields as unknown-until-apply
-	// instead of values the apply is about to invalidate. An update is
-	// not marked: it preserves the object, so its prior outputs stay
-	// readable, and one that changes an output anyway is caught by the
-	// apply-time premise check. Plan-walk state only; not part of the
-	// plan file.
+	// instead of values the apply is about to invalidate. Resource
+	// Updates invalidate their outputs through mayChangeOutputs.
+	// This field is used during planning and is not part of the plan file.
 	regeneratesOutputs bool
 
 	// mayChangeOutputs marks a step whose planned action could leave
@@ -409,10 +407,6 @@ type PlanStep struct {
 	// target waits for apply while this is set, even with settled
 	// inputs. Plan-walk state only; not part of the plan file.
 	mayChangeOutputs bool
-
-	// unknownOutputs names outputs a planned operation will recompute.
-	// Plan-time readers of these fields wait for apply.
-	unknownOutputs map[string]bool
 }
 
 // Drift reports whether the resource's observed outputs differ from
@@ -855,27 +849,32 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 	}
 	tmpl, instKey := splitInstanceAddress(step.Address)
 	target := scopeMapForKind(scope, step.Kind)
-	// A data source read during the plan seeds what it observed; at
-	// this point in the walk a resource's drift read has not run yet,
-	// so resources still seed their prior outputs. A step whose apply
-	// regenerates the object seeds none: every prior output dies with
-	// it, so readers wait instead. An update preserves the object, so
-	// its computed-only outputs stay readable; its declared fields come
-	// from the body, since a same-named prior output echoes exactly the
-	// value the update is about to set.
+	// Reads seed their observed outputs. A resource operation that can
+	// change outputs leaves every output pending, including fields that
+	// share a name with an input.
 	outputs := step.PriorOutputs
 	if step.ObservedOutputs != nil {
 		outputs = step.ObservedOutputs
 	}
-	if step.regeneratesOutputs {
+	inputs := knownFields(step, step.Inputs)
+	if step.regeneratesOutputs || (step.Kind == NodeResource && step.mayChangeOutputs) {
 		outputs = nil
-	} else {
-		outputs = withoutFields(outputs, step.unknownOutputs)
-		if step.mayChangeOutputs {
-			outputs = withoutDeclared(outputs, step.Inputs)
+		if step.Kind == NodeResource {
+			registration, _, err := e.resourceRegistrationForBinding(step.Address, step.Binding)
+			if err != nil {
+				return err
+			}
+			fields, err := resourceStructFields(registration.OutputType().Elem())
+			if err != nil {
+				return err
+			}
+			inputs = cloneMap(inputs)
+			for _, field := range fields {
+				delete(inputs, field.name)
+			}
 		}
 	}
-	attrs := mergeAttrs(knownFields(step, step.Inputs), outputs)
+	attrs := mergeAttrs(inputs, outputs)
 	if instKey == "" {
 		seedAddress(target, tmpl, attrs)
 	} else {
@@ -919,37 +918,6 @@ func (e *Executor) seedCompositeOutputs(rs *runState, step *PlanStep) error {
 		seedAddressInstance(target, tmpl, instKey, outputs)
 	}
 	return nil
-}
-
-// withoutDeclared returns outputs minus the fields the body declares.
-// A declared field's plan-time value is the body's, whether settled or
-// pending, so a stale same-named output must not be read in its place.
-func withoutDeclared(outputs, declared map[string]any) map[string]any {
-	if len(outputs) == 0 {
-		return outputs
-	}
-	out := make(map[string]any, len(outputs))
-	for name, value := range outputs {
-		if _, ok := declared[name]; ok {
-			continue
-		}
-		out[name] = value
-	}
-	return out
-}
-
-func withoutFields(outputs map[string]any, fields map[string]bool) map[string]any {
-	if len(outputs) == 0 || len(fields) == 0 {
-		return outputs
-	}
-	out := make(map[string]any, len(outputs))
-	for name, value := range outputs {
-		if fields[name] {
-			continue
-		}
-		out[name] = value
-	}
-	return out
 }
 
 // knownFields returns inputs minus the fields the step left
@@ -1404,24 +1372,31 @@ func (e *Executor) planOneResource(
 	if err := e.decodeInputs(probe, inputs); err != nil {
 		return nil, err
 	}
-	inputsSame, err := e.sameResourceInputs(rt, probe, priorInputs, inputs)
+	resolvedPriorInputs, err := e.resolveAssetMap(priorInputs)
 	if err != nil {
 		return nil, err
 	}
-	step.mayChangeOutputs = !inputsSame
+	resolvedDesiredInputs, err := e.resolveAssetMap(display)
+	if err != nil {
+		return nil, err
+	}
+	step.ReplaceTriggers, step.mayChangeOutputs, err = rt.compareResourceInputs(
+		resolvedPriorInputs, resolvedDesiredInputs,
+	)
+	if err != nil {
+		blameLibrary(err, n.Alias)
+		return nil, err
+	}
+	for i, reason := range step.ReplaceTriggers {
+		_, field, _ := strings.Cut(reason, ":")
+		step.ReplaceTriggers[i] = field
+	}
 	// Whether changed inputs force a replace is decided here, mid-walk,
 	// from inputs alone: downstream nodes plan next and need to know
 	// whether this node's outputs survive. A replace-marked field still
 	// waiting on an upstream compares as changed, since the value it
 	// settles to cannot be assumed equal to the prior one.
-	if step.mayChangeOutputs {
-		step.ReplaceTriggers, err = e.changedReplaceFieldsForResource(
-			rt, probe, rt.ReplaceFields(probe), priorInputs, inputs)
-		if err != nil {
-			return nil, err
-		}
-		step.regeneratesOutputs = len(step.ReplaceTriggers) > 0
-	}
+	step.regeneratesOutputs = len(step.ReplaceTriggers) > 0
 	// A pending internal configuration means the read cannot run: there
 	// is nothing valid to hand the API client. The stored state stands
 	// in for the observed world, so drift goes unchecked this plan and
@@ -1437,29 +1412,6 @@ func (e *Executor) planOneResource(
 			step.Decision = DecisionNoOp
 		}
 		return step, nil
-	}
-	resolvedPriorInputs, err := e.resolveAssetMap(priorInputs)
-	if err != nil {
-		return nil, diagnostic.Context("prior inputs", err)
-	}
-	resolvedPriorOutputs, err := e.resolveAssetMap(migrated.Outputs)
-	if err != nil {
-		return nil, diagnostic.Context("prior outputs", err)
-	}
-	planResp, err := rt.ModifyResourcePlan(
-		probe,
-		e.configFor(n),
-		resolvedPriorInputs,
-		resolvedPriorOutputs,
-		true,
-	)
-	if err != nil {
-		blameLibrary(err, n.Alias)
-		return nil, err
-	}
-	if len(planResp.UnknownOutputs) > 0 {
-		step.unknownOutputs = maps.Clone(planResp.UnknownOutputs)
-		step.mayChangeOutputs = true
 	}
 	var priorReadBinding *state.Binding
 	if bindingChanged {
@@ -1581,6 +1533,7 @@ func finalizeResourceRead(pr *pendingRead) error {
 	}
 	if pr.step.Drift() {
 		pr.step.Decision = DecisionUpdate
+		pr.step.mayChangeOutputs = true
 		return nil
 	}
 	pr.step.Decision = DecisionNoOp

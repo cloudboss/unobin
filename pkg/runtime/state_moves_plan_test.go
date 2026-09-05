@@ -557,9 +557,26 @@ func (r *stateMoveUpdateFailureResource) Delete(
 	return nil
 }
 
-func (r *stateMoveUpdateFailureResource) ReplaceFields() []string { return nil }
-
-func (r *stateMoveUpdateFailureResource) SchemaVersion() int { return 1 }
+func stateMoveUpdateFailureResourceDefinition() ResourceDefinition[
+	stateMoveUpdateFailureResource,
+	*stateMoveUpdateFailureResourceOutput,
+	any,
+] {
+	return ResourceDefinition[
+		stateMoveUpdateFailureResource,
+		*stateMoveUpdateFailureResourceOutput,
+		any,
+	]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[
+			stateMoveUpdateFailureResource,
+			*stateMoveUpdateFailureResourceOutput,
+		]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+	}
+}
 
 func stateMoveUpdateFailureLibs() map[string]*Library {
 	libs := resourceModules(&resourceCounters{})
@@ -567,8 +584,13 @@ func stateMoveUpdateFailureLibs() map[string]*Library {
 		Name: "bad",
 		Resources: map[string]ResourceRegistration{
 			"thing": MakeResource[
-				stateMoveUpdateFailureResource, *stateMoveUpdateFailureResourceOutput, any,
-			](),
+
+				stateMoveUpdateFailureResource,
+				*stateMoveUpdateFailureResourceOutput,
+				any,
+			](
+				stateMoveUpdateFailureResourceDefinition(),
+			),
 		},
 	}
 	return libs

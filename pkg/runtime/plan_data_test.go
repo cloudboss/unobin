@@ -28,7 +28,19 @@ type trackedResourceOutput struct {
 	ID  string
 }
 
-func (r *trackedResource) SchemaVersion() int { return 1 }
+func trackedResourceDefinition() ResourceDefinition[
+	trackedResource,
+	*trackedResourceOutput,
+	any,
+] {
+	return ResourceDefinition[trackedResource, *trackedResourceOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[trackedResource, *trackedResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+	}
+}
 
 func (r *trackedResource) Create(_ context.Context, _ any) (*trackedResourceOutput, error) {
 	return &trackedResourceOutput{Tag: r.Tag, ID: "id-1"}, nil
@@ -54,7 +66,6 @@ func (r *trackedResource) Update(
 func (r *trackedResource) Delete(_ context.Context, _ any, _ *trackedResourceOutput) error {
 	return nil
 }
-func (r *trackedResource) ReplaceFields() []string { return nil }
 
 // dialDataSource returns whatever the test dialed in, suffixed with
 // the key, and counts reads so a test can pin when reads happen.
@@ -75,7 +86,9 @@ func dataPlanModules(value *string, reads *int64) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResource[trackedResource, *trackedResourceOutput, any](),
+				"thing": MakeResource[trackedResource, *trackedResourceOutput, any](
+					trackedResourceDefinition(),
+				),
 			},
 			DataSources: map[string]DataSourceRegistration{
 				"dial": MakeDataSourceWith[dialDataSource, any, any](
@@ -365,7 +378,19 @@ type versionedResourceOutput struct {
 	ID  string
 }
 
-func (r *versionedResource) SchemaVersion() int { return 1 }
+func versionedResourceDefinition() ResourceDefinition[
+	versionedResource,
+	*versionedResourceOutput,
+	any,
+] {
+	return ResourceDefinition[versionedResource, *versionedResourceOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[versionedResource, *versionedResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+	}
+}
 
 func (r *versionedResource) Create(_ context.Context, _ any) (*versionedResourceOutput, error) {
 	return &versionedResourceOutput{Tag: r.Tag, ID: "id-" + r.Tag}, nil
@@ -391,7 +416,6 @@ func (r *versionedResource) Update(
 func (r *versionedResource) Delete(_ context.Context, _ any, _ *versionedResourceOutput) error {
 	return nil
 }
-func (r *versionedResource) ReplaceFields() []string { return nil }
 
 // A data source reading a computed output of an updating resource
 // defers rather than reading the seeded prior value at plan. The
@@ -404,7 +428,9 @@ func TestDataDefersComputedOutputOfUpdatingResource(t *testing.T) {
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
 	libs["core"].Resources["versioned"] =
-		MakeResource[versionedResource, *versionedResourceOutput, any]()
+		MakeResource[versionedResource, *versionedResourceOutput, any](
+			versionedResourceDefinition(),
+		)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
@@ -416,8 +442,7 @@ func TestDataDefersComputedOutputOfUpdatingResource(t *testing.T) {
 	res := applyOnce(t, first)
 	require.Equal(t, "a:id-1", res.Outputs["v"])
 
-	// The id is a known prior output, so the read's input resolves at
-	// plan; it defers anyway because the resource it reads is updating.
+	// Updating the resource makes its id pending until apply.
 	second := &Executor{
 		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "2"},
@@ -428,7 +453,7 @@ func TestDataDefersComputedOutputOfUpdatingResource(t *testing.T) {
 	ds := findStep(t, plan, "data-source.cfg")
 	require.Nil(t, ds.ObservedOutputs,
 		"an updating upstream defers the read past the stale prior id")
-	require.Empty(t, ds.UnresolvedInputs)
+	require.Equal(t, []string{"resource.one.id"}, ds.UnresolvedInputs["key"])
 
 	res2, err := planAndApplyExisting(second, plan)
 	require.NoError(t, err)
@@ -445,7 +470,9 @@ func TestDataDefersWhenUpstreamResourceUpdated(t *testing.T) {
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
 	libs["core"].Resources["versioned"] =
-		MakeResource[versionedResource, *versionedResourceOutput, any]()
+		MakeResource[versionedResource, *versionedResourceOutput, any](
+			versionedResourceDefinition(),
+		)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
@@ -465,23 +492,23 @@ func TestDataDefersWhenUpstreamResourceUpdated(t *testing.T) {
 	require.Equal(t, DecisionRead, ds.Decision)
 	require.Nil(t, ds.ObservedOutputs,
 		"an updating upstream defers the read until apply")
+	require.Equal(t, []string{"resource.one.tag"}, ds.UnresolvedInputs["key"])
 
 	res, err := planAndApplyExisting(second, plan)
 	require.NoError(t, err)
 	require.Equal(t, "a:2", res.Outputs["v"])
 }
 
-// A resource reading a computed output of an updating upstream diffs
-// the seeded prior value at plan. When the update then changes that
-// output, the apply-time premise check refuses loudly and one re-plan
-// converges on the fresh value.
-func TestPremiseCheckCatchesChangedUpstreamOutput(t *testing.T) {
+// A resource reading an updating upstream waits for its fresh output.
+func TestUpdateMakesDownstreamMutableInputPending(t *testing.T) {
 	src := planDataFixture(t, "upstream-output-premise")
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
 	libs["core"].Resources["versioned"] =
-		MakeResource[versionedResource, *versionedResourceOutput, any]()
+		MakeResource[versionedResource, *versionedResourceOutput, any](
+			versionedResourceDefinition(),
+		)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
@@ -498,25 +525,22 @@ func TestPremiseCheckCatchesChangedUpstreamOutput(t *testing.T) {
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
 	step := findStep(t, plan, "resource.two")
-	require.Equal(t, DecisionNoOp, step.Decision)
-	require.Empty(t, step.UnresolvedInputs)
-	require.Equal(t, "id-1", step.Inputs["tag"])
+	require.Equal(t, DecisionUpdate, step.Decision)
+	require.Equal(t, []string{"resource.one.id"}, step.UnresolvedInputs["tag"])
 
 	_, err = planAndApplyExisting(second, plan)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "resource.two")
-	require.Contains(t, err.Error(), "inputs changed since the plan was computed; plan again")
-	require.Contains(t, err.Error(), `tag: "id-1" -> "id-2"`)
+	require.NoError(t, err)
+	snapshot, err := store.Current()
+	require.NoError(t, err)
+	require.Equal(t, "id-2", snapshot.Find("resource.two").Inputs["tag"])
 
-	// The update persisted before the failure, so a fresh plan diffs
-	// the downstream against the new id and converges.
 	third := &Executor{
 		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
 		Inputs: map[string]any{"t": "2"},
 	}
 	plan, err = third.Plan(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.two").Decision)
+	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.two").Decision)
 	res, err := planAndApplyExisting(third, plan)
 	require.NoError(t, err)
 	require.Equal(t, "id-2", res.Outputs["fed"])
@@ -531,7 +555,9 @@ func TestDataDefersWhenDependsOnTargetChanges(t *testing.T) {
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
 	libs["core"].Resources["versioned"] =
-		MakeResource[versionedResource, *versionedResourceOutput, any]()
+		MakeResource[versionedResource, *versionedResourceOutput, any](
+			versionedResourceDefinition(),
+		)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
@@ -578,7 +604,9 @@ func TestDataDefersWhenDependsOnCompositeChanges(t *testing.T) {
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
 	libs["core"].Resources["versioned"] =
-		MakeResource[versionedResource, *versionedResourceOutput, any]()
+		MakeResource[versionedResource, *versionedResourceOutput, any](
+			versionedResourceDefinition(),
+		)
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{

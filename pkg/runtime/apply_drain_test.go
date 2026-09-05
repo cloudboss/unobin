@@ -22,7 +22,23 @@ type drainTrackerResource struct {
 
 type drainTrackerResourceOutput struct{ Name string }
 
-func (r *drainTrackerResource) SchemaVersion() int { return 1 }
+func drainTrackerResourceDefinition() ResourceDefinition[
+	drainTrackerResource,
+	*drainTrackerResourceOutput,
+	any,
+] {
+	return ResourceDefinition[
+		drainTrackerResource,
+		*drainTrackerResourceOutput,
+		any,
+	]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[drainTrackerResource, *drainTrackerResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+	}
+}
 
 func (r *drainTrackerResource) Create(
 	ctx context.Context,
@@ -56,10 +72,11 @@ func (r *drainTrackerResource) Delete(
 ) error {
 	return nil
 }
-func (r *drainTrackerResource) ReplaceFields() []string { return nil }
 
 func drainTrackerRegistration(runs *atomic.Int64) ResourceRegistration {
 	return MakeResourceWith[drainTrackerResource, *drainTrackerResourceOutput, any](
+		drainTrackerResourceDefinition(),
+
 		func() *drainTrackerResource { return &drainTrackerResource{runs: runs} },
 	)
 }

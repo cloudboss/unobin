@@ -11,7 +11,7 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "unmappable",
 		Resources: map[string]runtime.ResourceRegistration{
-			"thing": runtime.MakeResource[Thing, *ThingOutput, any](),
+			"thing": runtime.MakeResource[Thing, *ThingOutput, any](ThingDefinition()),
 		},
 	}
 }
@@ -32,4 +32,12 @@ func (t *Thing) Update(_ context.Context, _ runtime.Prior[Thing, *ThingOutput]) 
 	return &ThingOutput{}, nil
 }
 func (t *Thing) Delete(_ context.Context, _ *ThingOutput) error { return nil }
-func (t *Thing) SchemaVersion() int                             { return 1 }
+func ThingDefinition() runtime.ResourceDefinition[Thing, *ThingOutput, any] {
+	return runtime.ResourceDefinition[Thing, *ThingOutput, any]{
+		SchemaVersion: 1,
+		Identity: runtime.ResourceIdentity[Thing, *ThingOutput]{
+			Version: 1,
+			Scope:   runtime.IdentityConfiguration,
+		},
+	}
+}

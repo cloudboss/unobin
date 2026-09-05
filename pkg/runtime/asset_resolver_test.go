@@ -253,8 +253,38 @@ type assetBoundaryResource struct {
 	recorder    *assetBoundaryRecorder
 }
 
-func (r *assetBoundaryResource) SchemaVersion() int {
-	return 1
+func assetBoundaryResourceDefinition(recorder *assetBoundaryRecorder) ResourceDefinition[
+	assetBoundaryResource,
+	*assetBoundaryOutput,
+	*assetBoundaryConfig,
+] {
+	return ResourceDefinition[
+		assetBoundaryResource,
+		*assetBoundaryOutput,
+		*assetBoundaryConfig,
+	]{
+		Validate: func(
+			_ context.Context, inputs assetBoundaryResource, config *assetBoundaryConfig,
+		) error {
+			if err := verifyAssetBoundaryValues(inputs.Path, inputs.Content, config); err != nil {
+				return err
+			}
+			recorder.add("resource-validate", inputs.Path)
+			return nil
+		},
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[assetBoundaryResource, *assetBoundaryOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+		Replacement: ReplacementRules[assetBoundaryResource, *assetBoundaryOutput]{
+			Inputs: []ReplacementRule[assetBoundaryResource]{
+				ReplaceWhenChanged(InputField(func(v *assetBoundaryResource) *string {
+					return &v.Replacement
+				})),
+			},
+		},
+	}
 }
 
 func (r *assetBoundaryResource) Create(
@@ -311,55 +341,6 @@ func (r *assetBoundaryResource) Delete(
 		return err
 	}
 	r.recorder.add("resource-delete", r.Path)
-	return nil
-}
-
-func (r *assetBoundaryResource) ReplaceFields() []string {
-	return []string{"replacement"}
-}
-
-func (r *assetBoundaryResource) ValidateInputs(
-	_ context.Context,
-	config *assetBoundaryConfig,
-) error {
-	if err := verifyAssetBoundaryValues(r.Path, r.Content, config); err != nil {
-		return err
-	}
-	r.recorder.add("resource-validate", r.Path)
-	return nil
-}
-
-func (r *assetBoundaryResource) EquivalentInput(
-	_ string,
-	prior, _ assetBoundaryResource,
-) bool {
-	if err := verifyAssetBoundaryInputs(prior.Path, prior.Content); err != nil {
-		r.recorder.add("resource-equivalent-invalid", err.Error())
-	} else {
-		r.recorder.add("resource-equivalent", prior.Path)
-	}
-	return false
-}
-
-func (r *assetBoundaryResource) ModifyResourcePlan(
-	req ResourcePlanRequest[
-		assetBoundaryResource,
-		*assetBoundaryOutput,
-		*assetBoundaryConfig,
-	],
-	_ *ResourcePlanResponse,
-) error {
-	if err := verifyAssetBoundaryValues(r.Path, r.Content, req.Config); err != nil {
-		return err
-	}
-	if err := verifyAssetBoundaryInputs(
-		req.PriorInputs.Path,
-		req.PriorInputs.Content,
-	); err != nil {
-		return fmt.Errorf("prior inputs: %w", err)
-	}
-	r.recorder.add("resource-modify-plan", r.Path)
-	r.recorder.add("resource-modify-plan-prior", req.PriorInputs.Path)
 	return nil
 }
 
@@ -538,9 +519,6 @@ func TestExecutorResolvesAssetReferencesForPriorAndLifecycleCalls(t *testing.T) 
 	require.NoError(t, err)
 	assertEncodedPlanOmitsAssetPayload(t, updatePlan, updatePlanRoot)
 	require.Equal(t, DecisionUpdate, decisionFor(updatePlan, "resource.item"))
-	assertAssetBoundaryRecordUnder(t, recorder, "resource-equivalent", updatePlanRoot)
-	assertAssetBoundaryRecordUnder(t, recorder, "resource-modify-plan", updatePlanRoot)
-	assertAssetBoundaryRecordUnder(t, recorder, "resource-modify-plan-prior", updatePlanRoot)
 	assertAssetBoundaryRecordUnder(t, recorder, "resource-read", updatePlanRoot)
 
 	updateApplyRoot := filepath.Join(t.TempDir(), "update-apply")
@@ -555,8 +533,6 @@ func TestExecutorResolvesAssetReferencesForPriorAndLifecycleCalls(t *testing.T) 
 	require.NoError(t, err)
 	assertEncodedPlanOmitsAssetPayload(t, replacePlan, replacePlanRoot)
 	require.Equal(t, DecisionReplace, decisionFor(replacePlan, "resource.item"))
-	assertAssetBoundaryRecordUnder(t, recorder, "resource-equivalent", replacePlanRoot)
-	assertAssetBoundaryRecordUnder(t, recorder, "resource-modify-plan", replacePlanRoot)
 	assertAssetBoundaryRecordUnder(t, recorder, "resource-read", replacePlanRoot)
 
 	replaceApplyRoot := filepath.Join(t.TempDir(), "replace-apply")
@@ -588,7 +564,6 @@ func TestExecutorResolvesAssetReferencesForPriorAndLifecycleCalls(t *testing.T) 
 	destroyApplyRoot := filepath.Join(t.TempDir(), "destroy-apply")
 	applyAssetBoundaryPlan(t, exec, destroyPlan, destroyApplyRoot)
 	assertAssetBoundaryRecordUnder(t, recorder, "resource-delete", destroyApplyRoot)
-	require.Empty(t, recorder.paths("resource-equivalent-invalid"))
 
 	snapshot, err = store.Current()
 	require.NoError(t, err)
@@ -696,12 +671,18 @@ func assetBoundaryLibrary(recorder *assetBoundaryRecorder) *Library {
 		},
 		Resources: map[string]ResourceRegistration{
 			"asset": MakeResourceWith[
+
 				assetBoundaryResource,
+
 				*assetBoundaryOutput,
+
 				*assetBoundaryConfig,
-			](func() *assetBoundaryResource {
-				return &assetBoundaryResource{recorder: recorder}
-			}),
+			](
+				assetBoundaryResourceDefinition(recorder),
+				func() *assetBoundaryResource {
+					return &assetBoundaryResource{recorder: recorder}
+				},
+			),
 		},
 		DataSources: map[string]DataSourceRegistration{
 			"asset": MakeDataSourceWith[

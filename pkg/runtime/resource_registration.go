@@ -7,10 +7,7 @@ import (
 
 type registeredResourcePtr[In, Out, Config any] interface {
 	*In
-	Create(context.Context, Config) (Out, error)
-	Read(context.Context, Config, Out) (Out, error)
-	Update(context.Context, Config, Prior[In, Out]) (Out, error)
-	Delete(context.Context, Config, Out) error
+	TypedResource[In, Out, Config]
 }
 
 type resourceRegistrationApplyRequest struct {
@@ -54,6 +51,16 @@ func newResourceDefinitionRegistration[
 	if err != nil {
 		return nil, fmt.Errorf("resource definition: %w", err)
 	}
+	return newResolvedResourceDefinitionRegistration[In, Out, Config, PT](resolved, construct), nil
+}
+
+func newResolvedResourceDefinitionRegistration[
+	In, Out, Config any,
+	PT registeredResourcePtr[In, Out, Config],
+](
+	resolved resolvedResourceDefinition[In, Out, Config],
+	construct func() *In,
+) *resourceDefinitionRegistration {
 	read := newResourceProviderRead[In, Out, Config, PT](construct)
 	create := newResourceProviderCreate[In, Out, Config, PT](construct)
 	update := newResourceProviderUpdate[In, Out, Config, PT](construct)
@@ -152,7 +159,7 @@ func newResourceDefinitionRegistration[
 			}
 			return deleteResource(ctx, decodedInputs, config, outputs)
 		},
-	}, nil
+	}
 }
 
 func (r *resourceDefinitionRegistration) needsDesiredConfigurationRead(

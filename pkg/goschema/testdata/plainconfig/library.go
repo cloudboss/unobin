@@ -37,6 +37,16 @@ type Bucket struct {
 	Name string
 }
 
+func BucketDefinition() runtime.ResourceDefinition[Bucket, *BucketOutput, *Configuration] {
+	return runtime.ResourceDefinition[Bucket, *BucketOutput, *Configuration]{
+		SchemaVersion: 1,
+		Identity: runtime.ResourceIdentity[Bucket, *BucketOutput]{
+			Version: 1,
+			Scope:   runtime.IdentityConfiguration,
+		},
+	}
+}
+
 type BucketOutput struct {
 	ID string
 }
@@ -51,7 +61,9 @@ func Library() *runtime.Library {
 			},
 		},
 		Resources: map[string]runtime.ResourceRegistration{
-			"bucket": runtime.MakeResource[Bucket, *BucketOutput, *Configuration](),
+			"bucket": runtime.MakeResource[Bucket, *BucketOutput, *Configuration](
+				BucketDefinition(),
+			),
 		},
 	}
 }

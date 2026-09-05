@@ -70,20 +70,42 @@ func ResourceFile(rs ResourceSchema, from string) ([]byte, error) {
 	}
 	b.WriteString("}\n\n")
 
-	fmt.Fprintf(&b, "func (r *%s) SchemaVersion() int { return 1 }\n\n", rs.GoName)
-
-	fmt.Fprintf(&b, "func (r *%s) ReplaceFields() []string {\n", rs.GoName)
-	if len(rs.CreateOnlyFields) > 0 {
-		b.WriteString("\treturn []string{\n")
-		for _, f := range rs.CreateOnlyFields {
-			tag := UBTag(f)
-			fmt.Fprintf(&b, "\t\t\"%s\",\n", tag)
+	fmt.Fprintf(&b, "func %sDefinition() runtime.ResourceDefinition[%s, *%s, any] {\n",
+		rs.GoName, rs.GoName, outName)
+	fmt.Fprintf(&b, "\treturn runtime.ResourceDefinition[%s, *%s, any]{\n", rs.GoName, outName)
+	b.WriteString("\t\tSchemaVersion: 1,\n")
+	fmt.Fprintf(&b, "\t\tIdentity: runtime.ResourceIdentity[%s, *%s]{\n", rs.GoName, outName)
+	b.WriteString("\t\t\tVersion: 1,\n\t\t\tScope: runtime.IdentityConfiguration,\n")
+	fmt.Fprintf(&b, "\t\t\tAddressInputs: []runtime.AnyInputField[%s]{\n", rs.GoName)
+	for _, field := range rs.InputFields {
+		if !slices.Contains(rs.PrimaryIdentifier, field.Name) {
+			continue
 		}
-		b.WriteString("\t}\n")
-	} else {
-		b.WriteString("\treturn nil\n")
+		typ := field.GoType
+		if !field.Required {
+			typ = PointerType(typ)
+		}
+		fmt.Fprintf(&b, "\t\t\t\truntime.InputField(func(v *%s) *%s { return &v.%s }),\n",
+			rs.GoName, typ, field.Name)
 	}
-	b.WriteString("}\n\n")
+	b.WriteString("\t\t\t},\n\t\t},\n")
+	fmt.Fprintf(&b, "\t\tReplacement: runtime.ReplacementRules[%s, *%s]{\n", rs.GoName, outName)
+	fmt.Fprintf(&b, "\t\t\tInputs: []runtime.ReplacementRule[%s]{\n", rs.GoName)
+	for _, field := range rs.InputFields {
+		if !slices.Contains(rs.CreateOnlyFields, field.Name) ||
+			slices.Contains(rs.PrimaryIdentifier, field.Name) {
+			continue
+		}
+		typ := field.GoType
+		if !field.Required {
+			typ = PointerType(typ)
+		}
+		fmt.Fprintf(&b,
+			"\t\t\t\truntime.ReplaceWhenChanged(runtime.InputField("+
+				"func(v *%s) *%s { return &v.%s })),\n",
+			rs.GoName, typ, field.Name)
+	}
+	b.WriteString("\t\t\t},\n\t\t},\n\t}\n}\n\n")
 
 	outPtr := "*" + outName
 	for _, op := range []struct {
@@ -231,8 +253,9 @@ func LibraryFile(
 		for _, rs := range resources {
 			typeKey := lang.PascalToKebab(rs.GoName)
 			fmt.Fprintf(&b,
-				"\t\t\t\"%s\": runtime.MakeResource[resources.%s, *resources.%sOutput, any](),\n",
-				typeKey, rs.GoName, rs.GoName)
+				"\t\t\t\"%s\": runtime.MakeResource[resources.%s, *resources.%sOutput, any](\n"+
+					"\t\t\t\tresources.%sDefinition(),\n\t\t\t),\n",
+				typeKey, rs.GoName, rs.GoName, rs.GoName)
 		}
 		b.WriteString("\t\t},\n")
 	}

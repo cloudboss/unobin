@@ -12,7 +12,9 @@ type resourceCatalogRegistration struct {
 
 func newResourceCatalogRegistration() *resourceCatalogRegistration {
 	return &resourceCatalogRegistration{
-		ResourceRegistration: MakeResource[plainResource, *plainResourceOutput, any](),
+		ResourceRegistration: MakeResource[plainResource, *plainResourceOutput, any](
+			plainResourceDefinition(),
+		),
 	}
 }
 

@@ -17,7 +17,7 @@ func Library() *runtime.Library {
 			New:         func() any { return &awscfg.Configuration{} },
 		},
 		Resources: map[string]runtime.ResourceRegistration{
-			"thing": runtime.MakeResource[Thing, *ThingOutput, any](),
+			"thing": runtime.MakeResource[Thing, *ThingOutput, any](ThingDefinition()),
 		},
 	}
 }
@@ -30,7 +30,15 @@ type ThingOutput struct {
 	ID string
 }
 
-func (t *Thing) SchemaVersion() int { return 1 }
+func ThingDefinition() runtime.ResourceDefinition[Thing, *ThingOutput, any] {
+	return runtime.ResourceDefinition[Thing, *ThingOutput, any]{
+		SchemaVersion: 1,
+		Identity: runtime.ResourceIdentity[Thing, *ThingOutput]{
+			Version: 1,
+			Scope:   runtime.IdentityConfiguration,
+		},
+	}
+}
 
 func (t *Thing) Create(_ context.Context, _ any) (*ThingOutput, error) {
 	return &ThingOutput{}, nil

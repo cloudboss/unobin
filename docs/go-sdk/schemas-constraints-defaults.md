@@ -92,5 +92,5 @@ Deep schema and constraint checks happen at compile time when the source and sel
 libraries are known. The compiled factory trusts those checks and decodes runtime
 values into the registered Go types.
 
-For checks that need live configuration or external state, a resource can also implement
-`runtime.InputValidator`; see [Resources](resources.md#apply-time-input-validation).
+For checks that need live configuration or external state, set `ResourceDefinition.Validate`;
+see [Resources](resources.md#apply-time-input-validation).

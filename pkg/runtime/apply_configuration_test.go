@@ -44,7 +44,20 @@ type echoResourceOutput struct {
 	ID    string
 }
 
-func (r *echoResource) SchemaVersion() int { return 1 }
+func echoResourceDefinition() ResourceDefinition[echoResource, *echoResourceOutput, any] {
+	return ResourceDefinition[echoResource, *echoResourceOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[echoResource, *echoResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+		Replacement: ReplacementRules[echoResource, *echoResourceOutput]{
+			Inputs: []ReplacementRule[echoResource]{
+				ReplaceWhenChanged(InputField(func(v *echoResource) *string { return &v.Value })),
+			},
+		},
+	}
+}
 func (r *echoResource) Create(_ context.Context, _ any) (*echoResourceOutput, error) {
 	return &echoResourceOutput{Value: r.Value, ID: "id-" + r.Value}, nil
 }
@@ -63,9 +76,6 @@ func (r *echoResource) Update(
 	return &echoResourceOutput{Value: r.Value, ID: "id-" + r.Value}, nil
 }
 func (r *echoResource) Delete(_ context.Context, _ any, _ *echoResourceOutput) error { return nil }
-func (r *echoResource) ReplaceFields() []string {
-	return []string{"value"}
-}
 
 type configEchoResource struct {
 	readSeen   *[]string
@@ -96,7 +106,19 @@ func endpointOf(c any) string {
 	}
 }
 
-func (r *configEchoResource) SchemaVersion() int { return 1 }
+func configEchoResourceDefinition() ResourceDefinition[
+	configEchoResource,
+	*configEchoResourceOutput,
+	any,
+] {
+	return ResourceDefinition[configEchoResource, *configEchoResourceOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[configEchoResource, *configEchoResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+	}
+}
 func (r *configEchoResource) Create(_ context.Context, c any) (*configEchoResourceOutput, error) {
 	return &configEchoResourceOutput{Endpoint: endpointOf(c)}, nil
 }
@@ -121,7 +143,6 @@ func (r *configEchoResource) Delete(_ context.Context, c any, _ *configEchoResou
 	}
 	return nil
 }
-func (r *configEchoResource) ReplaceFields() []string { return nil }
 
 func configuredLibraries() map[string]*Library {
 	return configuredLibrariesRecording(nil, nil)
@@ -243,7 +264,9 @@ func configuredLibrariesWithConfig(
 		"base": {
 			Name: "base",
 			Resources: map[string]ResourceRegistration{
-				"echo": MakeResource[echoResource, *echoResourceOutput, any](),
+				"echo": MakeResource[echoResource, *echoResourceOutput, any](
+					echoResourceDefinition(),
+				),
 			},
 		},
 		"fix": {
@@ -252,8 +275,12 @@ func configuredLibrariesWithConfig(
 				New: newConfig,
 			},
 			Resources: map[string]ResourceRegistration{
-				"echo": MakeResource[echoResource, *echoResourceOutput, any](),
+				"echo": MakeResource[echoResource, *echoResourceOutput, any](
+					echoResourceDefinition(),
+				),
 				"config-echo": MakeResourceWith[configEchoResource, *configEchoResourceOutput, any](
+					configEchoResourceDefinition(),
+
 					func() *configEchoResource {
 						return &configEchoResource{readSeen: readSeen, deleteSeen: deleteSeen}
 					},

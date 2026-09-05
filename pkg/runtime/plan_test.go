@@ -286,6 +286,8 @@ func planForwardRefConstraintErr(t *testing.T, specs []lang.ConstraintSpec, body
 	c := &resourceCounters{}
 	libs := resourceModules(c)
 	libs["core"].Resources["plain"] = MakeResourceWith[countingResource, *countingResourceOutput, any](
+		countingResourceDefinition(),
+
 		func() *countingResource { return &countingResource{counters: c} },
 	)
 	libs["core"].Constraints = map[string][]lang.ConstraintSpec{"resource.thing": specs}
@@ -1066,6 +1068,8 @@ func TestPlanMigratesPriorOutputsOnSchemaBump(t *testing.T) {
 				"thing": MakeResourceWith[
 					migratingCountingResource, *migratedCountingResourceOutput, any,
 				](
+					migratingCountingResourceDefinition(),
+
 					func() *migratingCountingResource {
 						return &migratingCountingResource{
 							counters: &c,
@@ -1122,6 +1126,8 @@ func TestPlanErrorsWhenSchemaBumpHasNoMigrate(t *testing.T) {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
 				"thing": MakeResourceWith[countingResourceV2, *countingResourceOutput, any](
+					countingResourceV2Definition(),
+
 					func() *countingResourceV2 {
 						return &countingResourceV2{
 							counters: &c,
@@ -1473,9 +1479,23 @@ func (p *pendingListResource) Delete(
 	return nil
 }
 
-func (p *pendingListResource) ReplaceFields() []string { return nil }
-
-func (p *pendingListResource) SchemaVersion() int { return 1 }
+func pendingListResourceDefinition() ResourceDefinition[
+	pendingListResource,
+	*pendingListResourceOutput,
+	any,
+] {
+	return ResourceDefinition[
+		pendingListResource,
+		*pendingListResourceOutput,
+		any,
+	]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[pendingListResource, *pendingListResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+	}
+}
 
 func pendingPlanLibraries(
 	counters *resourceCounters,
@@ -1484,6 +1504,8 @@ func pendingPlanLibraries(
 	libs := resourceModules(counters)
 	libs["core"].Resources["pending-list"] =
 		MakeResourceWith[pendingListResource, *pendingListResourceOutput, any](
+			pendingListResourceDefinition(),
+
 			func() *pendingListResource {
 				return &pendingListResource{received: received}
 			},

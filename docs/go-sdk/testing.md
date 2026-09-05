@@ -12,7 +12,7 @@ For resources, cover:
 - `Read` after create.
 - `Update` with prior inputs and outputs.
 - `Delete` when the external object exists and when it is already absent.
-- `ReplaceFields` and `SchemaVersion`.
+- Definition validation, typed replacement rules, and schema migrations.
 
 ## Registration tests
 

@@ -12,8 +12,6 @@ import (
 
 var errValidationFailed = errors.New("validation failed")
 
-var _ InputValidator[any] = (*validatingResource)(nil)
-
 type validationCounters struct {
 	creates     int64
 	updates     int64
@@ -34,14 +32,30 @@ type validatingResourceOutput struct {
 	Valid bool
 }
 
-func (r *validatingResource) SchemaVersion() int { return 1 }
-
-func (r *validatingResource) ValidateInputs(_ context.Context, _ any) error {
-	atomic.AddInt64(&r.counters.validations, 1)
-	if !r.Valid {
-		return errValidationFailed
+func validatingResourceDefinition(counters *validationCounters) ResourceDefinition[
+	validatingResource,
+	*validatingResourceOutput,
+	any,
+] {
+	return ResourceDefinition[validatingResource, *validatingResourceOutput, any]{
+		Validate: func(_ context.Context, inputs validatingResource, _ any) error {
+			atomic.AddInt64(&counters.validations, 1)
+			if !inputs.Valid {
+				return errValidationFailed
+			}
+			return nil
+		},
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[validatingResource, *validatingResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+		Replacement: ReplacementRules[validatingResource, *validatingResourceOutput]{
+			Inputs: []ReplacementRule[validatingResource]{
+				ReplaceWhenChanged(InputField(func(v *validatingResource) *string { return &v.Name })),
+			},
+		},
 	}
-	return nil
 }
 
 func (r *validatingResource) Create(_ context.Context, _ any) (*validatingResourceOutput, error) {
@@ -78,14 +92,13 @@ func (r *validatingResource) Delete(_ context.Context, _ any, _ *validatingResou
 	return nil
 }
 
-func (r *validatingResource) ReplaceFields() []string { return []string{"name"} }
-
 func validationModules(c *validationCounters) map[string]*Library {
 	return map[string]*Library{
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
 				"thing": MakeResourceWith[validatingResource, *validatingResourceOutput, any](
+					validatingResourceDefinition(c),
 					func() *validatingResource { return &validatingResource{counters: c} },
 				),
 			},
@@ -99,9 +112,11 @@ func bindingValidationModules(oldC, newC *validationCounters) map[string]*Librar
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
 				"old": MakeResourceWith[validatingResource, *validatingResourceOutput, any](
+					validatingResourceDefinition(oldC),
 					func() *validatingResource { return &validatingResource{counters: oldC} },
 				),
 				"new": MakeResourceWith[validatingResource, *validatingResourceOutput, any](
+					validatingResourceDefinition(newC),
 					func() *validatingResource { return &validatingResource{counters: newC} },
 				),
 			},
@@ -109,7 +124,7 @@ func bindingValidationModules(oldC, newC *validationCounters) map[string]*Librar
 	}
 }
 
-func TestInputValidatorPreventsCreate(t *testing.T) {
+func TestDefinitionValidationPreventsCreate(t *testing.T) {
 	var c validationCounters
 	store := newStateStore(t)
 	exec := validationExecutor(t, validationFixture(t, "create-invalid"), validationModules(&c), store)
@@ -120,7 +135,7 @@ func TestInputValidatorPreventsCreate(t *testing.T) {
 	require.EqualValues(t, 0, c.creates)
 }
 
-func TestInputValidatorPreventsUpdate(t *testing.T) {
+func TestDefinitionValidationPreventsUpdate(t *testing.T) {
 	var c validationCounters
 	store := newStateStore(t)
 	libs := validationModules(&c)
@@ -138,7 +153,7 @@ func TestInputValidatorPreventsUpdate(t *testing.T) {
 	require.EqualValues(t, 0, c.updates)
 }
 
-func TestInputValidatorRunsBeforeReplacementDelete(t *testing.T) {
+func TestDefinitionValidationRunsBeforeReplacementDelete(t *testing.T) {
 	var c validationCounters
 	store := newStateStore(t)
 	libs := validationModules(&c)
@@ -156,7 +171,7 @@ func TestInputValidatorRunsBeforeReplacementDelete(t *testing.T) {
 	require.EqualValues(t, 0, c.deletes)
 }
 
-func TestInputValidatorUsesDesiredReceiverBeforePriorBindingDelete(t *testing.T) {
+func TestDefinitionValidationUsesDesiredReceiverBeforePriorBindingDelete(t *testing.T) {
 	oldC := &validationCounters{}
 	newC := &validationCounters{}
 	store := newStateStore(t)
@@ -177,7 +192,7 @@ func TestInputValidatorUsesDesiredReceiverBeforePriorBindingDelete(t *testing.T)
 	require.EqualValues(t, 0, newC.creates)
 }
 
-func TestInputValidatorDoesNotRunForDestroy(t *testing.T) {
+func TestDefinitionValidationDoesNotRunForDestroy(t *testing.T) {
 	var c validationCounters
 	store := newStateStore(t)
 	seedIncrementalState(t, store, validationEntry("resource.one", "alpha", false))

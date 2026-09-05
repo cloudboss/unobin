@@ -14,7 +14,20 @@ type fakeResource struct {
 
 type fakeResourceOutput struct{ ID string }
 
-func (r *fakeResource) SchemaVersion() int { return 1 }
+func fakeResourceDefinition() ResourceDefinition[fakeResource, *fakeResourceOutput, any] {
+	return ResourceDefinition[fakeResource, *fakeResourceOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[fakeResource, *fakeResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+		Replacement: ReplacementRules[fakeResource, *fakeResourceOutput]{
+			Inputs: []ReplacementRule[fakeResource]{
+				ReplaceWhenChanged(InputField(func(v *fakeResource) *string { return &v.Name })),
+			},
+		},
+	}
+}
 
 func (r *fakeResource) Create(_ context.Context, _ any) (*fakeResourceOutput, error) {
 	return &fakeResourceOutput{ID: "fake-" + r.Name}, nil
@@ -41,8 +54,6 @@ func (r *fakeResource) Update(
 
 func (r *fakeResource) Delete(_ context.Context, _ any, _ *fakeResourceOutput) error { return nil }
 
-func (r *fakeResource) ReplaceFields() []string { return []string{"name"} }
-
 type fakeDataSource struct {
 	Key string
 }
@@ -64,6 +75,8 @@ func TestLibraryHoldsAllRegistrationKinds(t *testing.T) {
 		Name: "fake",
 		Resources: map[string]ResourceRegistration{
 			"thing": MakeResourceWith[fakeResource, *fakeResourceOutput, any](
+				fakeResourceDefinition(),
+
 				func() *fakeResource { return &fakeResource{Name: "x"} },
 			),
 		},
@@ -86,6 +99,8 @@ func TestLibraryHoldsAllRegistrationKinds(t *testing.T) {
 
 func TestResourceLifecycle(t *testing.T) {
 	rt := MakeResourceWith[fakeResource, *fakeResourceOutput, any](
+		fakeResourceDefinition(),
+
 		func() *fakeResource { return &fakeResource{Name: "alpha"} },
 	)
 	r := rt.NewReceiver()

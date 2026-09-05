@@ -11,15 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	_ InputEquivalencer[equivalentResource] = (*equivalentResource)(nil)
-	_ ResourcePlanModifier[
-		planModifierResource,
-		*planModifierOutput,
-		any,
-	] = (*planModifierResource)(nil)
-)
-
 type equivalentResource struct {
 	Name string
 	Size int64
@@ -31,7 +22,29 @@ type equivalentOutput struct {
 	Size int64
 }
 
-func (r *equivalentResource) SchemaVersion() int { return 1 }
+func equivalentResourceDefinition() ResourceDefinition[
+	equivalentResource,
+	*equivalentOutput,
+	any,
+] {
+	return ResourceDefinition[equivalentResource, *equivalentOutput, any]{
+		InputSemantics: InputSemantics[equivalentResource]{
+			Rules: []InputRule[equivalentResource]{
+				EqualBy(InputField(func(v *equivalentResource) *string { return &v.Name }), equivalentName),
+			},
+		},
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[equivalentResource, *equivalentOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+		Replacement: ReplacementRules[equivalentResource, *equivalentOutput]{
+			Inputs: []ReplacementRule[equivalentResource]{
+				ReplaceWhenChanged(InputField(func(v *equivalentResource) *string { return &v.Name })),
+			},
+		},
+	}
+}
 
 func (r *equivalentResource) Create(_ context.Context, _ any) (*equivalentOutput, error) {
 	return &equivalentOutput{ID: "equivalent-" + r.Name, Name: r.Name, Size: r.Size}, nil
@@ -58,76 +71,77 @@ func (r *equivalentResource) Delete(_ context.Context, _ any, _ *equivalentOutpu
 	return nil
 }
 
-func (r *equivalentResource) ReplaceFields() []string { return []string{"name"} }
-
-func (r *equivalentResource) EquivalentInput(
-	field string, prior, current equivalentResource,
-) bool {
-	if field != "name" {
-		return false
-	}
-	return equivalentName(prior.Name, current.Name)
-}
-
-type modifierCounters struct {
+type resourceDependencyCounters struct {
 	consumerUpdates int64
 	consumerRef     atomic.Value
 }
 
-type planModifierResource struct {
+type versionOutputResource struct {
 	Value string
 }
 
-type planModifierOutput struct {
+type versionOutput struct {
 	Version string
 }
 
-func (r *planModifierResource) SchemaVersion() int { return 1 }
-
-func (r *planModifierResource) Create(_ context.Context, _ any) (*planModifierOutput, error) {
-	return &planModifierOutput{Version: "version-" + r.Value}, nil
+func versionOutputResourceDefinition() ResourceDefinition[
+	versionOutputResource,
+	*versionOutput,
+	any,
+] {
+	return ResourceDefinition[versionOutputResource, *versionOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[versionOutputResource, *versionOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+	}
 }
 
-func (r *planModifierResource) Read(
-	_ context.Context, _ any, prior *planModifierOutput,
-) (*planModifierOutput, error) {
+func (r *versionOutputResource) Create(_ context.Context, _ any) (*versionOutput, error) {
+	return &versionOutput{Version: "version-" + r.Value}, nil
+}
+
+func (r *versionOutputResource) Read(
+	_ context.Context, _ any, prior *versionOutput,
+) (*versionOutput, error) {
 	if prior == nil {
 		return nil, ErrNotFound
 	}
 	return prior, nil
 }
 
-func (r *planModifierResource) Update(
-	_ context.Context, _ any, _ Prior[planModifierResource, *planModifierOutput],
-) (*planModifierOutput, error) {
-	return &planModifierOutput{Version: "version-" + r.Value}, nil
+func (r *versionOutputResource) Update(
+	_ context.Context, _ any, _ Prior[versionOutputResource, *versionOutput],
+) (*versionOutput, error) {
+	return &versionOutput{Version: "version-" + r.Value}, nil
 }
 
-func (r *planModifierResource) Delete(_ context.Context, _ any, _ *planModifierOutput) error {
-	return nil
-}
-
-func (r *planModifierResource) ReplaceFields() []string { return nil }
-
-func (r *planModifierResource) ModifyResourcePlan(
-	req ResourcePlanRequest[planModifierResource, *planModifierOutput, any],
-	resp *ResourcePlanResponse,
-) error {
-	if req.HasPriorState && Changed(req.PriorInputs.Value, req.CurrentInputs.Value) {
-		resp.MarkOutputUnknown("version")
-	}
+func (r *versionOutputResource) Delete(_ context.Context, _ any, _ *versionOutput) error {
 	return nil
 }
 
 type versionConsumer struct {
 	Ref string
 
-	counters *modifierCounters
+	counters *resourceDependencyCounters
 }
 
 type versionConsumerOutput struct{ Ref string }
 
-func (r *versionConsumer) SchemaVersion() int { return 1 }
+func versionConsumerDefinition() ResourceDefinition[
+	versionConsumer,
+	*versionConsumerOutput,
+	any,
+] {
+	return ResourceDefinition[versionConsumer, *versionConsumerOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[versionConsumer, *versionConsumerOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+	}
+}
 
 func (r *versionConsumer) Create(_ context.Context, _ any) (*versionConsumerOutput, error) {
 	r.counters.consumerRef.Store(r.Ref)
@@ -157,9 +171,7 @@ func (r *versionConsumer) Delete(_ context.Context, _ any, _ *versionConsumerOut
 	return nil
 }
 
-func (r *versionConsumer) ReplaceFields() []string { return nil }
-
-func TestInputEquivalencerSuppressesReplace(t *testing.T) {
+func TestInputEqualitySuppressesReplace(t *testing.T) {
 	store := newStateStore(t)
 	libs := resourcePlanModules(nil)
 	applyOnce(t, resourcePlanExecutor(t, resourcePlanFixture(t, "equivalent-initial"), libs, store))
@@ -170,7 +182,7 @@ func TestInputEquivalencerSuppressesReplace(t *testing.T) {
 	require.Empty(t, step.ReplaceTriggers)
 }
 
-func TestInputEquivalencerNoOpPersistsDesiredInputs(t *testing.T) {
+func TestInputEqualityNoOpPersistsDesiredInputs(t *testing.T) {
 	store := newStateStore(t)
 	libs := resourcePlanModules(nil)
 	initial := resourcePlanExecutor(
@@ -192,7 +204,7 @@ func TestInputEquivalencerNoOpPersistsDesiredInputs(t *testing.T) {
 	require.Equal(t, "alpha", snapshot.Find("resource.one").Inputs["name"])
 }
 
-func TestInputEquivalencerKeepsMutableChangeAsUpdate(t *testing.T) {
+func TestInputEqualityKeepsMutableChangeAsUpdate(t *testing.T) {
 	store := newStateStore(t)
 	libs := resourcePlanModules(nil)
 	applyOnce(t, resourcePlanExecutor(t, resourcePlanFixture(t, "equivalent-initial"), libs, store))
@@ -203,7 +215,7 @@ func TestInputEquivalencerKeepsMutableChangeAsUpdate(t *testing.T) {
 	require.Empty(t, step.ReplaceTriggers)
 }
 
-func TestInputEquivalencerDoesNotApplyToApplyPremise(t *testing.T) {
+func TestInputEqualityDoesNotApplyToApplyPremise(t *testing.T) {
 	store := newStateStore(t)
 	libs := resourcePlanModules(nil)
 	src := resourcePlanFixture(t, "equivalent-input")
@@ -222,8 +234,8 @@ func TestInputEquivalencerDoesNotApplyToApplyPremise(t *testing.T) {
 	require.ErrorContains(t, err, "inputs changed since the plan was computed")
 }
 
-func TestResourcePlanModifierMarksOutputUnknown(t *testing.T) {
-	counters := &modifierCounters{}
+func TestResourceUpdateMarksOutputPending(t *testing.T) {
+	counters := &resourceDependencyCounters{}
 	store := newStateStore(t)
 	libs := resourcePlanModules(counters)
 	src := resourcePlanFixture(t, "unknown-output")
@@ -247,14 +259,20 @@ func TestResourcePlanModifierMarksOutputUnknown(t *testing.T) {
 	require.Equal(t, "version-two", counters.consumerRef.Load())
 }
 
-func resourcePlanModules(counters *modifierCounters) map[string]*Library {
+func resourcePlanModules(counters *resourceDependencyCounters) map[string]*Library {
 	return map[string]*Library{
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"equivalent": MakeResource[equivalentResource, *equivalentOutput, any](),
-				"versioned":  MakeResource[planModifierResource, *planModifierOutput, any](),
+				"equivalent": MakeResource[equivalentResource, *equivalentOutput, any](
+					equivalentResourceDefinition(),
+				),
+				"versioned": MakeResource[versionOutputResource, *versionOutput, any](
+					versionOutputResourceDefinition(),
+				),
 				"consumer": MakeResourceWith[versionConsumer, *versionConsumerOutput, any](
+					versionConsumerDefinition(),
+
 					func() *versionConsumer {
 						return &versionConsumer{counters: counters}
 					},

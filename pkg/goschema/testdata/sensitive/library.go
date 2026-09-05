@@ -10,7 +10,7 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "sensitive",
 		Resources: map[string]runtime.ResourceRegistration{
-			"secret": runtime.MakeResource[Secret, *SecretOutput, any](),
+			"secret": runtime.MakeResource[Secret, *SecretOutput, any](SecretDefinition()),
 		},
 	}
 }
@@ -25,7 +25,15 @@ type SecretOutput struct {
 	Value string `ub:",sensitive"`
 }
 
-func (s *Secret) SchemaVersion() int { return 1 }
+func SecretDefinition() runtime.ResourceDefinition[Secret, *SecretOutput, any] {
+	return runtime.ResourceDefinition[Secret, *SecretOutput, any]{
+		SchemaVersion: 1,
+		Identity: runtime.ResourceIdentity[Secret, *SecretOutput]{
+			Version: 1,
+			Scope:   runtime.IdentityConfiguration,
+		},
+	}
+}
 
 func (s *Secret) Create(_ context.Context, _ any) (*SecretOutput, error) {
 	return nil, nil

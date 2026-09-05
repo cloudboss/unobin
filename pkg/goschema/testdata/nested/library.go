@@ -11,7 +11,7 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "nested",
 		Resources: map[string]runtime.ResourceRegistration{
-			"db": runtime.MakeResource[DB, *DBOutput, any](),
+			"db": runtime.MakeResource[DB, *DBOutput, any](DBDefinition()),
 		},
 	}
 }
@@ -84,4 +84,12 @@ func (d *DB) Update(_ context.Context, _ runtime.Prior[DB, *DBOutput]) (*DBOutpu
 	return &DBOutput{}, nil
 }
 func (d *DB) Delete(_ context.Context, _ *DBOutput) error { return nil }
-func (d *DB) SchemaVersion() int                          { return 1 }
+func DBDefinition() runtime.ResourceDefinition[DB, *DBOutput, any] {
+	return runtime.ResourceDefinition[DB, *DBOutput, any]{
+		SchemaVersion: 1,
+		Identity: runtime.ResourceIdentity[DB, *DBOutput]{
+			Version: 1,
+			Scope:   runtime.IdentityConfiguration,
+		},
+	}
+}

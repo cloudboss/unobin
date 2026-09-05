@@ -26,7 +26,9 @@ func Library() *runtime.Library {
 		Name:        "deploy",
 		Description: "Demonstrates Go-declared constraints by rendering a service spec to a file.",
 		Resources: map[string]runtime.ResourceRegistration{
-			"service": runtime.MakeResource[Service, *ServiceOutput, any](),
+			"service": runtime.MakeResource[Service, *ServiceOutput, any](
+				ServiceDefinition(),
+			),
 		},
 	}
 }
@@ -80,8 +82,18 @@ type ServiceOutput struct {
 	Size   int64
 }
 
-func (s *Service) SchemaVersion() int      { return 1 }
-func (s *Service) ReplaceFields() []string { return []string{"path"} }
+func ServiceDefinition() runtime.ResourceDefinition[Service, *ServiceOutput, any] {
+	return runtime.ResourceDefinition[Service, *ServiceOutput, any]{
+		SchemaVersion: 1,
+		Identity: runtime.ResourceIdentity[Service, *ServiceOutput]{
+			Version: 1,
+			Scope:   runtime.IdentityConfiguration,
+			AddressInputs: []runtime.AnyInputField[Service]{
+				runtime.InputField(func(v *Service) *string { return &v.Path }),
+			},
+		},
+	}
+}
 
 func (s *Service) Create(_ context.Context, _ any) (*ServiceOutput, error) {
 	return s.write()

@@ -242,9 +242,24 @@ func (r *profileResource) Delete(_ context.Context, _ any, _ *profileResourceOut
 	return nil
 }
 
-func (r *profileResource) ReplaceFields() []string { return []string{"name"} }
-
-func (r *profileResource) SchemaVersion() int { return 1 }
+func profileResourceDefinition() ResourceDefinition[
+	profileResource,
+	*profileResourceOutput,
+	any,
+] {
+	return ResourceDefinition[profileResource, *profileResourceOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[profileResource, *profileResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+		Replacement: ReplacementRules[profileResource, *profileResourceOutput]{
+			Inputs: []ReplacementRule[profileResource]{
+				ReplaceWhenChanged(InputField(func(v *profileResource) *string { return &v.Name })),
+			},
+		},
+	}
+}
 
 func profileOutput(r *profileResource) *profileResourceOutput {
 	out := &profileResourceOutput{ID: "fake-" + r.Name, Name: r.Name}
@@ -266,6 +281,8 @@ func nullableDefaultExecutor(
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
 				"profile": MakeResourceWith[profileResource, *profileResourceOutput, any](
+					profileResourceDefinition(),
+
 					func() *profileResource { return &profileResource{capture: capture} },
 				),
 			},

@@ -15,6 +15,6 @@ factory: {
   library-configs: { e2e: input.e2e-config }
 
   resources: {
-    one: e2e.object { name: 'x', body: { args: ['echo', verbose] } }
+    one: e2e.object { name: 'x', body: {}, subnet-ids: ['echo', verbose] }
   }
 }

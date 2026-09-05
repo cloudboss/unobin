@@ -21,7 +21,9 @@ func TestForEachCompositeCallingComposite(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"subnet": MakeResource[subnetLike, *subnetLikeOutput, any](),
+				"subnet": MakeResource[subnetLike, *subnetLikeOutput, any](
+					subnetLikeDefinition(),
+				),
 			},
 		},
 		"w": {
@@ -82,7 +84,9 @@ func TestForEachCompositeCallingDataComposite(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"subnet": MakeResource[subnetLike, *subnetLikeOutput, any](),
+				"subnet": MakeResource[subnetLike, *subnetLikeOutput, any](
+					subnetLikeDefinition(),
+				),
 			},
 		},
 		"w": {

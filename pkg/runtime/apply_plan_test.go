@@ -80,9 +80,15 @@ func (r *orderResource) Delete(_ context.Context, _ any, _ *orderResourceOutput)
 	return nil
 }
 
-func (r *orderResource) ReplaceFields() []string { return nil }
-
-func (r *orderResource) SchemaVersion() int { return 1 }
+func orderResourceDefinition() ResourceDefinition[orderResource, *orderResourceOutput, any] {
+	return ResourceDefinition[orderResource, *orderResourceOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[orderResource, *orderResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+	}
+}
 
 func orderModules(rec *deleteOrder) map[string]*Library {
 	return map[string]*Library{
@@ -90,6 +96,8 @@ func orderModules(rec *deleteOrder) map[string]*Library {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
 				"thing": MakeResourceWith[orderResource, *orderResourceOutput, any](
+					orderResourceDefinition(),
+
 					func() *orderResource { return &orderResource{rec: rec} },
 				),
 			},
@@ -103,9 +111,13 @@ func bindingChangeModules(oldC, newC *resourceCounters) map[string]*Library {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
 				"old": MakeResourceWith[countingResource, *countingResourceOutput, any](
+					countingResourceDefinition(),
+
 					func() *countingResource { return &countingResource{counters: oldC} },
 				),
 				"new": MakeResourceWith[countingResource, *countingResourceOutput, any](
+					countingResourceDefinition(),
+
 					func() *countingResource { return &countingResource{counters: newC} },
 				),
 			},
@@ -120,6 +132,8 @@ func aliasChangeModules(oldC, newC *resourceCounters) map[string]*Library {
 			Name: "old",
 			Resources: map[string]ResourceRegistration{
 				"thing": MakeResourceWith[countingResource, *countingResourceOutput, any](
+					countingResourceDefinition(),
+
 					func() *countingResource { return &countingResource{counters: oldC} },
 				),
 			},
@@ -128,6 +142,8 @@ func aliasChangeModules(oldC, newC *resourceCounters) map[string]*Library {
 			Name: "new",
 			Resources: map[string]ResourceRegistration{
 				"thing": MakeResourceWith[countingResource, *countingResourceOutput, any](
+					countingResourceDefinition(),
+
 					func() *countingResource { return &countingResource{counters: newC} },
 				),
 			},
@@ -429,9 +445,15 @@ func (r *cfgResource) Delete(_ context.Context, cfg any, _ *cfgResourceOutput) e
 	return nil
 }
 
-func (r *cfgResource) ReplaceFields() []string { return nil }
-
-func (r *cfgResource) SchemaVersion() int { return 1 }
+func cfgResourceDefinition() ResourceDefinition[cfgResource, *cfgResourceOutput, any] {
+	return ResourceDefinition[cfgResource, *cfgResourceOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[cfgResource, *cfgResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+	}
+}
 
 func cfgCapturingModules(capture *cfgCapture) map[string]*Library {
 	return map[string]*Library{
@@ -442,6 +464,8 @@ func cfgCapturingModules(capture *cfgCapture) map[string]*Library {
 			},
 			Resources: map[string]ResourceRegistration{
 				"thing": MakeResourceWith[cfgResource, *cfgResourceOutput, any](
+					cfgResourceDefinition(),
+
 					func() *cfgResource { return &cfgResource{capture: capture} },
 				),
 			},
@@ -540,11 +564,28 @@ func (r *incrementalResource) Delete(
 	return nil
 }
 
-func (r *incrementalResource) ReplaceFields() []string {
-	return []string{"name"}
+func incrementalResourceDefinition() ResourceDefinition[
+	incrementalResource,
+	*incrementalResourceOutput,
+	any,
+] {
+	return ResourceDefinition[
+		incrementalResource,
+		*incrementalResourceOutput,
+		any,
+	]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[incrementalResource, *incrementalResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+		Replacement: ReplacementRules[incrementalResource, *incrementalResourceOutput]{
+			Inputs: []ReplacementRule[incrementalResource]{
+				ReplaceWhenChanged(InputField(func(v *incrementalResource) *string { return &v.Name })),
+			},
+		},
+	}
 }
-
-func (r *incrementalResource) SchemaVersion() int { return 1 }
 
 func incrementalModules(c *incrementalResourceCounters) map[string]*Library {
 	return map[string]*Library{
@@ -552,6 +593,8 @@ func incrementalModules(c *incrementalResourceCounters) map[string]*Library {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
 				"inc": MakeResourceWith[incrementalResource, *incrementalResourceOutput, any](
+					incrementalResourceDefinition(),
+
 					func() *incrementalResource {
 						return &incrementalResource{counters: c}
 					},
@@ -758,6 +801,8 @@ func TestDestroyRemovesActionWithoutRunningIt(t *testing.T) {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
 				"thing": MakeResourceWith[orderResource, *orderResourceOutput, any](
+					orderResourceDefinition(),
+
 					func() *orderResource { return &orderResource{rec: rec} },
 				),
 			},
@@ -1552,6 +1597,8 @@ func TestActionRerunsWhenTriggerSourceChanges(t *testing.T) {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
 				"thing": MakeResourceWith[countingResource, *countingResourceOutput, any](
+					countingResourceDefinition(),
+
 					func() *countingResource {
 						return &countingResource{counters: &resCounters}
 					},
@@ -1589,7 +1636,7 @@ func TestActionRerunsWhenTriggerSourceChanges(t *testing.T) {
 	require.Equal(t, int64(1), atomic.LoadInt64(&actionRuns),
 		"action should skip on the second run when upstream is unchanged")
 
-	// Third run with the resource's name changed: ReplaceFields=["name"]
+	// Third run changes the name selected by the replacement rule
 	// triggers a replace, which the action treats as a rerun signal.
 	planAndApply(src("beta"))
 	require.Equal(t, int64(2), atomic.LoadInt64(&actionRuns),

@@ -16,7 +16,20 @@ type fakeVpcOutput struct {
 	ID string
 }
 
-func (v *fakeVpc) SchemaVersion() int { return 1 }
+func fakeVpcDefinition() ResourceDefinition[fakeVpc, *fakeVpcOutput, any] {
+	return ResourceDefinition[fakeVpc, *fakeVpcOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[fakeVpc, *fakeVpcOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+		Replacement: ReplacementRules[fakeVpc, *fakeVpcOutput]{
+			Inputs: []ReplacementRule[fakeVpc]{
+				ReplaceWhenChanged(InputField(func(v *fakeVpc) *string { return &v.CidrBlock })),
+			},
+		},
+	}
+}
 
 func (v *fakeVpc) Create(_ context.Context, _ any) (*fakeVpcOutput, error) {
 	return &fakeVpcOutput{ID: "vpc-" + v.CidrBlock}, nil
@@ -36,10 +49,8 @@ func (v *fakeVpc) Delete(_ context.Context, _ any, _ *fakeVpcOutput) error {
 	return nil
 }
 
-func (v *fakeVpc) ReplaceFields() []string { return []string{"cidr-block"} }
-
 func TestMakeResourceProducesWorkingRegistration(t *testing.T) {
-	reg := MakeResource[fakeVpc, *fakeVpcOutput, any]()
+	reg := MakeResource[fakeVpc, *fakeVpcOutput, any](fakeVpcDefinition())
 	require.Equal(t, 1, reg.SchemaVersion())
 
 	receiver := reg.NewReceiver()
@@ -59,12 +70,18 @@ func TestMakeResourceProducesWorkingRegistration(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, out, readBack)
 
-	require.Equal(t, []string{"cidr-block"}, reg.ReplaceFields(receiver))
+	reasons, changed, err := reg.compareResourceInputs(
+		map[string]any{"cidr-block": "10.0.0.0/8"},
+		map[string]any{"cidr-block": "10.0.0.0/16"},
+	)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, []string{"input:cidr-block"}, reasons)
 	require.Equal(t, reflect.TypeFor[*fakeVpcOutput](), reg.OutputType())
 }
 
-func TestResourceMigrateErrorsWhenNoMigratorImplemented(t *testing.T) {
-	reg := MakeResource[fakeVpc, *fakeVpcOutput, any]()
+func TestResourceMigrateErrorsWithoutCallback(t *testing.T) {
+	reg := MakeResource[fakeVpc, *fakeVpcOutput, any](fakeVpcDefinition())
 	_, err := reg.Migrate(0, MigrationState{Outputs: map[string]any{"old": "state"}})
 	require.Error(t, err)
 }
@@ -73,28 +90,48 @@ type migratingVpc struct {
 	fakeVpc
 }
 
+func migratingVpcDefinition() ResourceDefinition[migratingVpc, *fakeVpcOutput, any] {
+	return ResourceDefinition[migratingVpc, *fakeVpcOutput, any]{
+		Migrate:       migrateVpc,
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[migratingVpc, *fakeVpcOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+	}
+}
+
 func (v *migratingVpc) Update(
 	ctx context.Context, cfg any, _ Prior[migratingVpc, *fakeVpcOutput],
 ) (*fakeVpcOutput, error) {
 	return v.Create(ctx, cfg)
 }
 
-func (v *migratingVpc) Migrate(old int, prior MigrationState) (MigrationState, error) {
-	prior.Inputs["migrated-from-version"] = old
-	prior.Outputs["migrated-from-version"] = old
-	return prior, nil
+func migrateVpc(old int, prior ResourceMigrationState) (ResourceMigrationState, error) {
+	inputs, _ := prior.Inputs.ObjectFields()
+	outputs, _ := prior.Outputs.ObjectFields()
+	inputs["migrated-from-version"] = IntegerValue(int64(old))
+	outputs["migrated-from-version"] = IntegerValue(int64(old))
+	inputValue, err := ObjectValue(inputs)
+	if err != nil {
+		return ResourceMigrationState{}, err
+	}
+	outputValue, err := ObjectValue(outputs)
+	return ResourceMigrationState{Inputs: inputValue, Outputs: outputValue}, err
 }
 
-func TestResourceMigrateCallsMigratorWhenImplemented(t *testing.T) {
-	reg := MakeResource[migratingVpc, *fakeVpcOutput, any]()
+func TestResourceMigrateCallsDefinitionCallback(t *testing.T) {
+	reg := MakeResource[migratingVpc, *fakeVpcOutput, any](
+		migratingVpcDefinition(),
+	)
 	out, err := reg.Migrate(0, MigrationState{
 		Inputs:  map[string]any{"cidr-block": "10.0.0.0/8"},
 		Outputs: map[string]any{"original": "value"},
 	})
 	require.NoError(t, err)
-	require.Equal(t, 0, out.Inputs["migrated-from-version"])
+	require.Equal(t, int64(0), out.Inputs["migrated-from-version"])
 	require.Equal(t, "10.0.0.0/8", out.Inputs["cidr-block"])
-	require.Equal(t, 0, out.Outputs["migrated-from-version"])
+	require.Equal(t, int64(0), out.Outputs["migrated-from-version"])
 	require.Equal(t, "value", out.Outputs["original"])
 }
 
@@ -105,7 +142,15 @@ type capturingVpc struct {
 	gotPrior  *Prior[capturingVpc, *fakeVpcOutput]
 }
 
-func (v *capturingVpc) SchemaVersion() int { return 1 }
+func capturingVpcDefinition() ResourceDefinition[capturingVpc, *fakeVpcOutput, any] {
+	return ResourceDefinition[capturingVpc, *fakeVpcOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[capturingVpc, *fakeVpcOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+	}
+}
 
 func (v *capturingVpc) Create(_ context.Context, _ any) (*fakeVpcOutput, error) {
 	return &fakeVpcOutput{ID: "vpc-" + v.CidrBlock}, nil
@@ -125,8 +170,6 @@ func (v *capturingVpc) Update(
 }
 
 func (v *capturingVpc) Delete(_ context.Context, _ any, _ *fakeVpcOutput) error { return nil }
-
-func (v *capturingVpc) ReplaceFields() []string { return nil }
 
 type typedFakeAction struct {
 	Argv []string
@@ -230,7 +273,9 @@ func TestUpdateReceivesPriorInputsOutputsAndObserved(t *testing.T) {
 	// prior outputs, and the plan-time observed outputs the runtime hands
 	// it, all arriving as state maps. Outputs is the recorded handle;
 	// Observed is what the plan-time Read saw, which can differ under drift.
-	reg := MakeResource[capturingVpc, *fakeVpcOutput, any]()
+	reg := MakeResource[capturingVpc, *fakeVpcOutput, any](
+		capturingVpcDefinition(),
+	)
 	receiver := &capturingVpc{CidrBlock: "10.0.0.0/16"}
 	_, err := reg.Update(context.Background(), receiver, nil,
 		map[string]any{"cidr-block": "10.0.0.0/8"},
@@ -246,7 +291,9 @@ func TestUpdateReceivesPriorInputsOutputsAndObserved(t *testing.T) {
 func TestUpdatePassesNilObservedAsZero(t *testing.T) {
 	// A resource with no plan-time read (or a nil observed map) gets the
 	// zero Out, the same nil-pointer convention Outputs uses.
-	reg := MakeResource[capturingVpc, *fakeVpcOutput, any]()
+	reg := MakeResource[capturingVpc, *fakeVpcOutput, any](
+		capturingVpcDefinition(),
+	)
 	receiver := &capturingVpc{CidrBlock: "10.0.0.0/16"}
 	_, err := reg.Update(context.Background(), receiver, nil,
 		map[string]any{"cidr-block": "10.0.0.0/8"}, map[string]any{"id": "vpc-old"}, nil)
@@ -282,7 +329,7 @@ func TestChanged(t *testing.T) {
 func TestReadAcceptsStateMapPrior(t *testing.T) {
 	// State on disk is JSON-decoded, so typed Read is called with the
 	// map[string]any prior.
-	reg := MakeResource[fakeVpc, *fakeVpcOutput, any]()
+	reg := MakeResource[fakeVpc, *fakeVpcOutput, any](fakeVpcDefinition())
 	receiver := reg.NewReceiver()
 	prior := map[string]any{"id": "vpc-abc"}
 	out, err := reg.Read(context.Background(), receiver, nil, prior)
@@ -293,7 +340,7 @@ func TestReadAcceptsStateMapPrior(t *testing.T) {
 func TestReadReturnsErrorOnUndecodableStateMap(t *testing.T) {
 	// A corrupt prior state entry is reported as a Read error rather
 	// than a panic out of the registration.
-	reg := MakeResource[fakeVpc, *fakeVpcOutput, any]()
+	reg := MakeResource[fakeVpc, *fakeVpcOutput, any](fakeVpcDefinition())
 	receiver := reg.NewReceiver()
 	prior := map[string]any{"unknown-field": "x"}
 	_, err := reg.Read(context.Background(), receiver, nil, prior)

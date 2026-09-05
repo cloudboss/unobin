@@ -45,75 +45,15 @@ type NoConfig struct{}
 
 // TypedResource is the typed contract a library author implements for
 // one primitive resource type. In names the input struct, which is the
-// method receiver; Out names the output struct, usually a pointer (e.g.
-// *VpcOutput) so a "no prior state" call passes nil. Config names the
+// method receiver; Out must be a pointer to an output struct (e.g.
+// *VpcOutput) so a call without prior state passes nil. Config names the
 // decoded library config type. Update receives a Prior bundling the
 // last apply's inputs and outputs.
 type TypedResource[In, Out, Config any] interface {
-	SchemaVersion() int
 	Create(ctx context.Context, config Config) (Out, error)
 	Read(ctx context.Context, config Config, prior Out) (Out, error)
 	Update(ctx context.Context, config Config, prior Prior[In, Out]) (Out, error)
 	Delete(ctx context.Context, config Config, prior Out) error
-	ReplaceFields() []string
-}
-
-// InputValidator is an optional resource interface for checks that run
-// after desired inputs are decoded and before create, update, or replacement
-// work starts. It is not called for no-op or destroy steps.
-type InputValidator[Config any] interface {
-	ValidateInputs(ctx context.Context, config Config) error
-}
-
-// InputEquivalencer is an optional resource interface for treating a
-// changed input field as equivalent to its prior value. field is the UB
-// field name from the resource body. An equivalent field does not count
-// as an input change or a replace trigger.
-type InputEquivalencer[In any] interface {
-	EquivalentInput(field string, prior, current In) bool
-}
-
-// ResourcePlanModifier is an optional resource interface for adjusting
-// a resource's plan after inputs decode and before its read result is
-// finalized. The runtime calls it for resources with prior state when
-// their library config is available.
-type ResourcePlanModifier[In, Out, Config any] interface {
-	ModifyResourcePlan(req ResourcePlanRequest[In, Out, Config], resp *ResourcePlanResponse) error
-}
-
-// ResourcePlanRequest is the typed input to a resource plan modifier.
-type ResourcePlanRequest[In, Out, Config any] struct {
-	// Config is the decoded library config.
-	Config Config
-
-	// PriorInputs is the migrated and defaulted input stored in state.
-	PriorInputs In
-
-	// CurrentInputs is the desired input decoded from the resource body.
-	CurrentInputs In
-
-	// PriorOutputs is the output stored in state.
-	PriorOutputs Out
-
-	// HasPriorState reports whether the resource has a state entry.
-	HasPriorState bool
-}
-
-// ResourcePlanResponse records plan-time requests made by a resource.
-type ResourcePlanResponse struct {
-	// UnknownOutputs names output fields whose apply result should be
-	// treated as unknown during the rest of planning.
-	UnknownOutputs map[string]bool
-}
-
-// MarkOutputUnknown records output fields that apply will recompute.
-func (r *ResourcePlanResponse) MarkOutputUnknown(fields ...string) {
-	if r.UnknownOutputs == nil {
-		r.UnknownOutputs = map[string]bool{}
-	}
-	for _, field := range fields {
-		r.UnknownOutputs[field] = true
-	}
 }
 
 // TypedAction is the typed contract for actions. Out names the
@@ -127,25 +67,10 @@ type TypedDataSource[Out, Config any] interface {
 	Read(ctx context.Context, config Config) (Out, error)
 }
 
-// MigrationState is the pair of persisted maps a Migrator upgrades: the
-// inputs the body evaluated to on the last apply and the outputs the
-// resource returned then. Observed (see Prior) is plan-time only and is
-// never persisted, so a migration covers inputs and outputs alone.
+// MigrationState contains the input and output maps used by snapshot entries.
 type MigrationState struct {
 	Inputs  map[string]any
 	Outputs map[string]any
-}
-
-// Migrator is an optional add-on a TypedResource may implement when its
-// SchemaVersion has incremented past 1 and an older state entry needs
-// upgrading. Migrate receives the whole recorded entry at the version it
-// was written and returns it at the current version. Upgrading both
-// halves together keeps the entry's single SchemaVersion stamp correct:
-// were only the outputs upgraded, the entry would be stamped current
-// while its inputs stayed at the old version, and a later input
-// migration would never run.
-type Migrator interface {
-	Migrate(oldVersion int, prior MigrationState) (MigrationState, error)
 }
 
 // ResourceRegistration is the type-erased registration the runtime's
@@ -161,13 +86,8 @@ type ResourceRegistration interface {
 	Update(ctx context.Context, receiver, cfg, priorInputs, priorOutputs, observed any) (any, error)
 	ValidateInputs(ctx context.Context, receiver, cfg any) error
 	Delete(ctx context.Context, receiver, cfg, prior any) error
-	ReplaceFields(receiver any) []string
-	EquivalentInput(receiver any, field string, priorInputs map[string]any) bool
-	ModifyResourcePlan(
-		receiver, cfg any,
-		priorInputs, priorOutputs map[string]any,
-		hasPriorState bool,
-	) (ResourcePlanResponse, error)
+	compareResourceInputs(prior, desired map[string]any) ([]string, bool, error)
+	resourceDefinition() *resourceDefinitionRegistration
 	OutputType() reflect.Type
 }
 
@@ -205,22 +125,34 @@ type dataSourcePtr[T, Out, Config any] interface {
 	TypedDataSource[Out, Config]
 }
 
-// MakeResource produces a ResourceRegistration that wraps a
-// TypedResource[Out, Config] implemented by *T. Use as
-// `runtime.MakeResource[Vpc, *VpcOutput, any]()`. Each
-// receiver is zero-constructed via new(T) when the runtime asks for one.
-func MakeResource[T, Out, Config any, PT resourcePtr[T, Out, Config]]() ResourceRegistration {
-	return typedResourceReg[T, Out, Config, PT]{}
+// MakeResource validates the definition and registers the lifecycle implemented
+// by *T. Invalid definitions panic during registration. Each receiver starts
+// as new(T) before the runtime decodes its inputs.
+func MakeResource[T, Out, Config any, PT resourcePtr[T, Out, Config]](
+	definition ResourceDefinition[T, Out, Config],
+) ResourceRegistration {
+	return MakeResourceWith[T, Out, Config, PT](definition, nil)
 }
 
 // MakeResourceWith is the variant of MakeResource for callers that
 // need each receiver to capture external state. The constructor runs
 // once per instance the runtime needs; Decode then fills it from the
-// inputs.
+// inputs. Invalid definitions panic before the constructor can run.
 func MakeResourceWith[T, Out, Config any, PT resourcePtr[T, Out, Config]](
+	definition ResourceDefinition[T, Out, Config],
 	construct func() *T,
 ) ResourceRegistration {
-	return typedResourceReg[T, Out, Config, PT]{construct: construct}
+	resolved, err := resolveResourceDefinition(definition)
+	if err != nil {
+		panic(fmt.Errorf("resource definition: %w", err))
+	}
+	return typedResourceReg[T, Out, Config, PT]{
+		construct:  construct,
+		definition: resolved,
+		registration: newResolvedResourceDefinitionRegistration[T, Out, Config, PT](
+			resolved, construct,
+		),
+	}
 }
 
 // MakeAction produces an ActionRegistration that wraps a
@@ -252,23 +184,63 @@ func MakeDataSourceWith[T, Out, Config any, PT dataSourcePtr[T, Out, Config]](
 }
 
 type typedResourceReg[T, Out, Config any, PT resourcePtr[T, Out, Config]] struct {
-	construct func() *T
+	construct    func() *T
+	definition   resolvedResourceDefinition[T, Out, Config]
+	registration *resourceDefinitionRegistration
 }
 
-func (typedResourceReg[T, Out, Config, PT]) SchemaVersion() int {
-	return PT(new(T)).SchemaVersion()
+func (r typedResourceReg[T, Out, Config, PT]) SchemaVersion() int {
+	return r.definition.schemaVersion
 }
 
-func (typedResourceReg[T, Out, Config, PT]) Migrate(
+func (r typedResourceReg[T, Out, Config, PT]) Migrate(
 	old int, prior MigrationState,
 ) (MigrationState, error) {
-	m, ok := any(PT(new(T))).(Migrator)
-	if !ok {
+	if r.definition.migrate == nil {
 		return MigrationState{}, fmt.Errorf("no migration registered for version %d", old)
 	}
+	inputs, err := encodeMigrationMap(prior.Inputs)
+	if err != nil {
+		return MigrationState{}, err
+	}
+	outputs, err := encodeMigrationMap(prior.Outputs)
+	if err != nil {
+		return MigrationState{}, err
+	}
 	return guard("migrating this resource's state", false, func() (MigrationState, error) {
-		return m.Migrate(old, prior)
+		migrated, err := r.definition.migrate(old, ResourceMigrationState{
+			Inputs: inputs, Outputs: outputs,
+		})
+		if err != nil {
+			return MigrationState{}, err
+		}
+		inputFields, ok := migrated.Inputs.ObjectFields()
+		if !ok {
+			return MigrationState{}, fmt.Errorf("migrated inputs must be an object")
+		}
+		outputFields, ok := migrated.Outputs.ObjectFields()
+		if !ok {
+			return MigrationState{}, fmt.Errorf("migrated outputs must be an object")
+		}
+		inputValues, err := decodeConcreteObjectFields(inputFields, "migrated inputs")
+		if err != nil {
+			return MigrationState{}, err
+		}
+		outputValues, err := decodeConcreteObjectFields(outputFields, "migrated outputs")
+		return MigrationState{Inputs: inputValues, Outputs: outputValues}, err
 	})
+}
+
+func encodeMigrationMap(values map[string]any) (EncodedValue, error) {
+	fields := make(map[string]EncodedValue, len(values))
+	for name, value := range values {
+		encoded, err := encodeUntypedPlanningValue(value)
+		if err != nil {
+			return EncodedValue{}, fmt.Errorf("migration field %q: %w", name, err)
+		}
+		fields[name] = encoded
+	}
+	return ObjectValue(fields)
 }
 
 func (r typedResourceReg[T, Out, Config, PT]) NewReceiver() any {
@@ -286,7 +258,11 @@ func (typedResourceReg[T, Out, Config, PT]) Create(
 		return nil, err
 	}
 	return guard("creating this resource", false, func() (Out, error) {
-		return PT(receiver.(*T)).Create(ctx, config)
+		outputs, err := PT(receiver.(*T)).Create(ctx, config)
+		if err == nil {
+			_, err = encodeResourceOutputs(outputs)
+		}
+		return outputs, err
 	})
 }
 
@@ -302,7 +278,11 @@ func (typedResourceReg[T, Out, Config, PT]) Read(
 		return nil, err
 	}
 	return guard("reading this resource", false, func() (Out, error) {
-		return PT(receiver.(*T)).Read(ctx, config, p)
+		outputs, err := PT(receiver.(*T)).Read(ctx, config, p)
+		if err == nil {
+			_, err = encodeResourceOutputs(outputs)
+		}
+		return outputs, err
 	})
 }
 
@@ -327,15 +307,18 @@ func (typedResourceReg[T, Out, Config, PT]) Update(
 		Observed: obs,
 	}
 	return guard("updating this resource", false, func() (Out, error) {
-		return PT(receiver.(*T)).Update(ctx, config, prior)
+		outputs, err := PT(receiver.(*T)).Update(ctx, config, prior)
+		if err == nil {
+			_, err = encodeResourceOutputs(outputs)
+		}
+		return outputs, err
 	})
 }
 
-func (typedResourceReg[T, Out, Config, PT]) ValidateInputs(
+func (r typedResourceReg[T, Out, Config, PT]) ValidateInputs(
 	ctx context.Context, receiver, cfg any,
 ) error {
-	validator, ok := any(PT(receiver.(*T))).(InputValidator[Config])
-	if !ok {
+	if r.definition.validate == nil {
 		return nil
 	}
 	config, err := coerceConfig[Config](cfg)
@@ -343,7 +326,7 @@ func (typedResourceReg[T, Out, Config, PT]) ValidateInputs(
 		return err
 	}
 	return guardErr("validating this resource's inputs", false, func() error {
-		return validator.ValidateInputs(ctx, config)
+		return r.definition.validate(ctx, *receiver.(*T), config)
 	})
 }
 
@@ -363,50 +346,38 @@ func (typedResourceReg[T, Out, Config, PT]) Delete(
 	})
 }
 
-func (typedResourceReg[T, Out, Config, PT]) ReplaceFields(receiver any) []string {
-	return PT(receiver.(*T)).ReplaceFields()
+func (r typedResourceReg[T, Out, Config, PT]) resourceDefinition() *resourceDefinitionRegistration {
+	return r.registration
 }
 
-func (typedResourceReg[T, Out, Config, PT]) EquivalentInput(
-	receiver any, field string, priorInputs map[string]any,
-) bool {
-	equivalencer, ok := any(PT(receiver.(*T))).(InputEquivalencer[T])
-	if !ok {
-		return false
+func (r typedResourceReg[T, Out, Config, PT]) compareResourceInputs(
+	prior, desired map[string]any,
+) ([]string, bool, error) {
+	var priorInputs T
+	if err := Decode(&priorInputs, prior); err != nil {
+		return nil, false, fmt.Errorf("prior inputs: %w", err)
 	}
-	return equivalencer.EquivalentInput(field, coercePriorInputs[T](priorInputs), *receiver.(*T))
-}
-
-func (typedResourceReg[T, Out, Config, PT]) ModifyResourcePlan(
-	receiver, cfg any,
-	priorInputs, priorOutputs map[string]any,
-	hasPriorState bool,
-) (ResourcePlanResponse, error) {
-	modifier, ok := any(PT(receiver.(*T))).(ResourcePlanModifier[T, Out, Config])
-	if !ok {
-		return ResourcePlanResponse{}, nil
-	}
-	config, err := coerceConfig[Config](cfg)
+	priorEncoded, err := encodeResourceValue(reflect.TypeFor[T](), priorInputs, "")
 	if err != nil {
-		return ResourcePlanResponse{}, err
+		return nil, false, fmt.Errorf("prior inputs: %w", err)
 	}
-	out, err := coercePrior[Out](priorOutputs)
+	fields, _ := priorEncoded.ObjectFields()
+	for name := range fields {
+		if _, present := prior[name]; !present {
+			fields[name] = AbsentValue()
+		}
+	}
+	priorEncoded, err = ObjectValue(fields)
 	if err != nil {
-		return ResourcePlanResponse{}, err
+		return nil, false, err
 	}
-	current := *receiver.(*T)
-	return guard("modifying this resource's plan", false,
-		func() (ResourcePlanResponse, error) {
-			resp := ResourcePlanResponse{}
-			err := modifier.ModifyResourcePlan(ResourcePlanRequest[T, Out, Config]{
-				Config:        config,
-				PriorInputs:   coercePriorInputs[T](priorInputs),
-				CurrentInputs: current,
-				PriorOutputs:  out,
-				HasPriorState: hasPriorState,
-			}, &resp)
-			return resp, err
-		})
+	desiredEncoded, desiredInputs, err := prepareResourceInputs[T](desired)
+	if err != nil {
+		return nil, false, fmt.Errorf("desired inputs: %w", err)
+	}
+	return r.definition.classifyInputChanges(
+		priorInputs, desiredInputs, priorEncoded, desiredEncoded,
+	)
 }
 
 func (typedResourceReg[T, Out, Config, PT]) OutputType() reflect.Type {

@@ -107,9 +107,12 @@ func moveCompositeNodeWithBinding(ref string, kind NodeKind, alias string, expor
 }
 
 func stateMovesLibs() map[string]*Library {
-	reg := MakeResourceWith[countingResource, *countingResourceOutput, any](func() *countingResource {
-		return &countingResource{counters: &resourceCounters{}}
-	})
+	reg := MakeResourceWith[countingResource, *countingResourceOutput, any](
+		countingResourceDefinition(),
+		func() *countingResource {
+			return &countingResource{counters: &resourceCounters{}}
+		},
+	)
 	return map[string]*Library{
 		"aws": {
 			Name: "aws",

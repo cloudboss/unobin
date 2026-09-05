@@ -48,14 +48,17 @@ func TestResourceFileProducesParseableGo(t *testing.T) {
 		"Labels map[string]string `ub:\"labels\"`",
 		"Tags *map[string]string `ub:\"tags\"`",
 		"Arn string `ub:\"arn\"`",
-		"func (r *S3Bucket) SchemaVersion() int { return 1 }",
+		"func S3BucketDefinition() runtime.ResourceDefinition[S3Bucket, *S3BucketOutput, any]",
+		"SchemaVersion: 1",
+		"Scope:   runtime.IdentityConfiguration",
+		"AddressInputs: []runtime.AnyInputField[S3Bucket]",
+		"runtime.InputField(func(v *S3Bucket) *string { return &v.BucketName })",
 		"func (r *S3Bucket) Create(ctx context.Context, cfg any) (*S3BucketOutput, error)",
 		"func (r *S3Bucket) Read(ctx context.Context, cfg any, priorOutputs *S3BucketOutput) (*S3BucketOutput, error)",
 		"func (r *S3Bucket) Update(ctx context.Context, cfg any, prior runtime.Prior[S3Bucket, *S3BucketOutput]) (*S3BucketOutput, error)",
 		`"fmt"`,
 		`"github.com/cloudboss/unobin/pkg/runtime"`,
 		"func (r *S3Bucket) Delete(ctx context.Context, cfg any, priorOutputs *S3BucketOutput) error",
-		"return []string{\n\t\t\"bucket-name\",\n\t}",
 		`return nil, fmt.Errorf("create not implemented")`,
 	}
 	for _, c := range checks {
@@ -214,7 +217,8 @@ func TestLibraryFileProducesParseableGo(t *testing.T) {
 		`"example.com/aws/resources"`,
 		"func Library() *runtime.Library",
 		"Resources: map[string]runtime.ResourceRegistration",
-		`"s3-bucket": runtime.MakeResource[resources.S3Bucket, *resources.S3BucketOutput, any]()`,
+		`runtime.MakeResource[resources.S3Bucket, *resources.S3BucketOutput, any](`,
+		`resources.S3BucketDefinition(),`,
 	}
 	for _, c := range checks {
 		if !strings.Contains(s, c) {

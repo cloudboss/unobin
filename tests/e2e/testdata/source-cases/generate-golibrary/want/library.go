@@ -20,7 +20,9 @@ func Library() *runtime.Library {
 			New:         func() any { return &ProviderConfig{} },
 		},
 		Resources: map[string]runtime.ResourceRegistration{
-			"bucket": runtime.MakeResource[resources.Bucket, *resources.BucketOutput, any](),
+			"bucket": runtime.MakeResource[resources.Bucket, *resources.BucketOutput, any](
+				resources.BucketDefinition(),
+			),
 		},
 		DataSources: map[string]runtime.DataSourceRegistration{
 			"image":   runtime.MakeDataSource[data.Image, *data.ImageOutput, any](),

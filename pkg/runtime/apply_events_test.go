@@ -18,7 +18,15 @@ type plainResource struct {
 
 type plainResourceOutput struct{ Name string }
 
-func (r *plainResource) SchemaVersion() int { return 1 }
+func plainResourceDefinition() ResourceDefinition[plainResource, *plainResourceOutput, any] {
+	return ResourceDefinition[plainResource, *plainResourceOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[plainResource, *plainResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+	}
+}
 
 func (r *plainResource) Create(_ context.Context, _ any) (*plainResourceOutput, error) {
 	return &plainResourceOutput{Name: r.Name}, nil
@@ -38,7 +46,6 @@ func (r *plainResource) Update(
 func (r *plainResource) Delete(_ context.Context, _ any, _ *plainResourceOutput) error {
 	return nil
 }
-func (r *plainResource) ReplaceFields() []string { return nil }
 
 type plainFailResource struct {
 	Name string
@@ -46,7 +53,19 @@ type plainFailResource struct {
 
 type plainFailResourceOutput struct{ Name string }
 
-func (r *plainFailResource) SchemaVersion() int { return 1 }
+func plainFailResourceDefinition() ResourceDefinition[
+	plainFailResource,
+	*plainFailResourceOutput,
+	any,
+] {
+	return ResourceDefinition[plainFailResource, *plainFailResourceOutput, any]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[plainFailResource, *plainFailResourceOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+	}
+}
 
 func (r *plainFailResource) Create(_ context.Context, _ any) (*plainFailResourceOutput, error) {
 	return nil, errors.New("boom")
@@ -66,14 +85,15 @@ func (r *plainFailResource) Update(
 func (r *plainFailResource) Delete(_ context.Context, _ any, _ *plainFailResourceOutput) error {
 	return nil
 }
-func (r *plainFailResource) ReplaceFields() []string { return nil }
 
 func TestApplyEventsEmitsStartAndDonePerSuccessfulStep(t *testing.T) {
 	libs := map[string]*Library{
 		"r": {
 			Name: "r",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResource[plainResource, *plainResourceOutput, any](),
+				"thing": MakeResource[plainResource, *plainResourceOutput, any](
+					plainResourceDefinition(),
+				),
 			},
 		},
 	}
@@ -116,7 +136,9 @@ func TestApplyEventsEmitsFailEvent(t *testing.T) {
 		"r": {
 			Name: "r",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResource[plainFailResource, *plainFailResourceOutput, any](),
+				"thing": MakeResource[plainFailResource, *plainFailResourceOutput, any](
+					plainFailResourceDefinition(),
+				),
 			},
 		},
 	}

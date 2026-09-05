@@ -11,8 +11,8 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "tls",
 		Resources: map[string]runtime.ResourceRegistration{
-			"cert":   runtime.MakeResource[Cert, *CertOutput, any](),
-			"policy": runtime.MakeResource[Policy, *PolicyOutput, any](),
+			"cert":   runtime.MakeResource[Cert, *CertOutput, any](CertDefinition()),
+			"policy": runtime.MakeResource[Policy, *PolicyOutput, any](PolicyDefinition()),
 		},
 	}
 }
@@ -43,7 +43,15 @@ type CertOutput struct {
 	ARN string
 }
 
-func (c *Cert) SchemaVersion() int { return 1 }
+func CertDefinition() runtime.ResourceDefinition[Cert, *CertOutput, any] {
+	return runtime.ResourceDefinition[Cert, *CertOutput, any]{
+		SchemaVersion: 1,
+		Identity: runtime.ResourceIdentity[Cert, *CertOutput]{
+			Version: 1,
+			Scope:   runtime.IdentityConfiguration,
+		},
+	}
+}
 
 func (c *Cert) Create(_ context.Context, _ any) (*CertOutput, error) { return nil, nil }
 
@@ -84,7 +92,15 @@ type PolicyOutput struct {
 	ARN string
 }
 
-func (p *Policy) SchemaVersion() int { return 1 }
+func PolicyDefinition() runtime.ResourceDefinition[Policy, *PolicyOutput, any] {
+	return runtime.ResourceDefinition[Policy, *PolicyOutput, any]{
+		SchemaVersion: 1,
+		Identity: runtime.ResourceIdentity[Policy, *PolicyOutput]{
+			Version: 1,
+			Scope:   runtime.IdentityConfiguration,
+		},
+	}
+}
 
 func (p *Policy) Create(_ context.Context, _ any) (*PolicyOutput, error) { return nil, nil }
 
