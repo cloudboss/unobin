@@ -81,12 +81,15 @@ type FunctionType struct {
 // the stack root's, so a composite can be reused without the caller
 // importing every library it transitively uses. A nil Libraries uses
 // the executor's root Libraries table.
+// LibraryBindings declares aliases by canonical path for LibraryCatalog to resolve.
+// A composite may supply either Libraries or LibraryBindings.
 type CompositeType struct {
 	Name                 string
 	Kind                 NodeKind
 	SyntaxBody           *syntax.FactoryBody
 	AssetSetID           string
 	Libraries            map[string]*Library
+	LibraryBindings      map[string]string
 	LibraryConfigSchemas map[string]LibraryConfigSchema
 }
 
