@@ -52,8 +52,9 @@ const (
 
 // Resolution describes one import after the walker reaches it. For Go
 // imports, Path is the canonical Go-import path (URL plus subdir when
-// present) and Version is the pinned version. For UB imports,
-// CanonicalKey is the dedup key (see UBKey) and visitors look up their
+// present) and Version is the pinned version. For UB imports, Path is the
+// canonical library path without its version or generated Go package name.
+// CanonicalKey is the UB dedup key (see UBKey) and visitors look up their
 // per-library state by that key. SourcePath is the on-disk directory
 // where the resolver fetched the import, useful for compile-time
 // inspection.
@@ -78,6 +79,7 @@ type Resolution struct {
 // the same kind and name to the resolved imports declared by that body,
 // in alias-sorted order so callers see a stable view across runs.
 type UBLibrary struct {
+	LibraryPath  string
 	SyntaxBodies map[string]map[string]syntax.FactoryBody
 	SourceFiles  map[string]syntax.SourceFileSpec
 	BodyImports  map[string]map[string][]Resolution
@@ -618,12 +620,13 @@ func (w *ubWalker) handleUBImport(
 	fromKey string,
 ) (Resolution, error) {
 	key := resolvedUBKey(ref, source, fromKey)
-	if _, alreadyParsed := w.parsed[key]; alreadyParsed {
+	if parsed, alreadyParsed := w.parsed[key]; alreadyParsed {
 		return Resolution{
 			Kind:         ResolutionUB,
 			LocalAlias:   alias,
 			Ref:          ref,
 			CanonicalKey: key,
+			Path:         parsed.LibraryPath,
 		}, nil
 	}
 	if w.inProgress[key] {
@@ -636,7 +639,8 @@ func (w *ubWalker) handleUBImport(
 	if err != nil {
 		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
 	}
-	applyUBLibrarySourceDisplayPaths(lib, ref, resolvedUBLibraryPath(ref, source))
+	lib.LibraryPath = resolvedUBLibraryPath(ref, source)
+	applyUBLibrarySourceDisplayPaths(lib, ref, lib.LibraryPath)
 	lib.BodyImports = map[string]map[string][]Resolution{}
 	for _, entry := range lib.CompositeEntries() {
 		bodyRefs, errs := libraryBodyImports(entry)
@@ -662,6 +666,7 @@ func (w *ubWalker) handleUBImport(
 		LocalAlias:   alias,
 		Ref:          ref,
 		CanonicalKey: key,
+		Path:         lib.LibraryPath,
 	}, nil
 }
 

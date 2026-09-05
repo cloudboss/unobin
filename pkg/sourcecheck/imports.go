@@ -20,6 +20,9 @@ import (
 // ImportAnalysis is the resolved import data shared by source checks,
 // compile, and graph printing.
 type ImportAnalysis struct {
+	Catalog              map[string]*runtime.Library
+	CatalogImports       map[string]string
+	LibraryBindings      map[string]string
 	Top                  []resolve.Resolution
 	Libraries            map[string]*runtime.Library
 	LibraryConfigSchemas map[string]runtime.LibraryConfigSchema
@@ -89,6 +92,9 @@ func AnalyzeImports(
 		return nil, err
 	}
 	analysis := &ImportAnalysis{
+		Catalog:              visitor.catalog,
+		CatalogImports:       visitor.catalogImports,
+		LibraryBindings:      map[string]string{},
 		Top:                  top,
 		Libraries:            make(map[string]*runtime.Library, len(top)),
 		LibraryConfigSchemas: map[string]runtime.LibraryConfigSchema{},
@@ -102,6 +108,7 @@ func AnalyzeImports(
 		analysis.RootAssetSetID = rootSet.ID
 	}
 	for _, res := range top {
+		analysis.LibraryBindings[res.LocalAlias] = res.Path
 		switch res.Kind {
 		case resolve.ResolutionGo:
 			schema, warnings, err := schemas.Read(res.SourcePath)
@@ -112,7 +119,11 @@ func AnalyzeImports(
 			}
 			reportSchemaWarnings(opts.Reporter, res.LocalAlias, warnings)
 			analysis.GoImports[res.LocalAlias] = res.Path
-			analysis.Libraries[res.LocalAlias] = &runtime.Library{Schema: schema}
+			library, err := visitor.goLibrary(res.Path, schema)
+			if err != nil {
+				return nil, err
+			}
+			analysis.Libraries[res.LocalAlias] = library
 		case resolve.ResolutionUB:
 			analysis.Libraries[res.LocalAlias] = visitor.runtimeLibraries[res.CanonicalKey]
 			if opts.GeneratePackages {
@@ -168,6 +179,9 @@ func bodyLibraryConfigDeps(
 }
 
 type importVisitor struct {
+	catalog                 map[string]*runtime.Library
+	catalogImports          map[string]string
+	goLibraries             map[string]*runtime.Library
 	resolver                resolve.Resolver
 	versions                map[string]string
 	stackName               string
@@ -197,6 +211,9 @@ func newImportVisitor(opts ImportAnalysisOptions, schemas *SchemaCache) *importV
 		packageIDByKey = ids.byKey
 	}
 	return &importVisitor{
+		catalog:                 map[string]*runtime.Library{},
+		catalogImports:          map[string]string{},
+		goLibraries:             map[string]*runtime.Library{},
 		resolver:                opts.Resolver,
 		versions:                opts.Versions,
 		stackName:               stackName,
@@ -338,6 +355,9 @@ func (v *importVisitor) ubImportPath(canonicalKey string) (string, error) {
 func (v *importVisitor) OnUBLibrary(
 	alias, canonicalKey string, _ resolve.ImportRef, lib *resolve.UBLibrary,
 ) error {
+	if _, exists := v.catalog[lib.LibraryPath]; exists {
+		return fmt.Errorf("library path %q has multiple registrations", lib.LibraryPath)
+	}
 	entries := lib.CompositeEntries()
 	if v.validateCompositeBodies {
 		var violations []error
@@ -359,7 +379,10 @@ func (v *importVisitor) OnUBLibrary(
 		return err
 	}
 	runtimeLib := runtimeLibraryForCompiledComposites(alias, composites)
+	runtimeLib.LibraryPath = lib.LibraryPath
+	v.catalog[lib.LibraryPath] = runtimeLib
 	if v.generatePackages {
+		v.catalogImports[lib.LibraryPath] = v.stackName + "/internal/" + packageID
 		src, err := codegen.GenerateUBLibraryPackageWithAssetsAndConfigSchemas(
 			packageID,
 			alias,
@@ -469,7 +492,11 @@ func (v *importVisitor) addCompiledGoImport(
 		), err)
 	}
 	reportSchemaWarnings(v.reporter, res.LocalAlias, warnings)
-	composite.bodyLibs[res.LocalAlias] = &runtime.Library{Schema: schema}
+	library, err := v.goLibrary(res.Path, schema)
+	if err != nil {
+		return err
+	}
+	composite.bodyLibs[res.LocalAlias] = library
 	if !v.generatePackages {
 		return nil
 	}
@@ -484,6 +511,23 @@ func (v *importVisitor) addCompiledGoImport(
 		composite.goSpecs[res.Path] = specs
 	}
 	return nil
+}
+
+func (v *importVisitor) goLibrary(
+	path string,
+	schema *runtime.LibrarySchema,
+) (*runtime.Library, error) {
+	if library := v.goLibraries[path]; library != nil {
+		return library, nil
+	}
+	if _, exists := v.catalog[path]; exists {
+		return nil, fmt.Errorf("library path %q has multiple registrations", path)
+	}
+	library := &runtime.Library{LibraryPath: path, Schema: schema}
+	v.catalog[path] = library
+	v.catalogImports[path] = path
+	v.goLibraries[path] = library
+	return library, nil
 }
 
 func (v *importVisitor) addCompiledUBImport(

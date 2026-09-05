@@ -251,11 +251,13 @@ func TestWalkUBRecordsUBLibrary(t *testing.T) {
 	require.Len(t, top, 1)
 	require.Equal(t, ResolutionUB, top[0].Kind)
 	require.Equal(t, "remote:github.com/x/hello@v1.0.0", top[0].CanonicalKey)
+	require.Equal(t, "github.com/x/hello", top[0].Path)
 	require.Equal(t, []string{"hello=remote:github.com/x/hello@v1.0.0"}, v.ubCalls)
 	require.Equal(t, []string{"core=github.com/x/unobin/core@v0.1.0"}, v.goCalls)
 
 	lib := v.ubLibs["remote:github.com/x/hello@v1.0.0"]
 	require.NotNil(t, lib)
+	require.Equal(t, "github.com/x/hello", lib.LibraryPath)
 	require.Contains(t, lib.SyntaxBodies["resource"], "greeter")
 	bodyImports := lib.BodyImports["resource"]["greeter"]
 	require.Len(t, bodyImports, 1)
@@ -365,6 +367,8 @@ func TestWalkUBDedupsByCanonicalKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, top, 2)
 	require.Equal(t, top[0].CanonicalKey, top[1].CanonicalKey)
+	require.Equal(t, "github.com/x/y", top[0].Path)
+	require.Equal(t, top[0].Path, top[1].Path)
 	require.Len(t, v.ubCalls, 1, "OnUBLibrary should fire once per canonical key")
 	require.Equal(t, "a=remote:github.com/x/y@v1.0.0", v.ubCalls[0],
 		"first alias by sort order should be the one passed to OnUBLibrary")

@@ -37,7 +37,7 @@ func TestImportAnalysisBuildsSameLibrariesForCompileAndGraph(t *testing.T) {
 		},
 	)
 
-	analysis, err := AnalyzeImports(refs, ImportAnalysisOptions{
+	options := ImportAnalysisOptions{
 		Resolver: resolver,
 		Versions: map[string]string{
 			"example.com/schema": "v1.0.0",
@@ -49,7 +49,8 @@ func TestImportAnalysisBuildsSameLibrariesForCompileAndGraph(t *testing.T) {
 			FS:   os.DirFS(filepath.Dir(path)),
 			Path: filepath.Dir(path),
 		},
-	})
+	}
+	analysis, err := AnalyzeImports(refs, options)
 	require.NoError(t, err)
 
 	require.Contains(t, analysis.Libraries, "direct")
@@ -85,6 +86,51 @@ func TestImportAnalysisBuildsSameLibrariesForCompileAndGraph(t *testing.T) {
 		"wrap":       "factory/internal/wrap",
 		"wrap-again": "factory/internal/wrap",
 	}, analysis.UBImports)
+	require.Len(t, analysis.Catalog, 3)
+	require.Len(t, analysis.CatalogImports, 3)
+	require.Equal(t, "example.com/schema", analysis.LibraryBindings["std"])
+	require.Equal(t, analysis.LibraryBindings["wrap"], analysis.LibraryBindings["wrap-again"])
+	require.NotEmpty(t, analysis.LibraryBindings["wrap"])
+	require.Same(t, std, analysis.Catalog["example.com/schema"])
+	require.Same(t, std, wrapper.Libraries["std"])
+	require.Same(t, std, leaf.Libraries["std"])
+	require.Equal(t, "factory/internal/wrap",
+		analysis.CatalogImports[analysis.LibraryBindings["wrap"]])
+
+	options.StackName = "renamed"
+	renamed, err := AnalyzeImports(refs, options)
+	require.NoError(t, err)
+	require.Equal(t, analysis.LibraryBindings, renamed.LibraryBindings)
+	require.Equal(t, "renamed/internal/wrap",
+		renamed.CatalogImports[renamed.LibraryBindings["wrap"]])
+}
+
+func TestImportAnalysisRejectsConflictingCanonicalLibraries(t *testing.T) {
+	for _, goFirst := range []bool{true, false} {
+		name := "UB before Go"
+		if goFirst {
+			name = "Go before UB"
+		}
+		t.Run(name, func(t *testing.T) {
+			visitor := newImportVisitor(ImportAnalysisOptions{}, NewSchemaCache())
+			path := "example.com/shared"
+			registerGo := func() error {
+				_, err := visitor.goLibrary(path, &runtime.LibrarySchema{})
+				return err
+			}
+			registerUB := func() error {
+				return visitor.OnUBLibrary("shared", "remote:"+path+"@v1.0.0", nil,
+					&resolve.UBLibrary{LibraryPath: path})
+			}
+			first, second := registerUB, registerGo
+			if goFirst {
+				first, second = registerGo, registerUB
+			}
+			require.NoError(t, first())
+			require.ErrorContains(t, second(),
+				`library path "example.com/shared" has multiple registrations`)
+		})
+	}
 }
 
 func TestImportAnalysisReadsRootLibraryConfigSchemas(t *testing.T) {
