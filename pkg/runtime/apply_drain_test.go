@@ -20,31 +20,46 @@ type drainTrackerResource struct {
 	runs  *atomic.Int64
 }
 
+type drainTrackerResourceOutput struct{ Name string }
+
 func (r *drainTrackerResource) SchemaVersion() int { return 1 }
 
-func (r *drainTrackerResource) Create(ctx context.Context, _ any) (any, error) {
+func (r *drainTrackerResource) Create(
+	ctx context.Context,
+	_ any,
+) (*drainTrackerResourceOutput, error) {
 	r.runs.Add(1)
 	select {
 	case <-time.After(time.Duration(r.Delay) * time.Millisecond):
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
-	return map[string]any{"name": r.Name}, nil
+	return &drainTrackerResourceOutput{Name: r.Name}, nil
 }
 
-func (r *drainTrackerResource) Read(_ context.Context, _, _ any) (any, error) {
+func (r *drainTrackerResource) Read(
+	_ context.Context,
+	_ any,
+	_ *drainTrackerResourceOutput,
+) (*drainTrackerResourceOutput, error) {
 	return nil, ErrNotFound
 }
 func (r *drainTrackerResource) Update(
-	_ context.Context, _ any, _ Prior[drainTrackerResource, any],
-) (any, error) {
-	return map[string]any{"name": r.Name}, nil
+	_ context.Context, _ any, _ Prior[drainTrackerResource, *drainTrackerResourceOutput],
+) (*drainTrackerResourceOutput, error) {
+	return &drainTrackerResourceOutput{Name: r.Name}, nil
 }
-func (r *drainTrackerResource) Delete(_ context.Context, _, _ any) error { return nil }
-func (r *drainTrackerResource) ReplaceFields() []string                  { return nil }
+func (r *drainTrackerResource) Delete(
+	_ context.Context,
+	_ any,
+	_ *drainTrackerResourceOutput,
+) error {
+	return nil
+}
+func (r *drainTrackerResource) ReplaceFields() []string { return nil }
 
 func drainTrackerRegistration(runs *atomic.Int64) ResourceRegistration {
-	return MakeResourceWith[drainTrackerResource, any, any](
+	return MakeResourceWith[drainTrackerResource, *drainTrackerResourceOutput, any](
 		func() *drainTrackerResource { return &drainTrackerResource{runs: runs} },
 	)
 }

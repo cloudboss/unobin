@@ -16,48 +16,64 @@ type plainResource struct {
 	Name string
 }
 
+type plainResourceOutput struct{ Name string }
+
 func (r *plainResource) SchemaVersion() int { return 1 }
 
-func (r *plainResource) Create(_ context.Context, _ any) (any, error) {
-	return map[string]any{"name": r.Name}, nil
+func (r *plainResource) Create(_ context.Context, _ any) (*plainResourceOutput, error) {
+	return &plainResourceOutput{Name: r.Name}, nil
 }
-func (r *plainResource) Read(_ context.Context, _, _ any) (any, error) {
+func (r *plainResource) Read(
+	_ context.Context,
+	_ any,
+	_ *plainResourceOutput,
+) (*plainResourceOutput, error) {
 	return nil, ErrNotFound
 }
 func (r *plainResource) Update(
-	_ context.Context, _ any, _ Prior[plainResource, any],
-) (any, error) {
-	return map[string]any{"name": r.Name}, nil
+	_ context.Context, _ any, _ Prior[plainResource, *plainResourceOutput],
+) (*plainResourceOutput, error) {
+	return &plainResourceOutput{Name: r.Name}, nil
 }
-func (r *plainResource) Delete(_ context.Context, _, _ any) error { return nil }
-func (r *plainResource) ReplaceFields() []string                  { return nil }
+func (r *plainResource) Delete(_ context.Context, _ any, _ *plainResourceOutput) error {
+	return nil
+}
+func (r *plainResource) ReplaceFields() []string { return nil }
 
 type plainFailResource struct {
 	Name string
 }
 
+type plainFailResourceOutput struct{ Name string }
+
 func (r *plainFailResource) SchemaVersion() int { return 1 }
 
-func (r *plainFailResource) Create(_ context.Context, _ any) (any, error) {
+func (r *plainFailResource) Create(_ context.Context, _ any) (*plainFailResourceOutput, error) {
 	return nil, errors.New("boom")
 }
-func (r *plainFailResource) Read(_ context.Context, _, _ any) (any, error) {
+func (r *plainFailResource) Read(
+	_ context.Context,
+	_ any,
+	_ *plainFailResourceOutput,
+) (*plainFailResourceOutput, error) {
 	return nil, ErrNotFound
 }
 func (r *plainFailResource) Update(
-	_ context.Context, _ any, _ Prior[plainFailResource, any],
-) (any, error) {
+	_ context.Context, _ any, _ Prior[plainFailResource, *plainFailResourceOutput],
+) (*plainFailResourceOutput, error) {
 	return nil, errors.New("unreachable")
 }
-func (r *plainFailResource) Delete(_ context.Context, _, _ any) error { return nil }
-func (r *plainFailResource) ReplaceFields() []string                  { return nil }
+func (r *plainFailResource) Delete(_ context.Context, _ any, _ *plainFailResourceOutput) error {
+	return nil
+}
+func (r *plainFailResource) ReplaceFields() []string { return nil }
 
 func TestApplyEventsEmitsStartAndDonePerSuccessfulStep(t *testing.T) {
 	libs := map[string]*Library{
 		"r": {
 			Name: "r",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResource[plainResource, any, any](),
+				"thing": MakeResource[plainResource, *plainResourceOutput, any](),
 			},
 		},
 	}
@@ -100,7 +116,7 @@ func TestApplyEventsEmitsFailEvent(t *testing.T) {
 		"r": {
 			Name: "r",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResource[plainFailResource, any, any](),
+				"thing": MakeResource[plainFailResource, *plainFailResourceOutput, any](),
 			},
 		},
 	}

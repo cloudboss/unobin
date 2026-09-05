@@ -28,6 +28,12 @@ type validatingResource struct {
 	counters *validationCounters
 }
 
+type validatingResourceOutput struct {
+	ID    string
+	Name  string
+	Valid bool
+}
+
 func (r *validatingResource) SchemaVersion() int { return 1 }
 
 func (r *validatingResource) ValidateInputs(_ context.Context, _ any) error {
@@ -38,12 +44,16 @@ func (r *validatingResource) ValidateInputs(_ context.Context, _ any) error {
 	return nil
 }
 
-func (r *validatingResource) Create(_ context.Context, _ any) (any, error) {
+func (r *validatingResource) Create(_ context.Context, _ any) (*validatingResourceOutput, error) {
 	atomic.AddInt64(&r.counters.creates, 1)
-	return map[string]any{"id": "resource-" + r.Name, "name": r.Name, "valid": r.Valid}, nil
+	return &validatingResourceOutput{ID: "resource-" + r.Name, Name: r.Name, Valid: r.Valid}, nil
 }
 
-func (r *validatingResource) Read(_ context.Context, _ any, prior any) (any, error) {
+func (r *validatingResource) Read(
+	_ context.Context,
+	_ any,
+	prior *validatingResourceOutput,
+) (*validatingResourceOutput, error) {
 	if prior == nil {
 		return nil, ErrNotFound
 	}
@@ -51,19 +61,19 @@ func (r *validatingResource) Read(_ context.Context, _ any, prior any) (any, err
 }
 
 func (r *validatingResource) Update(
-	_ context.Context, _ any, prior Prior[validatingResource, any],
-) (any, error) {
+	_ context.Context, _ any, prior Prior[validatingResource, *validatingResourceOutput],
+) (*validatingResourceOutput, error) {
 	atomic.AddInt64(&r.counters.updates, 1)
-	out, _ := prior.Outputs.(map[string]any)
-	if out == nil {
-		out = map[string]any{}
+	out := &validatingResourceOutput{}
+	if prior.Outputs != nil {
+		*out = *prior.Outputs
 	}
-	out["name"] = r.Name
-	out["valid"] = r.Valid
+	out.Name = r.Name
+	out.Valid = r.Valid
 	return out, nil
 }
 
-func (r *validatingResource) Delete(_ context.Context, _ any, _ any) error {
+func (r *validatingResource) Delete(_ context.Context, _ any, _ *validatingResourceOutput) error {
 	atomic.AddInt64(&r.counters.deletes, 1)
 	return nil
 }
@@ -75,7 +85,7 @@ func validationModules(c *validationCounters) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[validatingResource, any, any](
+				"thing": MakeResourceWith[validatingResource, *validatingResourceOutput, any](
 					func() *validatingResource { return &validatingResource{counters: c} },
 				),
 			},
@@ -88,10 +98,10 @@ func bindingValidationModules(oldC, newC *validationCounters) map[string]*Librar
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"old": MakeResourceWith[validatingResource, any, any](
+				"old": MakeResourceWith[validatingResource, *validatingResourceOutput, any](
 					func() *validatingResource { return &validatingResource{counters: oldC} },
 				),
-				"new": MakeResourceWith[validatingResource, any, any](
+				"new": MakeResourceWith[validatingResource, *validatingResourceOutput, any](
 					func() *validatingResource { return &validatingResource{counters: newC} },
 				),
 			},

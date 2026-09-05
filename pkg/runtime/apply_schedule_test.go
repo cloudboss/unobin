@@ -20,36 +20,44 @@ type slowResource struct {
 	Delay int64 `ub:"delay-ms"`
 }
 
+type slowResourceOutput struct{ Name string }
+
 func (r *slowResource) SchemaVersion() int { return 1 }
 
-func (r *slowResource) Create(ctx context.Context, _ any) (any, error) {
+func (r *slowResource) Create(ctx context.Context, _ any) (*slowResourceOutput, error) {
 	select {
 	case <-time.After(time.Duration(r.Delay) * time.Millisecond):
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
-	return map[string]any{"name": r.Name}, nil
+	return &slowResourceOutput{Name: r.Name}, nil
 }
 
-func (r *slowResource) Read(_ context.Context, _, _ any) (any, error) {
+func (r *slowResource) Read(
+	_ context.Context,
+	_ any,
+	_ *slowResourceOutput,
+) (*slowResourceOutput, error) {
 	return nil, ErrNotFound
 }
 func (r *slowResource) Update(
-	_ context.Context, _ any, _ Prior[slowResource, any],
-) (any, error) {
-	return map[string]any{"name": r.Name}, nil
+	_ context.Context, _ any, _ Prior[slowResource, *slowResourceOutput],
+) (*slowResourceOutput, error) {
+	return &slowResourceOutput{Name: r.Name}, nil
 }
-func (r *slowResource) Delete(_ context.Context, _, _ any) error { return nil }
-func (r *slowResource) ReplaceFields() []string                  { return nil }
+func (r *slowResource) Delete(_ context.Context, _ any, _ *slowResourceOutput) error { return nil }
+func (r *slowResource) ReplaceFields() []string                                      { return nil }
 
 type slowFailResource struct {
 	Name  string
 	Delay int64 `ub:"delay-ms"`
 }
 
+type slowFailResourceOutput struct{ Name string }
+
 func (r *slowFailResource) SchemaVersion() int { return 1 }
 
-func (r *slowFailResource) Create(ctx context.Context, _ any) (any, error) {
+func (r *slowFailResource) Create(ctx context.Context, _ any) (*slowFailResourceOutput, error) {
 	select {
 	case <-time.After(time.Duration(r.Delay) * time.Millisecond):
 	case <-ctx.Done():
@@ -58,24 +66,30 @@ func (r *slowFailResource) Create(ctx context.Context, _ any) (any, error) {
 	return nil, fmt.Errorf("slow-fail %s", r.Name)
 }
 
-func (r *slowFailResource) Read(_ context.Context, _, _ any) (any, error) {
+func (r *slowFailResource) Read(
+	_ context.Context,
+	_ any,
+	_ *slowFailResourceOutput,
+) (*slowFailResourceOutput, error) {
 	return nil, ErrNotFound
 }
 func (r *slowFailResource) Update(
-	_ context.Context, _ any, _ Prior[slowFailResource, any],
-) (any, error) {
+	_ context.Context, _ any, _ Prior[slowFailResource, *slowFailResourceOutput],
+) (*slowFailResourceOutput, error) {
 	return nil, errors.New("unreachable")
 }
-func (r *slowFailResource) Delete(_ context.Context, _, _ any) error { return nil }
-func (r *slowFailResource) ReplaceFields() []string                  { return nil }
+func (r *slowFailResource) Delete(_ context.Context, _ any, _ *slowFailResourceOutput) error {
+	return nil
+}
+func (r *slowFailResource) ReplaceFields() []string { return nil }
 
 func slowLibraries() map[string]*Library {
 	return map[string]*Library{
 		"slow": {
 			Name: "slow",
 			Resources: map[string]ResourceRegistration{
-				"r":    MakeResource[slowResource, any, any](),
-				"fail": MakeResource[slowFailResource, any, any](),
+				"r":    MakeResource[slowResource, *slowResourceOutput, any](),
+				"fail": MakeResource[slowFailResource, *slowFailResourceOutput, any](),
 			},
 		},
 	}
@@ -138,28 +152,43 @@ type countingSlowResource struct {
 	runs  *atomic.Int64
 }
 
+type countingSlowResourceOutput struct{ Name string }
+
 func (r *countingSlowResource) SchemaVersion() int { return 1 }
 
-func (r *countingSlowResource) Create(ctx context.Context, _ any) (any, error) {
+func (r *countingSlowResource) Create(
+	ctx context.Context,
+	_ any,
+) (*countingSlowResourceOutput, error) {
 	r.runs.Add(1)
 	select {
 	case <-time.After(time.Duration(r.Delay) * time.Millisecond):
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
-	return map[string]any{"name": r.Name}, nil
+	return &countingSlowResourceOutput{Name: r.Name}, nil
 }
 
-func (r *countingSlowResource) Read(_ context.Context, _, _ any) (any, error) {
+func (r *countingSlowResource) Read(
+	_ context.Context,
+	_ any,
+	_ *countingSlowResourceOutput,
+) (*countingSlowResourceOutput, error) {
 	return nil, ErrNotFound
 }
 func (r *countingSlowResource) Update(
-	_ context.Context, _ any, _ Prior[countingSlowResource, any],
-) (any, error) {
-	return map[string]any{"name": r.Name}, nil
+	_ context.Context, _ any, _ Prior[countingSlowResource, *countingSlowResourceOutput],
+) (*countingSlowResourceOutput, error) {
+	return &countingSlowResourceOutput{Name: r.Name}, nil
 }
-func (r *countingSlowResource) Delete(_ context.Context, _, _ any) error { return nil }
-func (r *countingSlowResource) ReplaceFields() []string                  { return nil }
+func (r *countingSlowResource) Delete(
+	_ context.Context,
+	_ any,
+	_ *countingSlowResourceOutput,
+) error {
+	return nil
+}
+func (r *countingSlowResource) ReplaceFields() []string { return nil }
 
 func TestApplyScheduleFailureStopsDispatchButDrainsInflight(t *testing.T) {
 	var runs atomic.Int64
@@ -167,10 +196,10 @@ func TestApplyScheduleFailureStopsDispatchButDrainsInflight(t *testing.T) {
 		"slow": {
 			Name: "slow",
 			Resources: map[string]ResourceRegistration{
-				"r": MakeResourceWith[countingSlowResource, any, any](
+				"r": MakeResourceWith[countingSlowResource, *countingSlowResourceOutput, any](
 					func() *countingSlowResource { return &countingSlowResource{runs: &runs} },
 				),
-				"fail": MakeResource[slowFailResource, any, any](),
+				"fail": MakeResource[slowFailResource, *slowFailResourceOutput, any](),
 			},
 		},
 	}
@@ -197,10 +226,10 @@ func TestApplyScheduleSkipsTransitiveDependentsOfFailure(t *testing.T) {
 		"slow": {
 			Name: "slow",
 			Resources: map[string]ResourceRegistration{
-				"r": MakeResourceWith[countingSlowResource, any, any](
+				"r": MakeResourceWith[countingSlowResource, *countingSlowResourceOutput, any](
 					func() *countingSlowResource { return &countingSlowResource{runs: &runs} },
 				),
-				"fail": MakeResource[slowFailResource, any, any](),
+				"fail": MakeResource[slowFailResource, *slowFailResourceOutput, any](),
 			},
 		},
 	}

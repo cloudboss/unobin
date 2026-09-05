@@ -50,21 +50,30 @@ type orderResource struct {
 	rec *deleteOrder
 }
 
-func (r *orderResource) Create(_ context.Context, _ any) (any, error) {
-	return map[string]any{"id": "id-" + r.Name, "name": r.Name}, nil
+type orderResourceOutput struct {
+	ID   string
+	Name string
 }
 
-func (r *orderResource) Read(_ context.Context, _ any, prior any) (any, error) {
+func (r *orderResource) Create(_ context.Context, _ any) (*orderResourceOutput, error) {
+	return &orderResourceOutput{ID: "id-" + r.Name, Name: r.Name}, nil
+}
+
+func (r *orderResource) Read(
+	_ context.Context,
+	_ any,
+	prior *orderResourceOutput,
+) (*orderResourceOutput, error) {
 	return prior, nil
 }
 
 func (r *orderResource) Update(
-	_ context.Context, _ any, prior Prior[orderResource, any],
-) (any, error) {
+	_ context.Context, _ any, prior Prior[orderResource, *orderResourceOutput],
+) (*orderResourceOutput, error) {
 	return prior.Outputs, nil
 }
 
-func (r *orderResource) Delete(_ context.Context, _ any, _ any) error {
+func (r *orderResource) Delete(_ context.Context, _ any, _ *orderResourceOutput) error {
 	r.rec.mu.Lock()
 	r.rec.order = append(r.rec.order, r.Name)
 	r.rec.mu.Unlock()
@@ -80,7 +89,7 @@ func orderModules(rec *deleteOrder) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[orderResource, any, any](
+				"thing": MakeResourceWith[orderResource, *orderResourceOutput, any](
 					func() *orderResource { return &orderResource{rec: rec} },
 				),
 			},
@@ -394,21 +403,27 @@ type cfgResource struct {
 	capture *cfgCapture
 }
 
-func (r *cfgResource) Create(_ context.Context, _ any) (any, error) {
-	return map[string]any{"id": "id-" + r.Name}, nil
+type cfgResourceOutput struct{ ID string }
+
+func (r *cfgResource) Create(_ context.Context, _ any) (*cfgResourceOutput, error) {
+	return &cfgResourceOutput{ID: "id-" + r.Name}, nil
 }
 
-func (r *cfgResource) Read(_ context.Context, _ any, prior any) (any, error) {
+func (r *cfgResource) Read(
+	_ context.Context,
+	_ any,
+	prior *cfgResourceOutput,
+) (*cfgResourceOutput, error) {
 	return prior, nil
 }
 
 func (r *cfgResource) Update(
-	_ context.Context, _ any, prior Prior[cfgResource, any],
-) (any, error) {
+	_ context.Context, _ any, prior Prior[cfgResource, *cfgResourceOutput],
+) (*cfgResourceOutput, error) {
 	return prior.Outputs, nil
 }
 
-func (r *cfgResource) Delete(_ context.Context, cfg any, _ any) error {
+func (r *cfgResource) Delete(_ context.Context, cfg any, _ *cfgResourceOutput) error {
 	r.capture.deleteCfg = cfg
 	r.capture.deleted = true
 	return nil
@@ -426,7 +441,7 @@ func cfgCapturingModules(capture *cfgCapture) map[string]*Library {
 				New: func() any { return &endpointConfiguration{} },
 			},
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[cfgResource, any, any](
+				"thing": MakeResourceWith[cfgResource, *cfgResourceOutput, any](
 					func() *cfgResource { return &cfgResource{capture: capture} },
 				),
 			},
@@ -478,29 +493,46 @@ type incrementalResource struct {
 	counters *incrementalResourceCounters
 }
 
-func (r *incrementalResource) Create(_ context.Context, _ any) (any, error) {
+type incrementalResourceOutput struct {
+	ID   string
+	Name string
+	Size int64
+}
+
+func (r *incrementalResource) Create(
+	_ context.Context,
+	_ any,
+) (*incrementalResourceOutput, error) {
 	if r.Name == "fail-create" {
 		return nil, errIncrementalResource
 	}
 	atomic.AddInt64(&r.counters.creates, 1)
-	return map[string]any{"id": "fake-" + r.Name, "name": r.Name, "size": r.Size}, nil
+	return &incrementalResourceOutput{ID: "fake-" + r.Name, Name: r.Name, Size: r.Size}, nil
 }
 
-func (r *incrementalResource) Read(_ context.Context, _ any, prior any) (any, error) {
+func (r *incrementalResource) Read(
+	_ context.Context,
+	_ any,
+	prior *incrementalResourceOutput,
+) (*incrementalResourceOutput, error) {
 	return prior, nil
 }
 
 func (r *incrementalResource) Update(
-	_ context.Context, _ any, _ Prior[incrementalResource, any],
-) (any, error) {
+	_ context.Context, _ any, _ Prior[incrementalResource, *incrementalResourceOutput],
+) (*incrementalResourceOutput, error) {
 	if r.Size == 99 {
 		return nil, errIncrementalResource
 	}
 	atomic.AddInt64(&r.counters.updates, 1)
-	return map[string]any{"id": "fake-" + r.Name, "name": r.Name, "size": r.Size}, nil
+	return &incrementalResourceOutput{ID: "fake-" + r.Name, Name: r.Name, Size: r.Size}, nil
 }
 
-func (r *incrementalResource) Delete(_ context.Context, _ any, _ any) error {
+func (r *incrementalResource) Delete(
+	_ context.Context,
+	_ any,
+	_ *incrementalResourceOutput,
+) error {
 	if r.Name == "fail-delete" {
 		return errIncrementalResource
 	}
@@ -519,7 +551,7 @@ func incrementalModules(c *incrementalResourceCounters) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"inc": MakeResourceWith[incrementalResource, any, any](
+				"inc": MakeResourceWith[incrementalResource, *incrementalResourceOutput, any](
 					func() *incrementalResource {
 						return &incrementalResource{counters: c}
 					},
@@ -725,7 +757,7 @@ func TestDestroyRemovesActionWithoutRunningIt(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[orderResource, any, any](
+				"thing": MakeResourceWith[orderResource, *orderResourceOutput, any](
 					func() *orderResource { return &orderResource{rec: rec} },
 				),
 			},

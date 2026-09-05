@@ -125,16 +125,18 @@ type versionConsumer struct {
 	counters *modifierCounters
 }
 
+type versionConsumerOutput struct{ Ref string }
+
 func (r *versionConsumer) SchemaVersion() int { return 1 }
 
-func (r *versionConsumer) Create(_ context.Context, _ any) (map[string]any, error) {
+func (r *versionConsumer) Create(_ context.Context, _ any) (*versionConsumerOutput, error) {
 	r.counters.consumerRef.Store(r.Ref)
-	return map[string]any{"ref": r.Ref}, nil
+	return &versionConsumerOutput{Ref: r.Ref}, nil
 }
 
 func (r *versionConsumer) Read(
-	_ context.Context, _ any, prior map[string]any,
-) (map[string]any, error) {
+	_ context.Context, _ any, prior *versionConsumerOutput,
+) (*versionConsumerOutput, error) {
 	if prior == nil {
 		return nil, ErrNotFound
 	}
@@ -142,15 +144,16 @@ func (r *versionConsumer) Read(
 }
 
 func (r *versionConsumer) Update(
-	_ context.Context, _ any, prior Prior[versionConsumer, map[string]any],
-) (map[string]any, error) {
+	_ context.Context, _ any, prior Prior[versionConsumer, *versionConsumerOutput],
+) (*versionConsumerOutput, error) {
 	atomic.AddInt64(&r.counters.consumerUpdates, 1)
 	r.counters.consumerRef.Store(r.Ref)
-	prior.Outputs["ref"] = r.Ref
-	return prior.Outputs, nil
+	out := *prior.Outputs
+	out.Ref = r.Ref
+	return &out, nil
 }
 
-func (r *versionConsumer) Delete(_ context.Context, _ any, _ map[string]any) error {
+func (r *versionConsumer) Delete(_ context.Context, _ any, _ *versionConsumerOutput) error {
 	return nil
 }
 
@@ -251,7 +254,7 @@ func resourcePlanModules(counters *modifierCounters) map[string]*Library {
 			Resources: map[string]ResourceRegistration{
 				"equivalent": MakeResource[equivalentResource, *equivalentOutput, any](),
 				"versioned":  MakeResource[planModifierResource, *planModifierOutput, any](),
-				"consumer": MakeResourceWith[versionConsumer, map[string]any, any](
+				"consumer": MakeResourceWith[versionConsumer, *versionConsumerOutput, any](
 					func() *versionConsumer {
 						return &versionConsumer{counters: counters}
 					},

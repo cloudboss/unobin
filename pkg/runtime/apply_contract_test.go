@@ -21,14 +21,23 @@ type ghostResource struct {
 	gone *bool
 }
 
-func (r *ghostResource) SchemaVersion() int { return 1 }
-
-func (r *ghostResource) Create(_ context.Context, _ any) (any, error) {
-	*r.gen++
-	return map[string]any{"tag": r.Tag, "id": fmt.Sprintf("gen-%d", *r.gen)}, nil
+type ghostResourceOutput struct {
+	Tag string
+	ID  string
 }
 
-func (r *ghostResource) Read(_ context.Context, _, prior any) (any, error) {
+func (r *ghostResource) SchemaVersion() int { return 1 }
+
+func (r *ghostResource) Create(_ context.Context, _ any) (*ghostResourceOutput, error) {
+	*r.gen++
+	return &ghostResourceOutput{Tag: r.Tag, ID: fmt.Sprintf("gen-%d", *r.gen)}, nil
+}
+
+func (r *ghostResource) Read(
+	_ context.Context,
+	_ any,
+	prior *ghostResourceOutput,
+) (*ghostResourceOutput, error) {
 	if *r.gone || prior == nil {
 		return nil, ErrNotFound
 	}
@@ -36,14 +45,16 @@ func (r *ghostResource) Read(_ context.Context, _, prior any) (any, error) {
 }
 
 func (r *ghostResource) Update(
-	_ context.Context, _ any, _ Prior[ghostResource, any],
-) (any, error) {
+	_ context.Context, _ any, _ Prior[ghostResource, *ghostResourceOutput],
+) (*ghostResourceOutput, error) {
 	*r.gen++
-	return map[string]any{"tag": r.Tag, "id": fmt.Sprintf("gen-%d", *r.gen)}, nil
+	return &ghostResourceOutput{Tag: r.Tag, ID: fmt.Sprintf("gen-%d", *r.gen)}, nil
 }
 
-func (r *ghostResource) Delete(_ context.Context, _, _ any) error { return nil }
-func (r *ghostResource) ReplaceFields() []string                  { return nil }
+func (r *ghostResource) Delete(_ context.Context, _ any, _ *ghostResourceOutput) error {
+	return nil
+}
+func (r *ghostResource) ReplaceFields() []string { return nil }
 
 // A concrete plan-time input that evaluates differently at apply
 // fails the step: the decision was computed from a premise that no
@@ -58,10 +69,10 @@ func TestApplyErrorsWhenResourceInputChangedSincePlan(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"ghost": MakeResourceWith[ghostResource, any, any](
+				"ghost": MakeResourceWith[ghostResource, *ghostResourceOutput, any](
 					func() *ghostResource { return &ghostResource{gen: &gen, gone: &gone} },
 				),
-				"thing": MakeResource[trackedResource, any, any](),
+				"thing": MakeResource[trackedResource, *trackedResourceOutput, any](),
 			},
 		},
 	}
@@ -135,10 +146,10 @@ func TestApplyAcceptsResolvedPendingInput(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"ghost": MakeResourceWith[ghostResource, any, any](
+				"ghost": MakeResourceWith[ghostResource, *ghostResourceOutput, any](
 					func() *ghostResource { return &ghostResource{gen: &gen, gone: &gone} },
 				),
-				"thing": MakeResource[trackedResource, any, any](),
+				"thing": MakeResource[trackedResource, *trackedResourceOutput, any](),
 			},
 		},
 	}

@@ -39,21 +39,40 @@ type echoResource struct {
 	Value string
 }
 
+type echoResourceOutput struct {
+	Value string
+	ID    string
+}
+
 func (r *echoResource) SchemaVersion() int { return 1 }
-func (r *echoResource) Create(_ context.Context, _ any) (any, error) {
-	return map[string]any{"value": r.Value, "id": "id-" + r.Value}, nil
+func (r *echoResource) Create(_ context.Context, _ any) (*echoResourceOutput, error) {
+	return &echoResourceOutput{Value: r.Value, ID: "id-" + r.Value}, nil
 }
-func (r *echoResource) Read(_ context.Context, _ any, prior any) (any, error) { return prior, nil }
-func (r *echoResource) Update(_ context.Context, _ any, _ Prior[echoResource, any]) (any, error) {
-	return map[string]any{"value": r.Value, "id": "id-" + r.Value}, nil
+func (r *echoResource) Read(
+	_ context.Context,
+	_ any,
+	prior *echoResourceOutput,
+) (*echoResourceOutput, error) {
+	return prior, nil
 }
-func (r *echoResource) Delete(_ context.Context, _ any, _ any) error { return nil }
-func (r *echoResource) ReplaceFields() []string                      { return []string{"value"} }
+func (r *echoResource) Update(
+	_ context.Context,
+	_ any,
+	_ Prior[echoResource, *echoResourceOutput],
+) (*echoResourceOutput, error) {
+	return &echoResourceOutput{Value: r.Value, ID: "id-" + r.Value}, nil
+}
+func (r *echoResource) Delete(_ context.Context, _ any, _ *echoResourceOutput) error { return nil }
+func (r *echoResource) ReplaceFields() []string {
+	return []string{"value"}
+}
 
 type configEchoResource struct {
 	readSeen   *[]string
 	deleteSeen *[]string
 }
+
+type configEchoResourceOutput struct{ Endpoint string }
 
 func endpointOf(c any) string {
 	switch conf := c.(type) {
@@ -78,21 +97,25 @@ func endpointOf(c any) string {
 }
 
 func (r *configEchoResource) SchemaVersion() int { return 1 }
-func (r *configEchoResource) Create(_ context.Context, c any) (any, error) {
-	return map[string]any{"endpoint": endpointOf(c)}, nil
+func (r *configEchoResource) Create(_ context.Context, c any) (*configEchoResourceOutput, error) {
+	return &configEchoResourceOutput{Endpoint: endpointOf(c)}, nil
 }
-func (r *configEchoResource) Read(_ context.Context, c any, prior any) (any, error) {
+func (r *configEchoResource) Read(
+	_ context.Context,
+	c any,
+	prior *configEchoResourceOutput,
+) (*configEchoResourceOutput, error) {
 	if r.readSeen != nil {
 		*r.readSeen = append(*r.readSeen, endpointOf(c))
 	}
 	return prior, nil
 }
 func (r *configEchoResource) Update(
-	_ context.Context, c any, _ Prior[configEchoResource, any],
-) (any, error) {
-	return map[string]any{"endpoint": endpointOf(c)}, nil
+	_ context.Context, c any, _ Prior[configEchoResource, *configEchoResourceOutput],
+) (*configEchoResourceOutput, error) {
+	return &configEchoResourceOutput{Endpoint: endpointOf(c)}, nil
 }
-func (r *configEchoResource) Delete(_ context.Context, c any, _ any) error {
+func (r *configEchoResource) Delete(_ context.Context, c any, _ *configEchoResourceOutput) error {
 	if r.deleteSeen != nil {
 		*r.deleteSeen = append(*r.deleteSeen, endpointOf(c))
 	}
@@ -220,7 +243,7 @@ func configuredLibrariesWithConfig(
 		"base": {
 			Name: "base",
 			Resources: map[string]ResourceRegistration{
-				"echo": MakeResource[echoResource, any, any](),
+				"echo": MakeResource[echoResource, *echoResourceOutput, any](),
 			},
 		},
 		"fix": {
@@ -229,8 +252,8 @@ func configuredLibrariesWithConfig(
 				New: newConfig,
 			},
 			Resources: map[string]ResourceRegistration{
-				"echo": MakeResource[echoResource, any, any](),
-				"config-echo": MakeResourceWith[configEchoResource, any, any](
+				"echo": MakeResource[echoResource, *echoResourceOutput, any](),
+				"config-echo": MakeResourceWith[configEchoResource, *configEchoResourceOutput, any](
 					func() *configEchoResource {
 						return &configEchoResource{readSeen: readSeen, deleteSeen: deleteSeen}
 					},

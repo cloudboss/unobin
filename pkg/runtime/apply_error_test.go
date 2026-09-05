@@ -16,7 +16,7 @@ func TestApplyErrorPopulatesFailureFields(t *testing.T) {
 		"slow": {
 			Name: "slow", LibraryPath: "example.com/slow",
 			Resources: map[string]ResourceRegistration{
-				"fail": MakeResource[slowFailResource, any, any](),
+				"fail": MakeResource[slowFailResource, *slowFailResourceOutput, any](),
 			},
 		},
 	}
@@ -49,8 +49,8 @@ func TestApplyErrorCountsSkippedAndSucceeded(t *testing.T) {
 		"slow": {
 			Name: "slow",
 			Resources: map[string]ResourceRegistration{
-				"fail": MakeResource[slowFailResource, any, any](),
-				"r":    MakeResource[slowResource, any, any](),
+				"fail": MakeResource[slowFailResource, *slowFailResourceOutput, any](),
+				"r":    MakeResource[slowResource, *slowResourceOutput, any](),
 			},
 		},
 	}

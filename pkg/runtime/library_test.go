@@ -12,13 +12,19 @@ type fakeResource struct {
 	Name string
 }
 
+type fakeResourceOutput struct{ ID string }
+
 func (r *fakeResource) SchemaVersion() int { return 1 }
 
-func (r *fakeResource) Create(_ context.Context, _ any) (any, error) {
-	return map[string]any{"id": "fake-" + r.Name}, nil
+func (r *fakeResource) Create(_ context.Context, _ any) (*fakeResourceOutput, error) {
+	return &fakeResourceOutput{ID: "fake-" + r.Name}, nil
 }
 
-func (r *fakeResource) Read(_ context.Context, _ any, prior any) (any, error) {
+func (r *fakeResource) Read(
+	_ context.Context,
+	_ any,
+	prior *fakeResourceOutput,
+) (*fakeResourceOutput, error) {
 	if prior == nil {
 		return nil, ErrNotFound
 	}
@@ -26,14 +32,14 @@ func (r *fakeResource) Read(_ context.Context, _ any, prior any) (any, error) {
 }
 
 func (r *fakeResource) Update(
-	_ context.Context, _ any, prior Prior[fakeResource, any],
-) (any, error) {
-	m := prior.Outputs.(map[string]any)
-	m["id"] = "fake-" + r.Name + "-updated"
-	return m, nil
+	_ context.Context, _ any, prior Prior[fakeResource, *fakeResourceOutput],
+) (*fakeResourceOutput, error) {
+	out := *prior.Outputs
+	out.ID = "fake-" + r.Name + "-updated"
+	return &out, nil
 }
 
-func (r *fakeResource) Delete(_ context.Context, _ any, _ any) error { return nil }
+func (r *fakeResource) Delete(_ context.Context, _ any, _ *fakeResourceOutput) error { return nil }
 
 func (r *fakeResource) ReplaceFields() []string { return []string{"name"} }
 
@@ -57,7 +63,7 @@ func TestLibraryHoldsAllRegistrationKinds(t *testing.T) {
 	lib := &Library{
 		Name: "fake",
 		Resources: map[string]ResourceRegistration{
-			"thing": MakeResourceWith[fakeResource, any, any](
+			"thing": MakeResourceWith[fakeResource, *fakeResourceOutput, any](
 				func() *fakeResource { return &fakeResource{Name: "x"} },
 			),
 		},
@@ -79,7 +85,7 @@ func TestLibraryHoldsAllRegistrationKinds(t *testing.T) {
 }
 
 func TestResourceLifecycle(t *testing.T) {
-	rt := MakeResourceWith[fakeResource, any, any](
+	rt := MakeResourceWith[fakeResource, *fakeResourceOutput, any](
 		func() *fakeResource { return &fakeResource{Name: "alpha"} },
 	)
 	r := rt.NewReceiver()
@@ -87,7 +93,7 @@ func TestResourceLifecycle(t *testing.T) {
 
 	out, err := rt.Create(ctx, r, nil)
 	require.NoError(t, err)
-	require.Equal(t, "fake-alpha", out.(map[string]any)["id"])
+	require.Equal(t, "fake-alpha", out.(*fakeResourceOutput).ID)
 
 	got, err := rt.Read(ctx, r, nil, out)
 	require.NoError(t, err)
@@ -95,7 +101,8 @@ func TestResourceLifecycle(t *testing.T) {
 
 	updated, err := rt.Update(ctx, r, nil, nil, out, nil)
 	require.NoError(t, err)
-	require.Equal(t, "fake-alpha-updated", updated.(map[string]any)["id"])
+	require.Equal(t, "fake-alpha-updated", updated.(*fakeResourceOutput).ID)
+	require.Equal(t, "fake-alpha", out.(*fakeResourceOutput).ID)
 
 	require.NoError(t, rt.Delete(ctx, r, nil, updated))
 

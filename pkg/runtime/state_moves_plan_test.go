@@ -521,23 +521,39 @@ type stateMoveUpdateFailureResource struct {
 	Size int64
 }
 
-func (r *stateMoveUpdateFailureResource) Create(_ context.Context, _ any) (any, error) {
-	return map[string]any{"id": r.Name, "size": r.Size}, nil
+type stateMoveUpdateFailureResourceOutput struct {
+	ID   string
+	Size int64
 }
 
-func (r *stateMoveUpdateFailureResource) Read(_ context.Context, _ any, prior any) (any, error) {
+func (r *stateMoveUpdateFailureResource) Create(
+	_ context.Context,
+	_ any,
+) (*stateMoveUpdateFailureResourceOutput, error) {
+	return &stateMoveUpdateFailureResourceOutput{ID: r.Name, Size: r.Size}, nil
+}
+
+func (r *stateMoveUpdateFailureResource) Read(
+	_ context.Context,
+	_ any,
+	prior *stateMoveUpdateFailureResourceOutput,
+) (*stateMoveUpdateFailureResourceOutput, error) {
 	return prior, nil
 }
 
 func (r *stateMoveUpdateFailureResource) Update(
 	_ context.Context,
 	_ any,
-	_ Prior[stateMoveUpdateFailureResource, any],
-) (any, error) {
+	_ Prior[stateMoveUpdateFailureResource, *stateMoveUpdateFailureResourceOutput],
+) (*stateMoveUpdateFailureResourceOutput, error) {
 	return nil, errors.New("intentional update failure")
 }
 
-func (r *stateMoveUpdateFailureResource) Delete(_ context.Context, _ any, _ any) error {
+func (r *stateMoveUpdateFailureResource) Delete(
+	_ context.Context,
+	_ any,
+	_ *stateMoveUpdateFailureResourceOutput,
+) error {
 	return nil
 }
 
@@ -550,7 +566,9 @@ func stateMoveUpdateFailureLibs() map[string]*Library {
 	libs["bad"] = &Library{
 		Name: "bad",
 		Resources: map[string]ResourceRegistration{
-			"thing": MakeResource[stateMoveUpdateFailureResource, any, any](),
+			"thing": MakeResource[
+				stateMoveUpdateFailureResource, *stateMoveUpdateFailureResourceOutput, any,
+			](),
 		},
 	}
 	return libs

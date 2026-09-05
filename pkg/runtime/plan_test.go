@@ -1432,31 +1432,44 @@ type pendingListResource struct {
 	received  *[]string
 }
 
+type pendingListResourceOutput struct{ ID string }
+
 type pendingObjectInput struct {
 	ID     string
 	Broken int64
 }
 
-func (p *pendingListResource) Create(_ context.Context, _ any) (any, error) {
+func (p *pendingListResource) Create(
+	_ context.Context,
+	_ any,
+) (*pendingListResourceOutput, error) {
 	if p.SubnetIDs != nil && p.received != nil {
 		*p.received = append([]string{}, (*p.SubnetIDs)...)
 	}
-	return map[string]any{"id": "fake-" + p.Name}, nil
+	return &pendingListResourceOutput{ID: "fake-" + p.Name}, nil
 }
 
-func (p *pendingListResource) Read(_ context.Context, _ any, prior any) (any, error) {
+func (p *pendingListResource) Read(
+	_ context.Context,
+	_ any,
+	prior *pendingListResourceOutput,
+) (*pendingListResourceOutput, error) {
 	return prior, nil
 }
 
 func (p *pendingListResource) Update(
 	ctx context.Context,
 	cfg any,
-	_ Prior[pendingListResource, any],
-) (any, error) {
+	_ Prior[pendingListResource, *pendingListResourceOutput],
+) (*pendingListResourceOutput, error) {
 	return p.Create(ctx, cfg)
 }
 
-func (p *pendingListResource) Delete(_ context.Context, _ any, _ any) error {
+func (p *pendingListResource) Delete(
+	_ context.Context,
+	_ any,
+	_ *pendingListResourceOutput,
+) error {
 	return nil
 }
 
@@ -1470,7 +1483,7 @@ func pendingPlanLibraries(
 ) map[string]*Library {
 	libs := resourceModules(counters)
 	libs["core"].Resources["pending-list"] =
-		MakeResourceWith[pendingListResource, any, any](
+		MakeResourceWith[pendingListResource, *pendingListResourceOutput, any](
 			func() *pendingListResource {
 				return &pendingListResource{received: received}
 			},
