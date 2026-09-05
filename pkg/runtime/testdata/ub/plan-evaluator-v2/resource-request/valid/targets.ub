@@ -1,0 +1,19 @@
+inputs: { name: { type: string }, size: { type: integer } }
+library-configs: {
+  cloud: {
+    endpoint: 'same'
+    credentials: { token: 'secret', empty: [] }
+    servers: ['first', 'second']
+    labels: {
+      '01': 'numeric-secret'
+      'a/b~': 'label-secret'
+      plain: 'visible'
+    }
+    nullable: null
+  }
+}
+resources: {
+  main: cloud.server { name: input.name, size: input.size }
+  many: cloud.server { @for-each: { '': 2, blue: 1 }, name: 'server', size: @each.value }
+  child: cloud.server { name: resource.many['blue'].value, size: 1 }
+}
