@@ -1,0 +1,5 @@
+locals: {
+  size: 2
+  name: 'default'
+  note: 'note'
+}

@@ -1,0 +1,10 @@
+library-configs: {
+  cloud: {
+    endpoint: 'new'
+    credentials: { token: 'secret', empty: [] }
+    servers: []
+    labels: {}
+    nullable: null
+  }
+}
+resources: { main: cloud.server { name: 'server', size: 1 } }

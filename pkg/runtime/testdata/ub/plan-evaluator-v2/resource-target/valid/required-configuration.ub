@@ -1,0 +1,2 @@
+library-configs: { cloud: { endpoint: 'api' } }
+resources: { main: cloud.server { name: 'server', size: 1 } }

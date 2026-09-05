@@ -1,0 +1,2 @@
+inputs: { token: { type: string, @sensitive: true } }
+resources: { main: cloud.server { name: input.token } }

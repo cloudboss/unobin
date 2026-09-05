@@ -1,0 +1,9 @@
+inputs: { network: { type: object({ subnet-id: string }) } }
+resources: {
+  main: cloud.server {
+    name: resource.upstream.id
+    nullable: null
+    zones: ['known', resource.upstream.zone]
+    network: input.network
+  }
+}

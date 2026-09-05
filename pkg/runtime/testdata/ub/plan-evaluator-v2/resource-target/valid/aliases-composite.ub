@@ -1,0 +1,9 @@
+library-configs: {
+  cloud: { endpoint: 'first' }
+  renamed: { endpoint: 'second' }
+}
+resources: {
+  first: cloud.server { name: 'first', size: 1 }
+  second: renamed.server { name: 'second', size: 1 }
+  nested: app.application { name: 'nested' }
+}

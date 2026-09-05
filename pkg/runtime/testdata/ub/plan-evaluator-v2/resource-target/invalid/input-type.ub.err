@@ -1,0 +1,1 @@
+resource.main: resource inputs: field "name": expected string
