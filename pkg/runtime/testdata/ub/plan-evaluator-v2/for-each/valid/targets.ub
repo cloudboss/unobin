@@ -1,0 +1,14 @@
+resources: {
+  many: cloud.server { @for-each: cloud.instances(), name: @each.key, size: @each.value }
+  boxes: app.box { @for-each: cloud.instances(), name: @each.key, size: @each.value }
+}
+data-sources: {
+  many: cloud.lookup { @for-each: cloud.instances(), name: @each.key, size: @each.value }
+  boxes: app.box { @for-each: cloud.instances(), name: @each.key, size: @each.value }
+}
+actions: {
+  many: cloud.notify {
+    @for-each: cloud.instances(), name: @each.key, size: @each.value, @trigger: @each.key
+  }
+  boxes: app.box { @for-each: cloud.instances(), name: @each.key, size: @each.value }
+}

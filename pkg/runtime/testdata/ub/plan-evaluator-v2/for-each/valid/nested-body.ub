@@ -1,0 +1,6 @@
+inputs: { name: { type: string }, size: { type: integer } }
+resources: {
+  many: cloud.server { @for-each: { blue: input.size }, name: @each.key, size: @each.value }
+  plain: cloud.server { name: input.name, size: input.size }
+  boxes: child.box { @for-each: { blue: input.size }, name: @each.key, size: @each.value }
+}

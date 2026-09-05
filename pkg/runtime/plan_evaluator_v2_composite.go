@@ -49,7 +49,7 @@ func (e *Executor) planEvaluationV2CompositeTarget(
 			"%s: library %q has no %s composite %q", node.Address, node.Alias, node.Kind, node.Type,
 		)
 	}
-	scope, err := e.scopeFor(evaluation.run, node)
+	scope, err := e.planEvaluationV2Scope(evaluation, node)
 	if err != nil {
 		return nil, err
 	}

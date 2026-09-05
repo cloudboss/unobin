@@ -1,0 +1,2 @@
+inputs: { name: { type: string }, size: { type: integer } }
+outputs: { name: { value: input.name }, size: { value: input.size } }

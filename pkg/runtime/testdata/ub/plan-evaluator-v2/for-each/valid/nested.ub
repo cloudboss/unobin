@@ -1,0 +1,3 @@
+resources: {
+  apps: app.box { @for-each: { prod: 2, dev: 3 }, name: @each.key, size: @each.value }
+}
