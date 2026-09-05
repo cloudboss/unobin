@@ -42,7 +42,7 @@ func (e *Executor) planEvaluationV2ResourceTarget(
 	if node.LibraryPath != "" && node.LibraryPath != binding.LibraryPath {
 		return nil, fmt.Errorf("%s: resource library path does not match import", node.Address)
 	}
-	configuration, err := e.planEvaluationV2ResourceConfiguration(evaluation, node, library)
+	configuration, err := e.planEvaluationV2ConfigurationForNode(evaluation, node, library)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (e *Executor) planEvaluationV2ResourceTarget(
 	return &target, nil
 }
 
-func (e *Executor) planEvaluationV2ResourceConfiguration(
+func (e *Executor) planEvaluationV2ConfigurationForNode(
 	evaluation *planEvaluationV2,
 	node *Node,
 	library *Library,

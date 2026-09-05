@@ -1,0 +1,9 @@
+library-configs: {
+  cloud: { endpoint: 'first' }
+  renamed: { endpoint: resource.upstream.endpoint }
+}
+data-sources: {
+  first: cloud.lookup { name: 'first' }
+  second: renamed.lookup { name: 'second' }
+}
+resources: { nested: app.application { name: 'nested' } }

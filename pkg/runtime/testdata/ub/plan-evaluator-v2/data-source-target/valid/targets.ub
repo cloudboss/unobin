@@ -1,0 +1,10 @@
+inputs: { token: { type: string, @sensitive: true } }
+data-sources: {
+  main: cloud.lookup { name: input.token }
+  partial: cloud.lookup {
+    name: resource.upstream.id
+    size: resource.upstream.size
+    nullable: null
+    zones: ['known', resource.upstream.zone]
+  }
+}
