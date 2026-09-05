@@ -5,14 +5,15 @@ import (
 	"fmt"
 )
 
-func (e *Executor) planEvaluationV2ResourceStep(
+func (e *Executor) planEvaluationV2DataSourceStep(
 	ctx context.Context,
 	evaluation *planEvaluationV2,
 	pass *planningPassState,
-	request registeredResourcePlanningRequest,
+	request dataSourcePlanningRequest,
+	callbacks dataSourcePlanningCallbacks,
 ) (*PlanStepV2, error) {
 	if ctx == nil {
-		return nil, fmt.Errorf("resource planning context is required")
+		return nil, fmt.Errorf("data-source planning context is required")
 	}
 	if e == nil {
 		return nil, fmt.Errorf("executor is required")
@@ -23,7 +24,7 @@ func (e *Executor) planEvaluationV2ResourceStep(
 	if evaluation == nil || evaluation.run == nil || evaluation.run.eval == nil {
 		return nil, fmt.Errorf("version 2 plan evaluation is required")
 	}
-	if pass == nil || pass.facts == nil {
+	if pass == nil || pass.facts == nil || pass.reads == nil {
 		return nil, fmt.Errorf("planning pass state is required")
 	}
 	if err := ctx.Err(); err != nil {
@@ -33,7 +34,7 @@ func (e *Executor) planEvaluationV2ResourceStep(
 		return nil, nil
 	}
 	if err := validatePlanningStepMetadata(
-		request.Address, NodeResource, request.DependsOn,
+		request.Address, NodeDataSource, request.DependsOn,
 	); err != nil {
 		return nil, err
 	}
@@ -41,20 +42,21 @@ func (e *Executor) planEvaluationV2ResourceStep(
 	if err != nil {
 		return nil, err
 	}
-	step, err := planRegisteredResourceStep(ctx, pass, request)
+	if read := callbacks.Read; read != nil {
+		callbacks.Read = func(ctx context.Context) (EncodedValue, error) {
+			return pass.readDataSource(ctx, request.Address, *request.Desired, read)
+		}
+	}
+	step, err := planDataSourceStep(ctx, request, callbacks)
 	if err != nil {
 		return nil, err
 	}
-	if scope == nil {
-		return step, nil
-	}
-	operation := step.Operation.Resource
-	var outputs *EncodedValue
-	if operation.Decision == DecisionNoOp && !pass.outputsInvalidated(step.Address) {
-		outputs = operation.Observation.Outputs
-	}
-	if err := publishPlanEvaluationV2Outputs(scope.Resources, step.Address, outputs); err != nil {
-		return nil, err
+	if scope != nil {
+		if err := publishPlanEvaluationV2Outputs(
+			scope.Data, step.Address, step.Operation.DataSource.ObservedOutputs,
+		); err != nil {
+			return nil, err
+		}
 	}
 	return step, nil
 }

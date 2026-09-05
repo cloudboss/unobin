@@ -39,8 +39,9 @@ type resourceReadResult struct {
 }
 
 type planningReadCache struct {
-	mu      sync.Mutex
-	results map[string]*resourceReadResult
+	mu          sync.Mutex
+	results     map[string]*resourceReadResult
+	dataSources map[[32]byte]*dataSourceReadResult
 }
 
 type planningPassState struct {
