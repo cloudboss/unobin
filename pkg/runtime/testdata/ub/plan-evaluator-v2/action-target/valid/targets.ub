@@ -1,0 +1,12 @@
+inputs: { token: { type: string, @sensitive: true } }
+locals: { trigger: [1, resource.upstream.id] }
+actions: {
+  triggered: cloud.notify { name: 'same', @trigger: local.trigger }
+  main: cloud.notify { name: input.token }
+  partial: cloud.notify {
+    name: resource.upstream.id
+    size: resource.upstream.size
+    nullable: null
+    zones: ['known', resource.upstream.zone]
+  }
+}

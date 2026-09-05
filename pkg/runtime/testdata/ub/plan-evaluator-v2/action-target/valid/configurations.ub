@@ -1,0 +1,9 @@
+library-configs: {
+  cloud: { endpoint: 'first' }
+  renamed: { endpoint: resource.upstream.endpoint }
+}
+actions: {
+  first: cloud.notify { name: 'first' }
+  second: renamed.notify { name: 'second' }
+}
+resources: { nested: app.application { name: 'nested' } }
