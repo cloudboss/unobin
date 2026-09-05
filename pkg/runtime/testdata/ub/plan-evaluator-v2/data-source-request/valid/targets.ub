@@ -1,0 +1,12 @@
+inputs: { endpoint: { type: string } }
+library-configs: { cloud: { endpoint: input.endpoint } }
+data-sources: {
+  main: cloud.lookup { name: 'image', size: 2 }
+  child: cloud.lookup { name: data-source.main.id }
+  many: cloud.lookup {
+    @for-each: { '': 'empty', blue: 'blue' }
+    name: @each.value
+  }
+  dependent: cloud.lookup { name: data-source.many['blue'].id }
+}
+outputs: { id: { value: data-source.child.id } }
