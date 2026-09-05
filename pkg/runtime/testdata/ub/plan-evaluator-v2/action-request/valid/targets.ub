@@ -1,0 +1,13 @@
+inputs: { endpoint: { type: string } }
+library-configs: { cloud: { endpoint: input.endpoint } }
+actions: {
+  main: cloud.notify { name: 'message' }
+  many: cloud.notify {
+    @for-each: { '': 'empty', blue: 'blue' }
+    name: @each.value
+  }
+  dependent: cloud.notify { name: action.many['blue'].id }
+  pending: cloud.notify { name: resource.upstream.id }
+  triggered: cloud.notify { name: 'message', @trigger: resource.upstream.id }
+  always: cloud.notify { name: 'message', @trigger: 'always' }
+}

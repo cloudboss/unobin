@@ -134,7 +134,7 @@ func partialValue(
 		locals:    locals,
 		expanding: map[string]bool{},
 	}
-	return evaluator.value(e)
+	return evaluator.element(e)
 }
 
 type partialEvaluator struct {
@@ -280,9 +280,10 @@ func (p *partialEvaluator) at(
 }
 
 func (p *partialEvaluator) element(e lang.Expr) (any, []string, error) {
-	value, err := Eval(e, p.ec)
+	value, err := evalExpr(e, p.ec)
 	if err == nil {
-		return value, nil, nil
+		refs, _ := pendingValueRefs(value)
+		return value, refs, nil
 	}
 	if !errors.Is(err, ErrEvalNotFound) {
 		return nil, nil, err

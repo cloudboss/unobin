@@ -118,18 +118,9 @@ func TestPlanEvaluationV2ActionStepFeedsDependentPlans(t *testing.T) {
 					}}
 					for _, entry := range evaluation.prior.Entries {
 						node := dag.Nodes[entry.Address]
-						dependencies := planEvaluationV2Dependencies(dag.Edges[node.Address])
-						requests = append(requests, planStepV2Request{
-							Address: node.Address, Kind: NodeAction, DependsOn: dependencies,
-							Plan: func(ctx context.Context, _ *planningPassState) (*PlanStepV2, error) {
-								target, err := executor.planEvaluationV2ActionTarget(evaluation, node)
-								require.NoError(t, err)
-								return executor.planEvaluationV2ActionStep(ctx, evaluation, actionPlanningRequest{
-									Address: node.Address, DependsOn: dependencies,
-									Desired: target, Prior: entry.Payload.Action,
-								})
-							},
-						})
+						request, err := executor.planEvaluationV2ActionRequest(evaluation, node)
+						require.NoError(t, err)
+						requests = append(requests, request)
 					}
 					return append(requests, output), nil
 				}
