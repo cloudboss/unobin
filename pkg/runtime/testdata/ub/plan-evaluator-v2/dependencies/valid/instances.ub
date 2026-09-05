@@ -1,0 +1,13 @@
+library-configs: { cloud: { endpoint: resource.servers['blue'].id } }
+resources: {
+  servers: plain.server {
+    @for-each: { blue: 1, '': 2, 'a\'b\\c/d': 3 }
+    name: @each.key
+  }
+  empty: plain.server { @for-each: {}, name: @each.key }
+}
+locals: { servers: resource.servers }
+outputs: {
+  servers: { value: local.servers }
+  empty: { value: resource.empty }
+}

@@ -39,7 +39,10 @@ func (e *Executor) planEvaluationV2OutputRequest(
 		return planStepV2Request{}, fmt.Errorf("%s: output expression is required", node.Address)
 	}
 	address, expression := node.Address, node.Body
-	dependencies := planEvaluationV2Dependencies(e.DAG.Edges[address])
+	dependencies, err := e.planEvaluationV2NodeDependencies(evaluation, node)
+	if err != nil {
+		return planStepV2Request{}, err
+	}
 	planningDependencies := slices.Clone(dependencies)
 	analyzer := e.sensitivityAnalyzer()
 	sensitive := analyzer.exprSensitive(expression, analyzer.scopeFor(""))

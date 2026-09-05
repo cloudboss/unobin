@@ -1,0 +1,11 @@
+inputs: { name: { type: string } }
+resources: {
+  endpoints: plain.server {
+    @for-each: { '': input.name, blue: input.name }
+    name: @each.value
+  }
+  consumer: cloud.server { name: input.name }
+}
+library-configs: { cloud: { endpoint: resource.endpoints['blue'].id } }
+data-sources: { consumer: cloud.lookup { name: input.name } }
+actions: { consumer: cloud.notify { name: input.name } }
