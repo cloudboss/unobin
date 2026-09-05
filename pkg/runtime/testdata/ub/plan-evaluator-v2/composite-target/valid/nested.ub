@@ -1,0 +1,4 @@
+resources: {
+  first: app.outer { name: 'first' }
+  second: app.outer { name: 'second' }
+}

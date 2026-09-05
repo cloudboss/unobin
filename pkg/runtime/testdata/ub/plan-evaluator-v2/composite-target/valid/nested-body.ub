@@ -1,0 +1,3 @@
+inputs: { name: { type: string } }
+locals: { name: input.name + '-child' }
+resources: { child: child.box { name: local.name } }

@@ -1,0 +1,14 @@
+inputs: { token: { type: string, @sensitive: true } }
+locals: { name: input.token }
+resources: {
+  main: app.box { name: local.name }
+  renamed: renamed.box { name: local.name }
+  partial: app.box {
+    name: resource.upstream.id
+    password: null
+    settings: { size: 2, zones: ['known', resource.upstream.zone] }
+    labels: { fixed: 'known', pending: resource.upstream.label }
+  }
+}
+data-sources: { main: app.box { name: 'data' } }
+actions: { main: app.box { name: 'action' } }

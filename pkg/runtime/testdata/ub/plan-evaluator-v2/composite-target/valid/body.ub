@@ -1,0 +1,10 @@
+inputs: {
+  name: { type: string }
+  password: { type: optional(string), @sensitive: true }
+  settings: { type: optional(object({ size: integer, zones: list(string) })) }
+  labels: { type: optional(map(string)) }
+}
+outputs: {
+  password: { value: input.password }
+  private: { value: 'hidden', @sensitive: true }
+}

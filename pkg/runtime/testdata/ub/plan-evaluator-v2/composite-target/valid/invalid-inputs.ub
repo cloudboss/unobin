@@ -1,0 +1,10 @@
+resources: {
+  missing: app.box {}
+  unknown: app.box { name: 'known', extra: true }
+  scalar: app.box { name: 2 }
+  null: app.box { name: null }
+  nested: app.box { name: 'known', settings: { size: 'wrong', zones: [] } }
+  list: app.box { name: 'known', settings: { size: 2, zones: [3] } }
+  map: app.box { name: 'known', labels: { wrong: true } }
+  expression: app.box { name: 1 + true }
+}
