@@ -1,0 +1,18 @@
+library-configs: {
+  cloud: {
+    endpoint: 'same'
+    credentials: { token: 'secret', empty: [] }
+    servers: ['first', 'second']
+    labels: {
+      '01': 'numeric-secret'
+      'a/b~': 'label-secret'
+      plain: 'visible'
+    }
+    nullable: null
+  }
+}
+resources: {
+  upstream: cloud.server { name: 'server', size: 2 }
+  child: cloud.server { name: resource.upstream.value, size: 1 }
+  grandchild: cloud.server { name: resource.child.value, size: 1 }
+}
