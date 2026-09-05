@@ -1,0 +1,6 @@
+resources: { main: cloud.server { name: 'server', size: 1 } }
+actions: {
+  main: cloud.notify { name: resource.main.value }
+  next: cloud.notify { name: action.main.id }
+}
+outputs: { id: { value: action.next.id } }
