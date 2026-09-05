@@ -146,13 +146,11 @@ func resolveResourceDefinition[In, Out, Config any](
 }
 
 func validateResourceDefinitionRoots[In, Out any]() error {
-	inputType := reflect.TypeFor[In]()
-	if inputType.Kind() != reflect.Struct {
-		return fmt.Errorf("input root must be a struct; got %s", inputType)
+	if err := validateResourceValueRoot(reflect.TypeFor[In](), false); err != nil {
+		return fmt.Errorf("resource inputs: %w", err)
 	}
-	outputType := reflect.TypeFor[Out]()
-	if outputType.Kind() != reflect.Pointer || outputType.Elem().Kind() != reflect.Struct {
-		return fmt.Errorf("output root must be a pointer to a struct; got %s", outputType)
+	if err := validateResourceValueRoot(reflect.TypeFor[Out](), true); err != nil {
+		return fmt.Errorf("resource outputs: %w", err)
 	}
 	return nil
 }

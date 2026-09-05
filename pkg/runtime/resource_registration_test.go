@@ -575,6 +575,41 @@ func TestResourceDefinitionRegistrationRejectsInvalidDefinition(t *testing.T) {
 	require.Nil(t, registration)
 }
 
+type invalidSchemaRegistrationInput struct {
+	resourceRegistrationInput
+	Unsupported chan int `ub:"unsupported"`
+}
+
+func (*invalidSchemaRegistrationInput) Update(
+	context.Context,
+	resourceRegistrationConfig,
+	Prior[invalidSchemaRegistrationInput, *resourceRegistrationOutput],
+) (*resourceRegistrationOutput, error) {
+	panic("unexpected provider call")
+}
+
+func TestResourceDefinitionRegistrationRejectsSchemaBeforeConstruction(t *testing.T) {
+	definition := ResourceDefinition[
+		invalidSchemaRegistrationInput, *resourceRegistrationOutput, resourceRegistrationConfig,
+	]{
+		SchemaVersion: 1,
+		Identity: ResourceIdentity[invalidSchemaRegistrationInput, *resourceRegistrationOutput]{
+			Version: 1,
+			Scope:   IdentityConfiguration,
+		},
+	}
+	constructed := false
+	registration, err := newResourceDefinitionRegistration[
+		invalidSchemaRegistrationInput, *resourceRegistrationOutput, resourceRegistrationConfig,
+	](definition, func() *invalidSchemaRegistrationInput {
+		constructed = true
+		return &invalidSchemaRegistrationInput{}
+	})
+	require.ErrorContains(t, err, "resource definition: resource inputs: unsupported type chan int")
+	require.Nil(t, registration)
+	require.False(t, constructed)
+}
+
 func TestResourceDefinitionRegistrationRejectsWrongConfigurationType(t *testing.T) {
 	capture := &resourceRegistrationCapture{
 		createResult: &resourceRegistrationOutput{ID: "object-1"},

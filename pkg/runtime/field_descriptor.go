@@ -433,6 +433,15 @@ func appendPath(path []string, value string) []string {
 }
 
 func fieldValueSchema(t reflect.Type, visiting map[reflect.Type]bool) (string, error) {
+	if t.Kind() == reflect.Struct {
+		return structValueSchema(t, visiting)
+	}
+	if visiting[t] {
+		return "", fmt.Errorf("recursive type %s", t)
+	}
+	visiting[t] = true
+	defer delete(visiting, t)
+
 	if t.Kind() == reflect.Pointer {
 		value, err := fieldValueSchema(t.Elem(), visiting)
 		if err != nil {
@@ -466,8 +475,6 @@ func fieldValueSchema(t reflect.Type, visiting map[reflect.Type]bool) (string, e
 			return "", err
 		}
 		return "map(" + value + ")", nil
-	case reflect.Struct:
-		return structValueSchema(t, visiting)
 	default:
 		return "", fmt.Errorf("unsupported type %s", t)
 	}
