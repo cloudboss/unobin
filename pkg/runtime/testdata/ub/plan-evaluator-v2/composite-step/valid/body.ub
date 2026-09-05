@@ -1,0 +1,9 @@
+inputs: { name: { type: string } }
+locals: { label: input.name + '-box' }
+resources: { child: cloud.server { name: input.name } }
+outputs: {
+  label: { value: local.label }
+  id: { value: resource.child.id }
+  details: { value: { name: local.label, id: resource.child.id } }
+  empty: { value: null }
+}

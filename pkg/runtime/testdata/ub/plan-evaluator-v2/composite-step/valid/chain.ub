@@ -1,0 +1,7 @@
+resources: { main: app.box { name: 'server' } }
+data-sources: { main: app.box { name: 'data' } }
+actions: { main: app.box { name: 'action' } }
+outputs: {
+  id: { value: resource.main.id }
+  label: { value: resource.main.label }
+}

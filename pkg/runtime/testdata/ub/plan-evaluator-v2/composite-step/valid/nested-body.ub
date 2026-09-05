@@ -1,0 +1,5 @@
+inputs: { name: { type: string } }
+resources: {
+  boxes: app.box { name: @each.value, @for-each: { blue: input.name, green: 'other' } }
+}
+outputs: { id: { value: resource.boxes['blue'].id } }
