@@ -75,7 +75,7 @@ func TestEncodePlanningConfigurationValuePreservesKinds(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := encodePlanningConfigurationValue(tt.typ, tt.value)
+			got, err := encodePlanningValue(tt.typ, tt.value)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, got)
 		})
@@ -116,7 +116,7 @@ func TestEncodePlanningConfigurationValueRejectsInvalidValues(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := encodePlanningConfigurationValue(tt.typ, tt.value)
+			_, err := encodePlanningValue(tt.typ, tt.value)
 			require.ErrorContains(t, err, tt.message)
 		})
 	}

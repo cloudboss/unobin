@@ -42,7 +42,7 @@ func encodePlanningConfigurationObject(
 		if field.Optional {
 			typ = typecheck.TOptional(typ)
 		}
-		item, err := encodePlanningConfigurationValue(typ, value)
+		item, err := encodePlanningValue(typ, value)
 		if err != nil {
 			return EncodedValue{}, fmt.Errorf("field %q: %w", field.Name, err)
 		}
@@ -60,7 +60,7 @@ func encodePlanningConfigurationObject(
 	return value, nil
 }
 
-func encodePlanningConfigurationValue(
+func encodePlanningValue(
 	typ typecheck.Type,
 	value any,
 ) (EncodedValue, error) {
@@ -80,7 +80,7 @@ func encodePlanningConfigurationValue(
 
 	switch typ.Kind {
 	case typecheck.Unknown, typecheck.Opaque:
-		return encodePlanningConfigurationUnknown(value)
+		return encodeUntypedPlanningValue(value)
 	case typecheck.String, typecheck.AssetPath:
 		result, ok := value.(string)
 		if !ok {
@@ -134,7 +134,7 @@ func encodePlanningConfigurationValue(
 			if err := checkConfigValue(member, value); err != nil {
 				continue
 			}
-			return encodePlanningConfigurationValue(member, value)
+			return encodePlanningValue(member, value)
 		}
 		return EncodedValue{}, fmt.Errorf("value does not match any union member")
 	default:
@@ -152,7 +152,7 @@ func encodePlanningConfigurationList(
 	}
 	encoded := make([]EncodedValue, len(items))
 	for i, item := range items {
-		value, err := encodePlanningConfigurationValue(element, item)
+		value, err := encodePlanningValue(element, item)
 		if err != nil {
 			return EncodedValue{}, fmt.Errorf("element %d: %w", i, err)
 		}
@@ -175,7 +175,7 @@ func encodePlanningConfigurationMap(
 	}
 	encoded := make(map[string]EncodedValue, len(items))
 	for _, key := range slices.Sorted(maps.Keys(items)) {
-		value, err := encodePlanningConfigurationValue(element, items[key])
+		value, err := encodePlanningValue(element, items[key])
 		if err != nil {
 			return EncodedValue{}, fmt.Errorf("key %q: %w", key, err)
 		}
@@ -205,7 +205,7 @@ func encodePlanningConfigurationTuple(
 	}
 	encoded := make([]EncodedValue, len(items))
 	for i, item := range items {
-		value, err := encodePlanningConfigurationValue(elements[i], item)
+		value, err := encodePlanningValue(elements[i], item)
 		if err != nil {
 			return EncodedValue{}, fmt.Errorf("element %d: %w", i, err)
 		}
@@ -218,7 +218,7 @@ func encodePlanningConfigurationTuple(
 	return result, nil
 }
 
-func encodePlanningConfigurationUnknown(value any) (EncodedValue, error) {
+func encodeUntypedPlanningValue(value any) (EncodedValue, error) {
 	switch result := value.(type) {
 	case nil:
 		return NullValue(), nil
@@ -240,7 +240,7 @@ func encodePlanningConfigurationUnknown(value any) (EncodedValue, error) {
 		return encodePlanningConfigurationMap(typecheck.TUnknown(), result)
 	default:
 		return EncodedValue{}, fmt.Errorf(
-			"unsupported configuration value %s",
+			"unsupported planning value %s",
 			lang.TypeMessage(value),
 		)
 	}

@@ -1,0 +1,26 @@
+inputs: {
+  token: { type: string, @sensitive: true }
+}
+locals: {
+  details: {
+    name: 'server'
+    id: resource.main.id
+    credentials: [input.token, resource.main.token]
+  }
+}
+resources: {
+  main: cloud.server { name: 'server', size: 1 }
+}
+outputs: {
+  integer: { value: 9007199254740993 }
+  number: { value: 1.5 }
+  boolean: { value: true }
+  null: { value: null }
+  empty: { value: [] }
+  public: { value: local.details.name }
+  declared: { value: 'secret', @sensitive: true }
+  token: { value: input.token }
+  provider: { value: resource.main.token }
+  id: { value: resource.main.id }
+  details: { value: local.details }
+}
