@@ -85,7 +85,9 @@ func (e *Executor) planEvaluationV2ConfigurationForNode(
 	node *Node,
 	library *Library,
 ) (PlannedConfiguration, error) {
-	if address, ok := libraryConfigNode(e.DAG.Nodes, node.Composite, node.Alias); ok {
+	parent := DirectParent(node.Address)
+	if _, ok := libraryConfigNode(e.DAG.Nodes, node.Composite, node.Alias); ok {
+		address := libraryConfigNodeAddress(parent, node.Alias)
 		configuration, ok := evaluation.configurations[address]
 		if !ok {
 			return PlannedConfiguration{}, fmt.Errorf(
@@ -110,7 +112,7 @@ func (e *Executor) planEvaluationV2ConfigurationForNode(
 	}
 	address := ""
 	if !definition.noConfig {
-		address = libraryConfigNodeAddress(node.Composite, node.Alias)
+		address = libraryConfigNodeAddress(parent, node.Alias)
 	}
 	value, err := definition.encodePlanningValue(nil)
 	if err != nil {

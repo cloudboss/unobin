@@ -116,7 +116,16 @@ func (e *Executor) planEvaluationV2LibraryConfigurationRequest(
 	if err != nil {
 		return planStepV2Request{}, fmt.Errorf("%s: %w", node.Address, err)
 	}
-	dependencies := planEvaluationV2Dependencies(e.DAG.Edges[node.Address])
+	sourceAddress := libraryConfigNodeAddress(node.Composite, node.Alias)
+	dependencies := planEvaluationV2Dependencies(e.DAG.Edges[sourceAddress])
+	parent := DirectParent(node.Address)
+	for scope := node.Composite; scope != ""; scope = DirectParent(scope) {
+		for i, dependency := range dependencies {
+			dependencies[i] = rewriteAddress(dependency, scope, parent)
+		}
+		parent = DirectParent(parent)
+	}
+	slices.Sort(dependencies)
 	sensitivePaths := planEvaluationV2SensitivePaths(
 		e.sensitivityAnalyzer().sensitiveInputs(node.Body, node.Composite),
 	)
@@ -159,7 +168,7 @@ func (e *Executor) planEvaluationV2LibraryConfiguration(
 	sensitivePaths []string,
 	definition resolvedConfigurationDefinition,
 ) (*PlanStepV2, error) {
-	scope, err := e.scopeFor(evaluation.run, node)
+	scope, err := e.enclosingScope(evaluation.run, node.Address)
 	if err != nil {
 		return nil, err
 	}

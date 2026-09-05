@@ -1,0 +1,5 @@
+inputs: { name: { type: string, @sensitive: true } }
+library-configs: { cloud: { endpoint: input.name } }
+resources: { child: cloud.server { name: input.name, size: 1 } }
+data-sources: { child: cloud.lookup { name: input.name, size: 1 } }
+actions: { child: cloud.notify { name: input.name, size: 1 } }

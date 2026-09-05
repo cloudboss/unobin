@@ -1,0 +1,4 @@
+inputs: { name: { type: string } }
+resources: {
+  boxes: child.box { @for-each: { inner: input.name }, name: @each.value }
+}
