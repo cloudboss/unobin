@@ -141,9 +141,9 @@ func TestPlanEvaluationV2DataSourceStepFeedsDependentPlans(t *testing.T) {
 				}
 				require.Equal(t, want, plan.Steps[2].Operation.Output.Value)
 				require.True(t, plan.Steps[2].Operation.Output.Sensitive)
-				encoded, err := encodePlanFileV2(plan)
+				encoded, err := EncodePlanV2(plan)
 				require.NoError(t, err)
-				decoded, err := decodePlanFileV2(encoded)
+				decoded, err := DecodePlanV2(encoded)
 				require.NoError(t, err)
 				require.Equal(t, plan, decoded)
 			})

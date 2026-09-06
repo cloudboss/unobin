@@ -59,7 +59,8 @@ func (e *Executor) PlanV2(ctx context.Context) (*PlanFileV2, error) {
 			Name: e.Factory.Name, Version: e.Factory.Version, ContentRevision: e.Factory.ContentRevision,
 		},
 		Stack: stack, StateRevision: revision, GeneratedAt: time.Now().UTC(),
-		Inputs: inputs, Parallelism: parallelism, Mode: mode, StateMoves: []PlannedEntryMove{},
+		Inputs: inputs, Backend: e.PlanBackend, Parallelism: parallelism,
+		Mode: mode, StateMoves: []PlannedEntryMove{},
 	})
 	if err != nil {
 		return nil, err

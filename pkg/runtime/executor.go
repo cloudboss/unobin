@@ -55,6 +55,9 @@ type Executor struct {
 	Store   state.Backend
 	Factory state.FactoryInfo
 
+	// PlanBackend describes the state provider recorded in a version 2 plan.
+	PlanBackend *StateRefV2
+
 	// Parallelism caps the number of in-flight resource, data-source, and
 	// action steps during ApplyPlan. Zero or negative falls back to
 	// DefaultParallelism.

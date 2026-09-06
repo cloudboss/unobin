@@ -8,7 +8,8 @@ import (
 	"github.com/cloudboss/unobin/internal/strictjson"
 )
 
-func encodePlanFileV2(plan PlanFileV2) ([]byte, error) {
+// EncodePlanV2 encodes a validated version 2 plan body.
+func EncodePlanV2(plan PlanFileV2) ([]byte, error) {
 	if err := plan.Validate(); err != nil {
 		return nil, fmt.Errorf("plan: %w", err)
 	}
@@ -19,7 +20,8 @@ func encodePlanFileV2(plan PlanFileV2) ([]byte, error) {
 	return append(encoded, '\n'), nil
 }
 
-func decodePlanFileV2(data []byte) (PlanFileV2, error) {
+// DecodePlanV2 validates a version 2 plan body and its content digest.
+func DecodePlanV2(data []byte) (PlanFileV2, error) {
 	if err := strictjson.Validate(data); err != nil {
 		return PlanFileV2{}, fmt.Errorf("plan: %w", err)
 	}

@@ -13,11 +13,11 @@ import (
 func TestPlanFileV2Codec(t *testing.T) {
 	plan := validPlanFileV2(t)
 
-	encoded, err := encodePlanFileV2(plan)
+	encoded, err := EncodePlanV2(plan)
 	require.NoError(t, err)
 	require.True(t, bytes.HasSuffix(encoded, []byte{'\n'}))
 
-	decoded, err := decodePlanFileV2(encoded)
+	decoded, err := DecodePlanV2(encoded)
 	require.NoError(t, err)
 	require.Equal(t, plan, decoded)
 }
@@ -62,9 +62,9 @@ func TestPlanFileV2CodecPreservesEveryOperationKind(t *testing.T) {
 			plan.Digest, err = planFileV2Digest(plan)
 			require.NoError(t, err)
 
-			encoded, err := encodePlanFileV2(plan)
+			encoded, err := EncodePlanV2(plan)
 			require.NoError(t, err)
-			decoded, err := decodePlanFileV2(encoded)
+			decoded, err := DecodePlanV2(encoded)
 			require.NoError(t, err)
 			require.Equal(t, plan, decoded)
 		})
@@ -75,7 +75,7 @@ func TestEncodePlanFileV2RejectsInvalidPlan(t *testing.T) {
 	plan := validPlanFileV2(t)
 	plan.Digest = strings.Repeat("f", 64)
 
-	encoded, err := encodePlanFileV2(plan)
+	encoded, err := EncodePlanV2(plan)
 	require.ErrorContains(t, err, "digest does not match plan contents")
 	require.Nil(t, encoded)
 }
@@ -141,7 +141,7 @@ func TestDecodePlanFileV2RejectsInvalidJSONContract(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			input := replacePlanFileV2JSON(t, valid, tt.old, tt.new)
-			plan, err := decodePlanFileV2(input)
+			plan, err := DecodePlanV2(input)
 			require.ErrorContains(t, err, tt.message)
 			require.Equal(t, PlanFileV2{}, plan)
 		})
@@ -151,7 +151,7 @@ func TestDecodePlanFileV2RejectsInvalidJSONContract(t *testing.T) {
 func TestDecodePlanFileV2RejectsTrailingValue(t *testing.T) {
 	input := append(marshalPlanFileV2(t, validPlanFileV2(t)), []byte(` {}`)...)
 
-	plan, err := decodePlanFileV2(input)
+	plan, err := DecodePlanV2(input)
 	require.ErrorContains(t, err, "$: unexpected value after JSON value")
 	require.Equal(t, PlanFileV2{}, plan)
 }
@@ -171,7 +171,7 @@ func TestDecodePlanFileV2RequiresFalseBooleanMembers(t *testing.T) {
 	valid := marshalPlanFileV2(t, plan)
 	input := replacePlanFileV2JSON(t, valid, `,"sensitive":false`, "")
 
-	decoded, err := decodePlanFileV2(input)
+	decoded, err := DecodePlanV2(input)
 	require.ErrorContains(
 		t,
 		err,
@@ -181,7 +181,7 @@ func TestDecodePlanFileV2RequiresFalseBooleanMembers(t *testing.T) {
 }
 
 func TestDecodePlanFileV2RejectsObsoleteAlphaFormat(t *testing.T) {
-	plan, err := decodePlanFileV2([]byte(`{"format-version":1}`))
+	plan, err := DecodePlanV2([]byte(`{"format-version":1}`))
 	require.ErrorContains(t, err, "obsolete alpha format; create a new plan or state")
 	require.Equal(t, PlanFileV2{}, plan)
 }
@@ -190,7 +190,7 @@ func TestDecodePlanFileV2VerifiesDigest(t *testing.T) {
 	valid := marshalPlanFileV2(t, validPlanFileV2(t))
 	input := replacePlanFileV2JSON(t, valid, `"stack":"production"`, `"stack":"other"`)
 
-	plan, err := decodePlanFileV2(input)
+	plan, err := DecodePlanV2(input)
 	require.ErrorContains(t, err, "digest does not match plan contents")
 	require.Equal(t, PlanFileV2{}, plan)
 }

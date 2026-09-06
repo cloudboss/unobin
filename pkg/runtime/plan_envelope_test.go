@@ -81,10 +81,10 @@ func TestOpenPlanRejectsUnknownEnvelopeVersion(t *testing.T) {
 func TestSealOpenPlanFileV2PreservesPlan(t *testing.T) {
 	plan := validPlanFileV2(t)
 
-	sealed, err := sealPlanFileV2(plan, reversingEncrypter{})
+	sealed, err := SealPlanV2(plan, reversingEncrypter{})
 	require.NoError(t, err)
 
-	opened, err := openPlanFileV2(
+	opened, err := OpenPlanV2(
 		sealed,
 		func(ref *StateRef) (encrypt.Encrypter, error) {
 			require.NotNil(t, ref)
@@ -101,7 +101,7 @@ func TestSealPlanFileV2RejectsInvalidPlan(t *testing.T) {
 	plan := validPlanFileV2(t)
 	plan.Stack = ""
 
-	sealed, err := sealPlanFileV2(plan, reversingEncrypter{})
+	sealed, err := SealPlanV2(plan, reversingEncrypter{})
 	require.ErrorContains(t, err, "stack is required")
 	assert.Nil(t, sealed)
 }
@@ -114,7 +114,7 @@ func TestOpenPlanFileV2RejectsObsoletePlan(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	plan, err := openPlanFileV2(
+	plan, err := OpenPlanV2(
 		sealed,
 		func(*StateRef) (encrypt.Encrypter, error) {
 			return reversingEncrypter{}, nil
