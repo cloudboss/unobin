@@ -2,26 +2,20 @@ package e2etest
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"path/filepath"
 
 	"github.com/cloudboss/unobin/pkg/compile"
 )
 
-const e2eLibraryModule = "example.com/unobin/e2elib"
-
 func compileCase(
-	_ context.Context,
-	repoRoot string,
-	e2eLibraryDir string,
+	cfg config,
 	c CompiledCase,
 	workspace string,
 ) (string, error) {
 	outDir := filepath.Join(workspace, ".e2e", "build")
 	return compileCaseTo(
-		repoRoot,
-		e2eLibraryDir,
+		cfg,
 		c,
 		workspace,
 		outDir,
@@ -30,8 +24,7 @@ func compileCase(
 }
 
 func compileCaseTo(
-	repoRoot string,
-	e2eLibraryDir string,
+	cfg config,
 	c CompiledCase,
 	workspace string,
 	outDir string,
@@ -41,20 +34,18 @@ func compileCaseTo(
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	err := compile.Run(compile.Options{
-		FactoryPath:   factoryPath,
-		OutDir:        outDir,
-		StackName:     c.Name,
-		LibraryPath:   c.LibraryPath,
-		GoVersion:     compile.GoMajorMinor(),
-		Version:       "v0.0.0",
-		CLIVersion:    "dev",
-		ReplaceUnobin: repoRoot,
-		ReplaceGoModules: map[string]string{
-			e2eLibraryModule: e2eLibraryDir,
-		},
-		Build:  build,
-		Stdout: &stdout,
-		Stderr: &stderr,
+		FactoryPath:      factoryPath,
+		OutDir:           outDir,
+		StackName:        c.Name,
+		LibraryPath:      c.LibraryPath,
+		GoVersion:        compile.GoMajorMinor(),
+		Version:          "v0.0.0",
+		CLIVersion:       "dev",
+		ReplaceUnobin:    cfg.repoRoot,
+		ReplaceGoModules: cfg.goModules,
+		Build:            build,
+		Stdout:           &stdout,
+		Stderr:           &stderr,
 	})
 	if err != nil {
 		return "", fmt.Errorf(

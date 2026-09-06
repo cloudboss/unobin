@@ -1,0 +1,17 @@
+factory: {
+  inputs: {
+    text: { type: string }
+  }
+
+  imports: {
+    consumer: 'example.com/e2econsumer'
+  }
+
+  actions: {
+    write: consumer.write { text: input.text }
+  }
+
+  outputs: {
+    text: { value: action.write.text }
+  }
+}

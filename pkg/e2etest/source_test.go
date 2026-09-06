@@ -39,7 +39,6 @@ func TestRunSourceCasesRunsFromRootAndComparesFiles(t *testing.T) {
 
 	RunSourceCases(t, caseRoot,
 		WithUnobinExecutable(os.Args[0]),
-		WithE2ELibraryDir(""),
 	)
 }
 
@@ -51,6 +50,21 @@ func TestCheckAbsentFiles(t *testing.T) {
 	err := checkAbsentFiles(workspace, []string{"present.txt"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "present.txt exists")
+}
+
+func TestSourceDirectoriesPreserveCaseFiles(t *testing.T) {
+	source := t.TempDir()
+	writeText(t, filepath.Join(source, "library.go"), "provided library\n")
+	workspace := t.TempDir()
+	writeText(t, filepath.Join(workspace, "modules", "existing", "library.go"), "case library\n")
+	require.NoError(t, copySourceDirectories(workspace, map[string]string{
+		"modules/new": source, "modules/existing": source,
+	}))
+	for name, want := range map[string]string{"new": "provided library\n", "existing": "case library\n"} {
+		body, err := os.ReadFile(filepath.Join(workspace, "modules", name, "library.go"))
+		require.NoError(t, err)
+		require.Equal(t, want, string(body))
+	}
 }
 
 func TestCheckFileExclusions(t *testing.T) {
