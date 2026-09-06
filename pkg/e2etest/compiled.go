@@ -19,7 +19,7 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 		t.Fatal(err)
 	}
 	logProgress(t, "%s: compile start", c.Name)
-	binary, err := compileCase(t.Context(), cfg.repoRoot, cfg.e2eLibraryDir, c, workspace)
+	binary, err := compileCase(cfg, c, workspace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,8 +33,7 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 		t.Fatal(err)
 	}
 	if err := checkAssetIdentity(
-		cfg.repoRoot,
-		cfg.e2eLibraryDir,
+		cfg,
 		c,
 		workspace,
 		c.AssetIdentity,
@@ -54,11 +53,12 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 	pinned := map[string]bool{}
 	var lastStackPath string
 	for _, cmd := range c.Commands {
+		cmd = cfg.command(cmd)
 		if stackPath, ok := stackPathFromArgs(cmd.Args); ok {
 			lastStackPath = stackPath
 			if shouldPinStack(cmd, stackPath, pinned) {
 				logProgress(t, "%s: pin %s start", c.Name, stackPath)
-				pinStack(t, workspace, binary, stackPath)
+				pinStack(t, workspace, binary, stackPath, cfg)
 				pinned[stackPath] = true
 				logProgress(t, "%s: pin %s done", c.Name, stackPath)
 			}
@@ -120,13 +120,13 @@ func runCompiledCase(t *testing.T, cfg config, c CompiledCase) {
 	}
 }
 
-func pinStack(t *testing.T, workspace, binary, stackPath string) {
+func pinStack(t *testing.T, workspace, binary, stackPath string, cfg config) {
 	t.Helper()
 	cmd := Command{
 		Name: "pin",
 		Args: []string{"pin", "-c", stackPath},
 	}
-	got, err := runCommand(t.Context(), workspace, binary, cmd)
+	got, err := runCommand(t.Context(), workspace, binary, cfg.command(cmd))
 	if err != nil {
 		t.Fatalf("pin %s: %v", stackPath, err)
 	}

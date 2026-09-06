@@ -5,9 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -27,7 +29,7 @@ func runSourceCase(t *testing.T, cfg config, executable string, c SourceCase) {
 	}
 	workspace := copyCaseToWorkspace(t, c.Dir)
 	logProgress(t, "%s: fixture copied", c.Name)
-	if err := copySourceModules(workspace, cfg.e2eLibraryDir); err != nil {
+	if err := copySourceDirectories(workspace, cfg.sourceDirectories); err != nil {
 		t.Fatal(err)
 	}
 	logProgress(t, "%s: source modules ready", c.Name)
@@ -37,12 +39,11 @@ func runSourceCase(t *testing.T, cfg config, executable string, c SourceCase) {
 	}
 	defer cleanup()
 	expansions := map[string]string{
-		"WORKSPACE":       workspace,
-		"REPO_ROOT":       cfg.repoRoot,
-		"E2E_LIBRARY_DIR": cfg.e2eLibraryDir,
+		"WORKSPACE": workspace,
+		"REPO_ROOT": cfg.repoRoot,
 	}
 	for _, cmd := range c.Commands {
-		cmd = sourceCommand(c, cmd)
+		cmd = cfg.command(sourceCommand(c, cmd))
 		cmd = expandCommand(cmd, expansions)
 		logProgress(t, "%s: command %s start: %s", c.Name, cmd.Name, strings.Join(cmd.Args, " "))
 		got, err := runSourceCommand(t.Context(), workspace, executable, c, cmd, runRoot)
@@ -156,19 +157,21 @@ func checkAbsentFiles(workspace string, paths []string) error {
 	return nil
 }
 
-func copySourceModules(workspace string, e2eLibraryDir string) error {
-	if e2eLibraryDir == "" {
-		return nil
+func copySourceDirectories(workspace string, directories map[string]string) error {
+	for _, path := range slices.Sorted(maps.Keys(directories)) {
+		target := filepath.Join(workspace, filepath.FromSlash(path))
+		_, err := os.Stat(target)
+		if err == nil {
+			continue
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("stat source directory %s: %w", path, err)
+		}
+		if err := copyTree(directories[path], target); err != nil {
+			return err
+		}
 	}
-	target := filepath.Join(workspace, "modules", "e2elib")
-	_, err := os.Stat(target)
-	if err == nil {
-		return nil
-	}
-	if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("stat source module target: %w", err)
-	}
-	return copyTree(e2eLibraryDir, target)
+	return nil
 }
 
 func expandCommand(cmd Command, values map[string]string) Command {

@@ -15,9 +15,11 @@ import (
 type Option func(*config)
 
 type config struct {
-	repoRoot         string
-	e2eLibraryDir    string
-	unobinExecutable string
+	repoRoot          string
+	unobinExecutable  string
+	goModules         map[string]string
+	sourceDirectories map[string]string
+	env               map[string]string
 }
 
 // CompiledCase describes a compiled-factory e2e case.
@@ -153,7 +155,7 @@ func RunCompiledCases(t *testing.T, dir string, opts ...Option) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := newConfig(opts)
+	cfg, err := newConfig(t.Context(), opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +174,7 @@ func RunSourceCases(t *testing.T, dir string, opts ...Option) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := newConfig(opts)
+	cfg, err := newConfig(t.Context(), opts)
 	if err != nil {
 		t.Fatal(err)
 	}

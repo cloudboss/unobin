@@ -146,8 +146,7 @@ func checkAssetCache(workspace string, check *AssetCacheCheck) error {
 }
 
 func checkAssetIdentity(
-	repoRoot string,
-	e2eLibraryDir string,
+	cfg config,
 	c CompiledCase,
 	workspace string,
 	check *AssetIdentityCheck,
@@ -169,8 +168,7 @@ func checkAssetIdentity(
 	}
 	rebuildDir := filepath.Join(workspace, ".e2e", "rebuild")
 	if _, err := compileCaseTo(
-		repoRoot,
-		e2eLibraryDir,
+		cfg,
 		c,
 		workspace,
 		rebuildDir,

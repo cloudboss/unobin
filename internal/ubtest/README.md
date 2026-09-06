@@ -6,7 +6,7 @@ canonical rendering, type expression parsing, import extraction, and other tests
 where a `.ub` file plus `.ub.err` or `.ub.out` golden fully describes the
 expected result.
 
-Use `internal/e2etest` instead when behavior is visible through the CLI or a
+Use `pkg/e2etest` instead when behavior is visible through the CLI or a
 compiled factory binary.
 
 ## Import path
