@@ -1,6 +1,6 @@
 # e2etest
 
-`internal/e2etest` is the required framework for Unobin tests whose behavior is
+`pkg/e2etest` is the shared framework for Unobin tests whose behavior is
 visible through commands, source roots, or compiled factory binaries. Use it
 instead of source-heavy Go tests when the result can be checked through command
 output, generated files, plan summaries, state summaries, or state/plan envelope
@@ -11,11 +11,14 @@ diagnostic tests over `.ub` fixtures.
 
 ## Test entry points
 
-`tests/e2e` owns the black-box suites:
+Library modules can import `github.com/cloudboss/unobin/pkg/e2etest` and use
+the same fixture format as Unobin's `tests/e2e` suites:
 
 ```go
 func TestCompiledCases(t *testing.T) {
-    e2etest.RunCompiledCases(t, "testdata/compiled-cases")
+    e2etest.RunCompiledCases(t, "testdata/ub/valid",
+        e2etest.WithGoModule("example.com/my-library", "."),
+    )
 }
 
 func TestSourceCases(t *testing.T) {
@@ -24,7 +27,25 @@ func TestSourceCases(t *testing.T) {
 ```
 
 The harness discovers every `case.json` below the supplied directory and runs one
-subtest per case.
+subtest per case. Compiled cases run in parallel. Keep `.ub` fixtures under
+package-local `testdata/ub` directories with a `valid` or `invalid` path segment.
+
+The Unobin directory is selected with `go list -m` in the calling module, so it
+uses that module's dependency or local replacement. `WithUnobinDir` overrides
+this with a checkout or module directory. It does not depend on the location of
+the harness source files or on Unobin's bundled test library.
+
+Additional options:
+
+- `WithGoModule(modulePath, directory)` adds a local library replacement.
+- `WithSourceDirectory(workspacePath, directory)` copies a directory into each
+  source-case workspace when that path is absent. Existing case files take precedence.
+- `WithEnv(map[string]string{...})` provides environment variables to case commands
+  and automatic pinning. Command-specific variables take precedence. Use this for
+  dynamically allocated local server URLs without changing the process environment.
+- `WithUnobinExecutable(path)` supplies the CLI for source cases that run a process.
+
+Directory options are resolved relative to the caller's working directory.
 
 ## Compiled factory cases
 
@@ -103,9 +124,13 @@ Compiled case fields:
 - `stateLocks`: stack files whose state lock should exist before commands run.
 - `deterministic`: marks cases intended to be deterministic.
 
-The harness compiles through `compile.Run` with local replacements for this
-checkout and `tests/e2e/testdata/modules/e2elib`. It copies each case to a temp
-workspace before execution, so tests must refer to case files by relative paths.
+The harness calls `compile.Run` directly, with replacements for the selected
+Unobin directory and libraries supplied through `WithGoModule`. It builds each
+factory once without first building the Unobin CLI. It reuses the configured Go
+build and module caches; it does not empty caches or force dependency downloads.
+Missing dependencies or toolchains may still require an initial download.
+It copies each case to a temp workspace before execution, so tests must refer to
+case files by relative paths.
 
 Commands that use `-c` or `--config` are pinned automatically before first use.
 Set `skipPin: true` only for cases that are testing pin errors or pin mismatch
@@ -174,10 +199,10 @@ Source case fields:
 - `commands`, `files`, and `absentFiles`: same comparison model as compiled
   cases.
 
-Source cases get a copy of `tests/e2e/testdata/modules/e2elib` at
-`modules/e2elib` in the workspace when that target does not already exist.
-Command args and env values can use `$WORKSPACE`, `$REPO_ROOT`, and
-`$E2E_LIBRARY_DIR`.
+Unobin's own source suite supplies its test library with
+`WithSourceDirectory("modules/e2elib", "testdata/modules/e2elib")`.
+Other callers supply their own directories. Command args and env values can
+use `$WORKSPACE` and `$REPO_ROOT`; the latter denotes the selected Unobin directory.
 
 ## Command checks and goldens
 
@@ -231,7 +256,7 @@ Use `-short` to skip build-heavy cases. Before commit, run the relevant narrow
 test, then the broader package or suite. For harness changes, also run:
 
 ```text
-go test ./internal/e2etest -count=1
+go test ./pkg/e2etest -count=1
 ```
 
 ## Adding a case

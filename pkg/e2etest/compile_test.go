@@ -18,7 +18,12 @@ func TestCompileCaseBuildsBinary(t *testing.T) {
 
 	repoRoot := e2eRepoRoot(t)
 	workspace := copyCaseToWorkspace(t, c.Dir)
-	binary, err := compileCase(t.Context(), repoRoot, e2eLibraryDir(t), c, workspace)
+	cfg, err := newConfig(t.Context(), []Option{
+		WithUnobinDir(repoRoot),
+		WithGoModule("example.com/unobin/e2elib", e2eLibraryDir(t)),
+	})
+	require.NoError(t, err)
+	binary, err := compileCase(cfg, c, workspace)
 	require.NoError(t, err)
 	require.FileExists(t, binary)
 
@@ -31,5 +36,5 @@ func TestCompileCaseBuildsBinary(t *testing.T) {
 
 func compiledFixtureDir(t *testing.T) string {
 	t.Helper()
-	return filepath.Join(e2eRepoRoot(t), "internal", "e2etest", "testdata", "ub", "valid", "compiled")
+	return filepath.Join(e2eRepoRoot(t), "pkg", "e2etest", "testdata", "ub", "valid", "compiled")
 }
