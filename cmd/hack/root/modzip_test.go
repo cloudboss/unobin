@@ -2,12 +2,16 @@ package root
 
 import (
 	"archive/zip"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/mod/module"
+	modzip "golang.org/x/mod/zip"
 )
 
 func TestModZipCommandReportsMissingFlags(t *testing.T) {
@@ -79,6 +83,49 @@ func TestModZipCommandCreatesValidModuleZip(t *testing.T) {
 	require.Contains(t, names, "example.com/m@v0.1.0/cmd/tool/main.go")
 	require.NotContains(t, names, "example.com/m@v0.1.0/testdata/nested/go.mod")
 	require.NotContains(t, names, "example.com/m@v0.1.0/testdata/nested/nested.go")
+}
+
+func TestRepositoryCreatesValidModuleZip(t *testing.T) {
+	git, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git is not installed")
+	}
+	repo, err := filepath.Abs("../../..")
+	require.NoError(t, err)
+	if _, err := os.Stat(filepath.Join(repo, ".git")); os.IsNotExist(err) {
+		t.Skip("module source has no Git metadata")
+	} else {
+		require.NoError(t, err)
+	}
+	cmd := exec.Command(git, "ls-files", "--cached", "-z")
+	cmd.Dir = repo
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(output))
+	require.NotEmpty(t, output)
+	names := strings.Split(strings.TrimSuffix(string(output), "\x00"), "\x00")
+	files := make([]modzip.File, 0, len(names))
+	for _, name := range names {
+		files = append(files, moduleTestFile{root: repo, name: name})
+	}
+	err = modzip.Create(io.Discard, module.Version{
+		Path: "github.com/cloudboss/unobin", Version: "v0.0.0",
+	}, files)
+	require.NoError(t, err)
+}
+
+type moduleTestFile struct {
+	root string
+	name string
+}
+
+func (f moduleTestFile) Path() string { return f.name }
+
+func (f moduleTestFile) Lstat() (os.FileInfo, error) {
+	return os.Lstat(filepath.Join(f.root, filepath.FromSlash(f.name)))
+}
+
+func (f moduleTestFile) Open() (io.ReadCloser, error) {
+	return os.Open(filepath.Join(f.root, filepath.FromSlash(f.name)))
 }
 
 func writeTestFile(t *testing.T, root, rel, content string) {

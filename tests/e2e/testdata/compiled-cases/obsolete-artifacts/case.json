@@ -85,7 +85,7 @@
       "args": [
         "state",
         "pull",
-        "2000-01-01T00:00:00Z",
+        "obsolete",
         "-c",
         "stacks/dev.ub"
       ],
@@ -134,7 +134,7 @@
   ],
   "files": [
     {
-      "path": "stored-state/obsolete-artifacts/dev/snapshots/2000-01-01T00:00:00Z.json.enc",
+      "path": "stored-state/obsolete-artifacts/dev/snapshots/obsolete.json.enc",
       "want": "want/state-envelope.json"
     },
     {

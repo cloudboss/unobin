@@ -1,2 +1,2 @@
 notice: github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced
-load version 2 snapshot "2000-01-01T00:00:00Z": local store: open <revision>: snapshot: obsolete alpha format; create a new plan or state
+load version 2 snapshot "obsolete": local store: open obsolete: snapshot: obsolete alpha format; create a new plan or state
