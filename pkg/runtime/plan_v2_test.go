@@ -215,7 +215,7 @@ func TestFinalizePlanFileV2ComputesDigest(t *testing.T) {
 
 	plan, err := finalizePlanFileV2(draft)
 	require.NoError(t, err)
-	require.Equal(t, PlanFormatVersionV2, plan.FormatVersion)
+	require.Equal(t, PlanFormatVersion, plan.FormatVersion)
 	require.Len(t, plan.Digest, 64)
 	require.NotEqual(t, draft.Digest, plan.Digest)
 	require.NoError(t, plan.Validate())

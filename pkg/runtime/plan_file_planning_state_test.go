@@ -61,7 +61,7 @@ func TestPreparePlanFileV2StateInitializesNewSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, loaded)
 	require.NoError(t, prepared.Validate())
-	require.Equal(t, state.SnapshotFormatVersionV2, prepared.FormatVersion)
+	require.Equal(t, state.CurrentFormatVersion, prepared.FormatVersion)
 	require.Equal(t, start.Factory, prepared.Factory)
 	require.Equal(t, start.Stack, prepared.Stack)
 	require.NotNil(t, prepared.Entries)

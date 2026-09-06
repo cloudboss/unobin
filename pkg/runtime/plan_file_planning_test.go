@@ -40,7 +40,7 @@ func TestPlanPlanFileV2BuildsFinalizedPlan(t *testing.T) {
 	plan, err := planPlanFileV2(context.Background(), request)
 	require.NoError(t, err)
 	require.NoError(t, plan.Validate())
-	require.Equal(t, PlanFormatVersionV2, plan.FormatVersion)
+	require.Equal(t, PlanFormatVersion, plan.FormatVersion)
 	require.Equal(t, request.Factory, plan.Factory)
 	require.Equal(t, request.Stack, plan.Stack)
 	require.Equal(t, request.StateRevision, plan.StateRevision)

@@ -405,7 +405,7 @@ func validSnapshotV2(t *testing.T) SnapshotV2 {
 	action := validV2ActionPayload(t)
 	resource := ResourceStatePayload{Target: validV2ResourceTarget(t)}
 	return SnapshotV2{
-		FormatVersion: SnapshotFormatVersionV2,
+		FormatVersion: CurrentFormatVersion,
 		Factory: FactoryInfo{
 			Name:            "deploy",
 			Version:         "v1.0.0",
@@ -443,7 +443,7 @@ func TestNewSnapshotV2InitializesValidSnapshot(t *testing.T) {
 	after := time.Now().UTC()
 
 	require.NoError(t, err)
-	require.Equal(t, SnapshotFormatVersionV2, snapshot.FormatVersion)
+	require.Equal(t, CurrentFormatVersion, snapshot.FormatVersion)
 	require.Equal(t, factory, snapshot.Factory)
 	require.Equal(t, "production", snapshot.Stack)
 	require.False(t, snapshot.GeneratedAt.Before(before))

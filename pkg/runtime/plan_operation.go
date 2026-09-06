@@ -14,7 +14,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/stateref"
 )
 
-const PlanFormatVersionV2 = 2
+const PlanFormatVersion = 2
 
 type Binding = state.CanonicalBinding
 type ResourceTarget = state.ResourceTarget
@@ -637,8 +637,8 @@ type PlanFileV2 struct {
 }
 
 func (p PlanFileV2) Validate() error {
-	if p.FormatVersion != PlanFormatVersionV2 {
-		return fmt.Errorf("format version must be %d", PlanFormatVersionV2)
+	if p.FormatVersion != PlanFormatVersion {
+		return fmt.Errorf("format version must be %d", PlanFormatVersion)
 	}
 	if p.Factory.Name == "" {
 		return fmt.Errorf("factory name is required")

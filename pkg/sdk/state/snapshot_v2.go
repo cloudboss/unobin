@@ -12,7 +12,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/stateref"
 )
 
-const SnapshotFormatVersionV2 = 2
+const CurrentFormatVersion = 2
 
 type CanonicalBinding struct {
 	LibraryPath string `json:"library-path"`
@@ -286,7 +286,7 @@ func NewSnapshotV2(factory FactoryInfo, stack string) (*SnapshotV2, error) {
 		return nil, fmt.Errorf("initialize snapshot outputs: %w", err)
 	}
 	snapshot := &SnapshotV2{
-		FormatVersion:  SnapshotFormatVersionV2,
+		FormatVersion:  CurrentFormatVersion,
 		Factory:        factory,
 		Stack:          stack,
 		GeneratedAt:    time.Now().UTC(),
@@ -427,8 +427,8 @@ func cloneStateEntryV2(entry StateEntryV2) (StateEntryV2, error) {
 }
 
 func (s SnapshotV2) Validate() error {
-	if s.FormatVersion != SnapshotFormatVersionV2 {
-		return fmt.Errorf("format version must be %d", SnapshotFormatVersionV2)
+	if s.FormatVersion != CurrentFormatVersion {
+		return fmt.Errorf("format version must be %d", CurrentFormatVersion)
 	}
 	if err := validateFactoryInfo(s.Factory); err != nil {
 		return err

@@ -797,7 +797,7 @@ func TestStateRefV2Validation(t *testing.T) {
 func validPlanFileV2(t *testing.T) PlanFileV2 {
 	t.Helper()
 	plan := PlanFileV2{
-		FormatVersion: PlanFormatVersionV2,
+		FormatVersion: PlanFormatVersion,
 		Factory: FactoryRef{
 			Name:            "deploy",
 			Version:         "v1.0.0",

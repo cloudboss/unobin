@@ -46,7 +46,7 @@ func DecodePlanV2(data []byte) (PlanFileV2, error) {
 }
 
 func finalizePlanFileV2(plan PlanFileV2) (PlanFileV2, error) {
-	plan.FormatVersion = PlanFormatVersionV2
+	plan.FormatVersion = PlanFormatVersion
 	plan.Digest = ""
 
 	encoded, err := json.Marshal(plan)
