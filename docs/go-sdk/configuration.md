@@ -41,6 +41,25 @@ func Library() *runtime.Library {
 
 Use `runtime.NoConfig` as the config type parameter when a library has no configuration.
 
+## Resource identity scope
+
+Set `ResourceDefinition.Identity.Scope` explicitly:
+
+- `runtime.IdentityConfiguration` includes the configuration in resource identity. A changed
+  configuration requires replacement; deletion uses the recorded configuration and creation
+  uses the desired configuration.
+- `runtime.IdentityGlobal` permits identity to remain valid across configurations. Unobin reads
+  the resource through a changed configuration and validates its recorded stable ID when one
+  is declared. A mismatched ID or `ErrNotFound` fails validation.
+
+Configuration can depend on a resource or action output that is pending during planning. Apply
+resolves the configuration and checks the decision again. If the concrete decision differs from
+the reviewed decision, apply stops and asks for a new plan before mutating that resource.
+
+State records canonical library paths and exports. Renaming an import alias preserves the
+implementation binding. Refresh and deletion use recorded configuration, including when the
+source alias has been removed.
+
 ## Field model
 
 Configuration structs use the same ordinary Go field model as resource, data source,

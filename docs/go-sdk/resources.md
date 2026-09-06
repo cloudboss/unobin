@@ -88,6 +88,9 @@ and replacement work run only during apply.
 - `Outputs`, the prior resource outputs.
 - `Observed`, the plan-time read result.
 
+Update receives the saved observation without an implicit apply-time Read. If the definition
+declares a stable ID, Update must return that same ID; a different ID fails before state is saved.
+
 Use `runtime.Changed(prior.Inputs.Field, current.Field)` to compare decoded values.
 
 Every Update output becomes pending during planning. Dependents wait for the provider's fresh
@@ -111,6 +114,48 @@ definition.Replacement.Inputs = []runtime.ReplacementRule[Bucket]{
 The selector must return a field of its supplied root. Registration checks nested selectors,
 supported field types, duplicates, and conflicting rules. An address input cannot also have an
 equality or replacement rule.
+
+## Stable identity and drift
+
+Declare `Identity.StableID` when the provider exposes an immutable object ID or incarnation token:
+
+```go
+definition.Identity.StableID = func(_ Bucket, out *BucketOutput) (string, error) {
+    return out.ID, nil
+}
+```
+
+The callback must return a non-empty value. Use the provider's ID for the particular object,
+since a reusable name cannot distinguish a deleted object from a new object at the same address.
+Without this callback, Unobin uses the declared logical address for identity and deletion.
+
+Ordinary remote drift selects Update. A drift rule can request replacement when an observed
+output differs from its recorded value:
+
+```go
+definition.Replacement.Drift = []runtime.DriftRule[*BucketOutput]{
+    runtime.ReplaceOnDrift(
+        runtime.OutputField(func(out *BucketOutput) *int64 { return &out.Capacity }),
+        func(recorded, observed int64) bool { return recorded == observed },
+    ),
+}
+```
+
+Drift replacement requires a stable ID; registration rejects a drift rule without one. Collection
+selectors compare the entire map or list. Nested selectors may traverse struct pointers, but
+cannot select individual collection elements.
+
+## Replacement execution and failures
+
+Replacement deletes the prior object before creating the desired object. Immediately before
+Delete, Unobin reads the prior target using its recorded inputs and configuration. A changed
+stable ID stops the operation before Delete; `ErrNotFound` skips Delete and proceeds to Create.
+
+Delete failure prevents Create. Create failure, invalid identity, or a state-write failure stops
+the step without recovery or adoption. The failed resource's recorded state can still describe
+the deleted object, and a partially created object can exist outside state. Inspect the provider
+and state, resolve any partial objects, then create a new plan. Work already running follows the
+apply scheduler's failure behavior; no additional steps are dispatched after failure is reported.
 
 ## Apply-time input validation
 
@@ -150,3 +195,6 @@ definition.InputSemantics.Rules = []runtime.InputRule[Bucket]{
 Semantic equality suppresses an input change during planning and is checked before conditional
 replacement. Apply still compares concrete reviewed inputs exactly; semantic equality cannot
 authorize a different input at apply time.
+
+A successful NoOp saves the accepted desired inputs with the observed outputs and identity, so
+the next plan compares against the values that were accepted.
