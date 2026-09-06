@@ -66,6 +66,9 @@ func relocateSnapshotEntriesV2(
 			entry.Address = destination
 		}
 		rewriteStateEntryV2Dependencies(entry, bySource)
+		if configuration := planEvaluationV2EntryConfiguration(*entry); configuration != nil {
+			configuration.Address = rewriteMovedAddress(configuration.Address, bySource)
+		}
 	}
 	slices.SortFunc(snapshot.Entries, func(a, b state.StateEntryV2) int {
 		return strings.Compare(a.Address, b.Address)
@@ -77,13 +80,23 @@ func rewriteStateEntryV2Dependencies(
 	entry *state.StateEntryV2,
 	moves map[string]string,
 ) {
-	dependencies := stateEntryV2Dependencies(entry)
-	for i := range dependencies {
-		if destination, ok := moves[dependencies[i]]; ok {
-			dependencies[i] = destination
+	rewrite := func(dependencies []string) []string {
+		for i := range dependencies {
+			dependencies[i] = rewriteMovedAddress(dependencies[i], moves)
 		}
+		slices.Sort(dependencies)
+		return slices.Compact(dependencies)
 	}
-	slices.Sort(dependencies)
+	switch entry.Kind {
+	case state.StateResource:
+		entry.Payload.Resource.Target.DependsOn = rewrite(entry.Payload.Resource.Target.DependsOn)
+	case state.StateAction:
+		entry.Payload.Action.DependsOn = rewrite(entry.Payload.Action.DependsOn)
+	case state.StateDataSource:
+		entry.Payload.DataSource.DependsOn = rewrite(entry.Payload.DataSource.DependsOn)
+	case state.StateComposite:
+		entry.Payload.Composite.DependsOn = rewrite(entry.Payload.Composite.DependsOn)
+	}
 }
 
 func stateEntryV2Dependencies(entry *state.StateEntryV2) []string {

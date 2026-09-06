@@ -11,6 +11,45 @@ import (
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
+func TestRelocateSnapshotEntriesV2MovesConfigurationReferences(t *testing.T) {
+	snapshot := newPlanEvaluationV2Snapshot(t)
+	composite := operationCompositeState(t, NodeResource)
+	target := validOperationResourceTarget(t)
+	target.Configuration.Address = "resource.old-app/library-config.cloud"
+	target.DependsOn = []string{"resource.old-app"}
+	configuration := cloneConfigurationRecord(target.Configuration)
+	action := operationActionState(t)
+	action.Configuration = configuration
+	action.DependsOn = []string{
+		"resource.app/resource.child", "resource.old-app/resource.child",
+	}
+	for _, entry := range []state.StateEntryV2{
+		{Address: "resource.old-app", Kind: state.StateComposite,
+			Payload: state.StatePayload{Kind: state.StateComposite, Composite: &composite}},
+		{Address: "resource.old-app/resource.child", Kind: state.StateResource,
+			Payload: state.StatePayload{
+				Kind: state.StateResource, Resource: &state.ResourceStatePayload{Target: target},
+			}},
+		{Address: "action.consumer", Kind: state.StateAction,
+			Payload: state.StatePayload{Kind: state.StateAction, Action: &action}},
+	} {
+		addPlanEvaluationV2Entry(t, snapshot, entry)
+	}
+	err := relocateSnapshotEntriesV2(snapshot, []PlannedEntryMove{
+		{From: "resource.old-app", To: "resource.app"},
+		{From: "resource.old-app/resource.child", To: "resource.app/resource.child"},
+	})
+	require.NoError(t, err)
+	resource := snapshot.Find("resource.app/resource.child").Payload.Resource.Target
+	require.Equal(t, "resource.app/library-config.cloud", resource.Configuration.Address)
+	require.Equal(t, configuration.Digest, resource.Configuration.Digest)
+	require.Equal(t, configuration.SensitiveValues, resource.Configuration.SensitiveValues)
+	require.Equal(t, []string{"resource.app"}, resource.DependsOn)
+	consumer := snapshot.Find("action.consumer").Payload.Action
+	require.Equal(t, "resource.app/library-config.cloud", consumer.Configuration.Address)
+	require.Equal(t, []string{"resource.app/resource.child"}, consumer.DependsOn)
+}
+
 func TestApplyStateMovesV2RelocatesEntriesAndDependencies(t *testing.T) {
 	snapshot := newRegisteredApplySnapshot(t, nil)
 	resourceTarget := validOperationResourceTarget(t)
