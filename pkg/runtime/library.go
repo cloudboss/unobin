@@ -141,24 +141,3 @@ func (l *Library) AddComposite(ct *CompositeType) {
 // resource is absent in the cloud. The runtime treats it as a
 // request to recreate.
 var ErrNotFound = errors.New("resource not found")
-
-// migrateEntry upgrades a prior state entry from an older schema version
-// to the resource type's current one by calling the registration's
-// Migrate. Both halves -- inputs and outputs -- are upgraded together so
-// the rewritten entry can be stamped at the current version without
-// leaving the inputs at the old version. Returns the entry unchanged
-// when versions match.
-func migrateEntry(
-	reg ResourceRegistration, alias string, priorVersion int, prior MigrationState,
-) (MigrationState, error) {
-	current := reg.SchemaVersion()
-	if priorVersion >= current {
-		return prior, nil
-	}
-	out, err := reg.Migrate(priorVersion, prior)
-	if err != nil {
-		blameLibrary(err, alias)
-		return MigrationState{}, err
-	}
-	return out, nil
-}

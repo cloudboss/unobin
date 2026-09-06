@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -95,35 +94,6 @@ func TestLibraryHoldsAllRegistrationKinds(t *testing.T) {
 	require.Contains(t, lib.Resources, "thing")
 	require.Contains(t, lib.DataSources, "lookup")
 	require.Contains(t, lib.Actions, "echo")
-}
-
-func TestResourceLifecycle(t *testing.T) {
-	rt := MakeResourceWith[fakeResource, *fakeResourceOutput, any](
-		fakeResourceDefinition(),
-
-		func() *fakeResource { return &fakeResource{Name: "alpha"} },
-	)
-	r := rt.NewReceiver()
-	ctx := context.Background()
-
-	out, err := rt.Create(ctx, r, nil)
-	require.NoError(t, err)
-	require.Equal(t, "fake-alpha", out.(*fakeResourceOutput).ID)
-
-	got, err := rt.Read(ctx, r, nil, out)
-	require.NoError(t, err)
-	require.Equal(t, out, got)
-
-	updated, err := rt.Update(ctx, r, nil, nil, out, nil)
-	require.NoError(t, err)
-	require.Equal(t, "fake-alpha-updated", updated.(*fakeResourceOutput).ID)
-	require.Equal(t, "fake-alpha", out.(*fakeResourceOutput).ID)
-
-	require.NoError(t, rt.Delete(ctx, r, nil, updated))
-
-	gone, err := rt.Read(ctx, r, nil, nil)
-	require.True(t, errors.Is(err, ErrNotFound))
-	require.Nil(t, gone)
 }
 
 func TestDataSourceRead(t *testing.T) {

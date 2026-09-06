@@ -8,98 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// panicResource panics in every CRUD method so the boundary guard can
-// be exercised one operation at a time.
-type panicResource struct {
-	Name string
-}
-
-type panicResourceOutput struct{ Name string }
-
-func panicResourceDefinition() ResourceDefinition[panicResource, *panicResourceOutput, any] {
-	return ResourceDefinition[panicResource, *panicResourceOutput, any]{
-		SchemaVersion: 1,
-		Identity: ResourceIdentity[panicResource, *panicResourceOutput]{
-			Version: 1,
-			Scope:   IdentityConfiguration,
-		},
-	}
-}
-
-func (r *panicResource) Create(context.Context, any) (*panicResourceOutput, error) {
-	panic("boom in create")
-}
-
-func (r *panicResource) Read(
-	context.Context,
-	any,
-	*panicResourceOutput,
-) (*panicResourceOutput, error) {
-	panic("boom in read")
-}
-
-func (r *panicResource) Update(
-	context.Context,
-	any,
-	Prior[panicResource, *panicResourceOutput],
-) (*panicResourceOutput, error) {
-	panic("boom in update")
-}
-
-func (r *panicResource) Delete(context.Context, any, *panicResourceOutput) error {
-	panic("boom in delete")
-}
-
-// migratePanicResource reports a newer schema version than its recorded
-// state and panics during migration, so the plan/refresh upgrade path
-// can be exercised.
-type migratePanicResource struct {
-	Name string
-}
-
-type migratePanicResourceOutput struct{ Name string }
-
-func migratePanicResourceDefinition() ResourceDefinition[
-	migratePanicResource,
-	*migratePanicResourceOutput,
-	any,
-] {
-	return ResourceDefinition[
-		migratePanicResource,
-		*migratePanicResourceOutput,
-		any,
-	]{
-		Migrate: func(int, ResourceMigrationState) (ResourceMigrationState, error) {
-			panic("boom in migrate")
-		},
-		SchemaVersion: 2,
-		Identity: ResourceIdentity[migratePanicResource, *migratePanicResourceOutput]{
-			Version: 1,
-			Scope:   IdentityConfiguration,
-		},
-	}
-}
-func (r *migratePanicResource) Create(context.Context, any) (*migratePanicResourceOutput, error) {
-	return nil, nil
-}
-func (r *migratePanicResource) Read(
-	context.Context,
-	any,
-	*migratePanicResourceOutput,
-) (*migratePanicResourceOutput, error) {
-	return nil, nil
-}
-
-func (r *migratePanicResource) Update(
-	context.Context, any, Prior[migratePanicResource, *migratePanicResourceOutput],
-) (*migratePanicResourceOutput, error) {
-	return nil, nil
-}
-
-func (r *migratePanicResource) Delete(context.Context, any, *migratePanicResourceOutput) error {
-	return nil
-}
-
 type panicAction struct{}
 
 func (a *panicAction) Run(context.Context, any) (any, error) {
@@ -131,39 +39,6 @@ func TestPanicErrorMessage(t *testing.T) {
 		"panic in the library while creating this resource: kaboom", unplaced.Error())
 	core := &PanicError{Op: "calling @core.length", Value: "kaboom", Core: true}
 	require.Equal(t, "panic in unobin while calling @core.length: kaboom", core.Error())
-}
-
-func TestResourceCreatePanicBecomesError(t *testing.T) {
-	reg := MakeResource[panicResource, *panicResourceOutput, any](
-		panicResourceDefinition(),
-	)
-	_, err := reg.Create(context.Background(), reg.NewReceiver(), nil)
-	pe := requirePanicError(t, err, "boom in create")
-	require.False(t, pe.Core)
-}
-
-func TestResourceReadPanicBecomesError(t *testing.T) {
-	reg := MakeResource[panicResource, *panicResourceOutput, any](
-		panicResourceDefinition(),
-	)
-	_, err := reg.Read(context.Background(), reg.NewReceiver(), nil, nil)
-	_ = requirePanicError(t, err, "boom in read")
-}
-
-func TestResourceUpdatePanicBecomesError(t *testing.T) {
-	reg := MakeResource[panicResource, *panicResourceOutput, any](
-		panicResourceDefinition(),
-	)
-	_, err := reg.Update(context.Background(), reg.NewReceiver(), nil, nil, nil, nil)
-	_ = requirePanicError(t, err, "boom in update")
-}
-
-func TestResourceDeletePanicBecomesError(t *testing.T) {
-	reg := MakeResource[panicResource, *panicResourceOutput, any](
-		panicResourceDefinition(),
-	)
-	err := reg.Delete(context.Background(), reg.NewReceiver(), nil, nil)
-	_ = requirePanicError(t, err, "boom in delete")
 }
 
 func TestActionRunPanicBecomesError(t *testing.T) {
@@ -222,25 +97,4 @@ func TestBlameLibrary(t *testing.T) {
 	core := &PanicError{Op: "x", Core: true}
 	blameLibrary(core, "boom")
 	require.Empty(t, core.Library)
-}
-
-// TestReadObservedPanicNamesLibrary covers the plan, refresh, reconcile,
-// and destroy read paths at once: they all funnel resource reads through
-// readObserved, which names the failing library from the alias in hand.
-func TestReadObservedPanicNamesLibrary(t *testing.T) {
-	reg := MakeResource[panicResource, *panicResourceOutput, any](
-		panicResourceDefinition(),
-	)
-	_, err := readObserved(context.Background(), reg, "boom", nil, nil, nil)
-	pe := requirePanicError(t, err, "boom in read")
-	require.Equal(t, "boom", pe.Library)
-}
-
-func TestMigrateEntryPanicNamesLibrary(t *testing.T) {
-	reg := MakeResource[migratePanicResource, *migratePanicResourceOutput, any](
-		migratePanicResourceDefinition(),
-	)
-	_, err := migrateEntry(reg, "boom", 1, MigrationState{})
-	pe := requirePanicError(t, err, "boom in migrate")
-	require.Equal(t, "boom", pe.Library)
 }

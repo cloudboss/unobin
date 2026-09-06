@@ -348,55 +348,6 @@ func DirectParent(addr string) string {
 	return ""
 }
 
-func cloneSnapshot(s *state.Snapshot) *state.Snapshot {
-	out := state.NewSnapshot(s.Factory, s.Stack)
-	out.Outputs = cloneMap(s.Outputs)
-	out.Entries = make([]*state.Entry, 0, len(s.Entries))
-	for _, ent := range s.Entries {
-		out.Entries = append(out.Entries, cloneEntry(ent))
-	}
-	return out
-}
-
-func cloneEntry(ent *state.Entry) *state.Entry {
-	if ent == nil {
-		return nil
-	}
-	out := *ent
-	out.SensitiveInputs = append([]string(nil), ent.SensitiveInputs...)
-	out.SensitiveOutputs = append([]string(nil), ent.SensitiveOutputs...)
-	out.Inputs = cloneMap(ent.Inputs)
-	out.Outputs = cloneMap(ent.Outputs)
-	out.DependsOn = append([]string(nil), ent.DependsOn...)
-	return &out
-}
-
-func cloneMap(m map[string]any) map[string]any {
-	if m == nil {
-		return nil
-	}
-	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = cloneValue(v)
-	}
-	return out
-}
-
-func cloneValue(v any) any {
-	switch x := v.(type) {
-	case map[string]any:
-		return cloneMap(x)
-	case []any:
-		out := make([]any, len(x))
-		for i, el := range x {
-			out[i] = cloneValue(el)
-		}
-		return out
-	default:
-		return v
-	}
-}
-
 // scopeMapForKind returns the scope map a node's value belongs in,
 // chosen by its kind so references read it back under the matching
 // address root. An unset kind (the zero value, as in tests that build a
@@ -579,31 +530,6 @@ func getOrCreate(m map[string]any, key string) map[string]any {
 	nm := make(map[string]any)
 	m[key] = nm
 	return nm
-}
-
-// mapify reduces a typed result struct to a map[string]any using its
-// `ub` field tags (see ubFieldKey). Each field's value is canonicalized to
-// the closed set of types unobin's runtime carries (string, int64,
-// float64, bool, nil, []any, map[string]any), so named numeric types
-// like time.Duration come back as int64 rather than leaking their
-// Go-specific stringer through the renderer. Maps pass through; nil
-// yields nil; anything else (non-struct, non-map) yields nil.
-func mapify(v any) map[string]any {
-	if v == nil {
-		return nil
-	}
-	if m, ok := v.(map[string]any); ok {
-		return m
-	}
-	rv := reflect.ValueOf(v)
-	if rv.Kind() == reflect.Pointer {
-		rv = rv.Elem()
-	}
-	if rv.Kind() != reflect.Struct {
-		return nil
-	}
-	m, _ := canonicalize(rv).(map[string]any)
-	return m
 }
 
 // ubFieldKey returns the map key for a struct field under the ub tag

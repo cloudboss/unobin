@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-
-	"github.com/cloudboss/unobin/pkg/diagnostic"
 )
 
 // Prior is everything known before Update acts: the inputs the body
@@ -16,12 +14,8 @@ import (
 // and read Observed to patch from current reality rather than the
 // recorded result when the two have drifted apart.
 //
-// Inputs is the input struct by value, so it is never nil and needs no
-// guard; a prior whose recorded inputs no longer decode into the
-// current struct degrades to the zero value, which reads as "every
-// field changed". Outputs and Observed keep the same pointer type the
-// rest of the contract uses, so a resource with no recorded result or
-// no plan-time read still passes nil.
+// Inputs and Outputs are the recorded values after any required schema
+// migration. Invalid recorded values fail before Update is called.
 //
 // Observed is plan-time, not apply-time: apply does not re-Read before
 // Update, so between plan and apply reality can move further. A resource
@@ -67,28 +61,10 @@ type TypedDataSource[Out, Config any] interface {
 	Read(ctx context.Context, config Config) (Out, error)
 }
 
-// MigrationState contains the input and output maps used by snapshot entries.
-type MigrationState struct {
-	Inputs  map[string]any
-	Outputs map[string]any
-}
-
-// ResourceRegistration is the type-erased registration the runtime's
-// resource map holds. A library author produces one via MakeResource;
-// the runtime calls the methods on it to dispatch CRUD work without
-// caring about the typed Out parameter.
+// ResourceRegistration stores a validated definition and its typed provider
+// operations. Library authors create registrations with MakeResource.
 type ResourceRegistration interface {
-	SchemaVersion() int
-	Migrate(oldVersion int, prior MigrationState) (MigrationState, error)
-	NewReceiver() any
-	Create(ctx context.Context, receiver, cfg any) (any, error)
-	Read(ctx context.Context, receiver, cfg, prior any) (any, error)
-	Update(ctx context.Context, receiver, cfg, priorInputs, priorOutputs, observed any) (any, error)
-	ValidateInputs(ctx context.Context, receiver, cfg any) error
-	Delete(ctx context.Context, receiver, cfg, prior any) error
-	compareResourceInputs(prior, desired map[string]any) ([]string, bool, error)
 	resourceDefinition() *resourceDefinitionRegistration
-	OutputType() reflect.Type
 }
 
 // ActionRegistration is the type-erased registration for actions.
@@ -146,10 +122,8 @@ func MakeResourceWith[T, Out, Config any, PT resourcePtr[T, Out, Config]](
 	if err != nil {
 		panic(fmt.Errorf("resource definition: %w", err))
 	}
-	return typedResourceReg[T, Out, Config, PT]{
-		construct:  construct,
-		definition: resolved,
-		registration: newResolvedResourceDefinitionRegistration[T, Out, Config, PT](
+	return resourceReg{
+		definition: newResolvedResourceDefinitionRegistration[T, Out, Config, PT](
 			resolved, construct,
 		),
 	}
@@ -183,206 +157,12 @@ func MakeDataSourceWith[T, Out, Config any, PT dataSourcePtr[T, Out, Config]](
 	return typedDataSourceReg[T, Out, Config, PT]{construct: construct}
 }
 
-type typedResourceReg[T, Out, Config any, PT resourcePtr[T, Out, Config]] struct {
-	construct    func() *T
-	definition   resolvedResourceDefinition[T, Out, Config]
-	registration *resourceDefinitionRegistration
+type resourceReg struct {
+	definition *resourceDefinitionRegistration
 }
 
-func (r typedResourceReg[T, Out, Config, PT]) SchemaVersion() int {
-	return r.definition.schemaVersion
-}
-
-func (r typedResourceReg[T, Out, Config, PT]) Migrate(
-	old int, prior MigrationState,
-) (MigrationState, error) {
-	if r.definition.migrate == nil {
-		return MigrationState{}, fmt.Errorf("no migration registered for version %d", old)
-	}
-	inputs, err := encodeMigrationMap(prior.Inputs)
-	if err != nil {
-		return MigrationState{}, err
-	}
-	outputs, err := encodeMigrationMap(prior.Outputs)
-	if err != nil {
-		return MigrationState{}, err
-	}
-	return guard("migrating this resource's state", false, func() (MigrationState, error) {
-		migrated, err := r.definition.migrate(old, ResourceMigrationState{
-			Inputs: inputs, Outputs: outputs,
-		})
-		if err != nil {
-			return MigrationState{}, err
-		}
-		inputFields, ok := migrated.Inputs.ObjectFields()
-		if !ok {
-			return MigrationState{}, fmt.Errorf("migrated inputs must be an object")
-		}
-		outputFields, ok := migrated.Outputs.ObjectFields()
-		if !ok {
-			return MigrationState{}, fmt.Errorf("migrated outputs must be an object")
-		}
-		inputValues, err := decodeConcreteObjectFields(inputFields, "migrated inputs")
-		if err != nil {
-			return MigrationState{}, err
-		}
-		outputValues, err := decodeConcreteObjectFields(outputFields, "migrated outputs")
-		return MigrationState{Inputs: inputValues, Outputs: outputValues}, err
-	})
-}
-
-func encodeMigrationMap(values map[string]any) (EncodedValue, error) {
-	fields := make(map[string]EncodedValue, len(values))
-	for name, value := range values {
-		encoded, err := encodeUntypedPlanningValue(value)
-		if err != nil {
-			return EncodedValue{}, fmt.Errorf("migration field %q: %w", name, err)
-		}
-		fields[name] = encoded
-	}
-	return ObjectValue(fields)
-}
-
-func (r typedResourceReg[T, Out, Config, PT]) NewReceiver() any {
-	if r.construct != nil {
-		return r.construct()
-	}
-	return new(T)
-}
-
-func (typedResourceReg[T, Out, Config, PT]) Create(
-	ctx context.Context, receiver, cfg any,
-) (any, error) {
-	config, err := coerceConfig[Config](cfg)
-	if err != nil {
-		return nil, err
-	}
-	return guard("creating this resource", false, func() (Out, error) {
-		outputs, err := PT(receiver.(*T)).Create(ctx, config)
-		if err == nil {
-			_, err = encodeResourceOutputs(outputs)
-		}
-		return outputs, err
-	})
-}
-
-func (typedResourceReg[T, Out, Config, PT]) Read(
-	ctx context.Context, receiver, cfg, prior any,
-) (any, error) {
-	config, err := coerceConfig[Config](cfg)
-	if err != nil {
-		return nil, err
-	}
-	p, err := coercePrior[Out](prior)
-	if err != nil {
-		return nil, err
-	}
-	return guard("reading this resource", false, func() (Out, error) {
-		outputs, err := PT(receiver.(*T)).Read(ctx, config, p)
-		if err == nil {
-			_, err = encodeResourceOutputs(outputs)
-		}
-		return outputs, err
-	})
-}
-
-func (typedResourceReg[T, Out, Config, PT]) Update(
-	ctx context.Context, receiver, cfg, priorInputs, priorOutputs, observed any,
-) (any, error) {
-	config, err := coerceConfig[Config](cfg)
-	if err != nil {
-		return nil, err
-	}
-	out, err := coercePrior[Out](priorOutputs)
-	if err != nil {
-		return nil, err
-	}
-	obs, err := coercePrior[Out](observed)
-	if err != nil {
-		return nil, err
-	}
-	prior := Prior[T, Out]{
-		Inputs:   coercePriorInputs[T](priorInputs),
-		Outputs:  out,
-		Observed: obs,
-	}
-	return guard("updating this resource", false, func() (Out, error) {
-		outputs, err := PT(receiver.(*T)).Update(ctx, config, prior)
-		if err == nil {
-			_, err = encodeResourceOutputs(outputs)
-		}
-		return outputs, err
-	})
-}
-
-func (r typedResourceReg[T, Out, Config, PT]) ValidateInputs(
-	ctx context.Context, receiver, cfg any,
-) error {
-	if r.definition.validate == nil {
-		return nil
-	}
-	config, err := coerceConfig[Config](cfg)
-	if err != nil {
-		return err
-	}
-	return guardErr("validating this resource's inputs", false, func() error {
-		return r.definition.validate(ctx, *receiver.(*T), config)
-	})
-}
-
-func (typedResourceReg[T, Out, Config, PT]) Delete(
-	ctx context.Context, receiver, cfg, prior any,
-) error {
-	config, err := coerceConfig[Config](cfg)
-	if err != nil {
-		return err
-	}
-	p, err := coercePrior[Out](prior)
-	if err != nil {
-		return err
-	}
-	return guardErr("deleting this resource", false, func() error {
-		return PT(receiver.(*T)).Delete(ctx, config, p)
-	})
-}
-
-func (r typedResourceReg[T, Out, Config, PT]) resourceDefinition() *resourceDefinitionRegistration {
-	return r.registration
-}
-
-func (r typedResourceReg[T, Out, Config, PT]) compareResourceInputs(
-	prior, desired map[string]any,
-) ([]string, bool, error) {
-	var priorInputs T
-	if err := Decode(&priorInputs, prior); err != nil {
-		return nil, false, fmt.Errorf("prior inputs: %w", err)
-	}
-	priorEncoded, err := encodeResourceValue(reflect.TypeFor[T](), priorInputs, "")
-	if err != nil {
-		return nil, false, fmt.Errorf("prior inputs: %w", err)
-	}
-	fields, _ := priorEncoded.ObjectFields()
-	for name := range fields {
-		if _, present := prior[name]; !present {
-			fields[name] = AbsentValue()
-		}
-	}
-	priorEncoded, err = ObjectValue(fields)
-	if err != nil {
-		return nil, false, err
-	}
-	desiredEncoded, desiredInputs, err := prepareResourceInputs[T](desired)
-	if err != nil {
-		return nil, false, fmt.Errorf("desired inputs: %w", err)
-	}
-	return r.definition.classifyInputChanges(
-		priorInputs, desiredInputs, priorEncoded, desiredEncoded,
-	)
-}
-
-func (typedResourceReg[T, Out, Config, PT]) OutputType() reflect.Type {
-	var zero Out
-	return reflect.TypeOf(zero)
+func (r resourceReg) resourceDefinition() *resourceDefinitionRegistration {
+	return r.definition
 }
 
 type typedActionReg[T, Out, Config any, PT actionPtr[T, Out, Config]] struct {
@@ -451,62 +231,4 @@ func coerceConfig[Config any](cfg any) (Config, error) {
 		return zero, fmt.Errorf("config type mismatch: expected %T, got %T", zero, cfg)
 	}
 	return config, nil
-}
-
-// coercePrior returns prior as Out. nil is the runtime's "no prior
-// state" sentinel and yields the zero value (a nil pointer for the
-// usual Out = *Something). An already-typed Out passes through. State
-// loaded from disk arrives as map[string]any (JSON round trip) and
-// gets decoded into a fresh Out via the same Decode rules used for
-// inputs. A prior value that is neither nil, the typed output, nor
-// a decodable map returns an error rather than crashing, so a corrupt
-// or hand-edited state entry is reported to the operator like any other
-// step failure.
-func coercePrior[Out any](prior any) (Out, error) {
-	var zero Out
-	if prior == nil {
-		return zero, nil
-	}
-	if typed, ok := prior.(Out); ok {
-		return typed, nil
-	}
-	m, ok := prior.(map[string]any)
-	if !ok {
-		return zero, fmt.Errorf("coerce prior state: unsupported type %T", prior)
-	}
-	t := reflect.TypeOf(zero)
-	if t == nil || t.Kind() != reflect.Pointer {
-		return zero, fmt.Errorf("coerce prior state: output type %T is not a pointer", zero)
-	}
-	target := reflect.New(t.Elem())
-	if err := Decode(target.Interface(), m); err != nil {
-		return zero, diagnostic.Context(fmt.Sprintf("coerce prior state into %s", t), err)
-	}
-	return target.Interface().(Out), nil
-}
-
-// coercePriorInputs decodes a prior inputs map into the input struct In
-// for comparison inside Update. Unlike prior outputs, prior inputs are
-// advisory: they gate an optimization, not the correctness of the
-// update, so any problem decoding them (a field removed or retyped
-// since the last apply, a hand-edited entry) degrades to the zero
-// value, which reads as "every field changed" and triggers a full
-// reconcile rather than failing the apply.
-func coercePriorInputs[In any](prior any) In {
-	var zero In
-	if prior == nil {
-		return zero
-	}
-	if typed, ok := prior.(In); ok {
-		return typed
-	}
-	m, ok := prior.(map[string]any)
-	if !ok {
-		return zero
-	}
-	target := reflect.New(reflect.TypeOf(zero))
-	if err := Decode(target.Interface(), m); err != nil {
-		return zero
-	}
-	return target.Elem().Interface().(In)
 }

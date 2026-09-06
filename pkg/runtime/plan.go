@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -389,27 +388,4 @@ func splitInstanceAddress(addr string) (template, key string) {
 		return template, key
 	}
 	return addr, ""
-}
-
-// readObserved decodes inputs onto a fresh resource and asks the
-// library what's in the cloud for it. It returns the result in the
-// same canonical map state uses, or ErrNotFound when the resource is
-// gone.
-func readObserved(
-	ctx context.Context,
-	rt ResourceRegistration,
-	alias string,
-	cfg any,
-	inputs, priorOutputs map[string]any,
-) (map[string]any, error) {
-	receiver := rt.NewReceiver()
-	if err := Decode(receiver, inputs); err != nil {
-		return nil, err
-	}
-	result, err := rt.Read(ctx, receiver, cfg, priorOutputs)
-	if err != nil {
-		blameLibrary(err, alias)
-		return nil, err
-	}
-	return mapify(result), nil
 }
