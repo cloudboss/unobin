@@ -2,7 +2,6 @@
 package wrap
 
 import (
-	lib_a_a6595328 "demo-factory/internal/a_a6595328"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
@@ -26,11 +25,8 @@ func Library() *runtime.Library {
 				Name:       "box",
 				Kind:       runtime.NodeDataSource,
 				SyntaxBody: &syntax.FactoryBody{S: sp0(17, 153), Imports: []syntax.ImportDecl{{S: sp0(32, 0), Alias: syntax.Ident{S: sp0(32, 0), Name: "a"}, Ref: &lang.StringLit{S: sp0(35, 0), Value: "../b"}}}, Data: []syntax.NodeDecl{{S: sp0(66, 84), Kind: syntax.NodeKind("data-source"), Name: syntax.Ident{S: sp0(66, 0), Name: "inner"}, Selector: syntax.NodeSelector{S: sp0(73, 81), Alias: syntax.Ident{S: sp0(73, 74), Name: "a"}, Export: syntax.Ident{S: sp0(75, 81), Name: "second"}}, Body: &lang.ObjectLit{S: sp0(82, 84), Fields: []*lang.Field{}}}}, Outputs: []syntax.OutputDecl{{S: sp0(106, 0), Name: syntax.Ident{S: sp0(106, 0), Name: "value"}, Body: &lang.ObjectLit{S: sp0(113, 147), Fields: []*lang.Field{{S: sp0(115, 0), Key: lang.FieldKey{S: sp0(115, 0), Kind: lang.FieldIdent, Name: "value"}, Value: &lang.DotPath{S: sp0(122, 0), Root: &lang.Ident{S: sp0(122, 0), Name: "data-source"}, Segments: []lang.DotSegment{{S: sp0(133, 0), Name: "inner"}, {S: sp0(139, 0), Name: "value"}}}}}}}}},
-				Libraries: map[string]*runtime.Library{
-					"a": runtime.LibraryWithPath(
-						lib_a_a6595328.Library(),
-						"demo-factory/internal/a_a6595328",
-					),
+				LibraryBindings: map[string]string{
+					"a": "local:b",
 				},
 			},
 		},

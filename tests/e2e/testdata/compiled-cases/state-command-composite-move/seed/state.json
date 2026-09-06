@@ -12,7 +12,7 @@
       "address": "resource.welcome",
       "entry-kind": "library-call",
       "category": "resource",
-      "binding": { "alias": "greeter", "library-path": "state-command-composite-move/internal/greeter", "kind": "greeting" },
+      "binding": { "alias": "greeter", "library-path": "local:libraries/greeter", "kind": "greeting" },
       "inputs": {
         "content": "hello",
         "e2e-config": {

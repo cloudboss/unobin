@@ -51,7 +51,7 @@
       "address": "resource.old-group",
       "entry-kind": "library-call",
       "category": "resource",
-      "binding": { "alias": "groups", "library-path": "state-moves/internal/groups", "kind": "group" },
+      "binding": { "alias": "groups", "library-path": "local:libraries/groups", "kind": "group" },
       "inputs": {
         "content": "grouped",
         "e2e-config": {
@@ -96,7 +96,7 @@
       "address": "resource.old-group/resource.old-single",
       "entry-kind": "library-call",
       "category": "resource",
-      "binding": { "alias": "items", "library-path": "state-moves/internal/items", "kind": "item" },
+      "binding": { "alias": "items", "library-path": "local:libraries/items", "kind": "item" },
       "inputs": {
         "content": "grouped",
         "e2e-config": {

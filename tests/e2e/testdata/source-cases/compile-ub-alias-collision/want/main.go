@@ -3,6 +3,7 @@ package main
 
 import (
 	lib_a "demo-factory/internal/a"
+	lib_a_a6595328 "demo-factory/internal/a_a6595328"
 	lib_wrap "demo-factory/internal/wrap"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
@@ -41,15 +42,32 @@ func main() {
 		ContentRevision: contentRevision,
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
-		Libraries: map[string]*runtime.Library{
-			"a": runtime.LibraryWithPath(
-				lib_a.Library(),
-				"demo-factory/internal/a",
-			),
-			"wrap": runtime.LibraryWithPath(
-				lib_wrap.Library(),
-				"demo-factory/internal/wrap",
-			),
+		LibraryRegistrations: []runtime.LibraryRegistration{
+			{
+				LibraryPath: "local:a",
+				New: func() *runtime.Library {
+					library := lib_a.Library()
+					return library
+				},
+			},
+			{
+				LibraryPath: "local:b",
+				New: func() *runtime.Library {
+					library := lib_a_a6595328.Library()
+					return library
+				},
+			},
+			{
+				LibraryPath: "local:wrap",
+				New: func() *runtime.Library {
+					library := lib_wrap.Library()
+					return library
+				},
+			},
+		},
+		LibraryBindings: map[string]string{
+			"a":    "local:a",
+			"wrap": "local:wrap",
 		},
 		UnobinVersion: unobinVersion,
 	})

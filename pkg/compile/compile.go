@@ -428,30 +428,18 @@ func run(opts Options, resultOut **Result) error {
 		}
 	}
 
-	goConstraints := make(map[string]map[string][]lang.ConstraintSpec, len(analysis.Top))
-	goDefaults := make(map[string]map[string][]lang.DefaultSpec, len(analysis.Top))
-	goSchemas := make(map[string]*ubruntime.LibrarySchema, len(analysis.Top))
-	libs := analysis.Libraries
-	for _, res := range analysis.Top {
-		if res.Kind != resolve.ResolutionGo {
+	catalogSpecs := make(map[string]codegen.GoLibrarySpecs, len(analysis.Catalog))
+	for path, library := range analysis.Catalog {
+		if library.Schema == nil {
 			continue
 		}
-		schema := libs[res.LocalAlias].Schema
-		goSchemas[res.LocalAlias] = schema
-		if c := constraintsFromSchema(schema); len(c) > 0 {
-			goConstraints[res.LocalAlias] = c
-		}
-		if d := defaultsFromSchema(schema); len(d) > 0 {
-			goDefaults[res.LocalAlias] = d
+		catalogSpecs[path] = codegen.GoLibrarySpecs{
+			Constraints: constraintsFromSchema(library.Schema),
+			Defaults:    defaultsFromSchema(library.Schema),
+			Schema:      library.Schema,
 		}
 	}
-	// Embed only the specs for types the factory declares; a node hits
-	// the rules and defaults for its own type alone, so an imported
-	// library's other types are dead weight in the generated code.
-	used := usedSyntaxLibraryTypes(sf.Factory.Body)
-	pruneUnusedSpecs(goConstraints, used)
-	pruneUnusedSpecs(goDefaults, used)
-	pruneUnusedSchemas(goSchemas, used)
+	libs := analysis.Libraries
 	checker := check.NewSyntaxWithLibraryConfigSchemas(
 		sf.Factory.Body,
 		libs,
@@ -472,19 +460,19 @@ func run(opts Options, resultOut **Result) error {
 	generatedFactoryBody := sf.Factory.Body
 	generatedFactoryBody.Assets = nil
 	in := codegen.Input{
-		FactoryBody:    generatedFactoryBody,
-		FactorySource:  factorySource,
-		LibraryPath:    opts.LibraryPath,
-		FactoryName:    name,
-		AssetBundle:    assetBundle,
-		HasAssets:      hasAssets,
-		RootAssetSetID: analysis.RootAssetSetID,
-		GoImports:      analysis.GoImports,
-		GoModules:      analysis.GoModules,
-		UBImports:      analysis.UBImports,
-		GoConstraints:  goConstraints,
-		GoDefaults:     goDefaults,
-		GoSchemas:      goSchemas,
+		FactoryBody:     generatedFactoryBody,
+		FactorySource:   factorySource,
+		LibraryPath:     opts.LibraryPath,
+		FactoryName:     name,
+		AssetBundle:     assetBundle,
+		HasAssets:       hasAssets,
+		RootAssetSetID:  analysis.RootAssetSetID,
+		GoImports:       analysis.GoImports,
+		GoModules:       analysis.GoModules,
+		UBImports:       analysis.UBImports,
+		CatalogImports:  analysis.CatalogImports,
+		CatalogSpecs:    catalogSpecs,
+		LibraryBindings: analysis.LibraryBindings,
 		LibraryConfigSchemas: schemaOnlyLibraryConfigSchemas(
 			sf.Factory.Body,
 			analysis.LibraryConfigSchemas,
@@ -1201,63 +1189,6 @@ func typeSpecsFromSchema[T any](
 	return out
 }
 
-func usedSyntaxLibraryTypes(body syntax.FactoryBody) map[string]map[string]bool {
-	used := map[string]map[string]bool{}
-	add := func(kind string, decls []syntax.NodeDecl) {
-		for _, decl := range decls {
-			addUsedLibraryType(
-				used,
-				decl.Selector.Alias.Name,
-				kind,
-				decl.Selector.Export.Name,
-			)
-		}
-	}
-	add("resource", body.Resources)
-	add(string(ubruntime.NodeDataSource), body.Data)
-	add("action", body.Actions)
-	return used
-}
-
-func addUsedLibraryType(used map[string]map[string]bool, alias, kind, export string) {
-	if used[alias] == nil {
-		used[alias] = map[string]bool{}
-	}
-	used[alias][kind+"."+export] = true
-}
-
-// pruneUnusedSpecs removes, per alias, the spec entries whose
-// "<kind>.<type>" key the factory does not declare, and removes an alias
-// left with no entries.
-func pruneUnusedSpecs[T any](
-	specs map[string]map[string][]T, used map[string]map[string]bool,
-) {
-	for alias, byType := range specs {
-		if kept := keepUsedTypes(byType, used[alias]); kept != nil {
-			specs[alias] = kept
-		} else {
-			delete(specs, alias)
-		}
-	}
-}
-
-// keepUsedTypes returns the entries of m whose "<kind>.<type>" key is in
-// used, or nil when none remain. Nil mirrors how typeSpecsFromSchema
-// reports an empty result, so the codegen input stays absent rather than
-// an empty map.
-func keepUsedTypes[T any](m map[string][]T, used map[string]bool) map[string][]T {
-	out := map[string][]T{}
-	for key, specs := range m {
-		if used[key] {
-			out[key] = specs
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
 func schemaOnlyLibraryConfigSchemas(
 	body syntax.FactoryBody,
 	schemas map[string]ubruntime.LibraryConfigSchema,
@@ -1281,78 +1212,6 @@ func schemaOnlyLibraryConfigSchemas(
 		return nil
 	}
 	return out
-}
-
-func pruneUnusedSchemas(
-	schemas map[string]*ubruntime.LibrarySchema,
-	used map[string]map[string]bool,
-) {
-	for alias, schema := range schemas {
-		if kept := keepUsedSchema(schema, used[alias]); kept != nil {
-			schemas[alias] = kept
-		} else {
-			delete(schemas, alias)
-		}
-	}
-}
-
-func keepUsedSchema(
-	schema *ubruntime.LibrarySchema,
-	used map[string]bool,
-) *ubruntime.LibrarySchema {
-	if schema == nil {
-		return nil
-	}
-	out := &ubruntime.LibrarySchema{
-		Resources:   keepSensitiveTypes(schema.Resources, used, string(ubruntime.NodeResource)),
-		DataSources: keepSensitiveTypes(schema.DataSources, used, string(ubruntime.NodeDataSource)),
-		Actions:     keepSensitiveTypes(schema.Actions, used, string(ubruntime.NodeAction)),
-	}
-	copyConfigurationSchema(out, schema)
-	if len(out.Resources)+len(out.DataSources)+len(out.Actions) == 0 &&
-		!out.HasConfiguration {
-		return nil
-	}
-	return out
-}
-
-func copyConfigurationSchema(dst, src *ubruntime.LibrarySchema) {
-	if src == nil || !src.HasConfiguration {
-		return
-	}
-	dst.HasConfiguration = src.HasConfiguration
-	dst.Configuration = maps.Clone(src.Configuration)
-	dst.ConfigurationFields = slices.Clone(src.ConfigurationFields)
-	dst.ConfigurationDefaults = slices.Clone(src.ConfigurationDefaults)
-	dst.ConfigurationConstraints = slices.Clone(src.ConfigurationConstraints)
-	dst.ConfigurationIdentity = src.ConfigurationIdentity
-	dst.ConfigurationDigest = src.ConfigurationDigest
-	dst.ConfigurationEmpty = src.ConfigurationEmpty
-}
-
-func keepSensitiveTypes(
-	types map[string]*ubruntime.TypeSchema,
-	used map[string]bool,
-	kind string,
-) map[string]*ubruntime.TypeSchema {
-	out := map[string]*ubruntime.TypeSchema{}
-	for typ, ts := range types {
-		if !used[kind+"."+typ] || !typeHasSensitivity(ts) {
-			continue
-		}
-		out[typ] = &ubruntime.TypeSchema{
-			SensitiveInputs:  append([]string(nil), ts.SensitiveInputs...),
-			SensitiveOutputs: append([]string(nil), ts.SensitiveOutputs...),
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func typeHasSensitivity(ts *ubruntime.TypeSchema) bool {
-	return ts != nil && (len(ts.SensitiveInputs) > 0 || len(ts.SensitiveOutputs) > 0)
 }
 
 // ReadGoSchema reads a fetched Go library's source from sourcePath

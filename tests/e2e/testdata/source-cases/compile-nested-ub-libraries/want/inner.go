@@ -2,7 +2,6 @@
 package inner
 
 import (
-	lib_unobin_library_std "github.com/cloudboss/unobin-library-std"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
@@ -26,11 +25,8 @@ func Library() *runtime.Library {
 				Name:       "hello",
 				Kind:       runtime.NodeResource,
 				SyntaxBody: &syntax.FactoryBody{S: sp0(16, 266), Description: &lang.StringLit{S: sp0(33, 0), Value: "inner hello"}, Inputs: []syntax.InputDecl{{S: sp0(59, 0), Name: syntax.Ident{S: sp0(59, 0), Name: "path"}, Body: &lang.ObjectLit{S: sp0(65, 81), Fields: []*lang.Field{{S: sp0(67, 0), Key: lang.FieldKey{S: sp0(67, 0), Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeAtomic{S: sp0(73, 0), Name: "string"}}}}, Type: &lang.TypeAtomic{S: sp0(73, 0), Name: "string"}}}, Imports: []syntax.ImportDecl{{S: sp0(97, 0), Alias: syntax.Ident{S: sp0(97, 0), Name: "std"}, Ref: &lang.StringLit{S: sp0(102, 0), Value: "github.com/cloudboss/unobin-library-std"}}}, Resources: []syntax.NodeDecl{{S: sp0(161, 211), Kind: syntax.NodeKind("resource"), Name: syntax.Ident{S: sp0(161, 0), Name: "this"}, Selector: syntax.NodeSelector{S: sp0(167, 175), Alias: syntax.Ident{S: sp0(167, 170), Name: "std"}, Export: syntax.Ident{S: sp0(171, 175), Name: "file"}}, Body: &lang.ObjectLit{S: sp0(176, 211), Fields: []*lang.Field{{S: sp0(178, 0), Key: lang.FieldKey{S: sp0(178, 0), Kind: lang.FieldIdent, Name: "path"}, Value: &lang.DotPath{S: sp0(184, 0), Root: &lang.Ident{S: sp0(184, 0), Name: "input"}, Segments: []lang.DotSegment{{S: sp0(189, 0), Name: "path"}}}}, {S: sp0(196, 0), Key: lang.FieldKey{S: sp0(196, 0), Kind: lang.FieldIdent, Name: "content"}, Value: &lang.StringLit{S: sp0(205, 0), Value: "hi"}}}}}}, Outputs: []syntax.OutputDecl{{S: sp0(227, 0), Name: syntax.Ident{S: sp0(227, 0), Name: "path"}, Body: &lang.ObjectLit{S: sp0(233, 262), Fields: []*lang.Field{{S: sp0(235, 0), Key: lang.FieldKey{S: sp0(235, 0), Kind: lang.FieldIdent, Name: "value"}, Value: &lang.DotPath{S: sp0(242, 0), Root: &lang.Ident{S: sp0(242, 0), Name: "resource"}, Segments: []lang.DotSegment{{S: sp0(250, 0), Name: "this"}, {S: sp0(255, 0), Name: "path"}}}}}}}}},
-				Libraries: map[string]*runtime.Library{
-					"std": runtime.LibraryWithPath(
-						lib_unobin_library_std.Library(),
-						"github.com/cloudboss/unobin-library-std",
-					),
+				LibraryBindings: map[string]string{
+					"std": "github.com/cloudboss/unobin-library-std",
 				},
 			},
 		},

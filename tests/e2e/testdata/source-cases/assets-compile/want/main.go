@@ -39,14 +39,15 @@ var (
 
 func main() {
 	runner.Run(runner.Info{
-		FactoryName:     factoryName,
-		FactoryVersion:  factoryVersion,
-		ContentRevision: contentRevision,
-		FactoryBody:     &factoryBody,
-		LibraryPath:     factoryLibraryPath,
-		Libraries:       map[string]*runtime.Library{},
-		AssetBundle:     factoryAssets,
-		RootAssetSetID:  "f15e4497a8eeb3458e483de306fbd17ef30dfc7834c70c86bd0d87b226b8addf",
-		UnobinVersion:   unobinVersion,
+		FactoryName:          factoryName,
+		FactoryVersion:       factoryVersion,
+		ContentRevision:      contentRevision,
+		FactoryBody:          &factoryBody,
+		LibraryPath:          factoryLibraryPath,
+		LibraryRegistrations: []runtime.LibraryRegistration{},
+		LibraryBindings:      map[string]string{},
+		AssetBundle:          factoryAssets,
+		RootAssetSetID:       "f15e4497a8eeb3458e483de306fbd17ef30dfc7834c70c86bd0d87b226b8addf",
+		UnobinVersion:        unobinVersion,
 	})
 }

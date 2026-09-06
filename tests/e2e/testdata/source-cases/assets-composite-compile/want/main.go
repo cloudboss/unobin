@@ -45,11 +45,17 @@ func main() {
 		ContentRevision: contentRevision,
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
-		Libraries: map[string]*runtime.Library{
-			"bundle": runtime.LibraryWithPath(
-				lib_bundle.Library(),
-				"factory/internal/bundle",
-			),
+		LibraryRegistrations: []runtime.LibraryRegistration{
+			{
+				LibraryPath: "local:library",
+				New: func() *runtime.Library {
+					library := lib_bundle.Library()
+					return library
+				},
+			},
+		},
+		LibraryBindings: map[string]string{
+			"bundle": "local:library",
 		},
 		AssetBundle:    factoryAssets,
 		RootAssetSetID: "5ee155a030a53191274f3cb2c9331db2ffb56923763efe652f77e2a69060aee0",

@@ -2,7 +2,9 @@
 package main
 
 import (
+	lib_inner "demo-factory/internal/inner"
 	lib_outer "demo-factory/internal/outer"
+	lib_unobin_library_std "github.com/cloudboss/unobin-library-std"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
@@ -40,11 +42,31 @@ func main() {
 		ContentRevision: contentRevision,
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
-		Libraries: map[string]*runtime.Library{
-			"outer": runtime.LibraryWithPath(
-				lib_outer.Library(),
-				"demo-factory/internal/outer",
-			),
+		LibraryRegistrations: []runtime.LibraryRegistration{
+			{
+				LibraryPath: "github.com/cloudboss/unobin-library-std",
+				New: func() *runtime.Library {
+					library := lib_unobin_library_std.Library()
+					return library
+				},
+			},
+			{
+				LibraryPath: "github.com/example/inner//ub/inner",
+				New: func() *runtime.Library {
+					library := lib_inner.Library()
+					return library
+				},
+			},
+			{
+				LibraryPath: "github.com/example/outer//ub/outer",
+				New: func() *runtime.Library {
+					library := lib_outer.Library()
+					return library
+				},
+			},
+		},
+		LibraryBindings: map[string]string{
+			"outer": "github.com/example/outer//ub/outer",
 		},
 		UnobinVersion: unobinVersion,
 	})

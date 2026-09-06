@@ -61,7 +61,7 @@
       "category": "resource",
       "binding": {
         "alias": "groups",
-        "library-path": "state-moves/internal/groups",
+        "library-path": "local:libraries/groups",
         "kind": "group"
       },
       "inputs": {
@@ -117,7 +117,7 @@
       "category": "resource",
       "binding": {
         "alias": "items",
-        "library-path": "state-moves/internal/items",
+        "library-path": "local:libraries/items",
         "kind": "item"
       },
       "inputs": {

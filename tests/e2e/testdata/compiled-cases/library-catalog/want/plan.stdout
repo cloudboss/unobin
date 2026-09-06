@@ -1,0 +1,18 @@
+  (create)  resource.aliased
+      body: {message: 'second'}
+      name: 'same'
+  (create)  resource.direct
+      body: {message: 'first'}
+      name: 'same'
+  (create)  resource.nested  (composite)
+      name: 'one'
+    (create)  resource.object
+        body: {message: 'nested'}
+        name: 'one'
+  (create)  resource.nested-again  (composite)
+      name: 'two'
+    (create)  resource.object
+        body: {message: 'nested'}
+        name: 'two'
+
+Plan: 4 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.

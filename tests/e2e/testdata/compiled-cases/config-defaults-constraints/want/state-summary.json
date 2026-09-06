@@ -13,7 +13,7 @@
       "category": "resource",
       "binding": {
         "alias": "files",
-        "library-path": "config-defaults-constraints/internal/files",
+        "library-path": "local:libraries/files",
         "kind": "archive"
       },
       "inputs": {

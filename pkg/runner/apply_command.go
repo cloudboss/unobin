@@ -557,10 +557,11 @@ func newApplyExecutor(
 	events chan<- runtime.ApplyEvent,
 ) *runtime.Executor {
 	exec := &runtime.Executor{
-		SyntaxSource: prepared.parsed.syntaxBody,
-		DAG:          prepared.parsed.dag,
-		Libraries:    info.Libraries,
-		Store:        prepared.store,
+		SyntaxSource:   prepared.parsed.syntaxBody,
+		DAG:            prepared.parsed.dag,
+		Libraries:      info.Libraries,
+		LibraryCatalog: info.libraryCatalog,
+		Store:          prepared.store,
 		Factory: state.FactoryInfo{
 			Name:            info.FactoryName,
 			Version:         info.FactoryVersion,

@@ -40,11 +40,17 @@ func main() {
 		ContentRevision: contentRevision,
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
-		Libraries: map[string]*runtime.Library{
-			"cloud": runtime.LibraryWithPath(
-				lib_cloud.Library(),
-				"github.com/x/cloud",
-			),
+		LibraryRegistrations: []runtime.LibraryRegistration{
+			{
+				LibraryPath: "github.com/x/cloud",
+				New: func() *runtime.Library {
+					library := lib_cloud.Library()
+					return library
+				},
+			},
+		},
+		LibraryBindings: map[string]string{
+			"cloud": "github.com/x/cloud",
 		},
 		UnobinVersion: unobinVersion,
 	})

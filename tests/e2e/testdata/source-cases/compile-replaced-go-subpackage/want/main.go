@@ -40,11 +40,17 @@ func main() {
 		ContentRevision: contentRevision,
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
-		Libraries: map[string]*runtime.Library{
-			"fs": runtime.LibraryWithPath(
-				lib_fs.Library(),
-				"example.com/repo/go/fs",
-			),
+		LibraryRegistrations: []runtime.LibraryRegistration{
+			{
+				LibraryPath: "example.com/repo/go/fs",
+				New: func() *runtime.Library {
+					library := lib_fs.Library()
+					return library
+				},
+			},
+		},
+		LibraryBindings: map[string]string{
+			"fs": "example.com/repo/go/fs",
 		},
 		UnobinVersion: unobinVersion,
 	})

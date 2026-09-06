@@ -41,15 +41,25 @@ func main() {
 		ContentRevision: contentRevision,
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
-		Libraries: map[string]*runtime.Library{
-			"shared": runtime.LibraryWithPath(
-				lib_shared.Library(),
-				"demo-factory/internal/shared",
-			),
-			"wrap": runtime.LibraryWithPath(
-				lib_wrap.Library(),
-				"demo-factory/internal/wrap",
-			),
+		LibraryRegistrations: []runtime.LibraryRegistration{
+			{
+				LibraryPath: "github.com/example/shared//ub/shared",
+				New: func() *runtime.Library {
+					library := lib_shared.Library()
+					return library
+				},
+			},
+			{
+				LibraryPath: "github.com/example/wrap//ub/wrap",
+				New: func() *runtime.Library {
+					library := lib_wrap.Library()
+					return library
+				},
+			},
+		},
+		LibraryBindings: map[string]string{
+			"shared": "github.com/example/shared//ub/shared",
+			"wrap":   "github.com/example/wrap//ub/wrap",
 		},
 		UnobinVersion: unobinVersion,
 	})

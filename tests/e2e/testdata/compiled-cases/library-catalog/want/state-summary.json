@@ -1,0 +1,161 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "library-catalog",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "entries": [
+    {
+      "address": "resource.aliased",
+      "entry-kind": "leaf",
+      "category": "resource",
+      "binding": {
+        "alias": "second",
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "object"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "body": {
+          "message": "second"
+        },
+        "name": "same"
+      },
+      "outputs": {
+        "body": {
+          "message": "second"
+        },
+        "id": "second-same",
+        "path": "objects/second-same.json",
+        "sha256": "3e7a2be078f8118da09fb5df07030a3281be04100003c026c75648443dd64a19"
+      }
+    },
+    {
+      "address": "resource.direct",
+      "entry-kind": "leaf",
+      "category": "resource",
+      "binding": {
+        "alias": "first",
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "object"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "body": {
+          "message": "first"
+        },
+        "name": "same"
+      },
+      "outputs": {
+        "body": {
+          "message": "first"
+        },
+        "id": "first-same",
+        "path": "objects/first-same.json",
+        "sha256": "d88545eec05464071e91a46fbdeb91c8ec6127fc5f96f6229d1d1413aeb8e77a"
+      }
+    },
+    {
+      "address": "resource.nested",
+      "entry-kind": "library-call",
+      "category": "resource",
+      "binding": {
+        "alias": "wrappers",
+        "library-path": "local:libraries/wrappers",
+        "kind": "wrapper"
+      },
+      "inputs": {
+        "name": "one"
+      },
+      "outputs": {
+        "count": 1,
+        "id": "nested-one"
+      },
+      "depends-on": [
+        "resource.nested/resource.object"
+      ]
+    },
+    {
+      "address": "resource.nested-again",
+      "entry-kind": "library-call",
+      "category": "resource",
+      "binding": {
+        "alias": "wrappers-again",
+        "library-path": "local:libraries/wrappers",
+        "kind": "wrapper"
+      },
+      "inputs": {
+        "name": "two"
+      },
+      "outputs": {
+        "count": 1,
+        "id": "nested-two"
+      },
+      "depends-on": [
+        "resource.nested-again/resource.object"
+      ]
+    },
+    {
+      "address": "resource.nested-again/resource.object",
+      "entry-kind": "leaf",
+      "category": "resource",
+      "binding": {
+        "alias": "inside",
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "object"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "body": {
+          "message": "nested"
+        },
+        "name": "two"
+      },
+      "outputs": {
+        "body": {
+          "message": "nested"
+        },
+        "id": "nested-two",
+        "path": "objects/nested-two.json",
+        "sha256": "2f08d3e8492c824d8d049d3c504e175cbe19b375f08d10b35b27a271b879fa26"
+      }
+    },
+    {
+      "address": "resource.nested/resource.object",
+      "entry-kind": "leaf",
+      "category": "resource",
+      "binding": {
+        "alias": "inside",
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "object"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "body": {
+          "message": "nested"
+        },
+        "name": "one"
+      },
+      "outputs": {
+        "body": {
+          "message": "nested"
+        },
+        "id": "nested-one",
+        "path": "objects/nested-one.json",
+        "sha256": "2f08d3e8492c824d8d049d3c504e175cbe19b375f08d10b35b27a271b879fa26"
+      }
+    }
+  ],
+  "outputs": {
+    "again-count": 1,
+    "again-id": "nested-two",
+    "alias-count": 1,
+    "aliased-id": "second-same",
+    "direct-id": "first-same",
+    "nested-count": 1,
+    "nested-id": "nested-one",
+    "root-count": 1
+  }
+}

@@ -13,7 +13,7 @@
       "category": "resource",
       "binding": {
         "alias": "archives",
-        "library-path": "assets-composite-runtime/internal/archives",
+        "library-path": "local:library",
         "kind": "archive"
       },
       "inputs": {
@@ -86,7 +86,7 @@
       "category": "resource",
       "binding": {
         "alias": "archives",
-        "library-path": "assets-composite-runtime/internal/archives",
+        "library-path": "local:library",
         "kind": "archive"
       },
       "inputs": {

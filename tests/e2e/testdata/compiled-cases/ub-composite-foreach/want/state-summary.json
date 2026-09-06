@@ -13,7 +13,7 @@
       "category": "resource",
       "binding": {
         "alias": "groups",
-        "library-path": "ub-composite-foreach/internal/groups",
+        "library-path": "local:libraries/groups",
         "kind": "group"
       },
       "inputs": {
@@ -102,7 +102,7 @@
       "category": "resource",
       "binding": {
         "alias": "items",
-        "library-path": "ub-composite-foreach/internal/items",
+        "library-path": "local:libraries/items",
         "kind": "item"
       },
       "inputs": {

@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"maps"
 	"os"
-	"slices"
 
 	"github.com/cloudboss/unobin/pkg/asset"
 	"github.com/cloudboss/unobin/pkg/codegen"
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
-	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/cloudboss/unobin/pkg/runtime"
@@ -388,7 +386,7 @@ func (v *importVisitor) OnUBLibrary(
 			alias,
 			syntaxBodiesForCompiledComposites(composites),
 			codegenImportsForCompiledComposites(composites),
-			goSpecsForCompiledComposites(composites),
+
 			lib.SourceFiles,
 			assetSetIDsForCompiledComposites(composites),
 			libraryConfigSchemasForCompiledComposites(composites),
@@ -407,7 +405,6 @@ type compiledComposite struct {
 	bodyLibs             map[string]*runtime.Library
 	libraryConfigSchemas map[string]runtime.LibraryConfigSchema
 	codegenImports       map[string]string
-	goSpecs              map[string]codegen.GoLibrarySpecs
 	assetSetID           string
 }
 
@@ -443,13 +440,11 @@ func (v *importVisitor) buildCompiledComposites(
 		}
 		if v.generatePackages {
 			composite.codegenImports = make(map[string]string, len(resols))
-			composite.goSpecs = map[string]codegen.GoLibrarySpecs{}
 		}
-		bodyUsed := usedSyntaxLibraryTypes(entry.SyntaxBody)
 		for _, res := range resols {
 			switch res.Kind {
 			case resolve.ResolutionGo:
-				if err := v.addCompiledGoImport(&composite, entry, bodyUsed, res); err != nil {
+				if err := v.addCompiledGoImport(&composite, entry, res); err != nil {
 					return nil, err
 				}
 			case resolve.ResolutionUB:
@@ -471,9 +466,6 @@ func (v *importVisitor) buildCompiledComposites(
 		if len(composite.codegenImports) == 0 {
 			composite.codegenImports = nil
 		}
-		if len(composite.goSpecs) == 0 {
-			composite.goSpecs = nil
-		}
 		composites = append(composites, composite)
 	}
 	return composites, nil
@@ -482,7 +474,6 @@ func (v *importVisitor) buildCompiledComposites(
 func (v *importVisitor) addCompiledGoImport(
 	composite *compiledComposite,
 	entry resolve.CompositeEntry,
-	bodyUsed map[string]map[string]bool,
 	res resolve.Resolution,
 ) error {
 	schema, warnings, err := v.schemas.Read(res.SourcePath)
@@ -501,15 +492,6 @@ func (v *importVisitor) addCompiledGoImport(
 		return nil
 	}
 	composite.codegenImports[res.LocalAlias] = res.Path
-	used := bodyUsed[res.LocalAlias]
-	specs := codegen.GoLibrarySpecs{
-		Constraints: keepUsedTypes(constraintsFromSchema(schema), used),
-		Defaults:    keepUsedTypes(defaultsFromSchema(schema), used),
-		Schema:      keepUsedSchema(schema, used),
-	}
-	if !specs.Empty() {
-		composite.goSpecs[res.Path] = specs
-	}
 	return nil
 }
 
@@ -538,11 +520,7 @@ func (v *importVisitor) addCompiledUBImport(
 	if !v.generatePackages {
 		return nil
 	}
-	importPath, err := v.ubImportPath(res.CanonicalKey)
-	if err != nil {
-		return err
-	}
-	composite.codegenImports[res.LocalAlias] = importPath
+	composite.codegenImports[res.LocalAlias] = res.Path
 	return nil
 }
 
@@ -649,209 +627,4 @@ func codegenImportsForCompiledComposites(
 		return nil
 	}
 	return out
-}
-
-func goSpecsForCompiledComposites(
-	composites []compiledComposite,
-) map[string]codegen.GoLibrarySpecs {
-	out := map[string]codegen.GoLibrarySpecs{}
-	for _, composite := range composites {
-		for importPath, specs := range composite.goSpecs {
-			mergeGoLibrarySpecs(out, importPath, specs)
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func mergeGoLibrarySpecs(
-	out map[string]codegen.GoLibrarySpecs,
-	importPath string,
-	specs codegen.GoLibrarySpecs,
-) {
-	if specs.Empty() {
-		return
-	}
-	current := out[importPath]
-	current.Constraints = mergeSpecMap(current.Constraints, specs.Constraints)
-	current.Defaults = mergeSpecMap(current.Defaults, specs.Defaults)
-	current.Schema = mergeLibrarySchema(current.Schema, specs.Schema)
-	out[importPath] = current
-}
-
-func mergeSpecMap[T any](dst, src map[string][]T) map[string][]T {
-	if len(src) == 0 {
-		return dst
-	}
-	if dst == nil {
-		dst = map[string][]T{}
-	}
-	maps.Copy(dst, src)
-	return dst
-}
-
-func mergeLibrarySchema(
-	dst *runtime.LibrarySchema,
-	src *runtime.LibrarySchema,
-) *runtime.LibrarySchema {
-	if src == nil {
-		return dst
-	}
-	if dst == nil {
-		dst = &runtime.LibrarySchema{}
-	}
-	dst.Resources = mergeTypeSchemaMap(dst.Resources, src.Resources)
-	dst.DataSources = mergeTypeSchemaMap(dst.DataSources, src.DataSources)
-	dst.Actions = mergeTypeSchemaMap(dst.Actions, src.Actions)
-	copyConfigurationSchema(dst, src)
-	return dst
-}
-
-func mergeTypeSchemaMap(
-	dst map[string]*runtime.TypeSchema,
-	src map[string]*runtime.TypeSchema,
-) map[string]*runtime.TypeSchema {
-	if len(src) == 0 {
-		return dst
-	}
-	if dst == nil {
-		dst = map[string]*runtime.TypeSchema{}
-	}
-	maps.Copy(dst, src)
-	return dst
-}
-
-func constraintsFromSchema(schema *runtime.LibrarySchema) map[string][]lang.ConstraintSpec {
-	return typeSpecsFromSchema(schema, func(ts *runtime.TypeSchema) []lang.ConstraintSpec {
-		return ts.Constraints
-	})
-}
-
-func defaultsFromSchema(schema *runtime.LibrarySchema) map[string][]lang.DefaultSpec {
-	return typeSpecsFromSchema(schema, func(ts *runtime.TypeSchema) []lang.DefaultSpec {
-		return ts.Defaults
-	})
-}
-
-func typeSpecsFromSchema[T any](
-	schema *runtime.LibrarySchema,
-	pick func(*runtime.TypeSchema) []T,
-) map[string][]T {
-	if schema == nil {
-		return nil
-	}
-	out := map[string][]T{}
-	add := func(kind runtime.NodeKind, types map[string]*runtime.TypeSchema) {
-		for typ, ts := range types {
-			if specs := pick(ts); len(specs) > 0 {
-				out[string(kind)+"."+typ] = specs
-			}
-		}
-	}
-	add(runtime.NodeResource, schema.Resources)
-	add(runtime.NodeDataSource, schema.DataSources)
-	add(runtime.NodeAction, schema.Actions)
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func usedSyntaxLibraryTypes(body syntax.FactoryBody) map[string]map[string]bool {
-	used := map[string]map[string]bool{}
-	add := func(kind string, decls []syntax.NodeDecl) {
-		for _, decl := range decls {
-			addUsedLibraryType(
-				used,
-				decl.Selector.Alias.Name,
-				kind,
-				decl.Selector.Export.Name,
-			)
-		}
-	}
-	add("resource", body.Resources)
-	add(string(runtime.NodeDataSource), body.Data)
-	add("action", body.Actions)
-	return used
-}
-
-func addUsedLibraryType(used map[string]map[string]bool, alias, kind, export string) {
-	if used[alias] == nil {
-		used[alias] = map[string]bool{}
-	}
-	used[alias][kind+"."+export] = true
-}
-
-func keepUsedTypes[T any](m map[string][]T, used map[string]bool) map[string][]T {
-	out := map[string][]T{}
-	for key, specs := range m {
-		if used[key] {
-			out[key] = specs
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func keepUsedSchema(
-	schema *runtime.LibrarySchema,
-	used map[string]bool,
-) *runtime.LibrarySchema {
-	if schema == nil {
-		return nil
-	}
-	out := &runtime.LibrarySchema{
-		Resources:   keepSensitiveTypes(schema.Resources, used, string(runtime.NodeResource)),
-		DataSources: keepSensitiveTypes(schema.DataSources, used, string(runtime.NodeDataSource)),
-		Actions:     keepSensitiveTypes(schema.Actions, used, string(runtime.NodeAction)),
-	}
-	copyConfigurationSchema(out, schema)
-	if len(out.Resources)+len(out.DataSources)+len(out.Actions) == 0 &&
-		!out.HasConfiguration {
-		return nil
-	}
-	return out
-}
-
-func copyConfigurationSchema(dst, src *runtime.LibrarySchema) {
-	if src == nil || !src.HasConfiguration {
-		return
-	}
-	dst.HasConfiguration = src.HasConfiguration
-	dst.Configuration = maps.Clone(src.Configuration)
-	dst.ConfigurationFields = slices.Clone(src.ConfigurationFields)
-	dst.ConfigurationDefaults = slices.Clone(src.ConfigurationDefaults)
-	dst.ConfigurationConstraints = slices.Clone(src.ConfigurationConstraints)
-	dst.ConfigurationIdentity = src.ConfigurationIdentity
-	dst.ConfigurationDigest = src.ConfigurationDigest
-	dst.ConfigurationEmpty = src.ConfigurationEmpty
-}
-
-func keepSensitiveTypes(
-	types map[string]*runtime.TypeSchema,
-	used map[string]bool,
-	kind string,
-) map[string]*runtime.TypeSchema {
-	out := map[string]*runtime.TypeSchema{}
-	for typ, ts := range types {
-		if !used[kind+"."+typ] || !typeHasSensitivity(ts) {
-			continue
-		}
-		out[typ] = &runtime.TypeSchema{
-			SensitiveInputs:  append([]string(nil), ts.SensitiveInputs...),
-			SensitiveOutputs: append([]string(nil), ts.SensitiveOutputs...),
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func typeHasSensitivity(ts *runtime.TypeSchema) bool {
-	return ts != nil && (len(ts.SensitiveInputs) > 0 || len(ts.SensitiveOutputs) > 0)
 }

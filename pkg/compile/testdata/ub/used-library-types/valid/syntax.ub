@@ -1,9 +1,0 @@
-factory: {
-  inputs: { path: { type: string } }
-  resources: {
-    main: aws.vpc { cidr-block: '10.0.0.0/16' }
-    a: aws.subnet { vpc-id: resource.main.id }
-  }
-  data-sources:    { ubuntu: aws.ami { most-recent: true } }
-  actions: { hi: core.command { argv: ['echo'] } }
-}

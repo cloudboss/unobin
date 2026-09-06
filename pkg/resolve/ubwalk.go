@@ -152,6 +152,7 @@ func WalkUBFrom(
 		versions:         versions,
 		factoryRoot:      factoryRootSource(source),
 		parsed:           map[string]*UBLibrary{},
+		libraryPaths:     map[string]string{},
 		inProgress:       map[string]bool{},
 		goModuleProjects: map[string]string{},
 		goPackageModules: map[string]string{},
@@ -165,6 +166,7 @@ type ubWalker struct {
 	versions         map[string]string
 	factoryRoot      *Source
 	parsed           map[string]*UBLibrary
+	libraryPaths     map[string]string
 	inProgress       map[string]bool
 	goModuleProjects map[string]string
 	goPackageModules map[string]string
@@ -639,8 +641,9 @@ func (w *ubWalker) handleUBImport(
 	if err != nil {
 		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
 	}
-	lib.LibraryPath = resolvedUBLibraryPath(ref, source)
-	applyUBLibrarySourceDisplayPaths(lib, ref, lib.LibraryPath)
+	lib.LibraryPath = canonicalUBLibraryPath(ref, source, w.libraryPaths[fromKey], repo)
+	w.libraryPaths[key] = lib.LibraryPath
+	applyUBLibrarySourceDisplayPaths(lib, ref, resolvedUBLibraryPath(ref, source))
 	lib.BodyImports = map[string]map[string][]Resolution{}
 	for _, entry := range lib.CompositeEntries() {
 		bodyRefs, errs := libraryBodyImports(entry)
@@ -860,6 +863,26 @@ func resolvedUBLibraryPath(ref ImportRef, source *Source) string {
 		return "local:" + filepath.Clean(source.Path)
 	}
 	return ""
+}
+
+func canonicalUBLibraryPath(ref ImportRef, source *Source, parentPath, repo string) string {
+	local, ok := ref.(*LocalImport)
+	if !ok {
+		return resolvedUBLibraryPath(ref, source)
+	}
+	importPath := filepath.ToSlash(local.Path)
+	if base, ok := strings.CutPrefix(parentPath, "local:"); ok {
+		return "local:" + pathpkg.Join(base, importPath)
+	}
+	if repo != "" {
+		base := strings.TrimPrefix(strings.TrimPrefix(parentPath, repo), "//")
+		packagePath := pathpkg.Join(base, importPath)
+		if packagePath == "." {
+			return repo
+		}
+		return repo + "//" + packagePath
+	}
+	return "local:" + pathpkg.Clean(importPath)
 }
 
 func sourceLocalPath(source *Source) string {

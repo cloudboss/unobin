@@ -26,7 +26,7 @@ func TestImportVisitorBuildsCompositeArtifactsTogether(t *testing.T) {
 		GeneratePackages: true,
 		StackName:        "demo",
 	}, schemas)
-	nestedLib := &runtime.Library{Name: "leaf"}
+	nestedLib := &runtime.Library{Name: "leaf", LibraryPath: "local:/leaf"}
 	visitor.runtimeLibraries["local:/leaf"] = nestedLib
 	require.Equal(t, "leaf", visitor.packageIDs.ID("leaf", "local:/leaf"))
 
@@ -49,23 +49,15 @@ func TestImportVisitorBuildsCompositeArtifactsTogether(t *testing.T) {
 	require.Same(t, nestedLib, archive.bodyLibs["leaf"])
 	require.NotNil(t, archive.bodyLibs["std"].Schema)
 	require.Equal(t, map[string]string{
-		"leaf": "demo/internal/leaf",
+		"leaf": "local:/leaf",
 		"std":  "example.com/std",
 	}, archive.codegenImports)
-	require.Contains(t, archive.goSpecs["example.com/std"].Constraints, "resource.file")
-	require.Contains(t, archive.goSpecs["example.com/std"].Defaults, "resource.file")
-	require.Contains(t, archive.goSpecs["example.com/std"].Schema.Resources, "file")
-	require.Equal(t, "example.com/std/config.Configuration",
-		archive.goSpecs["example.com/std"].Schema.ConfigurationIdentity)
-	require.NotContains(t, archive.goSpecs["example.com/std"].Constraints, "resource.unused")
-	require.NotContains(t, archive.goSpecs["example.com/std"].Defaults, "data-source.query")
+	require.Same(t, archive.bodyLibs["std"], visitor.catalog["example.com/std"])
+	require.Contains(t, visitor.catalog["example.com/std"].Schema.Resources, "unused")
 
 	lookup := byName["lookup"]
 	require.Equal(t, map[string]string{"std": "example.com/std"}, lookup.codegenImports)
-	require.Contains(t, lookup.goSpecs["example.com/std"].Constraints, "data-source.query")
-	require.Contains(t, lookup.goSpecs["example.com/std"].Defaults, "data-source.query")
-	require.Contains(t, lookup.goSpecs["example.com/std"].Schema.DataSources, "query")
-	require.NotContains(t, lookup.goSpecs["example.com/std"].Constraints, "resource.file")
+	require.Same(t, archive.bodyLibs["std"], lookup.bodyLibs["std"])
 
 	runtimeLib := runtimeLibraryForCompiledComposites("bundle", composites)
 	require.Same(t, nestedLib,
@@ -76,7 +68,7 @@ func TestImportVisitorBuildsCompositeArtifactsTogether(t *testing.T) {
 	require.Equal(t, map[string]map[string]map[string]string{
 		"resource": {
 			"archive": {
-				"leaf": "demo/internal/leaf",
+				"leaf": "local:/leaf",
 				"std":  "example.com/std",
 			},
 		},
@@ -85,21 +77,12 @@ func TestImportVisitorBuildsCompositeArtifactsTogether(t *testing.T) {
 		},
 	}, imports)
 
-	goSpecs := goSpecsForCompiledComposites(composites)
-	require.Contains(t, goSpecs["example.com/std"].Constraints, "resource.file")
-	require.Contains(t, goSpecs["example.com/std"].Constraints, "data-source.query")
-	require.Contains(t, goSpecs["example.com/std"].Defaults, "resource.file")
-	require.Contains(t, goSpecs["example.com/std"].Defaults, "data-source.query")
-	require.Contains(t, goSpecs["example.com/std"].Schema.Resources, "file")
-	require.Contains(t, goSpecs["example.com/std"].Schema.DataSources, "query")
-	require.NotContains(t, goSpecs["example.com/std"].Schema.Resources, "unused")
-
 	generated, err := codegen.GenerateUBLibraryPackage(
 		"bundle",
 		"bundle",
 		syntaxBodiesForCompiledComposites(composites),
 		imports,
-		goSpecs,
+
 		nil,
 	)
 	require.NoError(t, err)
@@ -155,6 +138,7 @@ func compositeArtifactLibrary(goSourcePath string) *resolve.UBLibrary {
 						Kind:         resolve.ResolutionUB,
 						LocalAlias:   "leaf",
 						CanonicalKey: "local:/leaf",
+						Path:         "local:/leaf",
 					},
 				},
 			},

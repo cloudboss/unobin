@@ -40,11 +40,17 @@ func main() {
 		ContentRevision: contentRevision,
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
-		Libraries: map[string]*runtime.Library{
-			"net": runtime.LibraryWithPath(
-				lib_net.Library(),
-				"demo-factory/internal/net",
-			),
+		LibraryRegistrations: []runtime.LibraryRegistration{
+			{
+				LibraryPath: "github.com/example/net//libraries/network",
+				New: func() *runtime.Library {
+					library := lib_net.Library()
+					return library
+				},
+			},
+		},
+		LibraryBindings: map[string]string{
+			"net": "github.com/example/net//libraries/network",
 		},
 		UnobinVersion: unobinVersion,
 	})

@@ -2,7 +2,6 @@
 package files
 
 import (
-	lib_e2elib "example.com/unobin/e2elib"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
@@ -20,43 +19,6 @@ func sp0(start, end int) parse.Span {
 }
 
 func Library() *runtime.Library {
-	e2elibLib := runtime.LibraryWithPath(
-		lib_e2elib.Library(),
-		"example.com/unobin/e2elib",
-	)
-	e2elibLib.Constraints = map[string][]lang.ConstraintSpec{
-		"resource.file": {
-			{Kind: "predicate", When: "true", Require: "(@core.length(input.path) >= 1)", Message: "path is required"},
-			{Kind: "predicate", When: "true", Require: "(input.mode >= 0)", Message: "mode must be non-negative"},
-		},
-	}
-	e2elibLib.Defaults = map[string][]lang.DefaultSpec{
-		"resource.file": {
-			{Field: "input.mode", Value: "420"},
-			{Field: "input.create-parents", Value: "true"},
-		},
-	}
-	e2elibLib.Schema = &runtime.LibrarySchema{
-		HasConfiguration: true,
-		ConfigurationFields: []typecheck.ObjectField{
-			{Name: "base-dir", Type: typecheck.TString(), Defaulted: true},
-			{Name: "event-log-path", Type: typecheck.TString(), Defaulted: true},
-			{Name: "prefix", Type: typecheck.TString(), Defaulted: true},
-			{Name: "nested", Type: typecheck.TObject([]typecheck.ObjectField{
-				{Name: "label", Type: typecheck.TString(), Defaulted: true},
-				{Name: "enabled", Type: typecheck.TBoolean(), Defaulted: true},
-			})},
-		},
-		ConfigurationDefaults: []lang.DefaultSpec{
-			{Field: "input.base-dir", Value: "'.'"},
-			{Field: "input.event-log-path", Value: "'events.ndjson'"},
-			{Field: "input.prefix", Value: "''"},
-			{Field: "input.nested.label", Value: "'nested'"},
-			{Field: "input.nested.enabled", Value: "true"},
-		},
-		ConfigurationIdentity: "example.com/unobin/e2elib.Configuration",
-		ConfigurationDigest:   "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3",
-	}
 	return &runtime.Library{
 		Name: "files",
 		ResourceComposites: map[string]*runtime.CompositeType{
@@ -81,11 +43,8 @@ func Library() *runtime.Library {
 						{Field: "input.nested.enabled", Value: "true"},
 					}, Identity: "example.com/unobin/e2elib.Configuration", Digest: "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3"},
 				},
-				Libraries: map[string]*runtime.Library{
-					"e2e": runtime.LibraryWithPath(
-						e2elibLib,
-						"example.com/unobin/e2elib",
-					),
+				LibraryBindings: map[string]string{
+					"e2e": "example.com/unobin/e2elib",
 				},
 			},
 		},

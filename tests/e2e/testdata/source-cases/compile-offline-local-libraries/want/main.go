@@ -36,44 +36,95 @@ var (
 )
 
 func main() {
-	libraries := map[string]*runtime.Library{
-		"e2e": runtime.LibraryWithPath(
-			lib_e2e.Library(),
-			"example.com/unobin/e2elib",
-		),
-		"net": runtime.LibraryWithPath(
-			lib_net.Library(),
-			"demo-factory/internal/net",
-		),
-	}
-	libraries["e2e"].Schema = &runtime.LibrarySchema{
-		HasConfiguration: true,
-		ConfigurationFields: []typecheck.ObjectField{
-			{Name: "base-dir", Type: typecheck.TString(), Defaulted: true},
-			{Name: "event-log-path", Type: typecheck.TString(), Defaulted: true},
-			{Name: "prefix", Type: typecheck.TString(), Defaulted: true},
-			{Name: "nested", Type: typecheck.TObject([]typecheck.ObjectField{
-				{Name: "label", Type: typecheck.TString(), Defaulted: true},
-				{Name: "enabled", Type: typecheck.TBoolean(), Defaulted: true},
-			})},
-		},
-		ConfigurationDefaults: []lang.DefaultSpec{
-			{Field: "input.base-dir", Value: "'.'"},
-			{Field: "input.event-log-path", Value: "'events.ndjson'"},
-			{Field: "input.prefix", Value: "''"},
-			{Field: "input.nested.label", Value: "'nested'"},
-			{Field: "input.nested.enabled", Value: "true"},
-		},
-		ConfigurationIdentity: "example.com/unobin/e2elib.Configuration",
-		ConfigurationDigest:   "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3",
-	}
 	runner.Run(runner.Info{
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
-		Libraries:       libraries,
-		UnobinVersion:   unobinVersion,
+		LibraryRegistrations: []runtime.LibraryRegistration{
+			{
+				LibraryPath: "example.com/unobin/e2elib",
+				New: func() *runtime.Library {
+					library := lib_e2e.Library()
+					library.Constraints = map[string][]lang.ConstraintSpec{
+						"action.record": {
+							{Kind: "predicate", When: "true", Require: "(@core.length(input.name) >= 1)", Message: "name is required"},
+						},
+						"data-source.read-file": {
+							{Kind: "predicate", When: "true", Require: "(@core.length(input.path) >= 1)", Message: "path is required"},
+						},
+						"resource.archive-zipfile": {
+							{Kind: "predicate", When: "true", Require: "(@core.length(input.path) >= 1)", Message: "path is required"},
+							{Kind: "predicate", When: "true", Require: "(@core.length(input.source-dir) >= 1)", Message: "source-dir is required"},
+							{Kind: "predicate", When: "true", Require: "(@core.length(input.selected-path) >= 1)", Message: "selected-path is required"},
+							{Kind: "predicate", When: "true", Require: "(@core.length(input.expected-file-sha256) >= 1)", Message: "expected-file-sha256 is required"},
+							{Kind: "predicate", When: "true", Require: "(@core.length(input.expected-file-mode) >= 1)", Message: "expected-file-mode is required"},
+							{Kind: "predicate", When: "true", Require: "(@core.length(input.expected-directory-sha256) >= 1)", Message: "expected-directory-sha256 is required"},
+							{Kind: "predicate", When: "true", Require: "(@core.length(input.expected-directory-mode) >= 1)", Message: "expected-directory-mode is required"},
+						},
+						"resource.file": {
+							{Kind: "predicate", When: "true", Require: "(@core.length(input.path) >= 1)", Message: "path is required"},
+							{Kind: "predicate", When: "true", Require: "(input.mode >= 0)", Message: "mode must be non-negative"},
+						},
+						"resource.object": {
+							{Kind: "predicate", When: "true", Require: "(@core.length(input.name) >= 1)", Message: "name is required"},
+						},
+					}
+					library.Defaults = map[string][]lang.DefaultSpec{
+						"action.echo": {
+							{Field: "input.upper", Value: "false"},
+						},
+						"data-source.read-file": {
+							{Field: "input.optional", Value: "false"},
+						},
+						"resource.file": {
+							{Field: "input.mode", Value: "420"},
+							{Field: "input.create-parents", Value: "true"},
+						},
+					}
+					library.Schema = &runtime.LibrarySchema{
+						Resources: map[string]*runtime.TypeSchema{
+							"secret": {SensitiveInputs: []string{"value"}},
+						},
+						Actions: map[string]*runtime.TypeSchema{
+							"secret": {SensitiveInputs: []string{"value"}, SensitiveOutputs: []string{"value"}},
+						},
+						HasConfiguration: true,
+						ConfigurationFields: []typecheck.ObjectField{
+							{Name: "base-dir", Type: typecheck.TString(), Defaulted: true},
+							{Name: "event-log-path", Type: typecheck.TString(), Defaulted: true},
+							{Name: "prefix", Type: typecheck.TString(), Defaulted: true},
+							{Name: "nested", Type: typecheck.TObject([]typecheck.ObjectField{
+								{Name: "label", Type: typecheck.TString(), Defaulted: true},
+								{Name: "enabled", Type: typecheck.TBoolean(), Defaulted: true},
+							})},
+						},
+						ConfigurationDefaults: []lang.DefaultSpec{
+							{Field: "input.base-dir", Value: "'.'"},
+							{Field: "input.event-log-path", Value: "'events.ndjson'"},
+							{Field: "input.prefix", Value: "''"},
+							{Field: "input.nested.label", Value: "'nested'"},
+							{Field: "input.nested.enabled", Value: "true"},
+						},
+						ConfigurationIdentity: "example.com/unobin/e2elib.Configuration",
+						ConfigurationDigest:   "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3",
+					}
+					return library
+				},
+			},
+			{
+				LibraryPath: "local:libraries/net",
+				New: func() *runtime.Library {
+					library := lib_net.Library()
+					return library
+				},
+			},
+		},
+		LibraryBindings: map[string]string{
+			"e2e": "example.com/unobin/e2elib",
+			"net": "local:libraries/net",
+		},
+		UnobinVersion: unobinVersion,
 	})
 }

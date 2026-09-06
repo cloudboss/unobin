@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync/atomic"
 
 	"github.com/cloudboss/unobin/pkg/constraint"
 	"github.com/cloudboss/unobin/pkg/defaults"
@@ -46,7 +47,10 @@ func (c Configuration) Defaults() []defaults.Default {
 	}
 }
 
+var libraryRegistrations atomic.Int64
+
 func Library() *ubruntime.Library {
+	libraryRegistrations.Add(1)
 	return &ubruntime.Library{
 		Name:        "e2elib",
 		Description: "Fixture library for Unobin e2e tests.",
@@ -85,6 +89,9 @@ func Library() *ubruntime.Library {
 			"secret": ubruntime.MakeAction[Secret, *SecretOutput, *Configuration](),
 		},
 		Functions: map[string]ubruntime.FunctionType{
+			"registration-count": ubruntime.MakeFunc(
+				"registration-count", "Return the number of library registrations.", fnRegistrationCount,
+			),
 			"all": ubruntime.MakeFunc("all", "Return true when every argument is true.", fnAll),
 			"all-list": ubruntime.MakeFunc(
 				"all-list",
@@ -97,6 +104,10 @@ func Library() *ubruntime.Library {
 			"fail":    ubruntime.MakeFunc("fail", "Return a typed error.", fnFail),
 		},
 	}
+}
+
+func fnRegistrationCount() (int64, error) {
+	return libraryRegistrations.Load(), nil
 }
 
 type ArchiveZIPFile struct {

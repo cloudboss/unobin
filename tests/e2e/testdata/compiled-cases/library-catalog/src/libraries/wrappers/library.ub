@@ -1,0 +1,22 @@
+wrapper: resource {
+  inputs: {
+    name: { type: string }
+  }
+
+  imports: {
+    inside: 'example.com/unobin/e2elib'
+  }
+
+  library-configs: {
+    inside: { prefix: 'nested-', nested: { label: 'nested' } }
+  }
+
+  resources: {
+    object: inside.object { name: input.name, body: { message: 'nested' } }
+  }
+
+  outputs: {
+    id:    { value: resource.object.id }
+    count: { value: inside.registration-count() }
+  }
+}

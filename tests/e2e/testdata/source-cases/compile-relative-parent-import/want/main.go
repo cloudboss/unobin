@@ -40,11 +40,17 @@ func main() {
 		ContentRevision: contentRevision,
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
-		Libraries: map[string]*runtime.Library{
-			"libs": runtime.LibraryWithPath(
-				lib_libs.Library(),
-				"control/internal/libs",
-			),
+		LibraryRegistrations: []runtime.LibraryRegistration{
+			{
+				LibraryPath: "local:../../libs",
+				New: func() *runtime.Library {
+					library := lib_libs.Library()
+					return library
+				},
+			},
+		},
+		LibraryBindings: map[string]string{
+			"libs": "local:../../libs",
 		},
 		UnobinVersion: unobinVersion,
 	})

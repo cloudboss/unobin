@@ -40,11 +40,17 @@ func main() {
 		ContentRevision: contentRevision,
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
-		Libraries: map[string]*runtime.Library{
-			"partial": runtime.LibraryWithPath(
-				lib_partial.Library(),
-				"example.com/partial",
-			),
+		LibraryRegistrations: []runtime.LibraryRegistration{
+			{
+				LibraryPath: "example.com/partial",
+				New: func() *runtime.Library {
+					library := lib_partial.Library()
+					return library
+				},
+			},
+		},
+		LibraryBindings: map[string]string{
+			"partial": "example.com/partial",
 		},
 		UnobinVersion: unobinVersion,
 	})

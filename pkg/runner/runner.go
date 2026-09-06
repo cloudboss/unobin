@@ -45,10 +45,13 @@ type Info struct {
 	FactoryBody          *syntax.FactoryBody
 	LibraryPath          string
 	Libraries            map[string]*runtime.Library
+	LibraryRegistrations []runtime.LibraryRegistration
+	LibraryBindings      map[string]string
 	LibraryConfigSchemas map[string]runtime.LibraryConfigSchema
 	AssetBundle          []byte
 	RootAssetSetID       string
 	options              *rootOptions
+	libraryCatalog       *runtime.LibraryCatalog
 
 	// UnobinVersion is the unobin version the factory was compiled
 	// against, stamped at link time the way FactoryVersion is. Run
@@ -68,6 +71,7 @@ func Run(info Info) {
 }
 
 func newRootCmd(info Info) *cobra.Command {
+	info, catalogErr := linkRunnerLibraries(info)
 	info.options = &rootOptions{}
 	root := &cobra.Command{
 		Use:           info.FactoryName,
@@ -82,6 +86,9 @@ func newRootCmd(info Info) *cobra.Command {
 		"Directory for materialized factory assets.",
 	)
 	root.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		if catalogErr != nil {
+			return catalogErr
+		}
 		return checkRunnerAssets(cmd, info)
 	}
 	versionCmd := newVersionCmd(info)
@@ -530,11 +537,12 @@ func doRefreshWithFormat(
 		return fail(err)
 	}
 	exec := &runtime.Executor{
-		SyntaxSource: parsed.syntaxBody,
-		DAG:          dag,
-		Libraries:    info.Libraries,
-		Inputs:       inputs,
-		Store:        store,
+		SyntaxSource:   parsed.syntaxBody,
+		DAG:            dag,
+		Libraries:      info.Libraries,
+		LibraryCatalog: info.libraryCatalog,
+		Inputs:         inputs,
+		Store:          store,
 		Factory: state.FactoryInfo{
 			Name:            info.FactoryName,
 			Version:         info.FactoryVersion,
@@ -1031,11 +1039,12 @@ func doPlanWithFormat(
 		parallelism = parallelismOverride
 	}
 	exec := &runtime.Executor{
-		SyntaxSource: parsed.syntaxBody,
-		DAG:          dag,
-		Libraries:    info.Libraries,
-		Inputs:       inputs,
-		Store:        store,
+		SyntaxSource:   parsed.syntaxBody,
+		DAG:            dag,
+		Libraries:      info.Libraries,
+		LibraryCatalog: info.libraryCatalog,
+		Inputs:         inputs,
+		Store:          store,
 		Factory: state.FactoryInfo{
 			Name:            info.FactoryName,
 			Version:         info.FactoryVersion,

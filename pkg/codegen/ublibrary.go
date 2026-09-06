@@ -41,24 +41,16 @@ func (s GoLibrarySpecs) Empty() bool {
 //
 // imports maps each composite's kind and name to its resolved import table:
 // the composite's body's own imports block, with each declared alias
-// mapped to the Go import path of the package that supplies it. The
-// generated source emits one Go-level import per unique path and
-// renders a per-composite `Libraries` map binding each composite-local
-// alias to the corresponding package's `Library()`. Pass nil or an
+// mapped to its canonical library path. Generated composites declare
+// LibraryBindings for the factory catalog to resolve. Pass nil or an
 // empty map when a composite has no imports.
-//
-// goSpecs maps a Go import path to the specs its types declare. A
-// bound library with specs is constructed once in `Library()`, has its
-// Constraints and Defaults attached, and every binding of that path
-// shares the instance, so a composite-internal node resolves the same
-// spec data a root import of the library would.
 func GenerateUBLibrary(
 	alias string,
 	syntaxBodies map[string]map[string]syntax.FactoryBody,
 	imports map[string]map[string]map[string]string,
-	goSpecs map[string]GoLibrarySpecs,
+
 ) ([]byte, error) {
-	return GenerateUBLibraryPackage(alias, alias, syntaxBodies, imports, goSpecs, nil)
+	return GenerateUBLibraryPackage(alias, alias, syntaxBodies, imports, nil)
 }
 
 // GenerateUBLibraryPackage produces a UB library package whose Go package
@@ -68,7 +60,7 @@ func GenerateUBLibraryPackage(
 	libraryName string,
 	syntaxBodies map[string]map[string]syntax.FactoryBody,
 	imports map[string]map[string]map[string]string,
-	goSpecs map[string]GoLibrarySpecs,
+
 	sourceFiles map[string]syntax.SourceFileSpec,
 ) ([]byte, error) {
 	return generateUBLibraryPackage(
@@ -76,7 +68,7 @@ func GenerateUBLibraryPackage(
 		libraryName,
 		syntaxBodies,
 		imports,
-		goSpecs,
+
 		sourceFiles,
 		nil,
 		nil,
@@ -90,7 +82,7 @@ func GenerateUBLibraryPackageWithAssets(
 	libraryName string,
 	syntaxBodies map[string]map[string]syntax.FactoryBody,
 	imports map[string]map[string]map[string]string,
-	goSpecs map[string]GoLibrarySpecs,
+
 	sourceFiles map[string]syntax.SourceFileSpec,
 	assetSetIDs map[string]map[string]string,
 ) ([]byte, error) {
@@ -99,7 +91,7 @@ func GenerateUBLibraryPackageWithAssets(
 		libraryName,
 		syntaxBodies,
 		imports,
-		goSpecs,
+
 		sourceFiles,
 		assetSetIDs,
 		nil,
@@ -113,7 +105,7 @@ func GenerateUBLibraryPackageWithAssetsAndConfigSchemas(
 	libraryName string,
 	syntaxBodies map[string]map[string]syntax.FactoryBody,
 	imports map[string]map[string]map[string]string,
-	goSpecs map[string]GoLibrarySpecs,
+
 	sourceFiles map[string]syntax.SourceFileSpec,
 	assetSetIDs map[string]map[string]string,
 	libraryConfigSchemas map[string]map[string]map[string]runtime.LibraryConfigSchema,
@@ -123,7 +115,7 @@ func GenerateUBLibraryPackageWithAssetsAndConfigSchemas(
 		libraryName,
 		syntaxBodies,
 		imports,
-		goSpecs,
+
 		sourceFiles,
 		assetSetIDs,
 		libraryConfigSchemas,
@@ -135,7 +127,7 @@ func generateUBLibraryPackage(
 	libraryName string,
 	syntaxBodies map[string]map[string]syntax.FactoryBody,
 	imports map[string]map[string]map[string]string,
-	goSpecs map[string]GoLibrarySpecs,
+
 	sourceFiles map[string]syntax.SourceFileSpec,
 	assetSetIDs map[string]map[string]string,
 	libraryConfigSchemas map[string]map[string]map[string]runtime.LibraryConfigSchema,
@@ -147,8 +139,6 @@ func generateUBLibraryPackage(
 		return nil, fmt.Errorf("ublibrary: library name is required")
 	}
 
-	idents := newIdentTable()
-	referenceCounts := map[string]int{}
 	sourceHelpers, sourceHelperByFile := sourceHelpersFor(sourceFiles)
 	hasConfigSchemaLang := false
 	hasConfigSchemaTypecheck := false
@@ -184,11 +174,9 @@ func generateUBLibraryPackage(
 			entry.SyntaxBody = "&" + encoded
 			for _, localAlias := range sortedAliases(imports[kind][name]) {
 				p := imports[kind][name][localAlias]
-				referenceCounts[p]++
 				entry.Libraries = append(entry.Libraries, libraryBinding{
 					LocalAlias: localAlias,
 					Path:       p,
-					GoIdent:    idents.identFor(p),
 				})
 			}
 			group.Entries = append(group.Entries, entry)
@@ -202,26 +190,11 @@ func generateUBLibraryPackage(
 		}
 	}
 
-	libraryVars, varOf := libraryVarsFor(idents, goSpecs, referenceCounts)
-	for _, g := range orderedGroups {
-		for _, entry := range g.Entries {
-			for i, b := range entry.Libraries {
-				if name, ok := varOf[b.Path]; ok {
-					entry.Libraries[i].Value = name
-				} else {
-					entry.Libraries[i].Value = b.GoIdent + ".Library()"
-				}
-			}
-		}
-	}
-
 	var buf bytes.Buffer
 	data := struct {
 		PackageName      string
 		LibraryName      string
-		LibraryVars      []libraryVar
 		Groups           []*compositeGroup
-		GoImports        []goImport
 		SourceHelpers    []sourceHelper
 		HasLang          bool
 		HasTypecheck     bool
@@ -230,13 +203,11 @@ func generateUBLibraryPackage(
 	}{
 		PackageName:   sanitizeIdent(packageID),
 		LibraryName:   libraryName,
-		LibraryVars:   libraryVars,
 		Groups:        orderedGroups,
-		GoImports:     idents.imports(),
 		SourceHelpers: sourceHelpers,
-		HasLang: libraryVarsNeedLang(libraryVars) || hasSyntaxBodies(orderedGroups) ||
+		HasLang: hasSyntaxBodies(orderedGroups) ||
 			hasConfigSchemaLang,
-		HasTypecheck:     libraryVarsNeedTypecheck(libraryVars) || hasConfigSchemaTypecheck,
+		HasTypecheck:     hasConfigSchemaTypecheck,
 		HasSyntaxBodies:  hasSyntaxBodies(orderedGroups),
 		HasSourceHelpers: len(sourceHelpers) > 0,
 	}
@@ -363,79 +334,6 @@ func compositeNames(syntaxBodies map[string]syntax.FactoryBody) []string {
 type libraryBinding struct {
 	LocalAlias string
 	Path       string
-	GoIdent    string
-	// Value is a local registration when the path is used more than once
-	// or has embedded metadata. Otherwise it is an inline Library call.
-	Value string
-}
-
-type libraryVar struct {
-	Name          string
-	GoIdent       string
-	Path          string
-	Constraints   string
-	Defaults      string
-	Schema        string
-	UsesLang      bool
-	UsesTypecheck bool
-}
-
-func libraryVarsFor(
-	idents *identTable,
-	goSpecs map[string]GoLibrarySpecs,
-	referenceCounts map[string]int,
-) ([]libraryVar, map[string]string) {
-	paths := append([]string(nil), idents.order...)
-	slices.Sort(paths)
-	vars := make([]libraryVar, 0, len(paths))
-	varOf := make(map[string]string, len(paths))
-	for _, p := range paths {
-		specs := goSpecs[p]
-		if specs.Empty() && referenceCounts[p] < 2 {
-			continue
-		}
-		ident := idents.byPath[p]
-		name := strings.TrimPrefix(ident, "lib_") + "Lib"
-		v := libraryVar{Name: name, GoIdent: ident, Path: p}
-		if len(specs.Constraints) > 0 {
-			v.Constraints = constraintsAssign(name, specs.Constraints)
-		}
-		if len(specs.Defaults) > 0 {
-			v.Defaults = defaultsAssign(name, specs.Defaults)
-		}
-		if schemaHasRuntimeData(specs.Schema) {
-			v.Schema = schemaAssign(name, specs.Schema)
-		}
-		v.UsesLang = len(specs.Constraints) > 0 || len(specs.Defaults) > 0 ||
-			schemaNeedsLang(specs.Schema)
-		v.UsesTypecheck = schemaNeedsTypecheck(specs.Schema)
-		vars = append(vars, v)
-		varOf[p] = name
-	}
-	return vars, varOf
-}
-
-func libraryVarsNeedLang(vars []libraryVar) bool {
-	for _, v := range vars {
-		if v.UsesLang {
-			return true
-		}
-	}
-	return false
-}
-
-func libraryVarsNeedTypecheck(vars []libraryVar) bool {
-	for _, v := range vars {
-		if v.UsesTypecheck {
-			return true
-		}
-	}
-	return false
-}
-
-type goImport struct {
-	GoIdent string
-	Path    string
 }
 
 // identTable assigns one Go-level identifier to each unique import
@@ -469,16 +367,6 @@ func (t *identTable) identFor(p string) string {
 	t.used[id] = true
 	t.order = append(t.order, p)
 	return id
-}
-
-func (t *identTable) imports() []goImport {
-	out := make([]goImport, 0, len(t.order))
-	paths := append([]string(nil), t.order...)
-	slices.Sort(paths)
-	for _, p := range paths {
-		out = append(out, goImport{GoIdent: t.byPath[p], Path: p})
-	}
-	return out
 }
 
 func sanitizeIdent(s string) string {
@@ -539,7 +427,6 @@ import (
 {{end}}{{if .HasSyntaxBodies}}	"github.com/cloudboss/unobin/pkg/lang/syntax"
 {{end}}	"github.com/cloudboss/unobin/pkg/runtime"
 {{if .HasTypecheck}}	"github.com/cloudboss/unobin/pkg/typecheck"
-{{end}}{{range .GoImports}}	{{.GoIdent}} {{quote .Path}}
 {{end}})
 
 {{range .SourceHelpers}}var {{.VarName}} = parse.NewSourceFile(
@@ -552,20 +439,7 @@ func {{.FuncName}}(start, end int) parse.Span {
 }
 
 {{end}}func Library() *runtime.Library {
-{{range .LibraryVars}}	{{.Name}} := runtime.LibraryWithPath(
-		{{.GoIdent}}.Library(),
-		{{quote .Path}},
-	)
-{{- if .Constraints}}
-	{{.Constraints}}
-{{- end}}
-{{- if .Defaults}}
-	{{.Defaults}}
-{{- end}}
-{{- if .Schema}}
-	{{.Schema}}
-{{- end}}
-{{end}}	return &runtime.Library{
+	return &runtime.Library{
 		Name: {{quote .LibraryName}},
 {{range .Groups}}		{{.MapField}}: map[string]*runtime.CompositeType{
 {{range .Entries}}			{{quote .Name}}: {
@@ -581,11 +455,8 @@ func {{.FuncName}}(start, end int) parse.Span {
 				LibraryConfigSchemas: {{.LibraryConfigSchemas}},
 {{- end}}
 {{- if .Libraries}}
-				Libraries: map[string]*runtime.Library{
-{{range .Libraries}}					{{quote .LocalAlias}}: runtime.LibraryWithPath(
-						{{.Value}},
-						{{quote .Path}},
-					),
+				LibraryBindings: map[string]string{
+{{range .Libraries}}					{{quote .LocalAlias}}: {{quote .Path}},
 {{end}}				},
 {{- end}}
 			},

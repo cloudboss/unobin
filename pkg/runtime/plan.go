@@ -716,6 +716,11 @@ func (e *Executor) resourceRegistration(n *Node) (ResourceRegistration, error) {
 	if !ok {
 		return nil, fmt.Errorf("library %q is not imported", n.Alias)
 	}
+	if e.LibraryCatalog != nil {
+		return e.LibraryCatalog.resources.resource(Binding{
+			LibraryPath: lib.LibraryPath, Export: n.Type,
+		})
+	}
 	rt, ok := lib.Resources[n.Type]
 	if !ok {
 		return nil, fmt.Errorf("library %s has no resource %q", n.Alias, n.Type)

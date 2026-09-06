@@ -13,7 +13,7 @@
       "category": "resource",
       "binding": {
         "alias": "greeter",
-        "library-path": "state-command-composite-move/internal/greeter",
+        "library-path": "local:libraries/greeter",
         "kind": "greeting"
       },
       "inputs": {

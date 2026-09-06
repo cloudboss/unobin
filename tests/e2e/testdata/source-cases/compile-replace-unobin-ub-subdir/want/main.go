@@ -40,11 +40,17 @@ func main() {
 		ContentRevision: contentRevision,
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
-		Libraries: map[string]*runtime.Library{
-			"some": runtime.LibraryWithPath(
-				lib_some.Library(),
-				"demo-factory/internal/some",
-			),
+		LibraryRegistrations: []runtime.LibraryRegistration{
+			{
+				LibraryPath: "github.com/cloudboss/unobin//some-lib",
+				New: func() *runtime.Library {
+					library := lib_some.Library()
+					return library
+				},
+			},
+		},
+		LibraryBindings: map[string]string{
+			"some": "github.com/cloudboss/unobin//some-lib",
 		},
 		UnobinVersion: unobinVersion,
 	})

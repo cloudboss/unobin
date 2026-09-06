@@ -34,30 +34,35 @@ var (
 )
 
 func main() {
-	libraries := map[string]*runtime.Library{
-		"len": runtime.LibraryWithPath(
-			lib_len.Library(),
-			"example.com/lenlib",
-		),
-	}
-	libraries["len"].Constraints = map[string][]lang.ConstraintSpec{
-		"resource.length": {
-			{Kind: "predicate", When: "true", Require: "(@core.length(input.optional-methods ?? []) >= 1)", Message: "methods required"},
-			{Kind: "predicate", When: "true", Require: "!(@core.length(input.optional-methods ?? []) >= 1)", Message: "methods must be empty"},
-			{Kind: "predicate", When: "true", Require: "(@core.length(input.optional-tags ?? {}) >= 1)", Message: "tags required"},
-			{Kind: "predicate", When: "true", Require: "(@core.length(input.profile ?? '') >= 1)", Message: "profile required"},
-			{Kind: "predicate", When: "true", Require: "(@core.length(input.optional-methods ?? []) <= 5)", Message: "too many methods"},
-			{Kind: "predicate", When: "true", Require: "(input.optional-methods == null || @core.length(input.optional-methods) >= 1)", Message: "null or at least one method"},
-			{Kind: "predicate", When: "true", Require: "(@core.length(@each.value ?? '') >= 1)", Message: "them values required", ForEach: "input.them ?? []"},
-		},
-	}
 	runner.Run(runner.Info{
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
-		Libraries:       libraries,
-		UnobinVersion:   unobinVersion,
+		LibraryRegistrations: []runtime.LibraryRegistration{
+			{
+				LibraryPath: "example.com/lenlib",
+				New: func() *runtime.Library {
+					library := lib_len.Library()
+					library.Constraints = map[string][]lang.ConstraintSpec{
+						"resource.length": {
+							{Kind: "predicate", When: "true", Require: "(@core.length(input.optional-methods ?? []) >= 1)", Message: "methods required"},
+							{Kind: "predicate", When: "true", Require: "!(@core.length(input.optional-methods ?? []) >= 1)", Message: "methods must be empty"},
+							{Kind: "predicate", When: "true", Require: "(@core.length(input.optional-tags ?? {}) >= 1)", Message: "tags required"},
+							{Kind: "predicate", When: "true", Require: "(@core.length(input.profile ?? '') >= 1)", Message: "profile required"},
+							{Kind: "predicate", When: "true", Require: "(@core.length(input.optional-methods ?? []) <= 5)", Message: "too many methods"},
+							{Kind: "predicate", When: "true", Require: "(input.optional-methods == null || @core.length(input.optional-methods) >= 1)", Message: "null or at least one method"},
+							{Kind: "predicate", When: "true", Require: "(@core.length(@each.value ?? '') >= 1)", Message: "them values required", ForEach: "input.them ?? []"},
+						},
+					}
+					return library
+				},
+			},
+		},
+		LibraryBindings: map[string]string{
+			"len": "example.com/lenlib",
+		},
+		UnobinVersion: unobinVersion,
 	})
 }

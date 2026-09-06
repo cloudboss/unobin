@@ -2,7 +2,6 @@
 package outer
 
 import (
-	lib_inner "demo-factory/internal/inner"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
@@ -26,11 +25,8 @@ func Library() *runtime.Library {
 				Name:       "greeting",
 				Kind:       runtime.NodeResource,
 				SyntaxBody: &syntax.FactoryBody{S: sp0(19, 251), Description: &lang.StringLit{S: sp0(36, 0), Value: "outer greeting"}, Inputs: []syntax.InputDecl{{S: sp0(65, 0), Name: syntax.Ident{S: sp0(65, 0), Name: "path"}, Body: &lang.ObjectLit{S: sp0(71, 87), Fields: []*lang.Field{{S: sp0(73, 0), Key: lang.FieldKey{S: sp0(73, 0), Kind: lang.FieldIdent, Name: "type"}, Value: &lang.TypeAtomic{S: sp0(79, 0), Name: "string"}}}}, Type: &lang.TypeAtomic{S: sp0(79, 0), Name: "string"}}}, Imports: []syntax.ImportDecl{{S: sp0(103, 0), Alias: syntax.Ident{S: sp0(103, 0), Name: "inner"}, Ref: &lang.StringLit{S: sp0(110, 0), Value: "github.com/example/inner//ub/inner"}}}, Resources: []syntax.NodeDecl{{S: sp0(164, 199), Kind: syntax.NodeKind("resource"), Name: syntax.Ident{S: sp0(164, 0), Name: "x"}, Selector: syntax.NodeSelector{S: sp0(167, 178), Alias: syntax.Ident{S: sp0(167, 172), Name: "inner"}, Export: syntax.Ident{S: sp0(173, 178), Name: "hello"}}, Body: &lang.ObjectLit{S: sp0(179, 199), Fields: []*lang.Field{{S: sp0(181, 0), Key: lang.FieldKey{S: sp0(181, 0), Kind: lang.FieldIdent, Name: "path"}, Value: &lang.DotPath{S: sp0(187, 0), Root: &lang.Ident{S: sp0(187, 0), Name: "input"}, Segments: []lang.DotSegment{{S: sp0(192, 0), Name: "path"}}}}}}}}, Outputs: []syntax.OutputDecl{{S: sp0(215, 0), Name: syntax.Ident{S: sp0(215, 0), Name: "path"}, Body: &lang.ObjectLit{S: sp0(221, 247), Fields: []*lang.Field{{S: sp0(223, 0), Key: lang.FieldKey{S: sp0(223, 0), Kind: lang.FieldIdent, Name: "value"}, Value: &lang.DotPath{S: sp0(230, 0), Root: &lang.Ident{S: sp0(230, 0), Name: "resource"}, Segments: []lang.DotSegment{{S: sp0(238, 0), Name: "x"}, {S: sp0(240, 0), Name: "path"}}}}}}}}},
-				Libraries: map[string]*runtime.Library{
-					"inner": runtime.LibraryWithPath(
-						lib_inner.Library(),
-						"demo-factory/internal/inner",
-					),
+				LibraryBindings: map[string]string{
+					"inner": "github.com/example/inner//ub/inner",
 				},
 			},
 		},

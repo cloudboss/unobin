@@ -40,9 +40,10 @@ const DefaultParallelism = 10
 // Refresh reads each prior-state resource and writes back observed
 // outputs. Store and Stack must always be set.
 type Executor struct {
-	DAG       *DAG
-	Libraries map[string]*Library
-	Inputs    map[string]any
+	DAG            *DAG
+	Libraries      map[string]*Library
+	LibraryCatalog *LibraryCatalog
+	Inputs         map[string]any
 
 	AssetCatalog   *asset.Catalog
 	AssetCache     *asset.Cache

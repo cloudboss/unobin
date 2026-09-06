@@ -26,6 +26,10 @@ rules. The main library fields are:
 The compiler assigns the resolved library path. Library authors register the
 types; factory source chooses the import alias.
 
+Generated factories call `Library()` once per canonical path. Root aliases and
+composite imports share that registration, while each configured alias retains
+its own configuration values.
+
 `Configuration` can be declared inline or returned by another package's
 `LibraryConfiguration()` function. Split packages let service packages share one
 configuration schema while factories still import each service package by its

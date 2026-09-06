@@ -1,0 +1,31 @@
+factory: {
+  imports: {
+    first:          'example.com/unobin/e2elib'
+    second:         'example.com/unobin/e2elib'
+    wrappers:       './libraries/wrappers'
+    wrappers-again: './libraries/wrappers'
+  }
+
+  library-configs: {
+    first:  { prefix: 'first-', nested: { label: 'nested' } }
+    second: { prefix: 'second-', nested: { label: 'nested' } }
+  }
+
+  resources: {
+    direct: first.object { name: 'same', body: { message: 'first' } }
+    aliased: second.object { name: 'same', body: { message: 'second' } }
+    nested: wrappers.wrapper { name: 'one' }
+    nested-again: wrappers-again.wrapper { name: 'two' }
+  }
+
+  outputs: {
+    direct-id:    { value: resource.direct.id }
+    aliased-id:   { value: resource.aliased.id }
+    nested-id:    { value: resource.nested.id }
+    again-id:     { value: resource.nested-again.id }
+    root-count:   { value: first.registration-count() }
+    alias-count:  { value: second.registration-count() }
+    nested-count: { value: resource.nested.count }
+    again-count:  { value: resource.nested-again.count }
+  }
+}

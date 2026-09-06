@@ -1,0 +1,34 @@
+{
+  "name": "library-catalog",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/library-catalog",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "plan.ubp"],
+      "stdout": "want/plan.stdout",
+      "stderr": "want/plan.stderr"
+    },
+    {
+      "name": "apply",
+      "args": ["apply", "--format", "json", "plan.ubp"],
+      "stdout": "want/apply.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "output",
+      "args": ["output", "--format", "json", "-c", "stacks/dev.ub"],
+      "stdout": "want/output.json",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-noop",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub"],
+      "stdout": "want/plan-noop.stdout",
+      "stderr": "want/plan-noop.stderr"
+    }
+  ],
+  "stateSummary": "want/state-summary.json",
+  "deterministic": true
+}

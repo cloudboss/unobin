@@ -13,7 +13,7 @@
       "category": "resource",
       "binding": {
         "alias": "self",
-        "library-path": "composite-output-input/internal/self",
+        "library-path": "local:.",
         "kind": "nested"
       },
       "inputs": {
@@ -41,7 +41,7 @@
       "category": "resource",
       "binding": {
         "alias": "lib",
-        "library-path": "composite-output-input/internal/lib",
+        "library-path": "local:libraries",
         "kind": "consumer"
       },
       "inputs": {
@@ -97,7 +97,7 @@
       "category": "resource",
       "binding": {
         "alias": "lib",
-        "library-path": "composite-output-input/internal/lib",
+        "library-path": "local:libraries",
         "kind": "producer"
       },
       "inputs": {
