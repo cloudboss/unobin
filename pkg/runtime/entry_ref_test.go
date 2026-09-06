@@ -3,7 +3,6 @@ package runtime
 import (
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/sdk/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -169,23 +168,13 @@ func TestDirectParentIgnoresSlashInKey(t *testing.T) {
 	assert.Equal(t, root, DirectParent(child))
 }
 
-func TestEntryRefFromEntryAndNode(t *testing.T) {
-	ent := &state.Entry{
-		Address: "resource.web",
-		Binding: &state.Binding{Alias: "aws", Export: "instance"},
-	}
-	fromEntry, ok := EntryRefFromEntry(ent)
-	require.True(t, ok)
-	assert.Equal(t, "resource.web", fromEntry.String())
-
+func TestEntryRefFromNode(t *testing.T) {
 	node := &Node{Address: "resource.web", Alias: "aws", Type: "instance"}
 	fromNode, ok := EntryRefFromNode(node)
 	require.True(t, ok)
-	assert.Equal(t, fromEntry, fromNode)
-	assert.True(t, SameEntryRef(fromEntry, fromNode))
+	assert.Equal(t, EntryRef{Address: "resource.web"}, fromNode)
+	assert.True(t, SameEntryRef(EntryRef{Address: "resource.web"}, fromNode))
 
-	_, ok = EntryRefFromEntry(&state.Entry{Address: "input.web"})
-	assert.False(t, ok)
 	_, ok = EntryRefFromNode(&Node{Address: "input.web"})
 	assert.False(t, ok)
 }

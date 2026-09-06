@@ -2,12 +2,16 @@ package runtime
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/internal/ubtest"
+	"github.com/cloudboss/unobin/pkg/encrypters"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/state/local"
 )
 
 func TestExecutorPlanV2UsesCurrentStateAndSourceMoves(t *testing.T) {
@@ -99,10 +103,7 @@ func TestExecutorPlanV2InitializesNewState(t *testing.T) {
 
 func TestExecutorPlanV2RejectsObsoleteStoredState(t *testing.T) {
 	executor, snapshot := newStateMoveV2Executor(t)
-	store := newStateStore(t)
-	revision, err := store.Write(state.NewSnapshot(snapshot.Factory, store.Stack()))
-	require.NoError(t, err)
-	require.NoError(t, store.SetCurrent(revision))
+	store, revision := newObsoleteStateStore(t)
 	executor.Store, executor.Factory = store, snapshot.Factory
 	executor.Inputs = map[string]any{"name": "server", "size": int64(1)}
 	plan, err := executor.PlanV2(context.Background())
@@ -150,4 +151,20 @@ func TestExecutorPlanV2RejectsCanceledContextBeforeStateAccess(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 	require.Nil(t, plan)
 	require.Empty(t, backend.events)
+}
+
+func newObsoleteStateStore(t *testing.T) (*local.Store, string) {
+	t.Helper()
+	store := newStateStore(t)
+	body, err := os.ReadFile("testdata/snapshot-v1.json")
+	require.NoError(t, err)
+	sealed, err := state.Seal(body, state.PayloadTypeState, encrypters.Noop{})
+	require.NoError(t, err)
+	revision := "2026-04-30T12:00:00Z"
+	path := filepath.Join(
+		store.Root, store.Factory, store.Stack(), "snapshots", revision+".json.enc",
+	)
+	require.NoError(t, os.WriteFile(path, sealed, 0o600))
+	require.NoError(t, store.SetCurrent(revision))
+	return store, revision
 }

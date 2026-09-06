@@ -460,13 +460,6 @@ func addressParts(addr string) ([]string, bool) {
 	return parts, true
 }
 
-func bindingForNode(n *Node) *state.Binding {
-	if n == nil || n.Alias == "" || n.Type == "" {
-		return nil
-	}
-	return &state.Binding{Alias: n.Alias, LibraryPath: n.LibraryPath, Export: n.Type}
-}
-
 // evalBody evaluates an object literal body to a map[string]any of input
 // values. `@`-prefixed meta keys are runtime metadata and skipped.
 func evalBody(body lang.Expr, ec *EvalContext) (map[string]any, error) {

@@ -108,39 +108,10 @@ func NewStore(
 // for. Required by the Backend interface.
 func (s *Store) Stack() string { return s.stack }
 
-// Current returns the snapshot named by the current pointer. Returns
-// sdkstate.ErrNoCurrent when no snapshot has been written yet.
-func (s *Store) Current() (*sdkstate.Snapshot, error) {
-	rev, err := s.currentRev()
-	if err != nil {
-		return nil, err
-	}
-	return s.Get(rev)
-}
-
 // CurrentRev returns the rev the current pointer names, or
 // sdkstate.ErrNoCurrent.
 func (s *Store) CurrentRev() (string, error) {
 	return s.currentRev()
-}
-
-// Get returns the snapshot with the given rev.
-func (s *Store) Get(rev string) (*sdkstate.Snapshot, error) {
-	sealed, err := s.getObject(s.snapshotKey(rev))
-	if err != nil {
-		return nil, fmt.Errorf("s3 store: get %s: %w", rev, err)
-	}
-	body, err := sdkstate.Open(
-		sealed,
-		sdkstate.PayloadTypeState,
-		func(*sdkstate.Ref) (sdkencrypt.Encrypter, error) {
-			return s.enc, nil
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("s3 store: open %s: %w", rev, err)
-	}
-	return sdkstate.DecodeSnapshot(body)
 }
 
 // GetV2 returns the strict version-2 snapshot with the given revision.
@@ -154,25 +125,6 @@ func (s *Store) GetV2(rev string) (*sdkstate.SnapshotV2, error) {
 		return nil, fmt.Errorf("s3 store: open %s: %w", rev, err)
 	}
 	return &snapshot, nil
-}
-
-// Write commits snap to the bucket and returns its rev. The caller
-// advances the current pointer with SetCurrent. Each rev starts as an
-// RFC3339Nano timestamp; the snapshot object is created with
-// If-None-Match, and on a precondition failure (two writes sharing
-// the same nanosecond) a numeric suffix is appended until the create
-// wins, so uniqueness does not depend on the clock advancing between
-// writes.
-func (s *Store) Write(snap *sdkstate.Snapshot) (string, error) {
-	body, err := sdkstate.EncodeSnapshot(snap)
-	if err != nil {
-		return "", err
-	}
-	sealed, err := sdkstate.Seal(body, sdkstate.PayloadTypeState, s.enc)
-	if err != nil {
-		return "", err
-	}
-	return s.writeSealedSnapshot(sealed)
 }
 
 func (s *Store) writeSealedSnapshot(sealed []byte) (string, error) {

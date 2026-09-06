@@ -6,7 +6,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,7 +16,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	internalconfig "github.com/cloudboss/unobin/internal/configuration"
 	"github.com/cloudboss/unobin/pkg/awscfg"
+	encodedvalue "github.com/cloudboss/unobin/pkg/encoding/value"
 	"github.com/cloudboss/unobin/pkg/encrypters"
 	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	sdkstate "github.com/cloudboss/unobin/pkg/sdk/state"
@@ -33,30 +37,6 @@ const (
 	stackDir    = testPrefix + "/" + testFactory + "/" + testStack
 )
 
-func sampleSnapshot() *sdkstate.Snapshot {
-	return &sdkstate.Snapshot{
-		FormatVersion: sdkstate.CurrentFormatVersion,
-		Factory: sdkstate.FactoryInfo{
-			Name:            "cluster-deploy",
-			Version:         "v2.0.3",
-			ContentRevision: "abc123def456",
-		},
-		Stack:       "prod-east-alpha",
-		GeneratedAt: time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC),
-		Entries: []*sdkstate.Entry{
-			{
-				Address:       "resource.main",
-				Type:          sdkstate.EntryLeaf,
-				Category:      "resource",
-				Binding:       &sdkstate.Binding{Alias: "aws", Export: "vpc"},
-				SchemaVersion: 1,
-				Inputs:        map[string]any{"cidr-block": "10.0.0.0/16"},
-				Outputs:       map[string]any{"id": "vpc-abc"},
-			},
-		},
-	}
-}
-
 func sampleSnapshotV2(t *testing.T) *sdkstate.SnapshotV2 {
 	t.Helper()
 	snapshot, err := sdkstate.NewSnapshotV2(
@@ -69,6 +49,52 @@ func sampleSnapshotV2(t *testing.T) *sdkstate.SnapshotV2 {
 	)
 	require.NoError(t, err)
 	snapshot.GeneratedAt = time.Date(2026, 4, 30, 12, 0, 0, 0, time.UTC)
+	inputs, err := encodedvalue.Object(map[string]encodedvalue.Value{
+		"cidr-block": encodedvalue.String("10.0.0.0/16"),
+	})
+	require.NoError(t, err)
+	outputs, err := encodedvalue.Object(map[string]encodedvalue.Value{
+		"id": encodedvalue.String("vpc-abc"),
+	})
+	require.NoError(t, err)
+	configurationValue, err := encodedvalue.Object(map[string]encodedvalue.Value{
+		"region": encodedvalue.String("us-east-1"),
+	})
+	require.NoError(t, err)
+	configuration, err := internalconfig.Build(sdkstate.ConfigurationRecord{
+		Address:        "library-config.aws",
+		LibraryPath:    "example.com/aws",
+		SchemaVersion:  1,
+		SchemaDigest:   strings.Repeat("a", 64),
+		Value:          configurationValue,
+		SensitivePaths: []string{},
+	}, nil, nil)
+	require.NoError(t, err)
+	stableID := "vpc-abc"
+	require.NoError(t, snapshot.SetEntry(sdkstate.StateEntryV2{
+		Address: "resource.main",
+		Kind:    sdkstate.StateResource,
+		Payload: sdkstate.StatePayload{
+			Kind: sdkstate.StateResource,
+			Resource: &sdkstate.ResourceStatePayload{Target: sdkstate.ResourceTarget{
+				Binding: sdkstate.CanonicalBinding{
+					LibraryPath: "example.com/aws", Export: "vpc",
+				},
+				SchemaVersion: 1,
+				Inputs:        inputs,
+				Outputs:       outputs,
+				Configuration: configuration,
+				Identity: sdkstate.IdentityRecord{
+					DefinitionDigest: strings.Repeat("b", 64),
+					Version:          1,
+					StableID:         &stableID,
+				},
+				DependsOn:            []string{},
+				SensitiveInputPaths:  []string{},
+				SensitiveOutputPaths: []string{},
+			}},
+		},
+	}))
 	require.NoError(t, snapshot.Validate())
 	return snapshot
 }
@@ -167,7 +193,7 @@ func TestStoreRequiredArguments(t *testing.T) {
 
 func TestStorePathLayout(t *testing.T) {
 	store, fake := testStore(t)
-	rev, err := store.Write(sampleSnapshot())
+	rev, err := store.WriteV2(sampleSnapshotV2(t))
 	require.NoError(t, err)
 	require.NoError(t, store.SetCurrent(rev))
 	keys := fake.objectKeys(testBucket)
@@ -182,7 +208,7 @@ func TestStoreEmptyPrefix(t *testing.T) {
 	store, err := NewStore(
 		testClient(t, srv.URL), testBucket, "", "", testFactory, testStack, encrypters.Noop{})
 	require.NoError(t, err)
-	rev, err := store.Write(sampleSnapshot())
+	rev, err := store.WriteV2(sampleSnapshotV2(t))
 	require.NoError(t, err)
 	assert.Contains(t, fake.objectKeys(testBucket),
 		testFactory+"/"+testStack+"/snapshots/"+rev+".json.enc")
@@ -190,22 +216,8 @@ func TestStoreEmptyPrefix(t *testing.T) {
 
 func TestStoreCurrentEmpty(t *testing.T) {
 	store, _ := testStore(t)
-	_, err := store.Current()
+	_, err := store.CurrentRev()
 	require.ErrorIs(t, err, sdkstate.ErrNoCurrent)
-	_, err = store.CurrentRev()
-	require.ErrorIs(t, err, sdkstate.ErrNoCurrent)
-}
-
-func TestStoreWriteAndRead(t *testing.T) {
-	store, _ := testStore(t)
-	snap := sampleSnapshot()
-	rev, err := store.Write(snap)
-	require.NoError(t, err)
-	require.NotEmpty(t, rev)
-
-	got, err := store.Get(rev)
-	require.NoError(t, err)
-	assert.Equal(t, snap, got)
 }
 
 func TestStoreWriteAndReadV2(t *testing.T) {
@@ -223,7 +235,11 @@ func TestStoreWriteAndReadV2(t *testing.T) {
 
 func TestStoreGetV2RejectsVersionOneSnapshot(t *testing.T) {
 	store, _ := testStore(t)
-	revision, err := store.Write(sampleSnapshot())
+	body, err := os.ReadFile("testdata/snapshot-v1.json")
+	require.NoError(t, err)
+	sealed, err := sdkstate.Seal(body, sdkstate.PayloadTypeState, encrypters.Noop{})
+	require.NoError(t, err)
+	revision, err := store.writeSealedSnapshot(sealed)
 	require.NoError(t, err)
 
 	_, err = store.GetV2(revision)
@@ -239,8 +255,8 @@ func TestStoreWriteV2RejectsNilSnapshot(t *testing.T) {
 
 func TestStoreSetCurrent(t *testing.T) {
 	store, _ := testStore(t)
-	snap := sampleSnapshot()
-	rev, err := store.Write(snap)
+	snap := sampleSnapshotV2(t)
+	rev, err := store.WriteV2(snap)
 	require.NoError(t, err)
 	require.NoError(t, store.SetCurrent(rev))
 
@@ -248,7 +264,7 @@ func TestStoreSetCurrent(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, rev, gotRev)
 
-	got, err := store.Current()
+	got, err := store.GetV2(gotRev)
 	require.NoError(t, err)
 	assert.Equal(t, snap, got)
 }
@@ -262,10 +278,10 @@ func TestStoreSetCurrentRejectsUnknownRev(t *testing.T) {
 
 func TestStoreDelete(t *testing.T) {
 	store, _ := testStore(t)
-	rev, err := store.Write(sampleSnapshot())
+	rev, err := store.WriteV2(sampleSnapshotV2(t))
 	require.NoError(t, err)
 	require.NoError(t, store.Delete(rev))
-	_, err = store.Get(rev)
+	_, err = store.GetV2(rev)
 	require.Error(t, err)
 	require.NoError(t, store.Delete(rev))
 }
@@ -273,11 +289,11 @@ func TestStoreDelete(t *testing.T) {
 func TestStoreDistinctRevsWhenClockStandsStill(t *testing.T) {
 	store, _ := testStore(t)
 	freezeClock(t, time.Date(2026, 5, 1, 10, 0, 0, 123456789, time.UTC))
-	first, err := store.Write(sampleSnapshot())
+	first, err := store.WriteV2(sampleSnapshotV2(t))
 	require.NoError(t, err)
-	second, err := store.Write(sampleSnapshot())
+	second, err := store.WriteV2(sampleSnapshotV2(t))
 	require.NoError(t, err)
-	third, err := store.Write(sampleSnapshot())
+	third, err := store.WriteV2(sampleSnapshotV2(t))
 	require.NoError(t, err)
 	assert.Equal(t, first+"_1", second)
 	assert.Equal(t, first+"_2", third)
@@ -289,7 +305,7 @@ func TestStoreListChronological(t *testing.T) {
 	var want []string
 	for i := range 3 {
 		freezeClock(t, base.Add(time.Duration(i)*time.Second))
-		rev, err := store.Write(sampleSnapshot())
+		rev, err := store.WriteV2(sampleSnapshotV2(t))
 		require.NoError(t, err)
 		want = append(want, rev)
 	}
@@ -300,10 +316,10 @@ func TestStoreListChronological(t *testing.T) {
 
 func TestStoreCurrentSurvivesNewWrites(t *testing.T) {
 	store, _ := testStore(t)
-	first, err := store.Write(sampleSnapshot())
+	first, err := store.WriteV2(sampleSnapshotV2(t))
 	require.NoError(t, err)
 	require.NoError(t, store.SetCurrent(first))
-	_, err = store.Write(sampleSnapshot())
+	_, err = store.WriteV2(sampleSnapshotV2(t))
 	require.NoError(t, err)
 
 	rev, err := store.CurrentRev()
@@ -322,10 +338,10 @@ func TestStoreWithEnvKeyEncrypter(t *testing.T) {
 		testClient(t, srv.URL), testBucket, testPrefix, "", testFactory, testStack, enc)
 	require.NoError(t, err)
 
-	snap := sampleSnapshot()
-	rev, err := store.Write(snap)
+	snap := sampleSnapshotV2(t)
+	rev, err := store.WriteV2(snap)
 	require.NoError(t, err)
-	got, err := store.Get(rev)
+	got, err := store.GetV2(rev)
 	require.NoError(t, err)
 	assert.Equal(t, snap, got)
 
@@ -416,7 +432,7 @@ func TestStoreForceUnlockNoLockIsOK(t *testing.T) {
 func TestStoreKMSHeadersOnEveryPut(t *testing.T) {
 	keyID := "arn:aws:kms:us-east-1:123456789012:key/abc"
 	store, fake := testStoreKMS(t, keyID)
-	rev, err := store.Write(sampleSnapshot())
+	rev, err := store.WriteV2(sampleSnapshotV2(t))
 	require.NoError(t, err)
 	require.NoError(t, store.SetCurrent(rev))
 	lock, err := store.Lock(context.Background())
@@ -433,7 +449,7 @@ func TestStoreKMSHeadersOnEveryPut(t *testing.T) {
 
 func TestStoreNoSSEHeadersWithoutKey(t *testing.T) {
 	store, fake := testStore(t)
-	_, err := store.Write(sampleSnapshot())
+	_, err := store.WriteV2(sampleSnapshotV2(t))
 	require.NoError(t, err)
 	for _, p := range fake.recordedPuts() {
 		assert.Empty(t, p.sse, "put of %s", p.key)
@@ -443,7 +459,7 @@ func TestStoreNoSSEHeadersWithoutKey(t *testing.T) {
 
 func TestStoreSnapshotsCreatedConditionally(t *testing.T) {
 	store, fake := testStore(t)
-	_, err := store.Write(sampleSnapshot())
+	_, err := store.WriteV2(sampleSnapshotV2(t))
 	require.NoError(t, err)
 	puts := fake.recordedPuts()
 	require.Len(t, puts, 1)

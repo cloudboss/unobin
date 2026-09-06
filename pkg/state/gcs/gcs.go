@@ -101,34 +101,8 @@ func NewStore(
 
 func (s *Store) Stack() string { return s.stack }
 
-func (s *Store) Current() (*sdkstate.Snapshot, error) {
-	rev, err := s.currentRev()
-	if err != nil {
-		return nil, err
-	}
-	return s.Get(rev)
-}
-
 func (s *Store) CurrentRev() (string, error) {
 	return s.currentRev()
-}
-
-func (s *Store) Get(rev string) (*sdkstate.Snapshot, error) {
-	sealed, err := s.client.getObject(context.Background(), s.snapshotKey(rev))
-	if err != nil {
-		return nil, fmt.Errorf("gcs store: get %s: %w", rev, err)
-	}
-	body, err := sdkstate.Open(
-		sealed,
-		sdkstate.PayloadTypeState,
-		func(*sdkstate.Ref) (sdkencrypt.Encrypter, error) {
-			return s.enc, nil
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("gcs store: open %s: %w", rev, err)
-	}
-	return sdkstate.DecodeSnapshot(body)
 }
 
 // GetV2 returns the strict version-2 snapshot with the given revision.
@@ -142,18 +116,6 @@ func (s *Store) GetV2(rev string) (*sdkstate.SnapshotV2, error) {
 		return nil, fmt.Errorf("gcs store: open %s: %w", rev, err)
 	}
 	return &snapshot, nil
-}
-
-func (s *Store) Write(snap *sdkstate.Snapshot) (string, error) {
-	body, err := sdkstate.EncodeSnapshot(snap)
-	if err != nil {
-		return "", err
-	}
-	sealed, err := sdkstate.Seal(body, sdkstate.PayloadTypeState, s.enc)
-	if err != nil {
-		return "", err
-	}
-	return s.writeSealedSnapshot(sealed)
 }
 
 func (s *Store) writeSealedSnapshot(sealed []byte) (string, error) {

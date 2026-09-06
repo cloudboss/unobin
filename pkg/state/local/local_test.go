@@ -29,7 +29,7 @@ func TestStorePathLayout(t *testing.T) {
 	require.Equal(t, "cluster-deploy", s.Factory)
 	require.Equal(t, "prod", s.Stack())
 
-	rev, err := s.Write(sampleSnapshot())
+	rev, err := s.WriteV2(sampleSnapshotV2(t))
 	require.NoError(t, err)
 	wantPath := filepath.Join(root, "cluster-deploy", "prod", "snapshots", rev+".json.enc")
 	_, err = os.Stat(wantPath)
@@ -57,33 +57,20 @@ func TestStoreSiblingDeploymentsIsolated(t *testing.T) {
 	b, err := NewStore(root, "stack", "staging", encrypters.Noop{})
 	require.NoError(t, err)
 
-	prodSnap := sampleSnapshot()
+	prodSnap := sampleSnapshotV2(t)
 	prodSnap.Stack = "prod"
-	rev, err := a.Write(prodSnap)
+	rev, err := a.WriteV2(prodSnap)
 	require.NoError(t, err)
 	require.NoError(t, a.SetCurrent(rev))
 
-	_, err = b.Current()
+	_, err = b.CurrentRev()
 	require.True(t, errors.Is(err, sdkstate.ErrNoCurrent))
 }
 
 func TestStoreCurrentEmpty(t *testing.T) {
 	s := newStore(t)
-	_, err := s.Current()
+	_, err := s.CurrentRev()
 	require.True(t, errors.Is(err, sdkstate.ErrNoCurrent))
-}
-
-func TestStoreWriteAndRead(t *testing.T) {
-	s := newStore(t)
-	snap := sampleSnapshot()
-
-	rev, err := s.Write(snap)
-	require.NoError(t, err)
-	require.NotEmpty(t, rev)
-
-	got, err := s.Get(rev)
-	require.NoError(t, err)
-	require.Equal(t, snap, got)
 }
 
 func TestStoreWriteAndReadV2(t *testing.T) {
@@ -101,7 +88,11 @@ func TestStoreWriteAndReadV2(t *testing.T) {
 
 func TestStoreGetV2RejectsVersionOneSnapshot(t *testing.T) {
 	s := newStore(t)
-	rev, err := s.Write(sampleSnapshot())
+	body, err := os.ReadFile("testdata/snapshot-v1.json")
+	require.NoError(t, err)
+	sealed, err := sdkstate.Seal(body, sdkstate.PayloadTypeState, encrypters.Noop{})
+	require.NoError(t, err)
+	rev, err := s.writeSealedSnapshot(sealed)
 	require.NoError(t, err)
 
 	_, err = s.GetV2(rev)
@@ -117,9 +108,9 @@ func TestStoreWriteV2RejectsNilSnapshot(t *testing.T) {
 
 func TestStoreSetCurrent(t *testing.T) {
 	s := newStore(t)
-	snap := sampleSnapshot()
+	snap := sampleSnapshotV2(t)
 
-	rev, err := s.Write(snap)
+	rev, err := s.WriteV2(snap)
 	require.NoError(t, err)
 	require.NoError(t, s.SetCurrent(rev))
 
@@ -127,7 +118,7 @@ func TestStoreSetCurrent(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, rev, gotRev)
 
-	got, err := s.Current()
+	got, err := s.GetV2(gotRev)
 	require.NoError(t, err)
 	require.Equal(t, snap, got)
 }
@@ -140,11 +131,11 @@ func TestStoreSetCurrentRejectsUnknownRev(t *testing.T) {
 
 func TestStoreDelete(t *testing.T) {
 	s := newStore(t)
-	rev, err := s.Write(sampleSnapshot())
+	rev, err := s.WriteV2(sampleSnapshotV2(t))
 	require.NoError(t, err)
 
 	require.NoError(t, s.Delete(rev))
-	_, err = s.Get(rev)
+	_, err = s.GetV2(rev)
 	require.Error(t, err)
 
 	require.NoError(t, s.Delete(rev), "deleting an absent rev should be a no-op")
@@ -152,11 +143,11 @@ func TestStoreDelete(t *testing.T) {
 
 func TestStoreSameContentDistinctRevs(t *testing.T) {
 	s := newStore(t)
-	snap := sampleSnapshot()
+	snap := sampleSnapshotV2(t)
 
-	a, err := s.Write(snap)
+	a, err := s.WriteV2(snap)
 	require.NoError(t, err)
-	b, err := s.Write(snap)
+	b, err := s.WriteV2(snap)
 	require.NoError(t, err)
 	require.NotEqual(t, a, b, "two writes should yield two distinct revs")
 }
@@ -169,7 +160,7 @@ func TestStoreDistinctRevsWhenClockStandsStill(t *testing.T) {
 	s := newStore(t)
 	seen := map[string]bool{}
 	for range 5 {
-		rev, err := s.Write(sampleSnapshot())
+		rev, err := s.WriteV2(sampleSnapshotV2(t))
 		require.NoError(t, err)
 		require.False(t, seen[rev], "rev %q reused while clock was frozen", rev)
 		seen[rev] = true
@@ -188,14 +179,14 @@ func TestStoreListChronological(t *testing.T) {
 	s := newStore(t)
 	require.Empty(t, mustList(t, s))
 
-	first := sampleSnapshot()
+	first := sampleSnapshotV2(t)
 	first.Stack = "first"
-	a, err := s.Write(first)
+	a, err := s.WriteV2(first)
 	require.NoError(t, err)
 
-	second := sampleSnapshot()
+	second := sampleSnapshotV2(t)
 	second.Stack = "second"
-	b, err := s.Write(second)
+	b, err := s.WriteV2(second)
 	require.NoError(t, err)
 
 	got := mustList(t, s)
@@ -205,18 +196,21 @@ func TestStoreListChronological(t *testing.T) {
 func TestStoreCurrentSurvivesNewWrites(t *testing.T) {
 	s := newStore(t)
 
-	first := sampleSnapshot()
+	first := sampleSnapshotV2(t)
 	first.Stack = "first"
-	rev, err := s.Write(first)
+	rev, err := s.WriteV2(first)
 	require.NoError(t, err)
 	require.NoError(t, s.SetCurrent(rev))
 
-	second := sampleSnapshot()
+	second := sampleSnapshotV2(t)
 	second.Stack = "second"
-	_, err = s.Write(second)
+	_, err = s.WriteV2(second)
 	require.NoError(t, err)
 
-	got, err := s.Current()
+	gotRev, err := s.CurrentRev()
+	require.NoError(t, err)
+	require.Equal(t, rev, gotRev)
+	got, err := s.GetV2(gotRev)
 	require.NoError(t, err)
 	require.Equal(t, "first", got.Stack)
 }
@@ -236,8 +230,8 @@ func TestStoreWithEnvKeyEncrypter(t *testing.T) {
 	s, err := NewStore(t.TempDir(), "stack", "prod", enc)
 	require.NoError(t, err)
 
-	snap := sampleSnapshot()
-	rev, err := s.Write(snap)
+	snap := sampleSnapshotV2(t)
+	rev, err := s.WriteV2(snap)
 	require.NoError(t, err)
 
 	onDisk, err := os.ReadFile(filepath.Join(s.dir, "snapshots", rev+".json.enc"))
@@ -252,7 +246,7 @@ func TestStoreWithEnvKeyEncrypter(t *testing.T) {
 	require.Equal(t, "env-key", env.Encrypter.Name)
 	require.Equal(t, "UB_TEST_KEY", env.Encrypter.Body["env-var"])
 
-	got, err := s.Get(rev)
+	got, err := s.GetV2(rev)
 	require.NoError(t, err)
 	require.Equal(t, snap, got)
 }
@@ -333,7 +327,7 @@ func TestStoreWrongKeyCantDecrypt(t *testing.T) {
 	require.NoError(t, err)
 	a, err := NewStore(root, "stack", "prod", encA)
 	require.NoError(t, err)
-	rev, err := a.Write(sampleSnapshot())
+	rev, err := a.WriteV2(sampleSnapshotV2(t))
 	require.NoError(t, err)
 
 	setKey(t, "UB_TEST_KEY_B")
@@ -342,7 +336,7 @@ func TestStoreWrongKeyCantDecrypt(t *testing.T) {
 	b, err := NewStore(root, "stack", "prod", encB)
 	require.NoError(t, err)
 
-	_, err = b.Get(rev)
+	_, err = b.GetV2(rev)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "decrypt")
 	require.Contains(t, err.Error(), "sealed with env-key env-var UB_TEST_KEY_A",

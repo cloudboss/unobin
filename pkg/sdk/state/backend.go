@@ -13,10 +13,7 @@ import (
 // for a leaked lock.
 type Backend interface {
 	Stack() string
-	Current() (*Snapshot, error)
 	CurrentRev() (string, error)
-	Get(rev string) (*Snapshot, error)
-	Write(snap *Snapshot) (string, error)
 	SetCurrent(rev string) error
 	// List returns snapshot revisions from oldest to newest.
 	List() ([]string, error)
@@ -40,6 +37,6 @@ type Lock interface {
 	Unlock() error
 }
 
-// ErrNoCurrent is returned by Backend.Current and Backend.CurrentRev when
+// ErrNoCurrent is returned by Backend.CurrentRev when
 // no snapshot has been written for the stack yet.
 var ErrNoCurrent = errors.New("no current snapshot")

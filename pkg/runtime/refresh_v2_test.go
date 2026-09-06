@@ -352,10 +352,8 @@ func TestRefreshV2LeavesEmptyStoresUnchanged(t *testing.T) {
 func TestRefreshV2RejectsObsoleteSnapshots(t *testing.T) {
 	capture := &factoryApplyCapture{}
 	executor := newFactoryApplyExecutor(t, capture)
-	prior := state.NewSnapshot(executor.Factory, executor.Store.Stack())
-	revision, err := executor.Store.Write(prior)
-	require.NoError(t, err)
-	require.NoError(t, executor.Store.SetCurrent(revision))
+	store, revision := newObsoleteStateStore(t)
+	executor.Store = store
 	result, err := executor.RefreshV2(context.Background())
 	require.ErrorContains(t, err, "obsolete alpha format")
 	require.Nil(t, result)

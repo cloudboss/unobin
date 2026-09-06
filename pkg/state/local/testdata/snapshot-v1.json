@@ -1,0 +1,28 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "cluster-deploy",
+    "version": "v2.0.3",
+    "content-revision": "abc123def456"
+  },
+  "stack": "prod-east-alpha",
+  "generated-at": "2026-04-30T12:00:00Z",
+  "entries": [
+    {
+      "address": "resource.main",
+      "entry-kind": "leaf",
+      "category": "resource",
+      "binding": {
+        "alias": "aws",
+        "kind": "vpc"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "cidr-block": "10.0.0.0/16"
+      },
+      "outputs": {
+        "id": "vpc-abc"
+      }
+    }
+  ]
+}

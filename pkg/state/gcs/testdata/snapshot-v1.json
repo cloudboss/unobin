@@ -1,0 +1,28 @@
+{
+  "format-version": 1,
+  "factory": {
+    "name": "cluster-deploy",
+    "version": "v2.0.3",
+    "content-revision": "abc123def456"
+  },
+  "stack": "prod-east-alpha",
+  "generated-at": "2026-04-30T12:00:00Z",
+  "entries": [
+    {
+      "address": "resource.main",
+      "entry-kind": "leaf",
+      "category": "resource",
+      "binding": {
+        "alias": "gcp",
+        "kind": "network"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "name": "prod"
+      },
+      "outputs": {
+        "id": "network-abc"
+      }
+    }
+  ]
+}
