@@ -1,0 +1,7 @@
+  (rerun)   action.record
+      id: 'object-1' -> <resource.object.id>
+  (update)  resource.object
+      name: 'alpha'
+      size: 2 -> 3
+
+Plan: 0 to create, 1 to update, 0 to replace, 0 to destroy, 1 to rerun.

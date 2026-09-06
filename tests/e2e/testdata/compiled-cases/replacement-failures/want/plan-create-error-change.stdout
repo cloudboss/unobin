@@ -1,0 +1,7 @@
+  (rerun)   action.record
+      id: 'object-1' -> <resource.object.id>
+  (replace) resource.object
+      name: 'alpha' -> 'beta'  (forces replacement)
+      size: 2
+
+Plan: 0 to create, 0 to update, 1 to replace, 0 to destroy, 1 to rerun.

@@ -1,0 +1,5 @@
+{"method":"create","inputs":{"name":"alpha","size":2}}
+{"method":"read","inputs":{"name":"alpha","size":2},"prior":{"id":"object-1","name":"alpha","size":2}}
+{"method":"read","inputs":{"name":"alpha","size":2},"prior":{"id":"object-1","name":"alpha","size":2}}
+{"method":"delete","inputs":{"name":"alpha","size":2},"prior":{"id":"object-1","name":"alpha","size":2}}
+{"method":"create","inputs":{"name":"beta","size":2}}

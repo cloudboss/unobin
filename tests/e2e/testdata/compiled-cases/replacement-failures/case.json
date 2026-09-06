@@ -1,0 +1,240 @@
+{
+  "name": "replacement-failures",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/replacement-failures",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan-changed-identity-create",
+      "args": ["plan", "--ascii", "-c", "stacks/create/changed-identity.ub", "-o", "changed-identity-create.ubp"],
+      "stdout": "want/plan-changed-identity-create.stdout",
+      "stderr": "want/plan-changed-identity-create.stderr"
+    },
+    {
+      "name": "apply-changed-identity-create",
+      "args": ["apply", "--format", "json", "changed-identity-create.ubp"],
+      "stdout": "want/apply-changed-identity-create.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-changed-identity-change",
+      "args": ["plan", "--ascii", "-c", "stacks/change/changed-identity.ub", "-o", "changed-identity-change.ubp"],
+      "stdout": "want/plan-changed-identity-change.stdout",
+      "stderr": "want/plan-changed-identity-change.stderr"
+    },
+    {
+      "name": "apply-changed-identity-change",
+      "args": ["apply", "--format", "json", "changed-identity-change.ubp"],
+      "stdout": "want/apply-changed-identity-change.stdout",
+      "normalize": "json",
+      "env": {
+        "E2E_REMOTE_ID": "external"
+      },
+      "exitCode": 1
+    },
+    {
+      "name": "state-changed-identity",
+      "args": ["state", "show", "resource.object", "-c", "stacks/change/changed-identity.ub", "--format", "json"],
+      "stdout": "want/state-changed-identity.json",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-delete-error-create",
+      "args": ["plan", "--ascii", "-c", "stacks/create/delete-error.ub", "-o", "delete-error-create.ubp"],
+      "stdout": "want/plan-delete-error-create.stdout",
+      "stderr": "want/plan-delete-error-create.stderr"
+    },
+    {
+      "name": "apply-delete-error-create",
+      "args": ["apply", "--format", "json", "delete-error-create.ubp"],
+      "stdout": "want/apply-delete-error-create.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-delete-error-change",
+      "args": ["plan", "--ascii", "-c", "stacks/change/delete-error.ub", "-o", "delete-error-change.ubp"],
+      "stdout": "want/plan-delete-error-change.stdout",
+      "stderr": "want/plan-delete-error-change.stderr"
+    },
+    {
+      "name": "apply-delete-error-change",
+      "args": ["apply", "--format", "json", "delete-error-change.ubp"],
+      "stdout": "want/apply-delete-error-change.stdout",
+      "normalize": "json",
+      "env": {
+        "E2E_FAIL_DELETE": "1"
+      },
+      "exitCode": 1
+    },
+    {
+      "name": "state-delete-error",
+      "args": ["state", "show", "resource.object", "-c", "stacks/change/delete-error.ub", "--format", "json"],
+      "stdout": "want/state-delete-error.json",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-create-error-create",
+      "args": ["plan", "--ascii", "-c", "stacks/create/create-error.ub", "-o", "create-error-create.ubp"],
+      "stdout": "want/plan-create-error-create.stdout",
+      "stderr": "want/plan-create-error-create.stderr"
+    },
+    {
+      "name": "apply-create-error-create",
+      "args": ["apply", "--format", "json", "create-error-create.ubp"],
+      "stdout": "want/apply-create-error-create.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-create-error-change",
+      "args": ["plan", "--ascii", "-c", "stacks/change/create-error.ub", "-o", "create-error-change.ubp"],
+      "stdout": "want/plan-create-error-change.stdout",
+      "stderr": "want/plan-create-error-change.stderr"
+    },
+    {
+      "name": "apply-create-error-change",
+      "args": ["apply", "--format", "json", "create-error-change.ubp"],
+      "stdout": "want/apply-create-error-change.stdout",
+      "normalize": "json",
+      "env": {
+        "E2E_FAIL_CREATE": "1"
+      },
+      "exitCode": 1
+    },
+    {
+      "name": "state-create-error",
+      "args": ["state", "show", "resource.object", "-c", "stacks/change/create-error.ub", "--format", "json"],
+      "stdout": "want/state-create-error.json",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-empty-identity-create",
+      "args": ["plan", "--ascii", "-c", "stacks/create/empty-identity.ub", "-o", "empty-identity-create.ubp"],
+      "stdout": "want/plan-empty-identity-create.stdout",
+      "stderr": "want/plan-empty-identity-create.stderr"
+    },
+    {
+      "name": "apply-empty-identity-create",
+      "args": ["apply", "--format", "json", "empty-identity-create.ubp"],
+      "stdout": "want/apply-empty-identity-create.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-empty-identity-change",
+      "args": ["plan", "--ascii", "-c", "stacks/change/empty-identity.ub", "-o", "empty-identity-change.ubp"],
+      "stdout": "want/plan-empty-identity-change.stdout",
+      "stderr": "want/plan-empty-identity-change.stderr"
+    },
+    {
+      "name": "apply-empty-identity-change",
+      "args": ["apply", "--format", "json", "empty-identity-change.ubp"],
+      "stdout": "want/apply-empty-identity-change.stdout",
+      "normalize": "json",
+      "env": {
+        "E2E_CREATE_EMPTY_ID": "1"
+      },
+      "exitCode": 1
+    },
+    {
+      "name": "state-empty-identity",
+      "args": ["state", "show", "resource.object", "-c", "stacks/change/empty-identity.ub", "--format", "json"],
+      "stdout": "want/state-empty-identity.json",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-update-identity-create",
+      "args": ["plan", "--ascii", "-c", "stacks/create/update-identity.ub", "-o", "update-identity-create.ubp"],
+      "stdout": "want/plan-update-identity-create.stdout",
+      "stderr": "want/plan-update-identity-create.stderr"
+    },
+    {
+      "name": "apply-update-identity-create",
+      "args": ["apply", "--format", "json", "update-identity-create.ubp"],
+      "stdout": "want/apply-update-identity-create.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-update-identity-change",
+      "args": ["plan", "--ascii", "-c", "stacks/change/update-identity.ub", "-o", "update-identity-change.ubp"],
+      "stdout": "want/plan-update-identity-change.stdout",
+      "stderr": "want/plan-update-identity-change.stderr"
+    },
+    {
+      "name": "apply-update-identity-change",
+      "args": ["apply", "--format", "json", "update-identity-change.ubp"],
+      "stdout": "want/apply-update-identity-change.stdout",
+      "normalize": "json",
+      "env": {
+        "E2E_UPDATE_ID": "external"
+      },
+      "exitCode": 1
+    },
+    {
+      "name": "state-update-identity",
+      "args": ["state", "show", "resource.object", "-c", "stacks/change/update-identity.ub", "--format", "json"],
+      "stdout": "want/state-update-identity.json",
+      "normalize": "json"
+    }
+  ],
+  "files": [
+    {
+      "path": "changed-identity/events.ndjson",
+      "want": "want/changed-identity-events.ndjson"
+    },
+    {
+      "path": "changed-identity/recorded.ndjson",
+      "want": "want/changed-identity-recorded.ndjson"
+    },
+    {
+      "path": "changed-identity/object.json",
+      "want": "want/changed-identity-object.json"
+    },
+    {
+      "path": "delete-error/events.ndjson",
+      "want": "want/delete-error-events.ndjson"
+    },
+    {
+      "path": "delete-error/recorded.ndjson",
+      "want": "want/delete-error-recorded.ndjson"
+    },
+    {
+      "path": "delete-error/object.json",
+      "want": "want/delete-error-object.json"
+    },
+    {
+      "path": "create-error/events.ndjson",
+      "want": "want/create-error-events.ndjson"
+    },
+    {
+      "path": "create-error/recorded.ndjson",
+      "want": "want/create-error-recorded.ndjson"
+    },
+    {
+      "path": "empty-identity/events.ndjson",
+      "want": "want/empty-identity-events.ndjson"
+    },
+    {
+      "path": "empty-identity/recorded.ndjson",
+      "want": "want/empty-identity-recorded.ndjson"
+    },
+    {
+      "path": "empty-identity/object.json",
+      "want": "want/empty-identity-object.json"
+    },
+    {
+      "path": "update-identity/events.ndjson",
+      "want": "want/update-identity-events.ndjson"
+    },
+    {
+      "path": "update-identity/recorded.ndjson",
+      "want": "want/update-identity-recorded.ndjson"
+    },
+    {
+      "path": "update-identity/object.json",
+      "want": "want/update-identity-object.json"
+    }
+  ],
+  "absentFiles": [
+    "create-error/object.json"
+  ],
+  "deterministic": true
+}

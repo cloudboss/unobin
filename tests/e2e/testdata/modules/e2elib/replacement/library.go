@@ -75,12 +75,18 @@ func Library() *runtime.Library {
 				},
 			),
 		},
+		Actions: map[string]runtime.ActionRegistration{
+			"record": runtime.MakeAction[Record, *Recorded, *Configuration](),
+		},
 	}
 }
 
 func (o *Object) Create(_ context.Context, config *Configuration) (*Output, error) {
 	if err := o.record(config, "create", nil); err != nil {
 		return nil, err
+	}
+	if os.Getenv("E2E_FAIL_CREATE") == "1" {
+		return nil, errors.New("object create failed")
 	}
 	path := filepath.Join(config.Directory, "generation")
 	body, err := os.ReadFile(path)
@@ -98,7 +104,11 @@ func (o *Object) Create(_ context.Context, config *Configuration) (*Output, erro
 	if err := os.WriteFile(path, []byte(strconv.Itoa(generation)), 0o600); err != nil {
 		return nil, err
 	}
-	return o.write(config, fmt.Sprintf("object-%d", generation))
+	id := fmt.Sprintf("object-%d", generation)
+	if os.Getenv("E2E_CREATE_EMPTY_ID") == "1" {
+		id = ""
+	}
+	return o.write(config, id)
 }
 
 func (o *Object) Read(_ context.Context, config *Configuration, _ *Output) (*Output, error) {
@@ -122,6 +132,9 @@ func (o *Object) Read(_ context.Context, config *Configuration, _ *Output) (*Out
 	if name := os.Getenv("E2E_REMOTE_NAME"); name != "" {
 		output.Name = name
 	}
+	if id := os.Getenv("E2E_REMOTE_ID"); id != "" {
+		output.ID = id
+	}
 	if err := writeOutput(config, &output); err != nil {
 		return nil, err
 	}
@@ -137,12 +150,19 @@ func (o *Object) Update(
 	if err := o.record(config, "update", prior.Observed); err != nil {
 		return nil, err
 	}
-	return o.write(config, prior.Observed.ID)
+	id := prior.Observed.ID
+	if changed := os.Getenv("E2E_UPDATE_ID"); changed != "" {
+		id = changed
+	}
+	return o.write(config, id)
 }
 
 func (o *Object) Delete(_ context.Context, config *Configuration, prior *Output) error {
 	if err := o.record(config, "delete", prior); err != nil {
 		return err
+	}
+	if os.Getenv("E2E_FAIL_DELETE") == "1" {
+		return errors.New("object delete failed")
 	}
 	return os.Remove(filepath.Join(config.Directory, "object.json"))
 }
@@ -178,4 +198,26 @@ func (o *Object) record(config *Configuration, method string, output *Output) er
 		Prior  *Output `json:"prior,omitempty"`
 	}{Method: method, Inputs: o, Prior: output})
 	return errors.Join(err, file.Close())
+}
+
+type Record struct {
+	ID string
+}
+
+type Recorded struct {
+	ID string
+}
+
+func (r *Record) Run(_ context.Context, config *Configuration) (*Recorded, error) {
+	file, err := os.OpenFile(filepath.Join(config.Directory, "recorded.ndjson"),
+		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	output := &Recorded{ID: r.ID}
+	err = json.NewEncoder(file).Encode(output)
+	if err := errors.Join(err, file.Close()); err != nil {
+		return nil, err
+	}
+	return output, nil
 }
