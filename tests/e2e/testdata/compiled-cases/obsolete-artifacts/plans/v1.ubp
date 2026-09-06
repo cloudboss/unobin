@@ -1,0 +1,8 @@
+{
+  "envelope-version": 1,
+  "payload-type": "plan",
+  "encrypter": {
+    "name": "noop"
+  },
+  "ciphertext": "eyJmb3JtYXQtdmVyc2lvbiI6MSwiZmFjdG9yeSI6eyJuYW1lIjoib2Jzb2xldGUtYXJ0aWZhY3RzIiwidmVyc2lvbiI6InYwLjAuMCIsImNvbnRlbnQtcmV2aXNpb24iOiJvYnNvbGV0ZSJ9LCJzdGFjayI6ImRldiIsImdlbmVyYXRlZC1hdCI6IjIwMDAtMDEtMDFUMDA6MDA6MDBaIiwic3RhdGUtcmV2IjoiIiwiaW5wdXRzIjp7fSwiYmFja2VuZCI6eyJuYW1lIjoibG9jYWwiLCJib2R5Ijp7InBhdGgiOiJzdG9yZWQtc3RhdGUifX0sInN0ZXBzIjpbXX0="
+}

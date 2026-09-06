@@ -1,0 +1,155 @@
+{
+  "name": "obsolete-artifacts",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/obsolete-artifacts",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan",
+      "args": [
+        "plan",
+        "--ascii",
+        "-c",
+        "stacks/dev.ub",
+        "-o",
+        "rejected.ubp"
+      ],
+      "stderr": "want/plan.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "apply",
+      "args": [
+        "apply",
+        "plans/v1.ubp"
+      ],
+      "stderr": "want/apply.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "refresh",
+      "args": [
+        "refresh",
+        "-c",
+        "stacks/dev.ub"
+      ],
+      "stderr": "want/refresh.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "output",
+      "args": [
+        "output",
+        "-c",
+        "stacks/dev.ub"
+      ],
+      "stderr": "want/output.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "list",
+      "args": [
+        "state",
+        "list",
+        "-c",
+        "stacks/dev.ub"
+      ],
+      "stderr": "want/list.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "show",
+      "args": [
+        "state",
+        "show",
+        "action.old",
+        "-c",
+        "stacks/dev.ub"
+      ],
+      "stderr": "want/show.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "pull",
+      "args": [
+        "state",
+        "pull",
+        "-c",
+        "stacks/dev.ub"
+      ],
+      "stderr": "want/pull.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "pull-revision",
+      "args": [
+        "state",
+        "pull",
+        "2000-01-01T00:00:00Z",
+        "-c",
+        "stacks/dev.ub"
+      ],
+      "stderr": "want/pull-revision.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "remove",
+      "args": [
+        "state",
+        "remove",
+        "action.old",
+        "-c",
+        "stacks/dev.ub"
+      ],
+      "stderr": "want/remove.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "move",
+      "args": [
+        "state",
+        "move",
+        "action.old",
+        "action.hello",
+        "-c",
+        "stacks/dev.ub"
+      ],
+      "stderr": "want/move.stderr",
+      "exitCode": 1
+    },
+    {
+      "name": "list-json",
+      "args": [
+        "state",
+        "list",
+        "-c",
+        "stacks/dev.ub",
+        "--format",
+        "json"
+      ],
+      "stdout": "want/list-json.stdout",
+      "normalize": "json",
+      "exitCode": 1
+    }
+  ],
+  "files": [
+    {
+      "path": "stored-state/obsolete-artifacts/dev/snapshots/2000-01-01T00:00:00Z.json.enc",
+      "want": "want/state-envelope.json"
+    },
+    {
+      "path": "stored-state/obsolete-artifacts/dev/current",
+      "want": "want/current"
+    },
+    {
+      "path": "plans/v1.ubp",
+      "want": "want/plan-envelope.json"
+    }
+  ],
+  "absentFiles": [
+    "rejected.ubp",
+    "events.ndjson",
+    "stored-state/obsolete-artifacts/dev/lock"
+  ],
+  "deterministic": true
+}

@@ -1,0 +1,8 @@
+{
+  "envelope-version": 1,
+  "payload-type": "state",
+  "encrypter": {
+    "name": "noop"
+  },
+  "ciphertext": "eyJmb3JtYXQtdmVyc2lvbiI6MSwiZmFjdG9yeSI6eyJuYW1lIjoib2Jzb2xldGUtYXJ0aWZhY3RzIiwidmVyc2lvbiI6InYwLjAuMCIsImNvbnRlbnQtcmV2aXNpb24iOiJvYnNvbGV0ZSJ9LCJzdGFjayI6ImRldiIsImdlbmVyYXRlZC1hdCI6IjIwMDAtMDEtMDFUMDA6MDA6MDBaIiwiZW50cmllcyI6W10sIm91dHB1dHMiOnt9fQ=="
+}
