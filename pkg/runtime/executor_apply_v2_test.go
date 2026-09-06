@@ -75,12 +75,13 @@ func TestExecutorApplyPlanV2UsesSavedInputsAndConfigurations(t *testing.T) {
 }
 
 type factoryApplyCapture struct {
-	mu     sync.Mutex
-	calls  []string
-	create func(context.Context, string) error
-	read   func(*registeredPlanningOutput) *registeredPlanningOutput
-	runs   int
-	reads  int
+	readErr error
+	mu      sync.Mutex
+	calls   []string
+	create  func(context.Context, string) error
+	read    func(*registeredPlanningOutput) *registeredPlanningOutput
+	runs    int
+	reads   int
 }
 
 func (c *factoryApplyCapture) record(operation, name, endpoint string) {
@@ -111,6 +112,9 @@ func (r *factoryApplyResource) Read(
 	_ context.Context, configuration *recordedConfiguration, prior *registeredPlanningOutput,
 ) (*registeredPlanningOutput, error) {
 	r.capture.record("read", r.Name, configuration.Endpoint)
+	if r.capture.readErr != nil {
+		return nil, r.capture.readErr
+	}
 	if r.capture.read != nil {
 		return r.capture.read(prior), nil
 	}
