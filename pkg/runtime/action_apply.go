@@ -135,7 +135,7 @@ func validateActionApplyDesired(
 	if !plannedEncodedValueMatches(planned.Inputs, current.Inputs) {
 		return fmt.Errorf("desired inputs do not match the saved plan")
 	}
-	if planned.TriggerHash != current.TriggerHash {
+	if planned.TriggerHash != "" && planned.TriggerHash != current.TriggerHash {
 		return fmt.Errorf("trigger hash does not match the saved plan")
 	}
 	if !slices.Equal(planned.SensitiveInputPaths, current.SensitiveInputPaths) {

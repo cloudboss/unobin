@@ -1,0 +1,2 @@
+inputs: { name: { type: string } }
+outputs: { value: { value: input.name } }

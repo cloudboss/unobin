@@ -9,6 +9,10 @@ import (
 )
 
 func (e *Executor) validatePlanEvaluationV2Bindings(snapshot *state.SnapshotV2) error {
+	return e.validateFactoryV2Bindings(snapshot, e.Destroy)
+}
+
+func (e *Executor) validateFactoryV2Bindings(snapshot *state.SnapshotV2, destroy bool) error {
 	for _, entry := range snapshot.Entries {
 		if entry.Kind != state.StateResource {
 			continue
@@ -18,7 +22,7 @@ func (e *Executor) validatePlanEvaluationV2Bindings(snapshot *state.SnapshotV2) 
 			return fmt.Errorf("%s: prior resource: %w", entry.Address, err)
 		}
 	}
-	if e.Destroy {
+	if destroy {
 		return nil
 	}
 	for _, address := range slices.Sorted(maps.Keys(e.DAG.Nodes)) {

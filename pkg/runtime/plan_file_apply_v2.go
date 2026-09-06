@@ -38,6 +38,11 @@ func applyPlanFileV2(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if callbacks.Prepare != nil {
+		if err := callbacks.Prepare(ctx, applyState); err != nil {
+			return fmt.Errorf("prepare factory apply: %w", err)
+		}
+	}
 	if err := applyState.prepareSnapshot(start.Factory, start.Stack); err != nil {
 		return fmt.Errorf("prepare version 2 apply snapshot: %w", err)
 	}

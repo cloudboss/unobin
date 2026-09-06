@@ -16,6 +16,7 @@ func TestApplyActionOperationRerunsResolvedTarget(t *testing.T) {
 		"message": pending,
 	})
 	planned.Configuration = pendingOperationConfiguration()
+	planned.TriggerHash = ""
 	current := validPlannedActionTarget(t)
 	outputs := operationObject(t, map[string]EncodedValue{
 		"sent": BooleanValue(true),

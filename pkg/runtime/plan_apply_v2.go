@@ -12,6 +12,7 @@ type planStepV2ApplyCallback func(
 ) error
 
 type applyPlanStepsV2Callbacks struct {
+	Prepare              func(context.Context, *applyStateV2) error
 	Resource             planStepV2ApplyCallback
 	Action               planStepV2ApplyCallback
 	DataSource           planStepV2ApplyCallback
