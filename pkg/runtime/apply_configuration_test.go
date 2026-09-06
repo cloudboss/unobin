@@ -313,32 +313,6 @@ func TestApplyEvaluatesLibraryConfigBinding(t *testing.T) {
 	require.Equal(t, "https://alias.example", res.Outputs["got"])
 }
 
-func TestRefreshUsesLibraryConfigBinding(t *testing.T) {
-	var reads []string
-	libs := configuredLibrariesRecording(&reads, nil)
-	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "direct-config")
-	store := newStateStore(t)
-	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
-	first := configurationTestExecutor(t, src, libs)
-	first.Inputs = map[string]any{
-		"fix-config": map[string]any{"endpoint": "https://first.example"},
-	}
-	first.Store = store
-	first.Factory = factory
-	applyOnce(t, first)
-
-	reads = nil
-	fresh := configurationTestExecutor(t, src, libs)
-	fresh.Inputs = map[string]any{
-		"fix-config": map[string]any{"endpoint": "https://fresh.example"},
-	}
-	fresh.Store = store
-	fresh.Factory = factory
-	_, err := fresh.Refresh(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, []string{"https://fresh.example"}, reads)
-}
-
 func TestApplyEvaluatesDerivedLibraryConfig(t *testing.T) {
 	libs := configuredLibraries()
 	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "derived-config")
@@ -619,26 +593,6 @@ func TestDestroyUsesLibraryConfigFromState(t *testing.T) {
 	_, err := planAndApply(down)
 	require.NoError(t, err)
 	require.Equal(t, []string{"https://cluster.example"}, deletes)
-}
-
-func TestRefreshUsesLibraryConfigFromState(t *testing.T) {
-	var reads []string
-	libs := configuredLibrariesRecording(&reads, nil)
-	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-configuration", "derived-config")
-	store := newStateStore(t)
-	factory := state.FactoryInfo{Name: "t", Version: "v0", ContentRevision: "c0"}
-	first := configurationTestExecutor(t, src, libs)
-	first.Store = store
-	first.Factory = factory
-	applyOnce(t, first)
-
-	reads = nil
-	fresh := configurationTestExecutor(t, src, libs)
-	fresh.Store = store
-	fresh.Factory = factory
-	_, err := fresh.Refresh(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, []string{"https://cluster.example"}, reads)
 }
 
 func TestSyntaxValidationRejectsOldConfigurationMeta(t *testing.T) {

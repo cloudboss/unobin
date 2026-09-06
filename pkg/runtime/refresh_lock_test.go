@@ -42,15 +42,18 @@ func TestRefreshLockFailureGolden(t *testing.T) {
 
 func refreshAfterWriteUnlockFailure(t *testing.T) refreshLockCaseGolden {
 	t.Helper()
-	source := refreshFixture(t, "resource-one")
-	var counters resourceCounters
-	store := newStateStore(t)
-	libraries := resourceModules(&counters)
-	factory := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	applyOnce(t, refreshTestExecutor(t, source, libraries, store, factory))
-	wrapped := &unlockFailureBackend{Backend: store}
-	result, err := refreshTestExecutor(t, source, libraries, wrapped, factory).
-		Refresh(context.Background())
+	executor := newFactoryApplyExecutor(t, &factoryApplyCapture{})
+	plan, err := executor.PlanV2(context.Background())
+	require.NoError(t, err)
+	_, err = executor.ApplyPlanV2(context.Background(), plan)
+	require.NoError(t, err)
+	store := executor.Store
+	wrapped := &refreshV2UnlockBackend{
+		unlockFailureBackend: &unlockFailureBackend{Backend: store},
+		SnapshotBackendV2:    store.(state.SnapshotBackendV2),
+	}
+	executor.Store = wrapped
+	result, err := executor.RefreshV2(context.Background())
 	current, currentErr := store.CurrentRev()
 	require.NoError(t, currentErr)
 	var unlockError *StateUnlockError
@@ -66,12 +69,13 @@ func refreshAfterWriteUnlockFailure(t *testing.T) refreshLockCaseGolden {
 
 func refreshWithoutWriteUnlockFailure(t *testing.T) refreshLockCaseGolden {
 	t.Helper()
-	store := newStateStore(t)
-	wrapped := &unlockFailureBackend{Backend: store}
-	factory := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	result, err := refreshTestExecutor(
-		t, refreshFixture(t, "empty"), map[string]*Library{}, wrapped, factory,
-	).Refresh(context.Background())
+	executor := newFactoryApplyExecutor(t, &factoryApplyCapture{})
+	wrapped := &refreshV2UnlockBackend{
+		unlockFailureBackend: &unlockFailureBackend{Backend: executor.Store},
+		SnapshotBackendV2:    executor.Store.(state.SnapshotBackendV2),
+	}
+	executor.Store = wrapped
+	result, err := executor.RefreshV2(context.Background())
 	var unlockError *StateUnlockError
 	return refreshLockCaseGolden{
 		Name: "without state write", ResultNonNull: result != nil,

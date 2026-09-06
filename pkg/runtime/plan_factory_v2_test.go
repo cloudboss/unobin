@@ -193,12 +193,18 @@ func TestPlanFactoryV2RemovesRecordedEntries(t *testing.T) {
 	}
 }
 
-func newFactoryV2CompositeExecutor(t *testing.T, fixture string) *Executor {
+func newFactoryV2CompositeExecutor(
+	t *testing.T, fixture string, resources ...ResourceRegistration,
+) *Executor {
 	t.Helper()
+	resource := MakeResource[plainResource, *plainResourceOutput, any](plainResourceDefinition())
+	if len(resources) > 0 {
+		resource = resources[0]
+	}
 	catalog, err := NewLibraryCatalog([]LibraryRegistration{
 		{LibraryPath: "example.com/cloud", New: func() *Library {
 			return &Library{Resources: map[string]ResourceRegistration{
-				"plain": MakeResource[plainResource, *plainResourceOutput, any](plainResourceDefinition()),
+				"plain": resource,
 			}}
 		}},
 		{LibraryPath: "example.com/inner", New: func() *Library {

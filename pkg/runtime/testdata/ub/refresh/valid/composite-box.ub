@@ -1,3 +1,0 @@
-inputs: { name: { type: string } }
-
-resources: { inside: core.thing { name: input.name, size: 1 } }

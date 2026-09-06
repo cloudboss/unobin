@@ -1,1 +1,0 @@
-resources: { one: core.thing { name: 'alpha', size: 1 } }

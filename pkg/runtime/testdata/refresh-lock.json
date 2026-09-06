@@ -3,7 +3,7 @@
     {
       "name": "after state write",
       "result-non-null": true,
-      "refreshed": 1,
+      "refreshed": 4,
       "removed": 0,
       "written-revision": true,
       "current-matches": true,

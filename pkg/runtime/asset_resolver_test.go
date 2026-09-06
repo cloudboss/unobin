@@ -541,11 +541,6 @@ func TestExecutorResolvesAssetReferencesForPriorAndLifecycleCalls(t *testing.T) 
 	assertAssetBoundaryRecordUnder(t, recorder, "resource-delete", replaceApplyRoot)
 	assertAssetBoundaryRecordUnder(t, recorder, "resource-create", replaceApplyRoot)
 
-	refreshRoot := filepath.Join(t.TempDir(), "refresh")
-	setAssetBoundaryCache(t, exec, refreshRoot)
-	_, err = exec.Refresh(context.Background())
-	require.NoError(t, err)
-	assertAssetBoundaryRecordUnder(t, recorder, "resource-read", refreshRoot)
 	snapshot, err := store.Current()
 	require.NoError(t, err)
 	for _, entry := range snapshot.Entries {

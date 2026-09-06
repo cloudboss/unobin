@@ -4,120 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 
-	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
-// RefreshResult reports what Refresh did. Refreshed counts leaf
-// entries whose outputs were updated to match what was observed;
-// Dropped counts leaves whose Read returned ErrNotFound and were
-// removed from state.
+// RefreshResult reports observed resources, removed resources, and the saved revision.
 type RefreshResult struct {
 	WrittenRev string
 	Refreshed  int
 	Dropped    int
-}
-
-// Refresh reads every resource recorded in prior state and writes a
-// fresh snapshot whose leaf outputs reflect the observation. Resources
-// that are no longer present are dropped. Action and library-call
-// entries, plus stack-level outputs, carry forward unchanged. No
-// resource writes happen. The stack's lock is held for the
-// duration.
-func (e *Executor) Refresh(ctx context.Context) (result *RefreshResult, err error) {
-	if e.Store == nil {
-		return nil, errors.New("executor: Store is required")
-	}
-	release, err := AcquireStateLock(ctx, e.Store)
-	if err != nil {
-		return nil, err
-	}
-	startingRevision, err := checkedCurrentRevision(e.Store)
-	if err != nil {
-		return nil, release(err)
-	}
-	res := &RefreshResult{}
-	defer func() {
-		err = release(err)
-		if err == nil {
-			return
-		}
-		currentRevision, currentErr := checkedCurrentRevision(e.Store)
-		if currentErr != nil {
-			err = errors.Join(err, currentErr)
-			return
-		}
-		if currentRevision != startingRevision {
-			res.WrittenRev = currentRevision
-			result = res
-		}
-	}()
-
-	rs, err := e.initRun()
-	if err != nil {
-		return nil, err
-	}
-	if rs.prior == nil {
-		return &RefreshResult{}, nil
-	}
-	if err := e.seedPriorInternalConfigurations(rs.prior, e.Inputs); err != nil {
-		return nil, err
-	}
-
-	type leafResult struct {
-		idx     int
-		updated *state.Entry
-		dropped bool
-		err     error
-	}
-	leaves := []*state.Entry{}
-	carry := []*state.Entry{}
-	for _, ent := range rs.prior.Entries {
-		if ent.Type != state.EntryLeaf {
-			carry = append(carry, ent)
-			continue
-		}
-		leaves = append(leaves, ent)
-	}
-	results := make([]leafResult, len(leaves))
-	sem := make(chan struct{}, e.effectiveParallelism())
-	var wg sync.WaitGroup
-	for i, ent := range leaves {
-		sem <- struct{}{}
-		wg.Go(func() {
-			defer func() { <-sem }()
-			var dropped bool
-			updated, err := guard("refreshing this resource", true, func() (*state.Entry, error) {
-				u, d, rerr := e.refreshLeaf(ctx, ent)
-				dropped = d
-				return u, rerr
-			})
-			results[i] = leafResult{idx: i, updated: updated, dropped: dropped, err: err}
-		})
-	}
-	wg.Wait()
-	rs.next.Entries = append(rs.next.Entries, carry...)
-	for _, r := range results {
-		if r.err != nil {
-			return nil, diagnostic.Context(leaves[r.idx].Address, r.err)
-		}
-		if r.dropped {
-			res.Dropped++
-			continue
-		}
-		rs.next.Entries = append(rs.next.Entries, r.updated)
-		res.Refreshed++
-	}
-	rs.next.Outputs = rs.prior.Outputs
-
-	rev, err := e.persist(rs)
-	if err != nil {
-		return nil, err
-	}
-	res.WrittenRev = rev
-	return res, nil
 }
 
 func (e *Executor) refreshLeaf(

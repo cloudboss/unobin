@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
@@ -75,7 +76,8 @@ func applyCurrentRevisionFailure(t *testing.T) applyLockCaseGolden {
 func emptyApplyExecutor(t *testing.T, store state.Backend) (*Executor, *PlanFile) {
 	t.Helper()
 	factory := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	dag, source := syntaxDAGAndBody(t, refreshFixture(t, "empty"), map[string]*Library{})
+	fixture := ubtest.ReadValidFixture(t, "testdata/ub/refresh", "empty")
+	dag, source := syntaxDAGAndBody(t, fixture, map[string]*Library{})
 	executor := &Executor{
 		DAG: dag, SyntaxSource: source, Libraries: map[string]*Library{},
 		Store: store, Factory: factory,
