@@ -52,6 +52,9 @@ func (e *Executor) planEvaluationV2ResourceRequest(
 			"%s: resource library path does not match import", node.Address,
 		)
 	}
+	if resolve == nil && e.LibraryCatalog != nil {
+		resolve = e.LibraryCatalog.resource
+	}
 	registration, configuration, err := resolve.resource(binding)
 	if err != nil {
 		return planStepV2Request{}, fmt.Errorf("%s: desired resource: %w", node.Address, err)

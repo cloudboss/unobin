@@ -45,6 +45,11 @@ func (e *Executor) preparePlanEvaluationV2(
 	if err := snapshot.Validate(); err != nil {
 		return nil, fmt.Errorf("version 2 snapshot: %w", err)
 	}
+	if e.LibraryCatalog != nil {
+		if err := e.validatePlanEvaluationV2ResourceBindings(snapshot); err != nil {
+			return nil, err
+		}
+	}
 
 	prior, err := snapshot.Clone()
 	if err != nil {
