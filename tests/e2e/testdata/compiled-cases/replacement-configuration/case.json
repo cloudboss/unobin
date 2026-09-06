@@ -1,0 +1,117 @@
+{
+  "name": "replacement-configuration",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/replacement-configuration",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan-create",
+      "args": ["plan", "--ascii", "--parallelism", "1", "-c", "stacks/create/dev.ub", "-o", "create.ubp"],
+      "stdout": "want/plan-create.stdout",
+      "stderr": "want/plan-create.stderr"
+    },
+    {
+      "name": "apply-create",
+      "args": ["apply", "--format", "json", "create.ubp"],
+      "stdout": "want/apply-create.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-pending",
+      "args": ["plan", "--ascii", "--parallelism", "1", "-c", "stacks/change/dev.ub", "-o", "pending.ubp"],
+      "stdout": "want/plan-pending.stdout",
+      "stderr": "want/plan-pending.stderr"
+    },
+    {
+      "name": "apply-pending",
+      "args": ["apply", "--format", "json", "pending.ubp"],
+      "stdout": "want/apply-pending.stdout",
+      "normalize": "json",
+      "exitCode": 1
+    },
+    {
+      "name": "plan-resolved",
+      "args": ["plan", "--ascii", "--parallelism", "1", "-c", "stacks/change/dev.ub", "-o", "resolved.ubp"],
+      "stdout": "want/plan-resolved.stdout",
+      "stderr": "want/plan-resolved.stderr"
+    },
+    {
+      "name": "apply-resolved",
+      "args": ["apply", "--format", "json", "resolved.ubp"],
+      "stdout": "want/apply-resolved.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-mismatch-create",
+      "args": ["plan", "--ascii", "--parallelism", "1", "-c", "stacks/create/mismatch.ub", "-o", "mismatch-create.ubp"],
+      "stdout": "want/plan-mismatch-create.stdout",
+      "stderr": "want/plan-mismatch-create.stderr"
+    },
+    {
+      "name": "apply-mismatch-create",
+      "args": ["apply", "--format", "json", "mismatch-create.ubp"],
+      "stdout": "want/apply-mismatch-create.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-mismatch-change",
+      "args": ["plan", "--ascii", "--parallelism", "1", "-c", "stacks/change/mismatch.ub", "-o", "mismatch-change.ubp"],
+      "stdout": "want/plan-mismatch-change.stdout",
+      "stderr": "want/plan-mismatch-change.stderr"
+    },
+    {
+      "name": "apply-mismatch-change",
+      "args": ["apply", "--format", "json", "mismatch-change.ubp"],
+      "stdout": "want/apply-mismatch-change.stdout",
+      "normalize": "json",
+      "env": {
+        "E2E_REMOTE_ID": "external"
+      },
+      "exitCode": 1
+    },
+    {
+      "name": "state-mismatch",
+      "args": ["state", "show", "resource.global", "-c", "stacks/change/mismatch.ub", "--format", "json"],
+      "stdout": "want/state-mismatch.json",
+      "normalize": "json"
+    },
+    {
+      "name": "output-resolved",
+      "args": ["output", "-c", "stacks/change/dev.ub", "--format", "json"],
+      "stdout": "want/output-resolved.json",
+      "normalize": "json"
+    }
+  ],
+  "files": [
+    {
+      "path": "global/events.ndjson",
+      "want": "want/global-events.ndjson"
+    },
+    {
+      "path": "scoped/events.ndjson",
+      "want": "want/scoped-events.ndjson"
+    },
+    {
+      "path": "source/recorded.ndjson",
+      "want": "want/recorded.ndjson"
+    },
+    {
+      "path": "mismatch-global/events.ndjson",
+      "want": "want/mismatch-global-events.ndjson"
+    },
+    {
+      "path": "mismatch-scoped/events.ndjson",
+      "want": "want/mismatch-scoped-events.ndjson"
+    },
+    {
+      "path": "mismatch-source/recorded.ndjson",
+      "want": "want/mismatch-recorded.ndjson"
+    },
+    {
+      "path": "mismatch-global/object.json",
+      "want": "want/mismatch-object.json"
+    }
+  ],
+  "stateSummary": "want/state-summary.json",
+  "deterministic": true
+}

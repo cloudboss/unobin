@@ -1,0 +1,12 @@
+{"kind":"command-diagnostic","format-version":1,"sequence":1,"timestamp":"<timestamp>","diagnostic":{"code":"unobin.factory.replaced-toolchain","severity":"info","message":"github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced"}}
+{"kind":"apply-event","format-version":1,"sequence":2,"timestamp":"<timestamp>","stage":"start","decision":"eval","address":"library-config.source"}
+{"kind":"apply-event","format-version":1,"sequence":3,"timestamp":"<timestamp>","stage":"done","decision":"eval","address":"library-config.source","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":4,"timestamp":"<timestamp>","stage":"start","decision":"eval","address":"library-config.global"}
+{"kind":"apply-event","format-version":1,"sequence":5,"timestamp":"<timestamp>","stage":"done","decision":"eval","address":"library-config.global","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":6,"timestamp":"<timestamp>","stage":"start","decision":"eval","address":"library-config.scoped"}
+{"kind":"apply-event","format-version":1,"sequence":7,"timestamp":"<timestamp>","stage":"done","decision":"eval","address":"library-config.scoped","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":8,"timestamp":"<timestamp>","stage":"start","decision":"replace","address":"resource.scoped"}
+{"kind":"apply-event","format-version":1,"sequence":9,"timestamp":"<timestamp>","stage":"done","decision":"replace","address":"resource.scoped","elapsed":"<elapsed>"}
+{"kind":"apply-output","format-version":1,"sequence":10,"timestamp":"<timestamp>","name":"global","value":{"id":"object-1","name":"alpha","size":2},"sensitive":false}
+{"kind":"apply-output","format-version":1,"sequence":11,"timestamp":"<timestamp>","name":"scoped","value":{"id":"object-2","name":"alpha","size":2},"sensitive":false}
+{"kind":"apply-result","format-version":1,"sequence":12,"timestamp":"<timestamp>","started-at":"<timestamp>","finished-at":"<timestamp>","elapsed":"<elapsed>","state-rev":"<revision>","output-count":2}

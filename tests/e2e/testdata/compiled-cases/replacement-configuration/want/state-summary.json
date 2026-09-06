@@ -1,0 +1,82 @@
+{
+  "format-version": 2,
+  "factory": {
+    "name": "replacement-configuration",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "entries": [
+    {
+      "address": "action.label",
+      "entry-kind": "action",
+      "category": "action",
+      "binding": {
+        "library-path": "example.com/unobin/e2elib/replacement",
+        "export": "record"
+      },
+      "inputs": {
+        "id": "new"
+      },
+      "outputs": {
+        "id": "new"
+      }
+    },
+    {
+      "address": "resource.global",
+      "entry-kind": "resource",
+      "category": "resource",
+      "binding": {
+        "library-path": "example.com/unobin/e2elib/replacement",
+        "export": "global-object"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "name": "alpha",
+        "size": 2
+      },
+      "outputs": {
+        "id": "object-1",
+        "name": "alpha",
+        "size": 2
+      },
+      "depends-on": [
+        "action.label"
+      ]
+    },
+    {
+      "address": "resource.scoped",
+      "entry-kind": "resource",
+      "category": "resource",
+      "binding": {
+        "library-path": "example.com/unobin/e2elib/replacement",
+        "export": "object"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "name": "alpha",
+        "size": 2
+      },
+      "outputs": {
+        "id": "object-2",
+        "name": "alpha",
+        "size": 2
+      },
+      "depends-on": [
+        "action.label"
+      ]
+    }
+  ],
+  "outputs": {
+    "global": {
+      "id": "object-1",
+      "name": "alpha",
+      "size": 2
+    },
+    "scoped": {
+      "id": "object-2",
+      "name": "alpha",
+      "size": 2
+    }
+  }
+}

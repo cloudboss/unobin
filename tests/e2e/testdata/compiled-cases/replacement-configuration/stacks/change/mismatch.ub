@@ -1,0 +1,5 @@
+stack: {
+  state: local { path: '.unobin/state' }
+  encryption: noop {}
+  factory: { inputs: { label: 'new', prefix: 'mismatch-' } }
+}

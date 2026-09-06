@@ -1,0 +1,6 @@
+  (replace) resource.scoped
+      replacement: configuration changed
+      name: 'alpha'
+      size: 2
+
+Plan: 0 to create, 0 to update, 1 to replace, 0 to destroy, 0 to rerun.

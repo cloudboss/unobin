@@ -1,0 +1,16 @@
+  (rerun)   action.label
+      id: 'old' -> 'new'
+  (replace) resource.global
+      replacement: configuration resolved at apply
+      name: 'alpha'
+      size: 2
+  (replace) resource.scoped
+      replacement: configuration resolved at apply
+      name: 'alpha'
+      size: 2
+
+Pending configuration (2):
+  resource.global    action.label.id pending; configuration resolved at apply
+  resource.scoped    action.label.id pending; configuration resolved at apply
+
+Plan: 0 to create, 0 to update, 2 to replace, 0 to destroy, 1 to rerun.

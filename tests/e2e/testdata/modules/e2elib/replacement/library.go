@@ -16,6 +16,7 @@ import (
 
 type Configuration struct {
 	Directory string
+	Label     *string
 }
 
 type Object struct {
@@ -30,8 +31,6 @@ type Output struct {
 }
 
 func Library() *runtime.Library {
-	name := runtime.InputField(func(v *Object) *string { return &v.Name })
-	size := runtime.InputField(func(v *Object) *int64 { return &v.Size })
 	return &runtime.Library{
 		Name: "replacement",
 		Configuration: &cfg.ConfigurationType[*Configuration]{
@@ -40,43 +39,52 @@ func Library() *runtime.Library {
 		},
 		Resources: map[string]runtime.ResourceRegistration{
 			"object": runtime.MakeResource[Object, *Output, *Configuration](
-				runtime.ResourceDefinition[Object, *Output, *Configuration]{
-					SchemaVersion: 1,
-					Identity: runtime.ResourceIdentity[Object, *Output]{
-						Version: 1,
-						Scope:   runtime.IdentityConfiguration,
-						StableID: func(_ Object, output *Output) (string, error) {
-							return output.ID, nil
-						},
-					},
-					InputSemantics: runtime.InputSemantics[Object]{
-						Rules: []runtime.InputRule[Object]{
-							runtime.EqualBy(name, func(a, b string) bool {
-								a = strings.TrimPrefix(a, "ref:")
-								b = strings.TrimPrefix(b, "ref:")
-								return a == b
-							}),
-						},
-					},
-					Replacement: runtime.ReplacementRules[Object, *Output]{
-						Inputs: []runtime.ReplacementRule[Object]{
-							runtime.ReplaceWhenChanged(name),
-							runtime.ReplaceWhen(size, func(prior, desired int64) bool {
-								return desired < prior
-							}),
-						},
-						Drift: []runtime.DriftRule[*Output]{
-							runtime.ReplaceOnDrift(
-								runtime.OutputField(func(v *Output) *int64 { return &v.Size }),
-								func(a, b int64) bool { return a == b },
-							),
-						},
-					},
-				},
+				objectDefinition(runtime.IdentityConfiguration),
+			),
+			"global-object": runtime.MakeResource[Object, *Output, *Configuration](
+				objectDefinition(runtime.IdentityGlobal),
 			),
 		},
 		Actions: map[string]runtime.ActionRegistration{
 			"record": runtime.MakeAction[Record, *Recorded, *Configuration](),
+		},
+	}
+}
+
+func objectDefinition(scope runtime.IdentityScope) runtime.ResourceDefinition[
+	Object, *Output, *Configuration,
+] {
+	name := runtime.InputField(func(v *Object) *string { return &v.Name })
+	size := runtime.InputField(func(v *Object) *int64 { return &v.Size })
+	return runtime.ResourceDefinition[Object, *Output, *Configuration]{
+		SchemaVersion: 1,
+		Identity: runtime.ResourceIdentity[Object, *Output]{
+			Version: 1,
+			Scope:   scope,
+			StableID: func(_ Object, output *Output) (string, error) {
+				return output.ID, nil
+			},
+		},
+		InputSemantics: runtime.InputSemantics[Object]{
+			Rules: []runtime.InputRule[Object]{
+				runtime.EqualBy(name, func(a, b string) bool {
+					return strings.TrimPrefix(a, "ref:") == strings.TrimPrefix(b, "ref:")
+				}),
+			},
+		},
+		Replacement: runtime.ReplacementRules[Object, *Output]{
+			Inputs: []runtime.ReplacementRule[Object]{
+				runtime.ReplaceWhenChanged(name),
+				runtime.ReplaceWhen(size, func(prior, desired int64) bool {
+					return desired < prior
+				}),
+			},
+			Drift: []runtime.DriftRule[*Output]{
+				runtime.ReplaceOnDrift(
+					runtime.OutputField(func(v *Output) *int64 { return &v.Size }),
+					func(a, b int64) bool { return a == b },
+				),
+			},
 		},
 	}
 }
@@ -193,10 +201,11 @@ func (o *Object) record(config *Configuration, method string, output *Output) er
 		return err
 	}
 	err = json.NewEncoder(file).Encode(struct {
-		Method string  `json:"method"`
-		Inputs *Object `json:"inputs"`
-		Prior  *Output `json:"prior,omitempty"`
-	}{Method: method, Inputs: o, Prior: output})
+		Method        string  `json:"method"`
+		Inputs        *Object `json:"inputs"`
+		Prior         *Output `json:"prior,omitempty"`
+		Configuration *string `json:"configuration,omitempty"`
+	}{Method: method, Inputs: o, Prior: output, Configuration: config.Label})
 	return errors.Join(err, file.Close())
 }
 
@@ -209,6 +218,9 @@ type Recorded struct {
 }
 
 func (r *Record) Run(_ context.Context, config *Configuration) (*Recorded, error) {
+	if err := os.MkdirAll(config.Directory, 0o700); err != nil {
+		return nil, err
+	}
 	file, err := os.OpenFile(filepath.Join(config.Directory, "recorded.ndjson"),
 		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {

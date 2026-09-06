@@ -1,0 +1,3 @@
+{"method":"create","inputs":{"name":"alpha","size":2},"configuration":"old"}
+{"method":"read","inputs":{"name":"alpha","size":2},"prior":{"id":"object-1","name":"alpha","size":2},"configuration":"old"}
+{"method":"read","inputs":{"name":"alpha","size":2},"prior":{"id":"external","name":"alpha","size":2},"configuration":"new"}

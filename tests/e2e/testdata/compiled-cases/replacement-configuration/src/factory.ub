@@ -1,0 +1,32 @@
+factory: {
+  inputs: {
+    label: { type: string }
+    prefix: { type: string, default: '' }
+  }
+
+  imports: {
+    source: 'example.com/unobin/e2elib//replacement'
+    global: 'example.com/unobin/e2elib//replacement'
+    scoped: 'example.com/unobin/e2elib//replacement'
+  }
+
+  library-configs: {
+    source: { directory: input.prefix + 'source' }
+    global: { directory: input.prefix + 'global', label: action.label.id }
+    scoped: { directory: input.prefix + 'scoped', label: action.label.id }
+  }
+
+  actions: {
+    label: source.record { id: input.label }
+  }
+
+  resources: {
+    global: global.global-object { name: 'alpha', size: 2 }
+    scoped: scoped.object { name: 'alpha', size: 2 }
+  }
+
+  outputs: {
+    global: { value: resource.global }
+    scoped: { value: resource.scoped }
+  }
+}

@@ -1,0 +1,11 @@
+{"kind":"command-diagnostic","format-version":1,"sequence":1,"timestamp":"<timestamp>","diagnostic":{"code":"unobin.factory.replaced-toolchain","severity":"info","message":"github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced"}}
+{"kind":"apply-event","format-version":1,"sequence":2,"timestamp":"<timestamp>","stage":"start","decision":"eval","address":"library-config.source"}
+{"kind":"apply-event","format-version":1,"sequence":3,"timestamp":"<timestamp>","stage":"done","decision":"eval","address":"library-config.source","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":4,"timestamp":"<timestamp>","stage":"start","decision":"rerun","address":"action.label"}
+{"kind":"apply-event","format-version":1,"sequence":5,"timestamp":"<timestamp>","stage":"done","decision":"rerun","address":"action.label","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":6,"timestamp":"<timestamp>","stage":"start","decision":"eval","address":"library-config.global"}
+{"kind":"apply-event","format-version":1,"sequence":7,"timestamp":"<timestamp>","stage":"done","decision":"eval","address":"library-config.global","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":8,"timestamp":"<timestamp>","stage":"start","decision":"eval","address":"library-config.scoped"}
+{"kind":"apply-event","format-version":1,"sequence":9,"timestamp":"<timestamp>","stage":"done","decision":"eval","address":"library-config.scoped","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":10,"timestamp":"<timestamp>","stage":"start","decision":"replace","address":"resource.global"}
+{"kind":"apply-error","format-version":1,"sequence":11,"timestamp":"<timestamp>","started-at":"<timestamp>","finished-at":"<timestamp>","elapsed":"<elapsed>","stage":"execute","code":"unobin.apply.step-failed","message":"replace failed for resource.global","state-rev":"<revision>","diagnostics":[{"code":"unobin.error","severity":"error","message":"recorded stable ID \"object-1\" does not match desired-configuration stable ID \"external\""}],"address":"resource.global","decision":"replace","library":"example.com/unobin/e2elib/replacement","skipped":1,"succeeded":4}
