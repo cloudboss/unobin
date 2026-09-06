@@ -6,9 +6,10 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
-	"github.com/stretchr/testify/require"
 )
 
 type equivalentResource struct {
@@ -171,89 +172,100 @@ func (r *versionConsumer) Delete(_ context.Context, _ any, _ *versionConsumerOut
 	return nil
 }
 
-func TestInputEqualitySuppressesReplace(t *testing.T) {
-	store := newStateStore(t)
-	libs := resourcePlanModules(nil)
-	applyOnce(t, resourcePlanExecutor(t, resourcePlanFixture(t, "equivalent-initial"), libs, store))
-
-	plan := runPlan(t, resourcePlanFixture(t, "equivalent-name"), libs, store)
-	step := findStep(t, plan, "resource.one")
-	require.Equal(t, DecisionNoOp, step.Decision)
-	require.Empty(t, step.ReplaceTriggers)
-}
-
-func TestInputEqualityNoOpPersistsDesiredInputs(t *testing.T) {
-	store := newStateStore(t)
-	libs := resourcePlanModules(nil)
-	initial := resourcePlanExecutor(
-		t,
-		resourcePlanFixture(t, "equivalent-initial"),
-		libs,
-		store,
-	)
-	applyOnce(t, initial)
-
-	exec := resourcePlanExecutor(t, resourcePlanFixture(t, "equivalent-name"), libs, store)
-	plan, err := exec.Plan(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.one").Decision)
-	_, err = planAndApplyExisting(exec, plan)
-	require.NoError(t, err)
-	snapshot, err := store.Current()
-	require.NoError(t, err)
-	require.Equal(t, "alpha", snapshot.Find("resource.one").Inputs["name"])
-}
-
-func TestInputEqualityKeepsMutableChangeAsUpdate(t *testing.T) {
-	store := newStateStore(t)
-	libs := resourcePlanModules(nil)
-	applyOnce(t, resourcePlanExecutor(t, resourcePlanFixture(t, "equivalent-initial"), libs, store))
-
-	plan := runPlan(t, resourcePlanFixture(t, "equivalent-name-and-size"), libs, store)
-	step := findStep(t, plan, "resource.one")
-	require.Equal(t, DecisionUpdate, step.Decision)
-	require.Empty(t, step.ReplaceTriggers)
+func TestInputEqualityClassifiesAndPersistsDesiredInputs(t *testing.T) {
+	for _, tt := range []struct {
+		fixture  string
+		decision Decision
+	}{
+		{fixture: "equivalent-name", decision: DecisionNoOp},
+		{fixture: "equivalent-name-and-size", decision: DecisionUpdate},
+	} {
+		t.Run(tt.fixture, func(t *testing.T) {
+			store := newStateStore(t)
+			libraries := resourcePlanModules(nil)
+			initial := resourcePlanExecutor(t, resourcePlanFixture(t, "equivalent-initial"),
+				libraries, store)
+			firstPlan, err := initial.PlanV2(context.Background())
+			require.NoError(t, err)
+			_, err = initial.ApplyPlanV2(context.Background(), firstPlan)
+			require.NoError(t, err)
+			executor := resourcePlanExecutor(t, resourcePlanFixture(t, tt.fixture), libraries, store)
+			plan, err := executor.PlanV2(context.Background())
+			require.NoError(t, err)
+			require.Len(t, plan.Steps, 1)
+			require.Equal(t, "resource.one", plan.Steps[0].Address)
+			operation := plan.Steps[0].Operation.Resource
+			require.Equal(t, tt.decision, operation.Decision)
+			require.Empty(t, operation.Reasons)
+			result, err := executor.ApplyPlanV2(context.Background(), plan)
+			require.NoError(t, err)
+			snapshot, err := store.GetV2(result.WrittenRev)
+			require.NoError(t, err)
+			target := snapshot.Find("resource.one").Payload.Resource.Target
+			require.Equal(t, operation.Desired.Inputs, target.Inputs)
+			fields, _ := target.Inputs.ObjectFields()
+			require.Equal(t, StringValue("alpha"), fields["name"])
+			if tt.decision == DecisionNoOp {
+				require.Equal(t, *operation.Observation.Outputs, target.Outputs)
+				require.Equal(t, *operation.Observation.Identity, target.Identity)
+			}
+		})
+	}
 }
 
 func TestInputEqualityDoesNotApplyToApplyPremise(t *testing.T) {
 	store := newStateStore(t)
-	libs := resourcePlanModules(nil)
-	src := resourcePlanFixture(t, "equivalent-input")
-	first := resourcePlanExecutor(t, src, libs, store)
-	first.Inputs = map[string]any{"n": "ref:alpha"}
-	applyOnce(t, first)
-
-	second := resourcePlanExecutor(t, src, libs, store)
-	second.Inputs = map[string]any{"n": "ref:alpha"}
-	plan, err := second.Plan(context.Background())
+	libraries := resourcePlanModules(nil)
+	source := resourcePlanFixture(t, "equivalent-input")
+	executor := resourcePlanExecutor(t, source, libraries, store)
+	executor.Inputs = map[string]any{"n": "ref:alpha"}
+	initial, err := executor.PlanV2(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.one").Decision)
-
-	second.Inputs = map[string]any{"n": "alpha"}
-	_, err = planAndApplyExisting(second, plan)
-	require.ErrorContains(t, err, "inputs changed since the plan was computed")
+	applied, err := executor.ApplyPlanV2(context.Background(), initial)
+	require.NoError(t, err)
+	plan, err := executor.PlanV2(context.Background())
+	require.NoError(t, err)
+	require.Len(t, plan.Steps, 1)
+	require.Equal(t, DecisionNoOp, plan.Steps[0].Operation.Resource.Decision)
+	plan.Inputs = operationObject(t, map[string]EncodedValue{"n": StringValue("alpha")})
+	plan.Digest, err = planFileV2Digest(*plan)
+	require.NoError(t, err)
+	require.NoError(t, plan.Validate())
+	_, err = executor.ApplyPlanV2(context.Background(), plan)
+	require.ErrorContains(t, err, "desired inputs do not match the saved plan")
+	current, err := store.CurrentRev()
+	require.NoError(t, err)
+	require.Equal(t, applied.WrittenRev, current)
 }
 
 func TestResourceUpdateMarksOutputPending(t *testing.T) {
 	counters := &resourceDependencyCounters{}
 	store := newStateStore(t)
-	libs := resourcePlanModules(counters)
-	src := resourcePlanFixture(t, "unknown-output")
-	first := resourcePlanExecutor(t, src, libs, store)
-	first.Inputs = map[string]any{"value": "one"}
-	applyOnce(t, first)
-
-	second := resourcePlanExecutor(t, src, libs, store)
-	second.Inputs = map[string]any{"value": "two"}
-	plan, err := second.Plan(context.Background())
+	libraries := resourcePlanModules(counters)
+	source := resourcePlanFixture(t, "unknown-output")
+	executor := resourcePlanExecutor(t, source, libraries, store)
+	executor.Inputs = map[string]any{"value": "one"}
+	initial, err := executor.PlanV2(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.upstream").Decision)
-	downstream := findStep(t, plan, "resource.downstream")
+	_, err = executor.ApplyPlanV2(context.Background(), initial)
+	require.NoError(t, err)
+	executor.Inputs = map[string]any{"value": "two"}
+	plan, err := executor.PlanV2(context.Background())
+	require.NoError(t, err)
+	operations := map[string]*ResourcePlanOperation{}
+	for _, step := range plan.Steps {
+		operations[step.Address] = step.Operation.Resource
+	}
+	require.Contains(t, operations, "resource.upstream")
+	require.Equal(t, DecisionUpdate, operations["resource.upstream"].Decision)
+	require.Contains(t, operations, "resource.downstream")
+	downstream := operations["resource.downstream"]
 	require.Equal(t, DecisionUpdate, downstream.Decision)
-	require.Contains(t, downstream.UnresolvedInputs, "ref")
-	require.IsType(t, PendingValue{}, downstream.Inputs["ref"])
-
-	_, err = planAndApplyExisting(second, plan)
+	inputs, _ := downstream.Desired.Inputs.ObjectFields()
+	refs, pending := inputs["ref"].PendingRefs()
+	require.True(t, pending)
+	require.Equal(t, []string{"resource.upstream.version"}, refs)
+	_, err = executor.ApplyPlanV2(context.Background(), plan)
 	require.NoError(t, err)
 	require.EqualValues(t, 1, counters.consumerUpdates)
 	require.Equal(t, "version-two", counters.consumerRef.Load())
@@ -289,8 +301,16 @@ func resourcePlanExecutor(
 	store state.Backend,
 ) *Executor {
 	t.Helper()
-	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
-	return applyPlanTestExecutor(t, src, libs, store, stack)
+	catalog, err := NewLibraryCatalog([]LibraryRegistration{
+		{LibraryPath: "example.com/resource-plan", New: func() *Library { return libs["core"] }},
+	})
+	require.NoError(t, err)
+	dag, body := syntaxDAGAndBody(t, src, libs)
+	return &Executor{DAG: dag, SyntaxSource: body, Libraries: libs, LibraryCatalog: catalog,
+		Store: store, Factory: state.FactoryInfo{
+			Name: "test-stack", Version: "v0", ContentRevision: "c0",
+		},
+	}
 }
 
 func resourcePlanFixture(t testing.TB, name string) string {
