@@ -1,0 +1,26 @@
+inputs: { name: { type: string }, size: { type: integer } }
+library-configs: {
+  cloud: {
+    endpoint: 'same'
+    credentials: { token: 'secret', empty: [] }
+    servers: ['first', 'second']
+    labels: { '01': 'numeric-secret', 'a/b~': 'label-secret', plain: 'visible' }
+    nullable: null
+  }
+}
+data-sources: {
+  settings: cloud.lookup { name: 'settings' }
+}
+resources: {
+  main: cloud.server { name: input.name, size: input.size }
+  many: cloud.server {
+    @for-each: data-source.settings.sizes
+    name: 'server'
+    size: @each.value
+  }
+  child: cloud.server { name: resource.main.value, size: 1 }
+}
+actions: {
+  notify: cloud.lookup { name: resource.main.value }
+}
+outputs: { value: { value: resource.main.value } }

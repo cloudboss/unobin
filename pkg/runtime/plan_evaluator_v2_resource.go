@@ -62,6 +62,9 @@ func (e *Executor) planEvaluationV2ResourceTarget(
 	if err != nil {
 		return nil, fmt.Errorf("%s: resource inputs: %w", node.Address, err)
 	}
+	if err := e.checkPlanEvaluationV2Constraints(node, inputs); err != nil {
+		return nil, err
+	}
 	sensitivity := e.sensitivityAnalyzer()
 	target := PlannedResourceTarget{
 		Binding:       binding,

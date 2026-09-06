@@ -91,6 +91,17 @@ func CheckConstraints(
 	evalAgainstInputs ConstraintEvalFunc,
 	display FieldDisplay,
 ) *ErrorList {
+	return CheckPartialConstraints(block, values, evalAgainstInputs, display, nil)
+}
+
+// CheckPartialConstraints defers rules that read an unresolved input field.
+func CheckPartialConstraints(
+	block *ArrayLit,
+	values map[string]any,
+	evalAgainstInputs ConstraintEvalFunc,
+	display FieldDisplay,
+	deferred map[string]bool,
+) *ErrorList {
 	errs := NewErrorList(0)
 	if block == nil {
 		return errs
@@ -101,7 +112,7 @@ func CheckConstraints(
 			continue
 		}
 		c, ok := readConstraint(obj)
-		if !ok {
+		if !ok || c.ReadsAny(deferred) {
 			continue
 		}
 		checkEntry(i, c, values, evalAgainstInputs, display, errs)

@@ -1,0 +1,3 @@
+inputs: { name: { type: string } }
+resources: { leaf: cloud.plain { name: input.name } }
+outputs: { label: { value: input.name } }

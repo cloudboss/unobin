@@ -61,6 +61,9 @@ func (e *Executor) planEvaluationV2CompositeTarget(
 	if err != nil {
 		return nil, fmt.Errorf("%s: composite inputs: %w", node.Address, err)
 	}
+	if err := e.checkPlanEvaluationV2Constraints(node, inputs); err != nil {
+		return nil, err
+	}
 	sensitivity := e.sensitivityAnalyzer()
 	target := PlannedCompositeTarget{
 		Category: node.Kind,

@@ -84,6 +84,9 @@ func (e *Executor) planEvaluationV2ActionTarget(
 	if err != nil {
 		return nil, fmt.Errorf("%s: action inputs: %w", node.Address, err)
 	}
+	if err := e.checkPlanEvaluationV2Constraints(node, inputs); err != nil {
+		return nil, err
+	}
 	trigger, err := planEvaluationV2ActionTrigger(node, binding, inputs, scope)
 	if err != nil {
 		return nil, fmt.Errorf("%s: action trigger: %w", node.Address, err)

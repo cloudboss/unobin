@@ -1,0 +1,5 @@
+inputs: { name: { type: string } }
+constraints: [
+  { kind: predicate, when: true, require: input.name != '', message: 'name is required' },
+  { kind: predicate, when: true, require: false, message: 'independent rule rejected' }
+]

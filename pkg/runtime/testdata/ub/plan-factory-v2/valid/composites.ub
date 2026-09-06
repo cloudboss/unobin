@@ -1,0 +1,6 @@
+resources: {
+  apps: app.box { @for-each: { 'a/b': 'first', z: 'second' }, name: @each.value }
+}
+data-sources: { single: app.box { name: 'data' } }
+actions: { single: app.box { name: 'action' } }
+outputs: { value: { value: resource.apps['a/b'].label } }

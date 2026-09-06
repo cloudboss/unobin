@@ -279,7 +279,8 @@ func TestPreparePlanEvaluationV2SeedsNestedInstances(t *testing.T) {
 			"blue": map[string]any{"url": "https://example.com"},
 		},
 	}, evaluation.run.eval.Resources)
-	scope := evaluation.run.composites["resource.apps['blue']"]
+	scope, err := executor.ensureCompositeScope(evaluation.run, "resource.apps['blue']")
+	require.NoError(t, err)
 	require.NotNil(t, scope)
 	require.Equal(t, map[string]any{"name": "primary"}, scope.Inputs)
 	require.Equal(t, map[string]any{

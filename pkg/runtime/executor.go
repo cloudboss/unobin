@@ -305,11 +305,12 @@ type ExecResult struct {
 }
 
 type runState struct {
-	eval     *EvalContext
-	outputs  map[string]any
-	prior    *state.Snapshot
-	next     *state.Snapshot
-	planning bool
+	eval                *EvalContext
+	outputs             map[string]any
+	prior               *state.Snapshot
+	next                *state.Snapshot
+	partialEvaluation   bool
+	initializeComposite func(string, *EvalContext) error
 
 	// order is the DAG's topological order, computed once per run.
 	// Plan's walk and per-instance composite expansion both follow it.
@@ -499,9 +500,9 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 			fmt.Sprintf("composite %s: build parent scope", callSite), err,
 		)
 	}
-	setAddr, instKey := splitInstanceAddress(callSite)
+	setAddr, instKey, keyed := splitEntryKey(callSite)
 	bodyScope := parent
-	if instKey != "" {
+	if keyed {
 		instances, err := forEachInstancesFor(rs, setAddr, boundary.ForEach, parent)
 		if err != nil {
 			return nil, diagnostic.Context(
@@ -515,7 +516,7 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 		bodyScope = childScopeWithEach(parent, instKey, value)
 	}
 	var args map[string]any
-	if rs.planning {
+	if rs.partialEvaluation {
 		args, _, err = planEvalBody(boundary.Body, bodyScope)
 	} else {
 		args, err = evalBody(boundary.Body, bodyScope)
@@ -538,6 +539,11 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 		Assets:     assets,
 		AssetCache: e.AssetCache,
 		locals:     compositeLocalScope(boundary),
+	}
+	if rs.initializeComposite != nil {
+		if err := rs.initializeComposite(callSite, scope); err != nil {
+			return nil, err
+		}
 	}
 	rs.composites[callSite] = scope
 	return scope, nil
@@ -756,7 +762,7 @@ func forEachInstancesFor(
 	if instances, ok := rs.forEachInstances[templateAddr]; ok {
 		return instances, nil
 	}
-	instances, err := evalForEach(expr, scope)
+	instances, err := evalForEach(expr, scope, rs.partialEvaluation)
 	if err != nil {
 		return nil, err
 	}
@@ -767,8 +773,18 @@ func forEachInstancesFor(
 // evalForEach reduces a `@for-each:` expression to the iterable's
 // key-value pairs. Only a map iterates: each instance needs a stable
 // key, which a list's positions cannot provide.
-func evalForEach(expr lang.Expr, scope *EvalContext) (map[string]any, error) {
-	v, err := Eval(expr, scope)
+func evalForEach(expr lang.Expr, scope *EvalContext, allowPending bool) (map[string]any, error) {
+	var v any
+	var err error
+	if allowPending {
+		var locals map[string]lang.Expr
+		if scope != nil && scope.locals != nil {
+			locals = scope.locals.exprs
+		}
+		v, _, err = partialValue(expr, scope, locals)
+	} else {
+		v, err = Eval(expr, scope)
+	}
 	if err != nil {
 		return nil, diagnostic.Context("@for-each", err)
 	}

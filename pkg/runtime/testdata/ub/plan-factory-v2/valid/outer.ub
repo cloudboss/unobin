@@ -1,0 +1,5 @@
+inputs: { name: { type: string } }
+resources: {
+  boxes: inner.box { @for-each: { '': input.name }, name: @each.value }
+}
+outputs: { label: { value: resource.boxes[''].label } }

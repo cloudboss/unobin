@@ -1,0 +1,5 @@
+resources: {
+  upstream: cloud.plain { name: 'first' }
+  app: app.box { name: resource.upstream.name }
+}
+outputs: { value: { value: resource.app.label } }

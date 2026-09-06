@@ -1,0 +1,5 @@
+data-sources: { settings: cloud.lookup { name: 'settings' } }
+resources: {
+  apps: app.box { @for-each: data-source.settings.sizes, name: @each.key }
+}
+outputs: { value: { value: resource.apps['blue'].label } }

@@ -81,6 +81,9 @@ func (e *Executor) planEvaluationV2DataSourceTarget(
 	if err != nil {
 		return nil, fmt.Errorf("%s: data-source inputs: %w", node.Address, err)
 	}
+	if err := e.checkPlanEvaluationV2Constraints(node, inputs); err != nil {
+		return nil, err
+	}
 	sensitivity := e.sensitivityAnalyzer()
 	target := PlannedDataSourceTarget{
 		Binding:       binding,

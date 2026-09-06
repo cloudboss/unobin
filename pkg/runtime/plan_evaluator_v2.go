@@ -46,7 +46,7 @@ func (e *Executor) preparePlanEvaluationV2(
 		return nil, fmt.Errorf("version 2 snapshot: %w", err)
 	}
 	if e.LibraryCatalog != nil {
-		if err := e.validatePlanEvaluationV2ResourceBindings(snapshot); err != nil {
+		if err := e.validatePlanEvaluationV2Bindings(snapshot); err != nil {
 			return nil, err
 		}
 	}
@@ -64,6 +64,7 @@ func (e *Executor) preparePlanEvaluationV2(
 	if err != nil {
 		return nil, err
 	}
+	run.partialEvaluation = true
 	evaluation := &planEvaluationV2{
 		run:            run,
 		prior:          prior,
@@ -287,8 +288,23 @@ func (e *Executor) seedPlanEvaluationV2(
 	evaluation *planEvaluationV2,
 	pass *planningPassState,
 ) error {
+	evaluation.run.initializeComposite = func(address string, scope *EvalContext) error {
+		return seedPlanEvaluationV2Scope(evaluation, pass, address, scope)
+	}
+	return seedPlanEvaluationV2Scope(evaluation, pass, "", evaluation.run.eval)
+}
+
+func seedPlanEvaluationV2Scope(
+	evaluation *planEvaluationV2,
+	pass *planningPassState,
+	address string,
+	scope *EvalContext,
+) error {
 	for i := range evaluation.prior.Entries {
 		entry := evaluation.prior.Entries[i]
+		if DirectParent(entry.Address) != address {
+			continue
+		}
 		if entry.Kind == state.StateResource && pass.outputsInvalidated(entry.Address) {
 			continue
 		}
@@ -301,16 +317,9 @@ func (e *Executor) seedPlanEvaluationV2(
 		if err != nil {
 			return fmt.Errorf("%s: %w", entry.Address, err)
 		}
-		scope, err := e.scopeForAddress(evaluation.run, entry.Address)
-		if err != nil {
-			return fmt.Errorf("%s: prepare evaluation scope: %w", entry.Address, err)
-		}
-		if scope == nil {
-			continue
-		}
 		target := scopeMapForKind(scope, kind)
-		template, key := splitInstanceAddress(entry.Address)
-		if key == "" {
+		template, key, keyed := splitEntryKey(entry.Address)
+		if !keyed {
 			seedAddress(target, template, decoded)
 		} else {
 			seedAddressInstance(target, template, key, decoded)

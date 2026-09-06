@@ -7,14 +7,14 @@ func publishPlanEvaluationV2Outputs(
 	address string,
 	outputs *EncodedValue,
 ) error {
-	template, key := splitInstanceAddress(address)
+	template, key, keyed := splitEntryKey(address)
 	if outputs != nil {
 		fields, _ := outputs.ObjectFields()
 		decoded, err := decodeConcreteObjectFields(fields, "planning output")
 		if err != nil {
 			return fmt.Errorf("%s: %w", address, err)
 		}
-		if key == "" {
+		if !keyed {
 			seedAddress(values, template, decoded)
 		} else {
 			seedAddressInstance(values, template, key, decoded)
@@ -22,7 +22,7 @@ func publishPlanEvaluationV2Outputs(
 		return nil
 	}
 	path, _ := addressValuePath(template)
-	if key != "" {
+	if keyed {
 		path = append(path, key)
 	}
 	for _, name := range path[:len(path)-1] {

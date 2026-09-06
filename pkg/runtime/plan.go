@@ -507,7 +507,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	liveAddresses := make(map[string]bool)
 	var constraintErrs []error
 	if !e.Destroy {
-		rs.planning = true
+		rs.partialEvaluation = true
 		rs.plannedByTemplate = map[string][]*PlanStep{}
 		for _, addr := range rs.order {
 			node := e.DAG.Nodes[addr]
