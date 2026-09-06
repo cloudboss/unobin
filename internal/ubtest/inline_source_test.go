@@ -148,7 +148,8 @@ func findInlineUBSources(root string, greenlist map[string]bool) ([]inlineUBFind
 }
 
 func ignoredInlineUBScannerDir(name string) bool {
-	return strings.HasPrefix(name, ".") || name == "vendor" || name == "testdata"
+	return strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") ||
+		name == "vendor" || name == "node_modules" || name == "testdata"
 }
 
 func inlineUBSourcesInFile(path, rel string) ([]inlineUBFinding, error) {

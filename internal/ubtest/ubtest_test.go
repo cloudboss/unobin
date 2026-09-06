@@ -152,7 +152,9 @@ func TestUBFixturesUseProjectLayout(t *testing.T) {
 			return err
 		}
 		if d.IsDir() {
-			if path != root && strings.HasPrefix(d.Name(), ".") {
+			name := d.Name()
+			if path != root && (strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") ||
+				name == "vendor" || name == "node_modules") {
 				return filepath.SkipDir
 			}
 			return nil

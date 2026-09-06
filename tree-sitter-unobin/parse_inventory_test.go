@@ -45,8 +45,9 @@ func collectValidUnobinSourceFiles(t *testing.T) []string {
 			return err
 		}
 		if d.IsDir() {
-			switch d.Name() {
-			case ".git", "node_modules":
+			name := d.Name()
+			if path != repoRoot && (strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") ||
+				name == "vendor" || name == "node_modules") {
 				return filepath.SkipDir
 			}
 			return nil
