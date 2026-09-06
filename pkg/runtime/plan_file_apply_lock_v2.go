@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -108,8 +109,17 @@ func applyPlanFileV2WithStateLock(
 	if err != nil {
 		return nil, err
 	}
+	failureStage := ApplyFailureSetup
 	defer func() {
-		err = release(err)
+		unlockErr := release(nil)
+		if unlockErr == nil {
+			return
+		}
+		if failure, ok := AsApplyFailure(err); ok {
+			err = NewApplyFailure(failure.Stage, errors.Join(failure.Cause, unlockErr))
+		} else {
+			err = NewApplyFailure(failureStage, errors.Join(err, unlockErr))
+		}
 	}()
 
 	currentRevision, err := checkedCurrentRevision(store)
@@ -135,6 +145,7 @@ func applyPlanFileV2WithStateLock(
 	if err := applyPlanFileV2(ctx, applyState, start, plan, callbacks); err != nil {
 		return nil, err
 	}
+	failureStage = ApplyFailureFinalize
 	finalSnapshot, err := applyState.snapshotCopy()
 	if err != nil {
 		return nil, fmt.Errorf("copy applied version 2 snapshot: %w", err)

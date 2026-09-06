@@ -611,3 +611,44 @@ func (l *applyPlanFileV2Lock) Unlock() error {
 	l.backend.locked = false
 	return l.backend.unlockErr
 }
+
+func TestApplyPlanFileV2ReportsUnlockFailureAfterSuccess(t *testing.T) {
+	plan := applyPlanFileV2Plan(t, "resource.old", "resource.api")
+	expected := errors.New("unlock unavailable")
+	backend := &applyPlanFileV2LockBackend{
+		stack: plan.Stack, revision: plan.StateRevision, unlockErr: expected,
+	}
+	backend.snapshots = noopApplyPlanFileV2SnapshotCallbacks(
+		func(string) (*state.SnapshotV2, error) { return applyPlanFileV2Snapshot(t), nil },
+	)
+	_, err := applyPlanFileV2WithStateLock(context.Background(), backend,
+		applyPlanFileV2Factory(plan), plan,
+		applyPlanFileV2Callbacks(func(context.Context, *applyStateV2, PlanStepV2) error {
+			return nil
+		}),
+	)
+	var unlock *StateUnlockError
+	require.ErrorAs(t, err, &unlock)
+	require.ErrorIs(t, unlock.Cause, expected)
+	failure, ok := AsApplyFailure(err)
+	require.True(t, ok)
+	require.Equal(t, ApplyFailureFinalize, failure.Stage)
+}
+
+func TestApplyPlanFileV2PreservesSetupFailureWhenUnlockFails(t *testing.T) {
+	plan := applyPlanFileV2Plan(t, "resource.old", "resource.api")
+	backend := &applyPlanFileV2LockBackend{
+		stack: plan.Stack, revision: "changed", unlockErr: errors.New("unlock unavailable"),
+	}
+	_, err := applyPlanFileV2WithStateLock(context.Background(), backend,
+		applyPlanFileV2Factory(plan), plan,
+		applyPlanFileV2Callbacks(func(context.Context, *applyStateV2, PlanStepV2) error {
+			t.Fatal("provider called after setup failed")
+			return nil
+		}),
+	)
+	require.ErrorContains(t, err, "state revision changed")
+	failure, ok := AsApplyFailure(err)
+	require.True(t, ok)
+	require.Equal(t, ApplyFailureSetup, failure.Stage)
+}

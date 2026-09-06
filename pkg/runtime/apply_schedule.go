@@ -291,12 +291,18 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 func countTransitiveSkipped(
 	g *stepGraph, addr string, dispatched, failed map[string]bool,
 ) int {
+	return countUndispatchedDependents(g.dependents, addr, dispatched, failed)
+}
+
+func countUndispatchedDependents(
+	dependents map[string][]string, addr string, dispatched, failed map[string]bool,
+) int {
 	seen := map[string]bool{}
 	queue := []string{addr}
 	for len(queue) > 0 {
 		cur := queue[0]
 		queue = queue[1:]
-		for _, dep := range g.dependents[cur] {
+		for _, dep := range dependents[cur] {
 			if seen[dep] || dispatched[dep] || failed[dep] {
 				continue
 			}

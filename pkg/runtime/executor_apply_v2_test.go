@@ -158,7 +158,9 @@ func newFactoryApplyExecutor(t *testing.T, capture *factoryApplyCapture) *Execut
 	catalog, err := NewLibraryCatalog([]LibraryRegistration{
 		{LibraryPath: "example.com/seed", New: func() *Library {
 			return &Library{Resources: map[string]ResourceRegistration{
-				"plain": MakeResource[plainResource, *plainResourceOutput, any](plainResourceDefinition()),
+				"plain": MakeResource[plainResource, *plainResourceOutput, any](
+					plainResourceDefinition(),
+				),
 			}}
 		}},
 		{LibraryPath: "example.com/cloud", New: func() *Library {
@@ -440,4 +442,68 @@ func TestExecutorApplyPlanV2ResolvesDeferredConfigurations(t *testing.T) {
 	target := snapshot.Find("resource.main").Payload.Resource.Target
 	fields, _ := target.Configuration.Value.ObjectFields()
 	require.Equal(t, StringValue("configured"), fields["endpoint"])
+}
+
+func TestExecutorApplyPlanV2DrainsAndReportsCompletedWork(t *testing.T) {
+	drain := make(chan struct{})
+	capture := &factoryApplyCapture{create: func(ctx context.Context, name string) error {
+		if name == "main" {
+			close(drain)
+		}
+		return ctx.Err()
+	}}
+	executor := newFactoryApplyExecutor(t, capture)
+	executor.Parallelism = 1
+	executor.Drain = drain
+	events := make(chan ApplyEvent, 20)
+	executor.Events = events
+	plan, err := executor.PlanV2(context.Background())
+	require.NoError(t, err)
+	_, err = executor.ApplyPlanV2(context.Background(), plan)
+	require.ErrorIs(t, err, ErrInterrupted)
+	failure, ok := AsApplyFailure(err)
+	require.True(t, ok)
+	require.Equal(t, ApplyFailureExecute, failure.Stage)
+	revision, err := executor.Store.CurrentRev()
+	require.NoError(t, err)
+	snapshot, err := executor.Store.(state.SnapshotBackendV2).GetV2(revision)
+	require.NoError(t, err)
+	require.NotNil(t, snapshot.Find("resource.main"))
+	require.Nil(t, snapshot.Find("resource.child"))
+	require.Zero(t, capture.runs)
+	close(events)
+	stages := map[string][]ApplyStage{}
+	for event := range events {
+		stages[event.Address] = append(stages[event.Address], event.Stage)
+	}
+	require.Equal(t, []ApplyStage{StageStart, StageDone}, stages["resource.main"])
+	require.NotContains(t, stages, "resource.child")
+}
+
+func TestExecutorApplyPlanV2ReportsProviderTimeout(t *testing.T) {
+	capture := &factoryApplyCapture{create: func(ctx context.Context, name string) error {
+		if name == "main" {
+			<-ctx.Done()
+		}
+		return ctx.Err()
+	}}
+	executor := newFactoryApplyExecutor(t, capture)
+	executor.DAG.Nodes["resource.main"].Timeout = 5 * time.Millisecond
+	executor.Parallelism = 1
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	plan, err := executor.PlanV2(ctx)
+	require.NoError(t, err)
+	_, err = executor.ApplyPlanV2(ctx, plan)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	failure, ok := AsApplyFailure(err)
+	require.True(t, ok)
+	require.Equal(t, ApplyFailureExecute, failure.Stage)
+	var stepError *ApplyError
+	require.ErrorAs(t, err, &stepError)
+	require.Equal(t, "resource.main", stepError.Address)
+	require.Equal(t, "example.com/cloud", stepError.LibraryPath)
+	require.Equal(t, "cloud", stepError.Alias)
+	require.Equal(t, DecisionCreate, stepError.Decision)
+	require.Less(t, stepError.Elapsed, time.Second)
 }

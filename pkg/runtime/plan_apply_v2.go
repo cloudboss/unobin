@@ -12,6 +12,7 @@ type planStepV2ApplyCallback func(
 ) error
 
 type applyPlanStepsV2Callbacks struct {
+	Schedule             applyScheduleV2Options
 	Prepare              func(context.Context, *applyStateV2) error
 	Resource             planStepV2ApplyCallback
 	Action               planStepV2ApplyCallback
@@ -45,10 +46,11 @@ func applyPlanStepsV2(
 		}
 	}
 
-	if err := runApplyScheduleV2(
+	if err := runApplyScheduleV2WithOptions(
 		ctx,
 		steps,
 		parallelism,
+		callbacks.Schedule,
 		func(ctx context.Context, step PlanStepV2) error {
 			if step.Operation.Kind == StepOutput {
 				return nil
@@ -60,10 +62,12 @@ func applyPlanStepsV2(
 			return nil
 		},
 	); err != nil {
-		return err
+		return NewApplyFailure(ApplyFailureExecute, err)
 	}
-
-	return applyOutputSteps(ctx, applyState, outputSteps, callbacks.Output)
+	if err := applyOutputSteps(ctx, applyState, outputSteps, callbacks.Output); err != nil {
+		return NewApplyFailure(ApplyFailureFinalize, err)
+	}
+	return nil
 }
 
 func validateApplyPlanStepsV2(

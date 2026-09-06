@@ -12,7 +12,17 @@ import (
 )
 
 // ApplyPlanV2 executes the reviewed decisions against the recorded state revision.
-func (e *Executor) ApplyPlanV2(ctx context.Context, plan *PlanFileV2) (*ExecResult, error) {
+func (e *Executor) ApplyPlanV2(
+	ctx context.Context, plan *PlanFileV2,
+) (_ *ExecResult, err error) {
+	stage := ApplyFailureSetup
+	defer func() {
+		if err != nil {
+			if _, ok := AsApplyFailure(err); !ok {
+				err = NewApplyFailure(stage, err)
+			}
+		}
+	}()
 	if ctx == nil {
 		return nil, fmt.Errorf("apply context is required")
 	}
@@ -35,7 +45,8 @@ func (e *Executor) ApplyPlanV2(ctx context.Context, plan *PlanFileV2) (*ExecResu
 	}
 	result, err := applyPlanFileV2WithStateLock(ctx, e.Store, e.Factory, *plan,
 		applyPlanStepsV2Callbacks{
-			Prepare: apply.prepare, Resource: apply.resource, DataSource: apply.dataSource,
+			Schedule: applyScheduleV2Options{Nodes: e.DAG.Nodes, Drain: e.Drain, Events: e.Events},
+			Prepare:  apply.prepare, Resource: apply.resource, DataSource: apply.dataSource,
 			Action: apply.action, LibraryConfiguration: apply.configuration,
 			Composite: apply.composite, Output: apply.output,
 		},
@@ -43,6 +54,7 @@ func (e *Executor) ApplyPlanV2(ctx context.Context, plan *PlanFileV2) (*ExecResu
 	if err != nil {
 		return nil, err
 	}
+	stage = ApplyFailureFinalize
 	evaluation, err := apply.evaluation(result.Snapshot)
 	if err != nil {
 		return nil, err
