@@ -75,7 +75,3 @@ func (e *Executor) resolveAssetMap(logical map[string]any) (map[string]any, erro
 	}
 	return inputs, nil
 }
-
-func (e *Executor) decodeLibraryConfig(lib *Library, raw map[string]any) (any, error) {
-	return decodeLibraryConfigWith(lib, raw, e.resolveAssetMap)
-}

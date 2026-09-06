@@ -1,8 +1,6 @@
 package runtime
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -33,12 +31,9 @@ var ErrInstanceGone = errors.New("instance no longer in iterable")
 // value is given on the Executor or in the plan file.
 const DefaultParallelism = 10
 
-// Executor owns the parsed DAG, imported libraries, caller inputs,
-// and state backend. It exposes three lifecycle methods: Plan
-// computes a PlanStep slice against prior state without running
-// any CRUD, ApplyPlan executes a previously computed plan, and
-// Refresh reads each prior-state resource and writes back observed
-// outputs. Store and Stack must always be set.
+// Executor owns the factory graph, libraries, inputs, and state backend.
+// PlanV2 computes a saved plan, ApplyPlanV2 executes its reviewed decisions,
+// and RefreshV2 records current resource observations.
 type Executor struct {
 	DAG            *DAG
 	Libraries      map[string]*Library
@@ -59,14 +54,12 @@ type Executor struct {
 	PlanBackend *StateRefV2
 
 	// Parallelism caps the number of in-flight resource, data-source, and
-	// action steps during ApplyPlan. Zero or negative falls back to
-	// DefaultParallelism.
+	// action steps during ApplyPlanV2. Zero or negative uses the saved
+	// plan's limit, or DefaultParallelism when no limit was recorded.
 	Parallelism int
 
-	// Destroy makes Plan compute a teardown: every resource in prior
-	// state is planned for destroy and no outputs are evaluated. The
-	// source is still parsed and its configurations still resolve, so
-	// the deletes use the right credentials.
+	// Destroy makes PlanV2 remove recorded entries using their saved
+	// bindings and configurations, without evaluating root outputs.
 	Destroy bool
 
 	// Drain, when non-nil, lets the caller ask the scheduler to stop
@@ -77,10 +70,10 @@ type Executor struct {
 	Drain <-chan struct{}
 
 	// Events, when non-nil, receives one ApplyEvent per step stage
-	// during ApplyPlan: start when the scheduler hands the step to a
+	// during ApplyPlanV2: start when the scheduler hands the step to a
 	// worker, done or fail when the worker returns. The caller owns
 	// the channel and is responsible for sizing the buffer and
-	// closing it after ApplyPlan returns. A nil channel disables
+	// closing it after ApplyPlanV2 returns. A nil channel disables
 	// event emission.
 	Events chan<- ApplyEvent
 
@@ -90,13 +83,6 @@ type Executor struct {
 	// consumers read concurrently, so access goes through internalMu.
 	internalConfigurations map[string]any
 	internalMu             sync.Mutex
-
-	// priorInternalConfigurations holds internal configurations
-	// evaluated against the prior snapshot instead of the live run.
-	// The state-entry paths read it: refresh, destroy deletes, and
-	// orphan reads all operate on objects the last apply recorded, so
-	// they use the configuration those objects were written with.
-	priorInternalConfigurations map[string]any
 }
 
 // storeInternalConfiguration records the decoded value of an internal
@@ -119,140 +105,12 @@ func (e *Executor) internalConfiguration(addr string) (any, bool) {
 	return v, ok
 }
 
-func (e *Executor) priorInternalConfiguration(addr string) (any, bool) {
-	e.internalMu.Lock()
-	defer e.internalMu.Unlock()
-	v, ok := e.priorInternalConfigurations[addr]
-	return v, ok
-}
-
-// stateScope builds an evaluation context whose resource, data-source,
-// and action values come from a prior snapshot, for evaluating internal
-// configurations against what the last apply recorded. Only root
-// entries seed it: configurations are defined at the factory root and
-// cannot reference composite internals.
-func (e *Executor) stateScope(
-	prior *state.Snapshot,
-	inputs map[string]any,
-) (*EvalContext, error) {
-	rootAssets, err := e.rootAssetSet()
-	if err != nil {
-		return nil, err
-	}
-	scope := &EvalContext{
-		Inputs:     inputs,
-		Resources:  make(map[string]any),
-		Data:       make(map[string]any),
-		Actions:    make(map[string]any),
-		Libraries:  e.Libraries,
-		Assets:     rootAssets,
-		AssetCache: e.AssetCache,
-		locals:     e.rootLocalScope(),
-	}
-	if prior == nil {
-		return scope, nil
-	}
-	for _, ent := range prior.Entries {
-		if DirectParent(ent.Address) != "" {
-			continue
-		}
-		tmpl, instKey := splitInstanceAddress(ent.Address)
-		kind, _, _, _, ok := parseAddress(tmpl)
-		if !ok {
-			parts, found := addressParts(tmpl)
-			if !found {
-				continue
-			}
-			kind = NodeKind(parts[0])
-		}
-		target := scopeMapForKind(scope, NodeKind(kind))
-		if target == nil {
-			continue
-		}
-		attrs := mergeAttrs(ent.Inputs, ent.Outputs)
-		if instKey == "" {
-			seedAddress(target, tmpl, attrs)
-		} else {
-			seedAddressInstance(target, tmpl, instKey, attrs)
-		}
-	}
-	return scope, nil
-}
-
-// seedPriorInternalConfigurations evaluates every internal
-// configuration against the prior snapshot and keeps the decoded
-// values for the state-entry paths. A configuration whose sources are
-// not all in state is skipped: a consumer that needs it sees a nil
-// configuration, the same as an operator-side name that was never
-// supplied. Live consumers never read these values; the plan walk and
-// apply evaluate their own.
-func (e *Executor) seedPriorInternalConfigurations(
-	prior *state.Snapshot, inputs map[string]any,
-) error {
-	if prior == nil || e.DAG == nil {
-		return nil
-	}
-	var scope *EvalContext
-	for _, n := range e.DAG.Nodes {
-		if n.Kind != NodeLibraryConfig {
-			continue
-		}
-		if scope == nil {
-			var err error
-			scope, err = e.stateScope(prior, inputs)
-			if err != nil {
-				return err
-			}
-		}
-		raw, err := evalConfigurationBody(n.Body, scope)
-		if err != nil {
-			if errors.Is(err, ErrEvalNotFound) {
-				continue
-			}
-			return diagnostic.Context(n.Address, err)
-		}
-		lib, ok := e.librariesFor(n)[n.Alias]
-		if !ok || lib.Configuration == nil {
-			return fmt.Errorf("%s: library %q declares no configuration",
-				n.Address, n.Alias)
-		}
-		decoded, err := e.decodeLibraryConfig(lib, raw)
-		if err != nil {
-			return diagnostic.Context(n.Address, err)
-		}
-		e.internalMu.Lock()
-		if e.priorInternalConfigurations == nil {
-			e.priorInternalConfigurations = map[string]any{}
-		}
-		e.priorInternalConfigurations[n.Address] = decoded
-		e.internalMu.Unlock()
-	}
-	return nil
-}
-
 // effectiveParallelism returns the in-flight cap apply should honor.
 func (e *Executor) effectiveParallelism() int {
 	if e.Parallelism > 0 {
 		return e.Parallelism
 	}
 	return DefaultParallelism
-}
-
-// pendingInternalConfig reports whether n's alias config has not evaluated
-// this run. Reads gate on it at plan: a consumer must not reach its API with a
-// nil config just because the config expression's own upstream is mid-change.
-func (e *Executor) pendingInternalConfig(n *Node) (string, bool) {
-	if e.DAG == nil {
-		return "", false
-	}
-	addr, ok := libraryConfigNode(e.DAG.Nodes, n.Composite, n.Alias)
-	if !ok {
-		return "", false
-	}
-	if _, done := e.internalConfiguration(addr); done {
-		return "", false
-	}
-	return addr, true
 }
 
 // configFor returns the decoded config to pass to a CRUD call on the given
@@ -280,26 +138,8 @@ func emptyDecodedConfig(lib *Library) any {
 	return decoded
 }
 
-func (e *Executor) configForStateAddress(addr, alias string) (any, error) {
-	if e.DAG != nil {
-		scope := templateAddress(DirectParent(addr))
-		if configAddr, ok := libraryConfigNode(e.DAG.Nodes, scope, alias); ok {
-			if v, ok := e.priorInternalConfiguration(configAddr); ok {
-				return v, nil
-			}
-			if v, ok := e.internalConfiguration(configAddr); ok {
-				return v, nil
-			}
-			return nil, fmt.Errorf(
-				"library config %s could not be evaluated from prior state", configAddr)
-		}
-	}
-	return emptyDecodedConfig(e.librariesForAddress(addr)[alias]), nil
-}
-
-// ExecResult is what the Executor produces: the outputs map, the
-// Action and Data tables populated during the run, and the rev of the
-// snapshot written (empty when no Store was configured).
+// ExecResult contains evaluated outputs, action and data values, and
+// the revision written by apply.
 type ExecResult struct {
 	Outputs    map[string]any
 	Actions    map[string]any
@@ -308,10 +148,9 @@ type ExecResult struct {
 }
 
 type runState struct {
-	eval                *EvalContext
-	outputs             map[string]any
-	prior               *state.Snapshot
-	next                *state.Snapshot
+	eval    *EvalContext
+	outputs map[string]any
+
 	partialEvaluation   bool
 	initializeComposite func(string, *EvalContext) error
 
@@ -331,47 +170,6 @@ type runState struct {
 	// dependencies of every instance: their values settle before the
 	// first instance needs them and cannot change within the run.
 	forEachInstances map[string]map[string]any
-
-	// pendingReads queues per-resource Read calls collected during
-	// Plan's serial walk so Plan can fan them out across workers
-	// before finalizing decisions. Apply and Refresh leave this nil.
-	pendingReads []*pendingRead
-
-	// plannedByTemplate indexes the steps Plan's walk has emitted so
-	// far by template address, so a later node can ask whether an
-	// upstream it names has changes pending. The walk is topological,
-	// so a node's upstreams are always indexed before it plans. Apply
-	// and Refresh leave this nil.
-	plannedByTemplate map[string][]*PlanStep
-
-	// dependsOn maps each persisted step address to the addresses of
-	// the other entries it depends on, in instance form. ApplyPlan
-	// computes it once before dispatch and each apply method copies the
-	// relevant slice onto the state entry it writes. Destroy ordering
-	// reverses these edges.
-	dependsOn map[string][]string
-
-	// mu serializes mutation of eval, composites, next, and outputs,
-	// plus calls to Store.Write / Store.SetCurrent. Apply takes the
-	// lock around scope evaluation and around state writes; it is
-	// released for the duration of each library's CRUD call so cloud
-	// I/O runs in parallel across workers. Plan, Refresh, and the
-	// state subcommands are single-threaded and do not contend.
-	mu sync.Mutex
-}
-
-func (e *Executor) initRun() (*runState, error) {
-	rs, err := e.newEvaluationRunState(e.Inputs)
-	if err != nil {
-		return nil, err
-	}
-	rs.next = state.NewSnapshot(e.Factory, e.Store.Stack())
-	prior, err := e.Store.Current()
-	if err != nil && !errors.Is(err, state.ErrNoCurrent) {
-		return nil, err
-	}
-	rs.prior = prior
-	return rs, nil
 }
 
 func (e *Executor) newEvaluationRunState(inputs map[string]any) (*runState, error) {
@@ -420,17 +218,6 @@ func (e *Executor) assetSet(id string) (*asset.Set, error) {
 	return set, nil
 }
 
-// scopeFor returns the EvalContext n's body should be evaluated
-// against. Root scope for nodes outside a composite, the composite's
-// own scope otherwise. The composite scope's Inputs carry the call site
-// args and its Resources/Data/Actions hold sibling outputs.
-func (e *Executor) scopeFor(rs *runState, n *Node) (*EvalContext, error) {
-	if n.Composite == "" {
-		return rs.eval, nil
-	}
-	return e.ensureCompositeScope(rs, n.Composite)
-}
-
 // librariesFor returns the import table the runtime should resolve n's
 // library alias against. Top-level nodes use the executor's root
 // Libraries; composite-internal nodes use their boundary's Libraries so a
@@ -456,23 +243,6 @@ func compositeBodyLibraries(boundary *Node, fallback map[string]*Library) map[st
 		return boundary.Libraries
 	}
 	return fallback
-}
-
-// librariesForAddress is the orphan-path equivalent of librariesFor: it
-// resolves the import table for a state-only address whose source node
-// has been removed. The direct parent call site (everything up to the
-// last `/`) is consulted in the DAG; if its boundary is still present,
-// its Libraries are used. Otherwise the executor's root Libraries is
-// returned, which works whenever the parent composite type is still
-// imported at the stack root.
-func (e *Executor) librariesForAddress(addr string) map[string]*Library {
-	parent := DirectParent(addr)
-	if parent != "" {
-		if boundary, ok := e.DAG.Nodes[templateAddress(parent)]; ok && boundary.Libraries != nil {
-			return boundary.Libraries
-		}
-	}
-	return e.Libraries
 }
 
 // enclosingScope returns the scope enclosing a step or call-site
@@ -578,27 +348,6 @@ func DirectParent(addr string) string {
 	return ""
 }
 
-func (e *Executor) persist(rs *runState) (string, error) {
-	rs.next.GeneratedAt = time.Now().UTC()
-	rev, err := e.Store.Write(rs.next)
-	if err != nil {
-		return "", err
-	}
-	if err := e.Store.SetCurrent(rev); err != nil {
-		return "", err
-	}
-	return rev, nil
-}
-
-func (e *Executor) prepareApplySnapshot(rs *runState) {
-	if rs.prior == nil {
-		return
-	}
-	rs.next = cloneSnapshot(rs.prior)
-	rs.next.Factory = e.Factory
-	rs.next.Stack = e.Store.Stack()
-}
-
 func cloneSnapshot(s *state.Snapshot) *state.Snapshot {
 	out := state.NewSnapshot(s.Factory, s.Stack)
 	out.Outputs = cloneMap(s.Outputs)
@@ -648,50 +397,6 @@ func cloneValue(v any) any {
 	}
 }
 
-func upsertEntry(snap *state.Snapshot, ent *state.Entry) {
-	for i, existing := range snap.Entries {
-		if existing.Address == ent.Address {
-			snap.Entries[i] = ent
-			return
-		}
-	}
-	snap.Entries = append(snap.Entries, ent)
-}
-
-func removeEntry(snap *state.Snapshot, address string) {
-	for i, ent := range snap.Entries {
-		if ent.Address != address {
-			continue
-		}
-		snap.Entries = append(snap.Entries[:i], snap.Entries[i+1:]...)
-		return
-	}
-}
-
-func pruneStateEntries(snap *state.Snapshot, steps []PlanStep) {
-	keep := make(map[string]bool, len(steps))
-	for _, step := range steps {
-		if step.Decision == DecisionDestroy {
-			continue
-		}
-		if step.Composite {
-			keep[step.Address] = true
-			continue
-		}
-		switch step.Kind {
-		case NodeAction, NodeResource, NodeDataSource:
-			keep[step.Address] = true
-		}
-	}
-	out := snap.Entries[:0]
-	for _, ent := range snap.Entries {
-		if keep[ent.Address] {
-			out = append(out, ent)
-		}
-	}
-	snap.Entries = out
-}
-
 // scopeMapForKind returns the scope map a node's value belongs in,
 // chosen by its kind so references read it back under the matching
 // address root. An unset kind (the zero value, as in tests that build a
@@ -705,55 +410,6 @@ func scopeMapForKind(scope *EvalContext, kind NodeKind) map[string]any {
 	default:
 		return scope.Resources
 	}
-}
-
-// finalizeComposite closes a composite call site after its
-// internals have finished. It reads the composite body's `outputs:`
-// block against the per-instance scope (a non-for-each composite
-// has one instance, addressed at the template address itself),
-// exposes those outputs at the call site address in the boundary's
-// enclosing scope so its parent can reach them, and writes one
-// EntryLibraryCall record. instAddr is the address actually being
-// finalized: equal to n.Address for a plain composite, with a
-// trailing `['key']` for a `@for-each` instance. The scope's Inputs
-// are the call site arguments evaluated for this instance.
-func (e *Executor) finalizeComposite(
-	rs *runState, n *Node, instAddr string,
-	sensitiveInputs, sensitiveOutputs []string,
-) error {
-	rs.mu.Lock()
-	defer rs.mu.Unlock()
-	scope, err := e.ensureCompositeScope(rs, instAddr)
-	if err != nil {
-		return err
-	}
-	outputs, err := evalCompositeOutputs(n, scope)
-	if err != nil {
-		return err
-	}
-	parent, err := e.enclosingScope(rs, instAddr)
-	if err != nil {
-		return err
-	}
-	_, instKey := splitInstanceAddress(instAddr)
-	target := scopeMapForKind(parent, n.Kind)
-	if instKey == "" {
-		storeNested(target, n, outputs)
-	} else {
-		seedAddressInstance(target, n.Address, instKey, outputs)
-	}
-	upsertEntry(rs.next, &state.Entry{
-		Address:          instAddr,
-		Type:             state.EntryLibraryCall,
-		Category:         string(n.Kind),
-		Binding:          bindingForNode(n),
-		Inputs:           scope.Inputs,
-		Outputs:          outputs,
-		SensitiveInputs:  sensitiveInputs,
-		SensitiveOutputs: sensitiveOutputs,
-		DependsOn:        rs.dependsOn[instAddr],
-	})
-	return nil
 }
 
 // forEachInstancesFor returns a `@for-each` node's evaluated iterable,
@@ -828,52 +484,6 @@ func sortedKeys(m map[string]any) []string {
 	return keys
 }
 
-// sameInputs compares two input maps by their canonical JSON form so a
-// state round trip, which renders integers as floats, doesn't show up as
-// a change.
-func sameInputs(a, b map[string]any) bool {
-	// A nil map and an empty map are the same input set, but they
-	// marshal differently (null vs {}), so the byte compare below
-	// would call an empty body changed after a plan-file cycle.
-	if len(a) == 0 && len(b) == 0 {
-		return true
-	}
-	aj, err := json.Marshal(a)
-	if err != nil {
-		return false
-	}
-	bj, err := json.Marshal(b)
-	if err != nil {
-		return false
-	}
-	return bytes.Equal(aj, bj)
-}
-
-func sameValue(a, b any) bool {
-	aj, err := json.Marshal(a)
-	if err != nil {
-		return false
-	}
-	bj, err := json.Marshal(b)
-	if err != nil {
-		return false
-	}
-	return bytes.Equal(aj, bj)
-}
-
-// parseAddress reads the inner-most legacy node segment of addr and
-// splits it into its kind root, alias, type, and name. Only the final
-// segment is parsed, so the node is read relative to its direct
-// enclosing scope. A trailing `@for-each` instance key on that segment
-// is ignored.
-func parseAddress(addr string) (kind NodeKind, alias, typeName, name string, ok bool) {
-	parts, ok := addressParts(addr)
-	if !ok || len(parts) != 4 {
-		return "", "", "", "", false
-	}
-	return NodeKind(parts[0]), parts[1], parts[2], parts[3], true
-}
-
 func addressValuePath(addr string) ([]string, bool) {
 	parts, ok := addressParts(addr)
 	if !ok || len(parts) < 2 {
@@ -904,81 +514,6 @@ func bindingForNode(n *Node) *state.Binding {
 		return nil
 	}
 	return &state.Binding{Alias: n.Alias, LibraryPath: n.LibraryPath, Export: n.Type}
-}
-
-func bindingFromEntry(ent *state.Entry) *state.Binding {
-	if ent == nil || ent.Binding == nil {
-		return nil
-	}
-	return cloneBinding(ent.Binding)
-}
-
-func cloneBinding(sel *state.Binding) *state.Binding {
-	if sel == nil {
-		return nil
-	}
-	return &state.Binding{Alias: sel.Alias, LibraryPath: sel.LibraryPath, Export: sel.Export}
-}
-
-func bindingParts(sel *state.Binding) (alias, typeName string, ok bool) {
-	if sel == nil || sel.Alias == "" || sel.Export == "" {
-		return "", "", false
-	}
-	return sel.Alias, sel.Export, true
-}
-
-func sameBinding(a, b *state.Binding) bool {
-	if a == nil || b == nil {
-		return a == nil && b == nil
-	}
-	return a.Alias == b.Alias && a.LibraryPath == b.LibraryPath && a.Export == b.Export
-}
-
-func sameResourceImplementationKind(a, b *state.Binding) bool {
-	if a == nil || b == nil {
-		return false
-	}
-	if a.LibraryPath == "" || b.LibraryPath == "" {
-		return false
-	}
-	return a.LibraryPath == b.LibraryPath && a.Export == b.Export
-}
-
-func entryBindingParts(ent *state.Entry) (alias, typeName string, ok bool) {
-	if alias, typeName, ok := bindingParts(bindingFromEntry(ent)); ok {
-		return alias, typeName, true
-	}
-	return "", "", false
-}
-
-func stepBindingParts(step *PlanStep) (alias, typeName string, ok bool) {
-	if step == nil {
-		return "", "", false
-	}
-	if alias, typeName, ok := bindingParts(step.Binding); ok {
-		return alias, typeName, true
-	}
-	_, alias, typeName, _, ok = parseAddress(step.Address)
-	return alias, typeName, ok
-}
-
-func (e *Executor) resourceRegistrationForBinding(
-	addr string,
-	sel *state.Binding,
-) (ResourceRegistration, string, error) {
-	alias, typeName, ok := bindingParts(sel)
-	if !ok {
-		return nil, "", fmt.Errorf("missing binding for %q", addr)
-	}
-	lib, ok := e.librariesForAddress(addr)[alias]
-	if !ok {
-		return nil, "", fmt.Errorf("library %q is not imported", alias)
-	}
-	rt, ok := lib.Resources[typeName]
-	if !ok {
-		return nil, "", fmt.Errorf("library %s has no resource %q", alias, typeName)
-	}
-	return rt, alias, nil
 }
 
 // evalBody evaluates an object literal body to a map[string]any of input
@@ -1033,11 +568,6 @@ func mergeAttrs(inputs, outputs map[string]any) map[string]any {
 	maps.Copy(merged, inputs)
 	maps.Copy(merged, outputs)
 	return merged
-}
-
-// storeNested writes value at the node's reference path.
-func storeNested(target map[string]any, n *Node, value map[string]any) {
-	seedAddress(target, n.Address, value)
 }
 
 func getOrCreate(m map[string]any, key string) map[string]any {

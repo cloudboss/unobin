@@ -1,125 +1,13 @@
 package runtime
 
 import (
-	"context"
-	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/internal/ubtest"
-	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
-
-type concurrencyTracker struct {
-	current atomic.Int64
-	peak    atomic.Int64
-}
-
-func (c *concurrencyTracker) enter() {
-	now := c.current.Add(1)
-	for {
-		peak := c.peak.Load()
-		if now <= peak {
-			return
-		}
-		if c.peak.CompareAndSwap(peak, now) {
-			return
-		}
-	}
-}
-
-func (c *concurrencyTracker) leave() {
-	c.current.Add(-1)
-}
-
-type slowAction struct {
-	Delay int64 `ub:"delay-ms"`
-	track *concurrencyTracker
-}
-
-func (a *slowAction) Run(ctx context.Context, _ any) (any, error) {
-	a.track.enter()
-	defer a.track.leave()
-	select {
-	case <-time.After(time.Duration(a.Delay) * time.Millisecond):
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-	return map[string]any{}, nil
-}
-
-func slowActionModules(track *concurrencyTracker) map[string]*Library {
-	return map[string]*Library{
-		"core": {
-			Name: "core",
-			Actions: map[string]ActionRegistration{
-				"slow": MakeActionWith[slowAction, any, any](
-					func() *slowAction { return &slowAction{track: track} },
-				),
-			},
-		},
-	}
-}
-
-func TestApplyScheduleLockSerializesNamedActions(t *testing.T) {
-	var track concurrencyTracker
-	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-lock", "shared-actions")
-	libs := slowActionModules(&track)
-	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
-	exec := &Executor{
-		DAG:          dag,
-		SyntaxSource: syntaxSource,
-		Libraries:    libs,
-		Store:        newStateStore(t),
-		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism:  4,
-	}
-	_, err := planAndApply(exec)
-	require.NoError(t, err)
-	assert.Equal(t, int64(1), track.peak.Load(),
-		"actions sharing a lock must not run concurrently")
-}
-
-func TestApplyScheduleDistinctLocksRunInParallel(t *testing.T) {
-	var track concurrencyTracker
-	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-lock", "distinct-actions")
-	libs := slowActionModules(&track)
-	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
-	exec := &Executor{
-		DAG:          dag,
-		SyntaxSource: syntaxSource,
-		Libraries:    libs,
-		Store:        newStateStore(t),
-		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism:  4,
-	}
-	_, err := planAndApply(exec)
-	require.NoError(t, err)
-	assert.Equal(t, int64(3), track.peak.Load(),
-		"distinct lock names should not serialize independent actions")
-}
-
-func TestApplyScheduleUnlockedActionRunsAlongsideLocked(t *testing.T) {
-	var track concurrencyTracker
-	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-lock", "unlocked-action")
-	libs := slowActionModules(&track)
-	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
-	exec := &Executor{
-		DAG:          dag,
-		SyntaxSource: syntaxSource,
-		Libraries:    libs,
-		Store:        newStateStore(t),
-		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism:  4,
-	}
-	_, err := planAndApply(exec)
-	require.NoError(t, err)
-	assert.Equal(t, int64(2), track.peak.Load(),
-		"the unlocked action should run alongside one locked action")
-}
 
 func TestExtractLockName(t *testing.T) {
 	tests := []struct {

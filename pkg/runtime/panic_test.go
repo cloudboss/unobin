@@ -5,11 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/cloudboss/unobin/internal/ubtest"
-	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
 // panicResource panics in every CRUD method so the boundary guard can
@@ -52,55 +48,6 @@ func (r *panicResource) Update(
 
 func (r *panicResource) Delete(context.Context, any, *panicResourceOutput) error {
 	panic("boom in delete")
-}
-
-// createPanicResource panics only in Create and reports absence from
-// Read, so a plan for a fresh resource reaches apply without tripping
-// the guard during the plan-time read.
-type createPanicResource struct {
-	Name string
-}
-
-type createPanicResourceOutput struct{ Name string }
-
-func createPanicResourceDefinition() ResourceDefinition[
-	createPanicResource,
-	*createPanicResourceOutput,
-	any,
-] {
-	return ResourceDefinition[
-		createPanicResource,
-		*createPanicResourceOutput,
-		any,
-	]{
-		SchemaVersion: 1,
-		Identity: ResourceIdentity[createPanicResource, *createPanicResourceOutput]{
-			Version: 1,
-			Scope:   IdentityConfiguration,
-		},
-	}
-}
-
-func (r *createPanicResource) Create(context.Context, any) (*createPanicResourceOutput, error) {
-	panic("boom in create")
-}
-
-func (r *createPanicResource) Read(
-	context.Context,
-	any,
-	*createPanicResourceOutput,
-) (*createPanicResourceOutput, error) {
-	return nil, ErrNotFound
-}
-
-func (r *createPanicResource) Update(
-	context.Context, any, Prior[createPanicResource, *createPanicResourceOutput],
-) (*createPanicResourceOutput, error) {
-	return nil, nil
-}
-
-func (r *createPanicResource) Delete(context.Context, any, *createPanicResourceOutput) error {
-	return nil
 }
 
 // migratePanicResource reports a newer schema version than its recorded
@@ -150,57 +97,6 @@ func (r *migratePanicResource) Update(
 }
 
 func (r *migratePanicResource) Delete(context.Context, any, *migratePanicResourceOutput) error {
-	return nil
-}
-
-type schemaPanicResource struct {
-	Name string
-}
-
-type schemaPanicResourceOutput struct{ Name string }
-
-type schemaPanicRegistration struct {
-	ResourceRegistration
-}
-
-func (schemaPanicRegistration) SchemaVersion() int { panic("boom in schema-version") }
-
-func schemaPanicResourceDefinition() ResourceDefinition[
-	schemaPanicResource,
-	*schemaPanicResourceOutput,
-	any,
-] {
-	return ResourceDefinition[
-		schemaPanicResource,
-		*schemaPanicResourceOutput,
-		any,
-	]{
-		SchemaVersion: 1,
-		Identity: ResourceIdentity[schemaPanicResource, *schemaPanicResourceOutput]{
-			Version: 1,
-			Scope:   IdentityConfiguration,
-		},
-	}
-}
-func (r *schemaPanicResource) Create(context.Context, any) (*schemaPanicResourceOutput, error) {
-	return &schemaPanicResourceOutput{Name: r.Name}, nil
-}
-
-func (r *schemaPanicResource) Read(
-	context.Context,
-	any,
-	*schemaPanicResourceOutput,
-) (*schemaPanicResourceOutput, error) {
-	return nil, ErrNotFound
-}
-
-func (r *schemaPanicResource) Update(
-	context.Context, any, Prior[schemaPanicResource, *schemaPanicResourceOutput],
-) (*schemaPanicResourceOutput, error) {
-	return nil, nil
-}
-
-func (r *schemaPanicResource) Delete(context.Context, any, *schemaPanicResourceOutput) error {
 	return nil
 }
 
@@ -347,85 +243,4 @@ func TestMigrateEntryPanicNamesLibrary(t *testing.T) {
 	_, err := migrateEntry(reg, "boom", 1, MigrationState{})
 	pe := requirePanicError(t, err, "boom in migrate")
 	require.Equal(t, "boom", pe.Library)
-}
-
-// TestApplyResourcePanicBecomesApplyError is the end-to-end case: a
-// library that panics in Create no longer crashes the process. The
-// panic is recovered at the boundary, flows back through the scheduler
-// as an ApplyError, and unwraps to the PanicError, so the lock releases
-// and the operator gets a re-plannable failure.
-func TestApplyResourcePanicBecomesApplyError(t *testing.T) {
-	libs := map[string]*Library{
-		"boom": {
-			Name: "boom",
-			Resources: map[string]ResourceRegistration{
-				"it": MakeResource[createPanicResource, *createPanicResourceOutput, any](
-					createPanicResourceDefinition(),
-				),
-			},
-		},
-	}
-	dag, syntaxSource := syntaxDAGAndBody(t,
-		ubtest.ReadValidFixture(t, "testdata/ub/panic", "resource"), libs)
-	exec := &Executor{
-		DAG:          dag,
-		SyntaxSource: syntaxSource,
-		Libraries:    libs,
-		Store:        newStateStore(t),
-		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism:  1,
-	}
-	_, err := planAndApply(exec)
-	require.Error(t, err)
-
-	var ae *ApplyError
-	require.True(t, errors.As(err, &ae), "want *ApplyError, got %T", err)
-	assert.Equal(t, "resource.x", ae.Address)
-
-	var pe *PanicError
-	require.True(t, errors.As(err, &pe), "ApplyError should unwrap to *PanicError")
-	assert.Equal(t, "boom", pe.Library, "the scheduler names the failing node's library")
-	assert.Contains(t, pe.Error(), "boom in create")
-	assert.Contains(t, pe.Error(),
-		"panic in the boom library while creating this resource")
-}
-
-// TestApplyRuntimePanicHitsBackstop proves the worker-goroutine backstop:
-// a panic that escapes the library-call guards (here SchemaVersion, an
-// unguarded accessor) is recovered in the apply worker instead of
-// crashing, and is reported as an ApplyError attributed to unobin.
-func TestApplyRuntimePanicHitsBackstop(t *testing.T) {
-	libs := map[string]*Library{
-		"boom": {
-			Name: "boom",
-			Resources: map[string]ResourceRegistration{
-				"it": schemaPanicRegistration{
-					MakeResource[schemaPanicResource, *schemaPanicResourceOutput, any](
-
-						schemaPanicResourceDefinition(),
-					),
-				},
-			},
-		},
-	}
-	dag, syntaxSource := syntaxDAGAndBody(t,
-		ubtest.ReadValidFixture(t, "testdata/ub/panic", "resource"), libs)
-	exec := &Executor{
-		DAG:          dag,
-		SyntaxSource: syntaxSource,
-		Libraries:    libs,
-		Store:        newStateStore(t),
-		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism:  1,
-	}
-	_, err := planAndApply(exec)
-	require.Error(t, err)
-
-	var ae *ApplyError
-	require.True(t, errors.As(err, &ae), "want *ApplyError, got %T", err)
-
-	var pe *PanicError
-	require.True(t, errors.As(err, &pe), "ApplyError should unwrap to *PanicError")
-	require.True(t, pe.Core, "a panic outside the library calls is attributed to unobin")
-	assert.Contains(t, pe.Error(), "boom in schema-version")
 }

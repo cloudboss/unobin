@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// ApplyError is the structured failure value runApplySchedule returns
+// ApplyError is the structured failure value the apply scheduler returns
 // when a step's CRUD or action call reports an error. The original
 // error is available via Unwrap so callers can use errors.Is and
 // errors.As; the runner uses the structured fields to print a multi

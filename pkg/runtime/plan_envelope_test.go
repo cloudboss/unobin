@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/cloudboss/unobin/pkg/sdk/encrypt"
@@ -31,51 +30,6 @@ func reverse(b []byte) []byte {
 		out[len(b)-1-i] = x
 	}
 	return out
-}
-
-func samplePlan() *Plan {
-	return &Plan{
-		Factory: state.FactoryInfo{Name: "demo", Version: "v0.1.0", ContentRevision: "abc"},
-		Stack:   "default",
-	}
-}
-
-func TestSealPlanOpenPlanRoundTrip(t *testing.T) {
-	sealed, err := SealPlan(samplePlan(), reversingEncrypter{})
-	require.NoError(t, err)
-
-	pf, err := OpenPlan(sealed, func(ref *StateRef) (encrypt.Encrypter, error) {
-		require.NotNil(t, ref, "envelope should include the encrypter ref")
-		assert.Equal(t, "reversing", ref.Name)
-		assert.Equal(t, "backward", ref.Body["direction"])
-		return reversingEncrypter{}, nil
-	})
-	require.NoError(t, err)
-	require.Equal(t, "demo", pf.Factory.Name)
-	require.Equal(t, "default", pf.Stack)
-	require.Equal(t, PlanFormatVersion, pf.FormatVersion)
-}
-
-func TestSealPlanRecordsEncrypterDescription(t *testing.T) {
-	sealed, err := SealPlan(samplePlan(), reversingEncrypter{})
-	require.NoError(t, err)
-	var env state.Envelope
-	require.NoError(t, json.Unmarshal(sealed, &env))
-	require.Equal(t, state.PayloadTypePlan, env.PayloadType)
-	require.NotNil(t, env.Encrypter)
-	require.Equal(t, "reversing", env.Encrypter.Name)
-	require.Equal(t, map[string]any{"direction": "backward"}, env.Encrypter.Body)
-}
-
-func TestOpenPlanRejectsUnknownEnvelopeVersion(t *testing.T) {
-	env := state.Envelope{EnvelopeVersion: 99, Ciphertext: []byte("ignored")}
-	body, err := json.Marshal(env)
-	require.NoError(t, err)
-	_, err = OpenPlan(body, func(*StateRef) (encrypt.Encrypter, error) {
-		return reversingEncrypter{}, nil
-	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "envelope-version 99")
 }
 
 func TestSealOpenPlanFileV2PreservesPlan(t *testing.T) {

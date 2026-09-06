@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/internal/ubtest"
-	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
 func TestExtractTimeout(t *testing.T) {
@@ -30,30 +29,4 @@ func TestExtractTimeout(t *testing.T) {
 			assert.Equal(t, tt.want, nodes[0].Timeout)
 		})
 	}
-}
-
-func timeoutExecutor(t *testing.T, src string) *Executor {
-	var track concurrencyTracker
-	libs := slowActionModules(&track)
-	dag, syntaxSource := syntaxDAGAndBody(t, src, libs)
-	return &Executor{
-		DAG:          dag,
-		SyntaxSource: syntaxSource,
-		Libraries:    libs,
-		Store:        newStateStore(t),
-		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-	}
-}
-
-func TestApplyTimeoutFailsAnOverrunningStep(t *testing.T) {
-	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-timeout", "overrun")
-	_, err := planAndApply(timeoutExecutor(t, src))
-	require.Error(t, err)
-	assert.ErrorContains(t, err, "deadline exceeded")
-}
-
-func TestApplyTimeoutAllowsAStepThatFinishesInTime(t *testing.T) {
-	src := ubtest.ReadValidFixture(t, "testdata/ub/apply-timeout", "finishes")
-	_, err := planAndApply(timeoutExecutor(t, src))
-	require.NoError(t, err)
 }

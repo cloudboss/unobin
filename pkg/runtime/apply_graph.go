@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"maps"
-	"slices"
 
 	"github.com/cloudboss/unobin/pkg/stateref"
 )
@@ -22,95 +21,15 @@ type stepGraph struct {
 	pairKey    map[string]map[string]bool
 }
 
-// buildStepGraph translates the template-form DAG edges into instance-
-// form step edges. For every step S at address `addr`:
-//
-//   - Each template-form predecessor T_dep of templateAddress(addr)
-//     contributes one edge per instance step of T_dep whose `['key']`
-//     positions agree with S's key positions at every shared template
-//     ancestor. This keeps `@for-each` composite siblings on the same
-//     instance from cross-linking with other instances' internals.
-//
-//   - Steps whose template address is not a DAG node (orphan destroy
-//     entries from prior state, NodeOutput placeholders that may have
-//     been pruned) get no predecessors and become roots.
-func buildStepGraph(pf *PlanFile, dag *DAG) *stepGraph {
-	addresses := make([]string, len(pf.Steps))
-	for i := range pf.Steps {
-		addresses[i] = pf.Steps[i].Address
-	}
-	pairKey := map[string]map[string]bool{}
-	for _, addr := range addresses {
-		node, ok := dag.Nodes[templateAddress(addr)]
-		if !ok {
-			continue
-		}
-		if pk := pairKeyDeps(node.Body, dag.Nodes, node.Composite); pk != nil {
-			pairKey[addr] = pk
-		}
-	}
-	destroying := make(map[string]bool, len(pf.Steps))
-	for i := range pf.Steps {
-		if pf.Steps[i].Decision == DecisionDestroy {
-			destroying[pf.Steps[i].Address] = true
-		}
-	}
-	g := buildStepGraphWithPairKey(addresses, dag, pairKey, destroying)
-	for _, addr := range addresses {
-		node, ok := dag.Nodes[templateAddress(addr)]
-		if !ok {
-			continue
-		}
-		if node.LockName != "" {
-			g.locks[addr] = node.LockName
-		}
-	}
-	addDestroyEdges(g, pf.Steps)
-	return g
-}
-
-// addDestroyEdges reverses the dependency edges between destroy steps
-// so a resource is deleted before the resources it depended on. A
-// step's recorded DependsOn names the entries it was created after; for
-// destroy that order flips, so each dependency that is also being
-// destroyed waits for the dependent to finish. Dependencies that are
-// not being destroyed in this plan add no edge.
-func addDestroyEdges(g *stepGraph, steps []PlanStep) {
-	destroying := make(map[string]bool, len(steps))
-	for i := range steps {
-		if steps[i].Decision == DecisionDestroy {
-			destroying[steps[i].Address] = true
-		}
-	}
-	for i := range steps {
-		s := &steps[i]
-		if s.Decision != DecisionDestroy {
-			continue
-		}
-		for _, dep := range s.DependsOn {
-			if !destroying[dep] {
-				continue
-			}
-			g.dependents[s.Address] = append(g.dependents[s.Address], dep)
-			g.indegree[dep]++
-		}
-	}
-}
-
-// buildStepGraphFromAddresses is the testable entry point that mirrors
-// buildStepGraph but takes the bare list of step addresses so a test
-// does not need to construct a PlanFile. Pair-key narrowing is not
-// applied here; callers that have a pairKey map use the internal
-// buildStepGraphWithPairKey.
+// buildStepGraphFromAddresses expands dependencies without narrowing
+// references that select a matching instance key.
 func buildStepGraphFromAddresses(addresses []string, dag *DAG) *stepGraph {
 	return buildStepGraphWithPairKey(addresses, dag, nil, nil)
 }
 
 // buildStepGraphWithPairKey builds the instance-form forward edges. A
-// step in destroying gets no forward edges: a destroy step's ordering
-// comes only from addDestroyEdges, which reverses the recorded
-// dependencies. Without this a destroy whose source is still present
-// would pick up both the forward edge and its reverse and deadlock.
+// step in destroying gets no forward edges because deletion reverses
+// the recorded dependencies.
 func buildStepGraphWithPairKey(
 	addresses []string, dag *DAG, pairKey map[string]map[string]bool,
 	destroying map[string]bool,
@@ -158,72 +77,6 @@ func buildStepGraphWithPairKey(
 		}
 	}
 	return g
-}
-
-// entryPersisted reports whether a step's entry is a destroy-ordering
-// target: resources (unless being destroyed), actions, and composite
-// call sites. Data reads, output values, and configuration
-// evaluations are not ordering targets, so dependencies through them
-// collapse to their persisted predecessors.
-func entryPersisted(s *PlanStep) bool {
-	if s.Composite {
-		return true
-	}
-	switch s.Kind {
-	case NodeAction:
-		return true
-	case NodeResource:
-		return s.Decision != DecisionDestroy
-	default:
-		return false
-	}
-}
-
-// persistedDependsOn computes, for each plan step that becomes a state
-// entry, the addresses of the other entries it depends on. The step
-// graph's edges run from a dependency to its dependents, so they are
-// inverted here. A predecessor that is not itself persisted (a
-// configuration evaluation, data read, or output) is collapsed through
-// to its own persisted predecessors, so every recorded address names
-// an entry destroy can sequence against. Destroy ordering reverses
-// these edges.
-func persistedDependsOn(g *stepGraph, steps []PlanStep) map[string][]string {
-	persisted := make(map[string]bool, len(steps))
-	for i := range steps {
-		if entryPersisted(&steps[i]) {
-			persisted[steps[i].Address] = true
-		}
-	}
-	preds := make(map[string][]string, len(steps))
-	for dep, dependents := range g.dependents {
-		for _, d := range dependents {
-			preds[d] = append(preds[d], dep)
-		}
-	}
-	out := make(map[string][]string, len(persisted))
-	for addr := range persisted {
-		seen := map[string]bool{}
-		var collapsed []string
-		stack := append([]string(nil), preds[addr]...)
-		for len(stack) > 0 {
-			p := stack[len(stack)-1]
-			stack = stack[:len(stack)-1]
-			if seen[p] {
-				continue
-			}
-			seen[p] = true
-			if persisted[p] {
-				collapsed = append(collapsed, p)
-				continue
-			}
-			stack = append(stack, preds[p]...)
-		}
-		if len(collapsed) > 0 {
-			slices.Sort(collapsed)
-			out[addr] = collapsed
-		}
-	}
-	return out
 }
 
 // pairKeyMatches reports whether step s has at least one key segment
