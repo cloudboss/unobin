@@ -1,0 +1,9 @@
+Drift detected (1):
+  ~ resource.object
+      name: 'beta' -> 'external'
+
+  (update)  resource.object
+      name: 'beta'
+      size: 1
+
+Plan: 0 to create, 1 to update, 0 to replace, 0 to destroy, 0 to rerun.

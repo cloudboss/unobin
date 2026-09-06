@@ -1,0 +1,27 @@
+{
+  "format-version": 2,
+  "factory": {
+    "name": "replacement-semantics",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "parallelism": 10,
+  "steps": [
+    {
+      "address": "library-config.replacement",
+      "kind": "library-configuration",
+      "decision": "eval"
+    },
+    {
+      "address": "resource.object",
+      "kind": "resource",
+      "decision": "no-op"
+    },
+    {
+      "address": "output.object",
+      "kind": "output",
+      "decision": "eval"
+    }
+  ]
+}

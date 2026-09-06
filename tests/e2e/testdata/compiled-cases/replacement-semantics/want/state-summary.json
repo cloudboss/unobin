@@ -1,0 +1,37 @@
+{
+  "format-version": 2,
+  "factory": {
+    "name": "replacement-semantics",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "entries": [
+    {
+      "address": "resource.object",
+      "entry-kind": "resource",
+      "category": "resource",
+      "binding": {
+        "library-path": "example.com/unobin/e2elib/replacement",
+        "export": "object"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "name": "beta",
+        "size": 1
+      },
+      "outputs": {
+        "id": "object-4",
+        "name": "beta",
+        "size": 1
+      }
+    }
+  ],
+  "outputs": {
+    "object": {
+      "id": "object-4",
+      "name": "beta",
+      "size": 1
+    }
+  }
+}

@@ -1,0 +1,25 @@
+factory: {
+  inputs: {
+    name: { type: string }
+    size: { type: integer }
+  }
+
+  imports: {
+    replacement: 'example.com/unobin/e2elib//replacement'
+  }
+
+  library-configs: {
+    replacement: { directory: 'objects' }
+  }
+
+  resources: {
+    object: replacement.object {
+      name: input.name
+      size: input.size
+    }
+  }
+
+  outputs: {
+    object: { value: resource.object }
+  }
+}

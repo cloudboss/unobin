@@ -1,0 +1,5 @@
+  (update)  resource.object
+      name: 'alpha'
+      size: 2 -> 4
+
+Plan: 0 to create, 1 to update, 0 to replace, 0 to destroy, 0 to rerun.

@@ -1,0 +1,9 @@
+Drift detected (1):
+  ~ resource.object
+      size: 1 -> 9
+
+  (replace) resource.object
+      name: 'beta'
+      size: 1  (forces replacement)
+
+Plan: 0 to create, 0 to update, 1 to replace, 0 to destroy, 0 to rerun.

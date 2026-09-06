@@ -1,0 +1,266 @@
+{
+  "name": "replacement-semantics",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/replacement-semantics",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan-create",
+      "args": [
+        "plan",
+        "--ascii",
+        "-c",
+        "stacks/create/dev.ub",
+        "-o",
+        "create.ubp"
+      ],
+      "stdout": "want/plan-create.stdout",
+      "stderr": "want/plan-create.stderr"
+    },
+    {
+      "name": "apply-create",
+      "args": [
+        "apply",
+        "--format",
+        "json",
+        "create.ubp"
+      ],
+      "stdout": "want/apply-create.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-equivalent",
+      "args": [
+        "plan",
+        "--ascii",
+        "-c",
+        "stacks/equivalent/dev.ub",
+        "-o",
+        "equivalent.ubp"
+      ],
+      "stdout": "want/plan-equivalent.stdout",
+      "stderr": "want/plan-equivalent.stderr"
+    },
+    {
+      "name": "apply-equivalent",
+      "args": [
+        "apply",
+        "--format",
+        "json",
+        "equivalent.ubp"
+      ],
+      "stdout": "want/apply-equivalent.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "state-equivalent",
+      "args": [
+        "state",
+        "show",
+        "resource.object",
+        "-c",
+        "stacks/equivalent/dev.ub",
+        "--format",
+        "json"
+      ],
+      "stdout": "want/state-equivalent.json",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-grow",
+      "args": [
+        "plan",
+        "--ascii",
+        "-c",
+        "stacks/grow/dev.ub",
+        "-o",
+        "grow.ubp"
+      ],
+      "stdout": "want/plan-grow.stdout",
+      "stderr": "want/plan-grow.stderr"
+    },
+    {
+      "name": "apply-grow",
+      "args": [
+        "apply",
+        "--format",
+        "json",
+        "grow.ubp"
+      ],
+      "stdout": "want/apply-grow.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-shrink",
+      "args": [
+        "plan",
+        "--ascii",
+        "-c",
+        "stacks/shrink/dev.ub",
+        "-o",
+        "shrink.ubp"
+      ],
+      "stdout": "want/plan-shrink.stdout",
+      "stderr": "want/plan-shrink.stderr"
+    },
+    {
+      "name": "apply-shrink",
+      "args": [
+        "apply",
+        "--format",
+        "json",
+        "shrink.ubp"
+      ],
+      "stdout": "want/apply-shrink.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-rename",
+      "args": [
+        "plan",
+        "--ascii",
+        "-c",
+        "stacks/rename/dev.ub",
+        "-o",
+        "rename.ubp"
+      ],
+      "stdout": "want/plan-rename.stdout",
+      "stderr": "want/plan-rename.stderr"
+    },
+    {
+      "name": "apply-rename",
+      "args": [
+        "apply",
+        "--format",
+        "json",
+        "rename.ubp"
+      ],
+      "stdout": "want/apply-rename.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "state-rename",
+      "args": [
+        "state",
+        "show",
+        "resource.object",
+        "-c",
+        "stacks/rename/dev.ub",
+        "--format",
+        "json"
+      ],
+      "stdout": "want/state-rename.json",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-drift",
+      "args": [
+        "plan",
+        "--ascii",
+        "-c",
+        "stacks/drift/dev.ub",
+        "-o",
+        "drift.ubp"
+      ],
+      "stdout": "want/plan-drift.stdout",
+      "stderr": "want/plan-drift.stderr",
+      "env": {
+        "E2E_REMOTE_SIZE": "9"
+      }
+    },
+    {
+      "name": "apply-drift",
+      "args": [
+        "apply",
+        "--format",
+        "json",
+        "drift.ubp"
+      ],
+      "stdout": "want/apply-drift.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-ordinary-drift",
+      "args": [
+        "plan",
+        "--ascii",
+        "-c",
+        "stacks/ordinary-drift/dev.ub",
+        "-o",
+        "ordinary-drift.ubp"
+      ],
+      "stdout": "want/plan-ordinary-drift.stdout",
+      "stderr": "want/plan-ordinary-drift.stderr",
+      "env": {
+        "E2E_REMOTE_NAME": "external"
+      }
+    },
+    {
+      "name": "apply-ordinary-drift",
+      "args": [
+        "apply",
+        "--format",
+        "json",
+        "ordinary-drift.ubp"
+      ],
+      "stdout": "want/apply-ordinary-drift.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "state-ordinary-drift",
+      "args": [
+        "state",
+        "show",
+        "resource.object",
+        "-c",
+        "stacks/ordinary-drift/dev.ub",
+        "--format",
+        "json"
+      ],
+      "stdout": "want/state-ordinary-drift.json",
+      "normalize": "json"
+    }
+  ],
+  "planSummaries": [
+    {
+      "path": "create.ubp",
+      "want": "want/plan-create-summary.json"
+    },
+    {
+      "path": "equivalent.ubp",
+      "want": "want/plan-equivalent-summary.json"
+    },
+    {
+      "path": "grow.ubp",
+      "want": "want/plan-grow-summary.json"
+    },
+    {
+      "path": "shrink.ubp",
+      "want": "want/plan-shrink-summary.json"
+    },
+    {
+      "path": "rename.ubp",
+      "want": "want/plan-rename-summary.json"
+    },
+    {
+      "path": "drift.ubp",
+      "want": "want/plan-drift-summary.json"
+    },
+    {
+      "path": "ordinary-drift.ubp",
+      "want": "want/plan-ordinary-drift-summary.json"
+    }
+  ],
+  "files": [
+    {
+      "path": "objects/events.ndjson",
+      "want": "want/events.ndjson"
+    },
+    {
+      "path": "objects/object.json",
+      "want": "want/object.json"
+    }
+  ],
+  "stateSummary": "want/state-summary.json",
+  "deterministic": true
+}

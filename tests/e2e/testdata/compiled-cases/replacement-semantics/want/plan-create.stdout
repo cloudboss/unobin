@@ -1,0 +1,5 @@
+  (create)  resource.object
+      name: 'ref:alpha'
+      size: 2
+
+Plan: 1 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.

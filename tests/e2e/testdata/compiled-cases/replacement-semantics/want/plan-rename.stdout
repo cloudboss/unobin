@@ -1,0 +1,5 @@
+  (replace) resource.object
+      name: 'alpha' -> 'beta'  (forces replacement)
+      size: 1
+
+Plan: 0 to create, 0 to update, 1 to replace, 0 to destroy, 0 to rerun.

@@ -1,0 +1,10 @@
+stack: {
+  state: local { path: '.unobin/state' }
+  encryption: noop {}
+  factory: {
+    inputs: {
+      name: 'alpha'
+      size: 4
+    }
+  }
+}
