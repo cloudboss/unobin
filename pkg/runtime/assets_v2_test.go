@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/pkg/asset"
-	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
 
 func TestVersion2ResourceInputsKeepLogicalAssetsAcrossCaches(t *testing.T) {
@@ -56,7 +55,6 @@ func TestVersion2ResourceInputsKeepLogicalAssetsAcrossCaches(t *testing.T) {
 func TestFactoryV2ResolvesAssetsInInputsAndConfiguration(t *testing.T) {
 	recorder := &assetBoundaryRecorder{}
 	library := assetBoundaryLibrary(recorder)
-	library.Configuration.(*cfg.ConfigurationType[*assetBoundaryConfig]).SchemaVersion = 1
 	catalog, err := NewLibraryCatalog([]LibraryRegistration{
 		{LibraryPath: "github.com/example/native", New: func() *Library { return library }},
 	})

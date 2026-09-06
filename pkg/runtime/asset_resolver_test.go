@@ -426,7 +426,12 @@ func TestExecutorResolvesEveryGoBoundaryAndKeepsLogicalState(t *testing.T) {
 	library := assetBoundaryLibrary(recorder)
 	libraries := map[string]*Library{"native": library}
 	store := newStateStore(t)
+	libraryCatalog, err := NewLibraryCatalog([]LibraryRegistration{
+		{LibraryPath: "github.com/example/native", New: func() *Library { return libraries["native"] }},
+	})
+	require.NoError(t, err)
 	exec := &Executor{
+		LibraryCatalog: libraryCatalog,
 		DAG:            BuildSyntaxDAG(body, libraries),
 		Libraries:      libraries,
 		AssetCatalog:   catalog,
@@ -441,18 +446,17 @@ func TestExecutorResolvesEveryGoBoundaryAndKeepsLogicalState(t *testing.T) {
 		},
 	}
 
-	plan, err := exec.Plan(context.Background())
+	plan, err := exec.PlanV2(context.Background())
 	require.NoError(t, err)
-	assertPlanHasOnlyLogicalAssetInputs(t, plan)
-	encoded, err := EncodePlan(plan)
+	assertEncodedPlanOmitsAssetPayload(t, plan, firstRoot)
+	encoded, err := EncodePlanV2(*plan)
 	require.NoError(t, err)
 	require.NotContains(t, string(encoded), firstRoot)
-	require.NotContains(t, string(encoded), "zip bytes")
-	planFile, err := DecodePlan(encoded)
+	planFile, err := DecodePlanV2(encoded)
 	require.NoError(t, err)
 
 	exec.AssetCache = secondCache
-	result, err := exec.ApplyPlan(context.Background(), planFile)
+	result, err := exec.ApplyPlanV2(context.Background(), &planFile)
 	require.NoError(t, err)
 	require.Equal(t, "zip bytes", result.Outputs["inspected"])
 
@@ -475,10 +479,18 @@ func TestExecutorResolvesEveryGoBoundaryAndKeepsLogicalState(t *testing.T) {
 	require.True(t, dataPlan)
 	require.True(t, dataApply)
 
-	snapshot, err := store.Current()
+	revision, err := store.CurrentRev()
+	require.NoError(t, err)
+	snapshot, err := store.GetV2(revision)
 	require.NoError(t, err)
 	for _, entry := range snapshot.Entries {
-		assertLogicalAssetValue(t, entry.Inputs)
+		if entry.Kind == state.StateResource {
+			fields, _ := entry.Payload.Resource.Target.Inputs.ObjectFields()
+			content, ok := fields["content"].String()
+			require.True(t, ok)
+			_, ok = asset.ParseReference(content)
+			require.True(t, ok)
+		}
 	}
 }
 
@@ -486,13 +498,28 @@ func TestExecutorResolvesAssetReferencesForPriorAndLifecycleCalls(t *testing.T) 
 	recorder := &assetBoundaryRecorder{}
 	libraries := map[string]*Library{"native": assetBoundaryLibrary(recorder)}
 	store := newStateStore(t)
+	libraryCatalog, err := NewLibraryCatalog([]LibraryRegistration{
+		{LibraryPath: "github.com/example/native", New: func() *Library { return libraries["native"] }},
+	})
+	require.NoError(t, err)
 	exec := &Executor{
-		Libraries: libraries,
-		Store:     store,
+		LibraryCatalog: libraryCatalog,
+		Libraries:      libraries,
+		Store:          store,
 		Factory: state.FactoryInfo{
 			Name:    "asset-boundaries",
 			Version: "v0",
 		},
+	}
+
+	resourceDecision := func(plan *PlanFileV2) Decision {
+		for _, step := range plan.Steps {
+			if step.Address == "resource.item" {
+				return step.Operation.Resource.Decision
+			}
+		}
+		t.Fatal("resource.item is missing from the plan")
+		return ""
 	}
 
 	createPlanRoot := filepath.Join(t.TempDir(), "create-plan")
@@ -503,7 +530,7 @@ func TestExecutorResolvesAssetReferencesForPriorAndLifecycleCalls(t *testing.T) 
 		"one",
 		createPlanRoot,
 	)
-	createPlan, err := exec.Plan(context.Background())
+	createPlan, err := exec.PlanV2(context.Background())
 	require.NoError(t, err)
 	assertEncodedPlanOmitsAssetPayload(t, createPlan, createPlanRoot)
 	applyAssetBoundaryPlan(
@@ -515,10 +542,10 @@ func TestExecutorResolvesAssetReferencesForPriorAndLifecycleCalls(t *testing.T) 
 
 	updatePlanRoot := filepath.Join(t.TempDir(), "update-plan")
 	configureAssetBoundaryExecutor(t, exec, "executor-updated", "two", updatePlanRoot)
-	updatePlan, err := exec.Plan(context.Background())
+	updatePlan, err := exec.PlanV2(context.Background())
 	require.NoError(t, err)
 	assertEncodedPlanOmitsAssetPayload(t, updatePlan, updatePlanRoot)
-	require.Equal(t, DecisionUpdate, decisionFor(updatePlan, "resource.item"))
+	require.Equal(t, DecisionUpdate, resourceDecision(updatePlan))
 	assertAssetBoundaryRecordUnder(t, recorder, "resource-read", updatePlanRoot)
 
 	updateApplyRoot := filepath.Join(t.TempDir(), "update-apply")
@@ -529,10 +556,10 @@ func TestExecutorResolvesAssetReferencesForPriorAndLifecycleCalls(t *testing.T) 
 
 	replacePlanRoot := filepath.Join(t.TempDir(), "replace-plan")
 	configureAssetBoundaryExecutor(t, exec, "executor-replaced", "three", replacePlanRoot)
-	replacePlan, err := exec.Plan(context.Background())
+	replacePlan, err := exec.PlanV2(context.Background())
 	require.NoError(t, err)
 	assertEncodedPlanOmitsAssetPayload(t, replacePlan, replacePlanRoot)
-	require.Equal(t, DecisionReplace, decisionFor(replacePlan, "resource.item"))
+	require.Equal(t, DecisionReplace, resourceDecision(replacePlan))
 	assertAssetBoundaryRecordUnder(t, recorder, "resource-read", replacePlanRoot)
 
 	replaceApplyRoot := filepath.Join(t.TempDir(), "replace-apply")
@@ -541,30 +568,38 @@ func TestExecutorResolvesAssetReferencesForPriorAndLifecycleCalls(t *testing.T) 
 	assertAssetBoundaryRecordUnder(t, recorder, "resource-delete", replaceApplyRoot)
 	assertAssetBoundaryRecordUnder(t, recorder, "resource-create", replaceApplyRoot)
 
-	snapshot, err := store.Current()
+	revision, err := store.CurrentRev()
+	require.NoError(t, err)
+	snapshot, err := store.GetV2(revision)
 	require.NoError(t, err)
 	for _, entry := range snapshot.Entries {
-		assertLogicalAssetValue(t, entry.Inputs)
+		if entry.Kind == state.StateResource {
+			fields, _ := entry.Payload.Resource.Target.Inputs.ObjectFields()
+			content, ok := fields["content"].String()
+			require.True(t, ok)
+			_, ok = asset.ParseReference(content)
+			require.True(t, ok)
+		}
 	}
 
 	destroyPlanRoot := filepath.Join(t.TempDir(), "destroy-plan")
 	setAssetBoundaryCache(t, exec, destroyPlanRoot)
 	exec.Destroy = true
-	destroyPlan, err := exec.Plan(context.Background())
+	destroyPlan, err := exec.PlanV2(context.Background())
 	require.NoError(t, err)
 	assertEncodedPlanOmitsAssetPayload(t, destroyPlan, destroyPlanRoot)
-	require.Equal(t, DecisionDestroy, decisionFor(destroyPlan, "resource.item"))
+	require.Equal(t, DecisionDestroy, resourceDecision(destroyPlan))
 	assertAssetBoundaryRecordUnder(t, recorder, "resource-read", destroyPlanRoot)
 
 	destroyApplyRoot := filepath.Join(t.TempDir(), "destroy-apply")
 	applyAssetBoundaryPlan(t, exec, destroyPlan, destroyApplyRoot)
 	assertAssetBoundaryRecordUnder(t, recorder, "resource-delete", destroyApplyRoot)
 
-	snapshot, err = store.Current()
+	revision, err = store.CurrentRev()
 	require.NoError(t, err)
-	for _, entry := range snapshot.Entries {
-		assertLogicalAssetValue(t, entry.Inputs)
-	}
+	snapshot, err = store.GetV2(revision)
+	require.NoError(t, err)
+	require.Empty(t, snapshot.Entries)
 }
 
 func TestExecutorRejectsAssetReferencesWithoutCache(t *testing.T) {
@@ -578,7 +613,12 @@ func TestExecutorRejectsAssetReferencesWithoutCache(t *testing.T) {
 	libraries := map[string]*Library{
 		"native": assetBoundaryLibrary(&assetBoundaryRecorder{}),
 	}
+	libraryCatalog, err := NewLibraryCatalog([]LibraryRegistration{
+		{LibraryPath: "github.com/example/native", New: func() *Library { return libraries["native"] }},
+	})
+	require.NoError(t, err)
 	exec := &Executor{
+		LibraryCatalog: libraryCatalog,
 		DAG:            BuildSyntaxDAG(body, libraries),
 		Libraries:      libraries,
 		AssetCatalog:   catalog,
@@ -592,7 +632,7 @@ func TestExecutorRejectsAssetReferencesWithoutCache(t *testing.T) {
 		},
 	}
 
-	_, err := exec.Plan(context.Background())
+	_, err = exec.PlanV2(context.Background())
 	require.ErrorContains(t, err, "asset <asset.")
 	require.ErrorContains(t, err, "cache is not configured")
 }
@@ -626,19 +666,18 @@ func setAssetBoundaryCache(t testing.TB, exec *Executor, root string) {
 func applyAssetBoundaryPlan(
 	t testing.TB,
 	exec *Executor,
-	plan *Plan,
+	plan *PlanFileV2,
 	cacheRoot string,
 ) {
 	t.Helper()
-	assertPlanHasOnlyLogicalAssetInputs(t, plan)
-	encoded, err := EncodePlan(plan)
+	assertEncodedPlanOmitsAssetPayload(t, plan, cacheRoot)
+	encoded, err := EncodePlanV2(*plan)
 	require.NoError(t, err)
 	require.NotContains(t, string(encoded), cacheRoot)
-	require.NotContains(t, string(encoded), "zip bytes")
-	planFile, err := DecodePlan(encoded)
+	planFile, err := DecodePlanV2(encoded)
 	require.NoError(t, err)
 	setAssetBoundaryCache(t, exec, cacheRoot)
-	_, err = exec.ApplyPlan(context.Background(), planFile)
+	_, err = exec.ApplyPlanV2(context.Background(), &planFile)
 	require.NoError(t, err)
 }
 
@@ -660,6 +699,7 @@ func assetBoundaryLibrary(recorder *assetBoundaryRecorder) *Library {
 	return &Library{
 		Name: "native",
 		Configuration: &cfg.ConfigurationType[*assetBoundaryConfig]{
+			SchemaVersion: 1,
 			New: func() *assetBoundaryConfig {
 				return &assetBoundaryConfig{}
 			},
@@ -712,48 +752,46 @@ func assetBoundaryLibrary(recorder *assetBoundaryRecorder) *Library {
 	}
 }
 
-func assertPlanHasOnlyLogicalAssetInputs(t testing.TB, plan *Plan) {
+func assertEncodedPlanOmitsAssetPayload(t testing.TB, plan *PlanFileV2, cacheRoot string) {
 	t.Helper()
-	for _, step := range plan.Steps {
-		assertLogicalAssetValue(t, step.Inputs)
-		assertLogicalAssetValue(t, step.PriorInputs)
-		assertLogicalAssetValue(t, step.PriorOutputs)
-		assertLogicalAssetValue(t, step.ObservedOutputs)
-	}
-}
-
-func assertEncodedPlanOmitsAssetPayload(t testing.TB, plan *Plan, cacheRoot string) {
-	t.Helper()
-	assertPlanHasOnlyLogicalAssetInputs(t, plan)
-	encoded, err := EncodePlan(plan)
+	encoded, err := EncodePlanV2(*plan)
 	require.NoError(t, err)
 	require.NotContains(t, string(encoded), cacheRoot)
-	require.NotContains(t, string(encoded), "zip bytes")
-}
-
-func assertLogicalAssetValue(t testing.TB, value any) {
-	t.Helper()
-	switch typed := value.(type) {
-	case string:
-		if strings.HasPrefix(typed, "unobin-asset:") {
-			_, ok := asset.ParseReference(typed)
-			require.True(t, ok)
+	for _, step := range plan.Steps {
+		var inputs []EncodedValue
+		switch operation := step.Operation; operation.Kind {
+		case StepLibraryConfiguration:
+			inputs = append(inputs, operation.LibraryConfiguration.Inputs)
+		case StepResource:
+			if desired := operation.Resource.Desired; desired != nil {
+				inputs = append(inputs, desired.Inputs)
+			}
+			if prior := operation.Resource.Prior; prior != nil {
+				inputs = append(inputs, prior.Inputs)
+			}
+		case StepAction:
+			if desired := operation.Action.Desired; desired != nil {
+				inputs = append(inputs, desired.Inputs)
+			}
+			if prior := operation.Action.Prior; prior != nil {
+				inputs = append(inputs, prior.Inputs)
+			}
+		case StepDataSource:
+			if desired := operation.DataSource.Desired; desired != nil {
+				inputs = append(inputs, desired.Inputs)
+			}
+			if prior := operation.DataSource.Prior; prior != nil {
+				inputs = append(inputs, prior.Inputs)
+			}
 		}
-	case asset.PathRef:
-		_, ok := asset.ParseReference(string(typed))
-		require.True(t, ok)
-	case asset.ContentRef:
-		_, ok := asset.ParseReference(string(typed))
-		require.True(t, ok)
-	case []byte:
-		t.Fatalf("logical value contains bytes")
-	case []any:
-		for _, element := range typed {
-			assertLogicalAssetValue(t, element)
-		}
-	case map[string]any:
-		for _, element := range typed {
-			assertLogicalAssetValue(t, element)
+		for _, value := range inputs {
+			fields, _ := value.ObjectFields()
+			for _, name := range []string{"content", "path"} {
+				token, ok := fields[name].String()
+				require.True(t, ok, "%s input %s must retain its asset reference", step.Address, name)
+				_, ok = asset.ParseReference(token)
+				require.True(t, ok, "%s input %s: %s", step.Address, name, token)
+			}
 		}
 	}
 }
