@@ -129,6 +129,41 @@ func TestResolveConfigurationDefinition(t *testing.T) {
 	require.True(t, noConfig.noConfig)
 }
 
+func TestConfigurationRecordValidatesBytes(t *testing.T) {
+	type bytesConfig struct {
+		Content []byte
+	}
+	definition, err := resolveConfigurationDefinition(configurationLibraryPath,
+		&cfg.ConfigurationType[*bytesConfig]{SchemaVersion: 1,
+			New: func() *bytesConfig { return &bytesConfig{} }})
+	require.NoError(t, err)
+	for _, tt := range []struct {
+		name  string
+		items []EncodedValue
+		valid bool
+	}{
+		{name: "boundaries", items: []EncodedValue{IntegerValue(0), IntegerValue(255)}, valid: true},
+		{name: "overflow", items: []EncodedValue{IntegerValue(256)}},
+		{name: "negative", items: []EncodedValue{IntegerValue(-1)}},
+		{name: "wrong kind", items: []EncodedValue{StringValue("1")}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			content, err := ListValue(tt.items)
+			require.NoError(t, err)
+			value := operationObject(t, map[string]EncodedValue{"content": content})
+			record, err := definition.newConfigurationRecord("library-config.cloud", value, nil, nil)
+			if !tt.valid {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			_, decoded, err := definition.prepareConfigurationRecord(record)
+			require.NoError(t, err)
+			require.Equal(t, []byte{0, 255}, decoded.(*bytesConfig).Content)
+		})
+	}
+}
+
 func TestResolveConfigurationDefinitionUsesCompiledSchema(t *testing.T) {
 	registration := configurationRegistration(1, nil)
 	view, err := cfg.View(registration)

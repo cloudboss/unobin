@@ -1,0 +1,6 @@
+inputs: {
+  configuration: { type: library-config('example.com/cloud'), @sensitive: true }
+}
+library-configs: { cloud: input.configuration }
+resources: { main: cloud.server { name: 'server', size: 1 } }
+outputs: { value: { value: resource.main.value, @sensitive: true } }

@@ -20,7 +20,7 @@ import (
 const applyBrowserTimeout = 5 * time.Second
 
 type preparedApplyCommand struct {
-	plan        *runtime.PlanFile
+	plan        *runtime.PlanFileV2
 	parsed      *parsedFactory
 	assets      *runnerAssets
 	store       state.Backend
@@ -49,8 +49,8 @@ type applyMachineOptions struct {
 	now            func() time.Time
 	browserTimeout time.Duration
 	openBrowser    func(context.Context, string) error
-	startView      func(Info, *runtime.PlanFile, *runtime.DAG) (applyRunView, error)
-	apply          func(context.Context, *runtime.Executor, *runtime.PlanFile) (
+	startView      func(Info, *runtime.PlanFileV2, *runtime.DAG) (applyRunView, error)
+	apply          func(context.Context, *runtime.Executor, *runtime.PlanFileV2) (
 		*runtime.ExecResult, error,
 	)
 }
@@ -132,7 +132,7 @@ func prepareApplyCommand(
 		return nil, runtime.NewApplyFailure(runtime.ApplyFailureSetup, err)
 	}
 	var encrypter sdkencrypt.Encrypter
-	plan, err := runtime.OpenPlan(
+	plan, err := runtime.OpenPlanV2(
 		sealed,
 		func(ref *runtime.StateRef) (sdkencrypt.Encrypter, error) {
 			resolved, err := resolveEncrypter(fromRuntimeStateRef(ref))
@@ -154,9 +154,15 @@ func prepareApplyCommand(
 	if err != nil {
 		return nil, runtime.NewApplyFailure(runtime.ApplyFailureSetup, err)
 	}
-	store, err := resolveBackend(
-		fromRuntimeStateRef(plan.Backend), info.FactoryName, plan.Stack, encrypter,
-	)
+	var backend *resolverRef
+	if plan.Backend != nil {
+		body, err := plan.Backend.Values()
+		if err != nil {
+			return nil, runtime.NewApplyFailure(runtime.ApplyFailureSetup, err)
+		}
+		backend = &resolverRef{Name: plan.Backend.Name, Body: body}
+	}
+	store, err := resolveBackend(backend, info.FactoryName, plan.Stack, encrypter)
 	if err != nil {
 		return nil, runtime.NewApplyFailure(runtime.ApplyFailureSetup, err)
 	}
@@ -165,7 +171,7 @@ func prepareApplyCommand(
 		parallelism = parallelismOverride
 	}
 	return &preparedApplyCommand{
-		plan: plan, parsed: parsed, assets: assets, store: store, parallelism: parallelism,
+		plan: &plan, parsed: parsed, assets: assets, store: store, parallelism: parallelism,
 	}, nil
 }
 
@@ -258,7 +264,7 @@ func executeApplyText(
 		consumeApplyEvents(rendererEvents, command.ErrOrStderr(), FormatText)
 	}()
 	executor := newApplyExecutor(info, prepared, controller, events)
-	result, err := executor.ApplyPlan(controller.Context(), prepared.plan)
+	result, err := executor.ApplyPlanV2(controller.Context(), prepared.plan)
 	close(events)
 	<-rendererDone
 	if browser != nil {
@@ -311,9 +317,9 @@ func runApplyMachineCommand(
 		options.apply = func(
 			ctx context.Context,
 			executor *runtime.Executor,
-			plan *runtime.PlanFile,
+			plan *runtime.PlanFileV2,
 		) (*runtime.ExecResult, error) {
-			return executor.ApplyPlan(ctx, plan)
+			return executor.ApplyPlanV2(ctx, plan)
 		}
 	}
 	stream := newApplyStream(command.OutOrStdout(), format, options.now)
@@ -655,14 +661,14 @@ func finishApplyEncodingOrWriteError(
 
 func startApplyRunView(
 	info Info,
-	plan *runtime.PlanFile,
+	plan *runtime.PlanFileV2,
 	dag *runtime.DAG,
 ) (applyRunView, error) {
-	return ui.Start(ui.Config{
-		Factory: info.FactoryName,
-		Stack:   plan.Stack,
-		Graph:   runtime.PlanGraph(plan, dag),
-	})
+	graph, err := runtime.PlanGraphV2(plan, dag)
+	if err != nil {
+		return nil, err
+	}
+	return ui.Start(ui.Config{Factory: info.FactoryName, Stack: plan.Stack, Graph: graph})
 }
 
 func startApplyBrowser(

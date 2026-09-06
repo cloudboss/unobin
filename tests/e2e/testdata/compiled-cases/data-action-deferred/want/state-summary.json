@@ -1,5 +1,5 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "data-action-deferred",
     "version": "v0.0.0",
@@ -12,9 +12,8 @@
       "entry-kind": "action",
       "category": "action",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "record"
+        "export": "record"
       },
       "inputs": {
         "message": "two",
@@ -26,7 +25,7 @@
         "record": "read:two"
       },
       "depends-on": [
-        "resource.doc"
+        "data-source.read-back"
       ]
     },
     {
@@ -34,9 +33,8 @@
       "entry-kind": "data-source",
       "category": "data-source",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "read-file"
+        "export": "read-file"
       },
       "inputs": {
         "optional": false,
@@ -48,16 +46,18 @@
         "path": "files/data.txt",
         "sha256": "3fc4ccfe745870e2c0d99f71f30ff0656c8dedd41cc1d7d3d376b0dbe685e2f3",
         "size": 3
-      }
+      },
+      "depends-on": [
+        "resource.doc"
+      ]
     },
     {
       "address": "resource.doc",
-      "entry-kind": "leaf",
+      "entry-kind": "resource",
       "category": "resource",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "file"
+        "export": "file"
       },
       "schema-version": 1,
       "inputs": {

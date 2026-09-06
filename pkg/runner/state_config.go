@@ -198,18 +198,6 @@ func sortedNames[V any](m map[string]V) string {
 	return strings.Join(slices.Sorted(maps.Keys(m)), ", ")
 }
 
-// toRuntimeStateRef copies a resolverRef into the public runtime type used
-// inside the plan file. Returns nil when ref is nil so the plan field stays
-// omit-empty.
-func toRuntimeStateRef(ref *resolverRef) *runtime.StateRef {
-	if ref == nil {
-		return nil
-	}
-	return &runtime.StateRef{Name: ref.Name, Body: ref.Body}
-}
-
-// fromRuntimeStateRef is the inverse of toRuntimeStateRef. Apply uses it to
-// feed pf.Backend back through the resolver.
 func fromRuntimeStateRef(ref *runtime.StateRef) *resolverRef {
 	if ref == nil {
 		return nil

@@ -1,5 +1,5 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "resource-alias-change-missing-prior-binding",
     "version": "v0.0.0",
@@ -10,28 +10,173 @@
   "entries": [
     {
       "address": "resource.current",
-      "entry-kind": "leaf",
-      "category": "resource",
-      "binding": {
-        "alias": "old",
-        "library-path": "example.com/unobin/e2elib",
-        "kind": "file"
-      },
-      "schema-version": 1,
-      "inputs": {
-        "content": "current",
-        "create-parents": true,
-        "mode": 420,
-        "path": "files/missing.txt"
-      },
-      "outputs": {
-        "content": "current",
-        "exists": true,
-        "path": "files/missing.txt",
-        "sha256": "97b0560280ed60a5a1eaa1bc45492543c8a986ad5a25b468c427eb83c3e88191",
-        "size": 7
+      "kind": "resource",
+      "payload": {
+        "kind": "resource",
+        "resource": {
+          "target": {
+            "binding": {
+              "library-path": "example.com/unobin/missing-e2elib",
+              "export": "file"
+            },
+            "inputs": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "content",
+                  "value": {
+                    "kind": "string",
+                    "value": "current"
+                  }
+                },
+                {
+                  "name": "create-parents",
+                  "value": {
+                    "kind": "boolean",
+                    "value": true
+                  }
+                },
+                {
+                  "name": "fail-update",
+                  "value": {
+                    "kind": "absent"
+                  }
+                },
+                {
+                  "name": "mode",
+                  "value": {
+                    "kind": "integer",
+                    "value": "420"
+                  }
+                },
+                {
+                  "name": "path",
+                  "value": {
+                    "kind": "string",
+                    "value": "files/missing.txt"
+                  }
+                },
+                {
+                  "name": "tags",
+                  "value": {
+                    "kind": "absent"
+                  }
+                }
+              ]
+            },
+            "outputs": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "content",
+                  "value": {
+                    "kind": "string",
+                    "value": "current"
+                  }
+                },
+                {
+                  "name": "exists",
+                  "value": {
+                    "kind": "boolean",
+                    "value": true
+                  }
+                },
+                {
+                  "name": "path",
+                  "value": {
+                    "kind": "string",
+                    "value": "files/missing.txt"
+                  }
+                },
+                {
+                  "name": "sha256",
+                  "value": {
+                    "kind": "string",
+                    "value": "97b0560280ed60a5a1eaa1bc45492543c8a986ad5a25b468c427eb83c3e88191"
+                  }
+                },
+                {
+                  "name": "size",
+                  "value": {
+                    "kind": "integer",
+                    "value": "7"
+                  }
+                }
+              ]
+            },
+            "depends-on": [],
+            "sensitive-input-paths": [],
+            "sensitive-output-paths": [],
+            "configuration": {
+              "address": "library-config.old",
+              "library-path": "example.com/unobin/missing-e2elib",
+              "schema-version": 1,
+              "schema-digest": "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3",
+              "value": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "base-dir",
+                    "value": {
+                      "kind": "string",
+                      "value": "."
+                    }
+                  },
+                  {
+                    "name": "event-log-path",
+                    "value": {
+                      "kind": "string",
+                      "value": "events.ndjson"
+                    }
+                  },
+                  {
+                    "name": "nested",
+                    "value": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "enabled",
+                          "value": {
+                            "kind": "boolean",
+                            "value": true
+                          }
+                        },
+                        {
+                          "name": "label",
+                          "value": {
+                            "kind": "string",
+                            "value": "nested"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "prefix",
+                    "value": {
+                      "kind": "string",
+                      "value": ""
+                    }
+                  }
+                ]
+              },
+              "sensitive-paths": [],
+              "sensitive-values": [],
+              "digest": "cacbdc901fba7795f70e6118e1a485014f32320f0c7842aa98622b3a7a26e7dc"
+            },
+            "schema-version": 1,
+            "identity": {
+              "definition-digest": "a615847dbd9c2dbe429f84a75517570c933d4034b51d34cd64de7fa248cc03ba",
+              "version": 1
+            }
+          }
+        }
       }
     }
   ],
-  "outputs": {}
+  "outputs": {
+    "kind": "object",
+    "fields": []
+  },
+  "sensitive-paths": []
 }

@@ -56,7 +56,7 @@ type planSummaryResult struct {
 
 func buildPlanSummary(
 	info Info,
-	plan *runtime.Plan,
+	plan *planView,
 	planDigest *string,
 	file *filechange.Change,
 	diagnostics []diagnostic.Diagnostic,

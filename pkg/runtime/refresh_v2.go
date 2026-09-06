@@ -144,7 +144,7 @@ func (e *Executor) prepareRefreshResourcesV2(
 			continue
 		}
 		prior := entry.Payload.Resource.Target
-		registration, definition, err := e.LibraryCatalog.resource(prior.Binding)
+		registration, definition, err := e.factoryResourceV2(prior.Binding)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", entry.Address, err)
 		}

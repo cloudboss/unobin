@@ -69,6 +69,9 @@ func validateFieldType(t reflect.Type, path string, visited map[reflect.Type]boo
 			return nil
 		}
 	case reflect.Slice:
+		if t.Elem().Kind() == reflect.Uint8 {
+			return nil
+		}
 		return validateFieldType(t.Elem(), path+"[]", visited)
 	case reflect.Map:
 		if t.Key().Kind() != reflect.String {

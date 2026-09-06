@@ -1,5 +1,5 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "config-defaults-constraints",
     "version": "v0.0.0",
@@ -9,12 +9,11 @@
   "entries": [
     {
       "address": "resource.archived",
-      "entry-kind": "library-call",
+      "entry-kind": "composite",
       "category": "resource",
       "binding": {
-        "alias": "files",
         "library-path": "local:libraries/files",
-        "kind": "archive"
+        "export": "archive"
       },
       "inputs": {
         "body": "archived",
@@ -39,12 +38,11 @@
     },
     {
       "address": "resource.archived/resource.member",
-      "entry-kind": "leaf",
+      "entry-kind": "resource",
       "category": "resource",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "file"
+        "export": "file"
       },
       "schema-version": 1,
       "inputs": {
@@ -63,12 +61,11 @@
     },
     {
       "address": "resource.direct",
-      "entry-kind": "leaf",
+      "entry-kind": "resource",
       "category": "resource",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "file"
+        "export": "file"
       },
       "schema-version": 1,
       "inputs": {

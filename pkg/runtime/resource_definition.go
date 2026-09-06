@@ -71,6 +71,7 @@ type ReplacementRules[In, Out any] struct {
 }
 
 type resolvedResourceDefinition[In, Out, Config any] struct {
+	decodeInputs      func(EncodedValue, bool) (In, error)
 	schemaVersion     int
 	migrate           ResourceMigrationFunc
 	validate          ResourceValidateFunc[In, Config]

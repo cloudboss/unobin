@@ -155,6 +155,24 @@ func checkConfigValue(t typecheck.Type, value any) error {
 		t = t.Unwrap()
 	}
 	switch t.Kind {
+	case typecheck.Bytes:
+		if _, ok := resourceAssetToken(value); ok {
+			return nil
+		}
+		if _, ok := value.([]byte); ok {
+			return nil
+		}
+		items, ok := value.([]any)
+		if !ok {
+			return fmt.Errorf("expected bytes, got %s", lang.TypeMessage(value))
+		}
+		for i, item := range items {
+			b, ok := item.(int64)
+			if !ok || b < 0 || b > 255 {
+				return fmt.Errorf("element %d: expected integer from 0 to 255", i)
+			}
+		}
+		return nil
 	case typecheck.Unknown, typecheck.Opaque:
 		return nil
 	case typecheck.String:

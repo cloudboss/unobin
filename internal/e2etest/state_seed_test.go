@@ -1,6 +1,7 @@
 package e2etest
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -12,42 +13,9 @@ import (
 
 func TestSeedStateWritesCurrentSnapshot(t *testing.T) {
 	caseDir := t.TempDir()
-	writeText(t, filepath.Join(caseDir, "seed/state.json"), `{
-  "format-version": 1,
-  "factory": {
-    "name": "seeded",
-    "version": "v0.0.0",
-    "content-revision": "old"
-  },
-  "stack": "dev",
-  "entries": [
-    {
-      "address": "resource.old",
-      "entry-kind": "leaf",
-      "category": "resource",
-      "binding": {
-        "alias": "e2e",
-        "library-path": "example.com/unobin/e2elib",
-        "kind": "file"
-      },
-      "schema-version": 1,
-      "inputs": {
-        "content": "old",
-        "create-parents": true,
-        "mode": 420,
-        "path": "files/old.txt"
-      },
-      "outputs": {
-        "content": "old",
-        "exists": true,
-        "path": "files/old.txt",
-        "sha256": "cba06b5736faf67e54b07b561eae94395e774c517a7d910a54369e1263ccfbd4",
-        "size": 3
-      }
-    }
-  ]
-}
-`)
+	body, err := os.ReadFile("testdata/state-seed.json")
+	require.NoError(t, err)
+	writeText(t, filepath.Join(caseDir, "seed/state.json"), string(body))
 	workspace := t.TempDir()
 	c := CompiledCase{Name: "seeded", Dir: caseDir, StateSeed: "seed/state.json"}
 
@@ -60,7 +28,9 @@ func TestSeedStateWritesCurrentSnapshot(t *testing.T) {
 		encrypters.Noop{},
 	)
 	require.NoError(t, err)
-	snap, err := store.Current()
+	revision, err := store.CurrentRev()
+	require.NoError(t, err)
+	snap, err := store.GetV2(revision)
 	require.NoError(t, err)
 	require.Equal(t, sdkstate.FactoryInfo{
 		Name:            "seeded",

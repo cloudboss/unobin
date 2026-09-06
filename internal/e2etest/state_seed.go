@@ -1,11 +1,9 @@
 package e2etest
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/cloudboss/unobin/pkg/encrypters"
 	sdkstate "github.com/cloudboss/unobin/pkg/sdk/state"
@@ -21,19 +19,11 @@ func seedState(workspace string, c CompiledCase) error {
 	if err != nil {
 		return fmt.Errorf("read state seed %s: %w", c.StateSeed, err)
 	}
-	var snap sdkstate.Snapshot
-	if err := json.Unmarshal(body, &snap); err != nil {
+	snap, err := sdkstate.DecodeSnapshotV2(body)
+	if err != nil {
 		return fmt.Errorf("decode state seed %s: %w", c.StateSeed, err)
 	}
-	if snap.Stack == "" {
-		return fmt.Errorf("state seed %s: stack is required", c.StateSeed)
-	}
-	if snap.Factory.Name == "" {
-		snap.Factory.Name = c.Name
-	}
-	if snap.GeneratedAt.IsZero() {
-		snap.GeneratedAt = time.Unix(0, 0).UTC()
-	}
+
 	store, err := local.NewStore(
 		filepath.Join(workspace, ".unobin", "state"),
 		c.Name,
@@ -43,7 +33,7 @@ func seedState(workspace string, c CompiledCase) error {
 	if err != nil {
 		return err
 	}
-	rev, err := store.Write(&snap)
+	rev, err := store.WriteV2(&snap)
 	if err != nil {
 		return fmt.Errorf("write state seed %s: %w", c.StateSeed, err)
 	}
@@ -51,8 +41,11 @@ func seedState(workspace string, c CompiledCase) error {
 		return fmt.Errorf("set current state seed %s: %w", c.StateSeed, err)
 	}
 	for range c.ExtraStateSnapshots {
-		extra := sdkstate.NewSnapshot(snap.Factory, snap.Stack)
-		if _, err := store.Write(extra); err != nil {
+		extra, err := sdkstate.NewSnapshotV2(snap.Factory, snap.Stack)
+		if err != nil {
+			return err
+		}
+		if _, err := store.WriteV2(extra); err != nil {
 			return fmt.Errorf("write extra state seed %s: %w", c.StateSeed, err)
 		}
 	}

@@ -12,7 +12,7 @@ func (d resolvedResourceDefinition[In, Out, Config]) prepareResourcePlanningRequ
 ) (preparedResourcePlanningRequest[In, Out], error) {
 	var prepared preparedResourcePlanningRequest[In, Out]
 
-	desired, err := prepareResourceDesired[In](request.Desired)
+	desired, err := d.prepareResourceDesired(request.Desired)
 	if err != nil {
 		return prepared, err
 	}
@@ -87,7 +87,7 @@ func prepareResourcePlanningObservation[Out any](
 	return &preparedResourceObservation[Out]{Observation: cloned}, nil
 }
 
-func prepareResourceDesired[In any](
+func (d resolvedResourceDefinition[In, Out, Config]) prepareResourceDesired(
 	target *PlannedResourceTarget,
 ) (*preparedResourceDesired[In], error) {
 	if target == nil {
@@ -96,7 +96,7 @@ func prepareResourceDesired[In any](
 	if err := target.Validate(); err != nil {
 		return nil, fmt.Errorf("desired target: %w", err)
 	}
-	inputs, err := decodeResourceInputValue[In](target.Inputs, true)
+	inputs, err := d.resourceInputs(target.Inputs, true)
 	if err != nil {
 		return nil, fmt.Errorf("desired resource inputs: %w", err)
 	}
@@ -151,7 +151,7 @@ func (d resolvedResourceDefinition[In, Out, Config]) prepareResourcePrior(
 		preparedTarget.Outputs = resource.Outputs
 	}
 
-	inputs, err := decodeResourceInputs[In](resource.Inputs)
+	inputs, err := d.resourceInputs(resource.Inputs, false)
 	if err != nil {
 		return nil, fmt.Errorf("recorded resource inputs: %w", err)
 	}
@@ -222,4 +222,13 @@ func cloneResourceTarget(target ResourceTarget) ResourceTarget {
 	result.SensitiveInputPaths = slices.Clone(target.SensitiveInputPaths)
 	result.SensitiveOutputPaths = slices.Clone(target.SensitiveOutputPaths)
 	return result
+}
+
+func (d resolvedResourceDefinition[In, Out, Config]) resourceInputs(
+	value EncodedValue, allowPending bool,
+) (In, error) {
+	if d.decodeInputs != nil {
+		return d.decodeInputs(value, allowPending)
+	}
+	return decodeResourceInputValue[In](value, allowPending)
 }

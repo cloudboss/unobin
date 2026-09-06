@@ -598,7 +598,7 @@ func TestSnapshotV2SetOutputs(t *testing.T) {
 
 func TestSnapshotV2SetOutputsRejectsInvalidMutation(t *testing.T) {
 	snapshot := validSnapshotV2(t)
-	before, err := encodeSnapshotV2(snapshot)
+	before, err := EncodeSnapshotV2(snapshot)
 	require.NoError(t, err)
 	outputs := v2Object(t, map[string]encodedvalue.Value{
 		"url": encodedvalue.String("https://example.com"),
@@ -606,13 +606,13 @@ func TestSnapshotV2SetOutputsRejectsInvalidMutation(t *testing.T) {
 
 	err = snapshot.SetOutputs(outputs, []string{"/missing"})
 	require.ErrorContains(t, err, "does not resolve")
-	after, encodeErr := encodeSnapshotV2(snapshot)
+	after, encodeErr := EncodeSnapshotV2(snapshot)
 	require.NoError(t, encodeErr)
 	require.Equal(t, before, after)
 
 	err = snapshot.SetOutputs(outputs, nil)
 	require.ErrorContains(t, err, "sensitive paths are required")
-	after, encodeErr = encodeSnapshotV2(snapshot)
+	after, encodeErr = EncodeSnapshotV2(snapshot)
 	require.NoError(t, encodeErr)
 	require.Equal(t, before, after)
 
@@ -668,7 +668,7 @@ func TestSnapshotV2SetEntry(t *testing.T) {
 
 func TestSnapshotV2SetEntryRejectsInvalidMutation(t *testing.T) {
 	snapshot := validSnapshotV2(t)
-	before, err := encodeSnapshotV2(snapshot)
+	before, err := EncodeSnapshotV2(snapshot)
 	require.NoError(t, err)
 	resource := ResourceStatePayload{Target: validV2ResourceTarget(t)}
 
@@ -678,7 +678,7 @@ func TestSnapshotV2SetEntryRejectsInvalidMutation(t *testing.T) {
 		Payload: StatePayload{Kind: StateResource, Resource: &resource},
 	})
 	require.ErrorContains(t, err, "address category action does not match resource")
-	after, encodeErr := encodeSnapshotV2(snapshot)
+	after, encodeErr := EncodeSnapshotV2(snapshot)
 	require.NoError(t, encodeErr)
 	require.Equal(t, before, after)
 
@@ -705,12 +705,12 @@ func TestSnapshotV2RemoveEntry(t *testing.T) {
 
 func TestSnapshotV2RemoveEntryRejectsInvalidMutation(t *testing.T) {
 	snapshot := validSnapshotV2(t)
-	before, err := encodeSnapshotV2(snapshot)
+	before, err := EncodeSnapshotV2(snapshot)
 	require.NoError(t, err)
 
 	err = snapshot.RemoveEntry("not-an-address")
 	require.ErrorContains(t, err, "entry address is invalid")
-	after, encodeErr := encodeSnapshotV2(snapshot)
+	after, encodeErr := EncodeSnapshotV2(snapshot)
 	require.NoError(t, encodeErr)
 	require.Equal(t, before, after)
 

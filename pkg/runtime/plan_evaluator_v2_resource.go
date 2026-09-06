@@ -109,7 +109,7 @@ func (e *Executor) planEvaluationV2ConfigurationForNode(
 			"%s: library %q requires a configuration", node.Address, node.Alias,
 		)
 	}
-	definition, err := resolveLibraryConfigurationDefinition(library.LibraryPath, library)
+	definition, err := e.factoryConfigurationV2(library)
 	if err != nil {
 		return PlannedConfiguration{}, err
 	}

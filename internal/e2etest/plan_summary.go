@@ -56,11 +56,11 @@ func planSummaryJSON(
 	if err != nil {
 		return "", fmt.Errorf("read plan %s: %w", relPath, err)
 	}
-	pf, err := runtime.OpenPlan(body, planSummaryEncrypter)
+	pf, err := runtime.OpenPlanV2(body, planSummaryEncrypter)
 	if err != nil {
 		return "", fmt.Errorf("open plan %s: %w", relPath, err)
 	}
-	summary := summarizePlan(pf, includeInputs)
+	summary := summarizePlan(&pf, includeInputs)
 	var out bytes.Buffer
 	enc := json.NewEncoder(&out)
 	enc.SetEscapeHTML(false)
@@ -78,18 +78,46 @@ func planSummaryEncrypter(ref *runtime.StateRef) (encrypt.Encrypter, error) {
 	return encrypters.Noop{}, nil
 }
 
-func summarizePlan(pf *runtime.PlanFile, includeInputs bool) planSummary {
+func summarizePlan(pf *runtime.PlanFileV2, includeInputs bool) planSummary {
 	factory := pf.Factory
 	factory.ContentRevision = "<revision>"
 	steps := make([]planStepSummary, 0, len(pf.Steps))
 	for _, step := range pf.Steps {
 		summary := planStepSummary{
-			Address:  step.Address,
-			Kind:     string(step.Kind),
-			Decision: string(step.Decision),
+			Address: step.Address,
+			Kind:    string(step.Kind),
 		}
+		var decision runtime.Decision
+		var inputs runtime.EncodedValue
+		switch op := step.Operation; op.Kind {
+		case runtime.StepResource:
+			decision = op.Resource.Decision
+			if op.Resource.Desired != nil {
+				inputs = op.Resource.Desired.Inputs
+			}
+		case runtime.StepAction:
+			decision = op.Action.Decision
+			if op.Action.Desired != nil {
+				inputs = op.Action.Desired.Inputs
+			}
+		case runtime.StepDataSource:
+			decision = op.DataSource.Decision
+			if op.DataSource.Desired != nil {
+				inputs = op.DataSource.Desired.Inputs
+			}
+		case runtime.StepComposite:
+			decision = op.Composite.Decision
+			if op.Composite.Desired != nil {
+				inputs = op.Composite.Desired.Inputs
+			}
+		case runtime.StepLibraryConfiguration:
+			decision, inputs = op.LibraryConfiguration.Decision, op.LibraryConfiguration.Inputs
+		case runtime.StepOutput:
+			decision = op.Output.Decision
+		}
+		summary.Decision = string(decision)
 		if includeInputs {
-			summary.Inputs = step.Inputs
+			summary.Inputs = summaryObject(inputs)
 		}
 		steps = append(steps, summary)
 	}
@@ -98,7 +126,7 @@ func summarizePlan(pf *runtime.PlanFile, includeInputs bool) planSummary {
 		Factory:       factory,
 		Stack:         pf.Stack,
 		Parallelism:   pf.Parallelism,
-		Destroy:       pf.Destroy,
+		Destroy:       pf.Mode == runtime.PlanDestroy,
 		Steps:         steps,
 	}
 }

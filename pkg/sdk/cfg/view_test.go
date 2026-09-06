@@ -166,3 +166,20 @@ func TestDigestViewIncludesConstraints(t *testing.T) {
 
 	require.NotEqual(t, withoutConstraints, withConstraints)
 }
+
+func TestViewSupportsByteConfigurationFields(t *testing.T) {
+	type configuration struct {
+		Content  []byte
+		Optional *[]byte
+	}
+	registration := &ConfigurationType[*configuration]{New: func() *configuration {
+		return &configuration{}
+	}}
+	require.NoError(t, ValidateConfigurationType(registration))
+	view, err := View(registration)
+	require.NoError(t, err)
+	require.Equal(t, []typecheck.ObjectField{
+		{Name: "content", Type: typecheck.TBytes()},
+		{Name: "optional", Type: typecheck.TBytes(), Optional: true},
+	}, view.Fields)
+}

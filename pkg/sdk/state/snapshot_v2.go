@@ -304,11 +304,11 @@ func (s *SnapshotV2) Clone() (*SnapshotV2, error) {
 	if s == nil {
 		return nil, fmt.Errorf("snapshot is required")
 	}
-	encoded, err := encodeSnapshotV2(*s)
+	encoded, err := EncodeSnapshotV2(*s)
 	if err != nil {
 		return nil, fmt.Errorf("copy snapshot: %w", err)
 	}
-	cloned, err := decodeSnapshotV2(encoded)
+	cloned, err := DecodeSnapshotV2(encoded)
 	if err != nil {
 		return nil, fmt.Errorf("copy snapshot: %w", err)
 	}

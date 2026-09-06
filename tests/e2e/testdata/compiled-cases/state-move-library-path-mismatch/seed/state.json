@@ -1,35 +1,182 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "state-move-library-path-mismatch",
     "version": "v0.0.0",
     "content-revision": "seed"
   },
   "stack": "dev",
+  "generated-at": "1970-01-01T00:00:00Z",
   "entries": [
     {
       "address": "resource.legacy",
-      "entry-kind": "leaf",
-      "category": "resource",
-      "binding": {
-        "alias": "other",
-        "library-path": "example.com/unobin/otherlib",
-        "kind": "file"
-      },
-      "schema-version": 1,
-      "inputs": {
-        "content": "current",
-        "create-parents": true,
-        "mode": 420,
-        "path": "files/current.txt"
-      },
-      "outputs": {
-        "content": "current",
-        "exists": true,
-        "path": "files/current.txt",
-        "sha256": "97b0560280ed60a5a1eaa1bc45492543c8a986ad5a25b468c427eb83c3e88191",
-        "size": 7
+      "kind": "resource",
+      "payload": {
+        "kind": "resource",
+        "resource": {
+          "target": {
+            "binding": {
+              "library-path": "example.com/unobin/otherlib",
+              "export": "file"
+            },
+            "inputs": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "content",
+                  "value": {
+                    "kind": "string",
+                    "value": "current"
+                  }
+                },
+                {
+                  "name": "create-parents",
+                  "value": {
+                    "kind": "boolean",
+                    "value": true
+                  }
+                },
+                {
+                  "name": "fail-update",
+                  "value": {
+                    "kind": "absent"
+                  }
+                },
+                {
+                  "name": "mode",
+                  "value": {
+                    "kind": "integer",
+                    "value": "420"
+                  }
+                },
+                {
+                  "name": "path",
+                  "value": {
+                    "kind": "string",
+                    "value": "files/current.txt"
+                  }
+                },
+                {
+                  "name": "tags",
+                  "value": {
+                    "kind": "absent"
+                  }
+                }
+              ]
+            },
+            "outputs": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "content",
+                  "value": {
+                    "kind": "string",
+                    "value": "current"
+                  }
+                },
+                {
+                  "name": "exists",
+                  "value": {
+                    "kind": "boolean",
+                    "value": true
+                  }
+                },
+                {
+                  "name": "path",
+                  "value": {
+                    "kind": "string",
+                    "value": "files/current.txt"
+                  }
+                },
+                {
+                  "name": "sha256",
+                  "value": {
+                    "kind": "string",
+                    "value": "97b0560280ed60a5a1eaa1bc45492543c8a986ad5a25b468c427eb83c3e88191"
+                  }
+                },
+                {
+                  "name": "size",
+                  "value": {
+                    "kind": "integer",
+                    "value": "7"
+                  }
+                }
+              ]
+            },
+            "depends-on": [],
+            "sensitive-input-paths": [],
+            "sensitive-output-paths": [],
+            "configuration": {
+              "address": "library-config.other",
+              "library-path": "example.com/unobin/otherlib",
+              "schema-version": 1,
+              "schema-digest": "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3",
+              "value": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "base-dir",
+                    "value": {
+                      "kind": "string",
+                      "value": "."
+                    }
+                  },
+                  {
+                    "name": "event-log-path",
+                    "value": {
+                      "kind": "string",
+                      "value": "events.ndjson"
+                    }
+                  },
+                  {
+                    "name": "nested",
+                    "value": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "enabled",
+                          "value": {
+                            "kind": "boolean",
+                            "value": true
+                          }
+                        },
+                        {
+                          "name": "label",
+                          "value": {
+                            "kind": "string",
+                            "value": "nested"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "prefix",
+                    "value": {
+                      "kind": "string",
+                      "value": ""
+                    }
+                  }
+                ]
+              },
+              "sensitive-paths": [],
+              "sensitive-values": [],
+              "digest": "4c564b466ec25863a06d762d9ac74b75d176bd8c65ab21b960a85898b28b8238"
+            },
+            "schema-version": 1,
+            "identity": {
+              "definition-digest": "80d82d193528e5e2a900ac0d8a7f43f8423066667ed64ac9d5ee76d2c48a0fa2",
+              "version": 1
+            }
+          }
+        }
       }
     }
-  ]
+  ],
+  "outputs": {
+    "kind": "object",
+    "fields": []
+  },
+  "sensitive-paths": []
 }

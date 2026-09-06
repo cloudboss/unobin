@@ -1,5 +1,5 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "plan-parallelism",
     "version": "v0.0.0",
@@ -10,7 +10,7 @@
   "steps": [
     {
       "address": "library-config.e2e",
-      "kind": "library-config",
+      "kind": "library-configuration",
       "decision": "eval"
     },
     {

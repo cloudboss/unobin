@@ -46,9 +46,10 @@ func (q *applyReadyV2Queue) Pop() any {
 }
 
 type applyScheduleV2Options struct {
-	Nodes  map[string]*Node
-	Drain  <-chan struct{}
-	Events chan<- ApplyEvent
+	Parallelism int
+	Nodes       map[string]*Node
+	Drain       <-chan struct{}
+	Events      chan<- ApplyEvent
 }
 
 func runApplyScheduleV2(
@@ -79,6 +80,9 @@ func runApplyScheduleV2WithOptions(
 	}
 	if len(steps) == 0 {
 		return nil
+	}
+	if options.Parallelism > 0 {
+		parallelism = options.Parallelism
 	}
 	if parallelism <= 0 {
 		parallelism = DefaultParallelism

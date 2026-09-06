@@ -1,15 +1,13 @@
 address: action.record
-import-alias: e2e
 library-path: example.com/unobin/e2elib
 kind: record
 category: action
-schema-version: 0
-trigger-hash: be50edad1db1dd908c34f5df6efb122c9c18e133e37e0b7a78c446d40d6aedbb
+trigger-hash: 931a03bdbe3f0cbf29a94e0008d4e9a99dbb69c6c7c9591f758550f4700cbe68
 inputs:
-  message: <sensitive>
+  message: '<sensitive>'
   name: 'deploy'
 outputs:
   count: 1
   name: 'deploy'
   record: 'deploy:top-secret'
-sensitive-inputs: message
+sensitive-input-paths: /message

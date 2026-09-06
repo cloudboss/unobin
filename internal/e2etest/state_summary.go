@@ -22,16 +22,16 @@ type stateSummary struct {
 }
 
 type stateEntrySummary struct {
-	Address          string             `json:"address"`
-	Type             sdkstate.EntryType `json:"entry-kind"`
-	Category         string             `json:"category,omitempty"`
-	Binding          *sdkstate.Binding  `json:"binding,omitempty"`
-	SchemaVersion    int                `json:"schema-version,omitempty"`
-	SensitiveInputs  []string           `json:"sensitive-inputs,omitempty"`
-	SensitiveOutputs []string           `json:"sensitive-outputs,omitempty"`
-	Inputs           map[string]any     `json:"inputs,omitempty"`
-	Outputs          map[string]any     `json:"outputs,omitempty"`
-	DependsOn        []string           `json:"depends-on,omitempty"`
+	Address          string                     `json:"address"`
+	Type             sdkstate.StateEntryKind    `json:"entry-kind"`
+	Category         string                     `json:"category,omitempty"`
+	Binding          *sdkstate.CanonicalBinding `json:"binding,omitempty"`
+	SchemaVersion    int                        `json:"schema-version,omitempty"`
+	SensitiveInputs  []string                   `json:"sensitive-inputs,omitempty"`
+	SensitiveOutputs []string                   `json:"sensitive-outputs,omitempty"`
+	Inputs           map[string]any             `json:"inputs,omitempty"`
+	Outputs          map[string]any             `json:"outputs,omitempty"`
+	DependsOn        []string                   `json:"depends-on,omitempty"`
 }
 
 func compareStateSummary(
@@ -59,9 +59,18 @@ func stateSummaryJSON(workspace string, c CompiledCase, stackPath string) (strin
 	if err != nil {
 		return "", err
 	}
-	snap, err := store.Current()
+	revision, err := store.CurrentRev()
+	var snap *sdkstate.SnapshotV2
+	if err == nil {
+		snap, err = store.GetV2(revision)
+	}
 	if errors.Is(err, sdkstate.ErrNoCurrent) {
-		snap = sdkstate.NewSnapshot(sdkstate.FactoryInfo{Name: c.Name}, stackName)
+		snap, err = sdkstate.NewSnapshotV2(sdkstate.FactoryInfo{
+			Name: c.Name, Version: "v0.0.0", ContentRevision: "empty",
+		}, stackName)
+		if err != nil {
+			return "", err
+		}
 	} else if err != nil {
 		return "", err
 	}
@@ -76,12 +85,12 @@ func stateSummaryJSON(workspace string, c CompiledCase, stackPath string) (strin
 	return body.String(), nil
 }
 
-func summarizeSnapshot(snap *sdkstate.Snapshot) stateSummary {
+func summarizeSnapshot(snap *sdkstate.SnapshotV2) stateSummary {
 	factory := snap.Factory
 	factory.ContentRevision = "<revision>"
 	entries := make([]stateEntrySummary, 0, len(snap.Entries))
 	for _, entry := range snap.Entries {
-		entries = append(entries, summarizeEntry(entry))
+		entries = append(entries, summarizeEntry(&entry))
 	}
 	slices.SortFunc(entries, func(a, b stateEntrySummary) int {
 		return strings.Compare(a.Address, b.Address)
@@ -91,23 +100,45 @@ func summarizeSnapshot(snap *sdkstate.Snapshot) stateSummary {
 		Factory:       factory,
 		Stack:         snap.Stack,
 		Entries:       entries,
-		Outputs:       snap.Outputs,
+		Outputs:       summaryObject(snap.Outputs),
 	}
 }
 
-func summarizeEntry(entry *sdkstate.Entry) stateEntrySummary {
-	return stateEntrySummary{
-		Address:          entry.Address,
-		Type:             entry.Type,
-		Category:         entry.Category,
-		Binding:          entry.Binding,
-		SchemaVersion:    entry.SchemaVersion,
-		SensitiveInputs:  sortedCopy(entry.SensitiveInputs),
-		SensitiveOutputs: sortedCopy(entry.SensitiveOutputs),
-		Inputs:           entry.Inputs,
-		Outputs:          entry.Outputs,
-		DependsOn:        sortedCopy(entry.DependsOn),
+func summarizeEntry(entry *sdkstate.StateEntryV2) stateEntrySummary {
+	summary := stateEntrySummary{Address: entry.Address, Type: entry.Kind,
+		Category: string(entry.Kind)}
+	switch entry.Kind {
+	case sdkstate.StateResource:
+		target := entry.Payload.Resource.Target
+		summary.Binding, summary.SchemaVersion = &target.Binding, target.SchemaVersion
+		summary.Inputs, summary.Outputs = summaryObject(target.Inputs), summaryObject(target.Outputs)
+		summary.DependsOn = sortedCopy(target.DependsOn)
+		summary.SensitiveInputs = sortedCopy(target.SensitiveInputPaths)
+		summary.SensitiveOutputs = sortedCopy(target.SensitiveOutputPaths)
+	case sdkstate.StateAction:
+		action := entry.Payload.Action
+		summary.Binding = &action.Binding
+		summary.Inputs, summary.Outputs = summaryObject(action.Inputs), summaryObject(action.Outputs)
+		summary.DependsOn = sortedCopy(action.DependsOn)
+		summary.SensitiveInputs = sortedCopy(action.SensitiveInputPaths)
+		summary.SensitiveOutputs = sortedCopy(action.SensitiveOutputPaths)
+	case sdkstate.StateDataSource:
+		data := entry.Payload.DataSource
+		summary.Binding = &data.Binding
+		summary.Inputs, summary.Outputs = summaryObject(data.Inputs), summaryObject(data.Outputs)
+		summary.DependsOn = sortedCopy(data.DependsOn)
+		summary.SensitiveInputs = sortedCopy(data.SensitiveInputPaths)
+		summary.SensitiveOutputs = sortedCopy(data.SensitiveOutputPaths)
+	case sdkstate.StateComposite:
+		composite := entry.Payload.Composite
+		summary.Category, summary.Binding = composite.Category, &composite.Binding
+		summary.Inputs = summaryObject(composite.Inputs)
+		summary.Outputs = summaryObject(composite.Outputs)
+		summary.DependsOn = sortedCopy(composite.DependsOn)
+		summary.SensitiveInputs = sortedCopy(composite.SensitiveInputPaths)
+		summary.SensitiveOutputs = sortedCopy(composite.SensitiveOutputPaths)
 	}
+	return summary
 }
 
 func sortedCopy(in []string) []string {

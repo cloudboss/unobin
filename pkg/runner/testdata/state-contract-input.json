@@ -1,5 +1,5 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "appdeploy",
     "version": "v0.1.0",
@@ -10,37 +10,127 @@
   "entries": [
     {
       "address": "action.record",
-      "entry-kind": "action",
-      "category": "action",
-      "binding": {
-        "alias": "local",
-        "library-path": "example.com/local",
-        "kind": "record"
-      },
-      "schema-version": 1,
-      "trigger-hash": "sha256:trigger",
-      "inputs": {
-        "name": "deploy",
-        "password": "super-secret"
-      },
-      "outputs": {
-        "id": "record-1",
-        "token": "output-secret"
-      },
-      "depends-on": ["resource.z", "resource.a"],
-      "sensitive-inputs": ["password"],
-      "sensitive-outputs": ["token"]
+      "kind": "action",
+      "payload": {
+        "kind": "action",
+        "action": {
+          "binding": {
+            "library-path": "example.com/local",
+            "export": "record"
+          },
+          "inputs": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "name",
+                "value": {
+                  "kind": "string",
+                  "value": "deploy"
+                }
+              },
+              {
+                "name": "password",
+                "value": {
+                  "kind": "string",
+                  "value": "super-secret"
+                }
+              }
+            ]
+          },
+          "outputs": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "id",
+                "value": {
+                  "kind": "string",
+                  "value": "record-1"
+                }
+              },
+              {
+                "name": "token",
+                "value": {
+                  "kind": "string",
+                  "value": "output-secret"
+                }
+              }
+            ]
+          },
+          "configuration": {
+            "address": "library-config.local",
+            "library-path": "example.com/local",
+            "schema-version": 1,
+            "schema-digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "value": {
+              "kind": "object",
+              "fields": []
+            },
+            "sensitive-paths": [],
+            "sensitive-values": [],
+            "digest": "1c10d79e1e47157170c048f9d00204149668b9f381763092d9915ec512202d12"
+          },
+          "depends-on": [
+            "resource.a",
+            "resource.z"
+          ],
+          "sensitive-input-paths": [
+            "/password"
+          ],
+          "sensitive-output-paths": [
+            "/token"
+          ],
+          "trigger-hash": "sha256:trigger"
+        }
+      }
     },
     {
       "address": "resource.bucket",
-      "entry-kind": "leaf",
-      "category": "resource",
-      "binding": {
-        "alias": "local",
-        "kind": "bucket"
-      },
-      "inputs": {},
-      "outputs": {}
+      "kind": "resource",
+      "payload": {
+        "kind": "resource",
+        "resource": {
+          "target": {
+            "binding": {
+              "library-path": "example.com/local",
+              "export": "bucket"
+            },
+            "inputs": {
+              "kind": "object",
+              "fields": []
+            },
+            "outputs": {
+              "kind": "object",
+              "fields": []
+            },
+            "configuration": {
+              "address": "library-config.local",
+              "library-path": "example.com/local",
+              "schema-version": 1,
+              "schema-digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "value": {
+                "kind": "object",
+                "fields": []
+              },
+              "sensitive-paths": [],
+              "sensitive-values": [],
+              "digest": "1c10d79e1e47157170c048f9d00204149668b9f381763092d9915ec512202d12"
+            },
+            "depends-on": [],
+            "sensitive-input-paths": [],
+            "sensitive-output-paths": [],
+            "schema-version": 1,
+            "identity": {
+              "definition-digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "version": 1
+            }
+          }
+        }
+      }
     }
-  ]
+  ],
+  "outputs": {
+    "kind": "object",
+    "fields": []
+  },
+  "sensitive-paths": []
 }

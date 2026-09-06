@@ -1,5 +1,5 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "assets-composite-runtime",
     "version": "v0.0.0",
@@ -10,7 +10,7 @@
   "steps": [
     {
       "address": "resource.first/library-config.e2e",
-      "kind": "library-config",
+      "kind": "library-configuration",
       "decision": "eval",
       "inputs": {
         "base-dir": ".",
@@ -65,7 +65,7 @@
     },
     {
       "address": "resource.second/library-config.e2e",
-      "kind": "library-config",
+      "kind": "library-configuration",
       "decision": "eval",
       "inputs": {
         "base-dir": ".",

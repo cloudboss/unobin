@@ -21,6 +21,8 @@ func TestEncodePlanningConfigurationValuePreservesKinds(t *testing.T) {
 	require.NoError(t, err)
 	pending, err := PendingEncodedValue([]string{"resource.server.id"})
 	require.NoError(t, err)
+	content, err := ListValue([]EncodedValue{IntegerValue(0), IntegerValue(255)})
+	require.NoError(t, err)
 
 	tests := []struct {
 		name  string
@@ -28,6 +30,9 @@ func TestEncodePlanningConfigurationValuePreservesKinds(t *testing.T) {
 		value any
 		want  EncodedValue
 	}{
+		{name: "bytes", typ: typecheck.TBytes(), value: []byte{0, 255}, want: content},
+		{name: "recorded bytes", typ: typecheck.TBytes(), value: []any{int64(0), int64(255)},
+			want: content},
 		{name: "null", typ: typecheck.TOptional(typecheck.TString()), want: NullValue()},
 		{name: "boolean", typ: typecheck.TBoolean(), value: true, want: BooleanValue(true)},
 		{name: "string", typ: typecheck.TString(), value: "value", want: StringValue("value")},

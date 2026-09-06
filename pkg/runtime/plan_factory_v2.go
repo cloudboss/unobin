@@ -81,7 +81,7 @@ func (e *Executor) planRemovedFactoryEntryV2(
 	switch entry.Kind {
 	case state.StateResource:
 		prior := &entry.Payload.Resource.Target
-		registration, configuration, err := e.LibraryCatalog.resource(prior.Binding)
+		registration, configuration, err := e.factoryResourceV2(prior.Binding)
 		if err != nil {
 			return nil, err
 		}

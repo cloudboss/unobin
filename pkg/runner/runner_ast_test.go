@@ -27,7 +27,7 @@ func TestParseFactoryUsesSyntaxBody(t *testing.T) {
 			"core": {
 				Name: "core",
 				Actions: map[string]runtime.ActionRegistration{
-					"echo": runtime.MakeAction[echoAction, any, any](),
+					"echo": runtime.MakeAction[echoAction, *echoActionOutput, any](),
 				},
 			},
 		},

@@ -1,15 +1,16 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "assets-runtime",
     "version": "v0.0.0",
     "content-revision": "<revision>"
   },
   "stack": "dev",
+  "parallelism": 10,
   "steps": [
     {
       "address": "library-config.e2e",
-      "kind": "library-config",
+      "kind": "library-configuration",
       "decision": "eval",
       "inputs": {
         "base-dir": ".",

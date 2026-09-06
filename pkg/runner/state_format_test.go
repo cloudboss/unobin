@@ -2,7 +2,6 @@ package runner
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"testing"
 
@@ -17,8 +16,8 @@ import (
 func TestStateInspectionResultsGolden(t *testing.T) {
 	input, err := os.ReadFile("testdata/state-contract-input.json")
 	require.NoError(t, err)
-	var snapshot state.Snapshot
-	require.NoError(t, json.Unmarshal(input, &snapshot))
+	snapshot, err := state.DecodeSnapshotV2(input)
+	require.NoError(t, err)
 	info := Info{
 		FactoryName: "appdeploy", FactoryVersion: "v0.1.0",
 		ContentRevision: "abc123def456", LibraryPath: "example.com/appdeploy",
@@ -29,7 +28,7 @@ func TestStateInspectionResultsGolden(t *testing.T) {
 	}}
 	list, err := buildStateListResult(info, "dev", &revision, &snapshot, diagnostics)
 	require.NoError(t, err)
-	entry, err := buildStateEntryResult(info, "dev", revision, snapshot.Entries[0], diagnostics)
+	entry, err := buildStateEntryResult(info, "dev", revision, &snapshot.Entries[0], diagnostics)
 	require.NoError(t, err)
 	snapshots := buildStateSnapshotsResult(
 		info, "dev", &revision, []string{"rev-1", "rev-2"}, diagnostics,

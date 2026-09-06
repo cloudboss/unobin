@@ -72,7 +72,7 @@ func (d resolvedResourceDefinition[In, Out, Config]) readResourceObservation(
 	if err := request.validate(); err != nil {
 		return ResourceObservation{}, err
 	}
-	inputs, err := decodeResourceInputs[In](request.Inputs)
+	inputs, err := d.resourceInputs(request.Inputs, false)
 	if err != nil {
 		return ResourceObservation{}, fmt.Errorf("read resource inputs: %w", err)
 	}

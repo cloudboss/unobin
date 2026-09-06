@@ -273,8 +273,11 @@ func TestExecutorApplyPlanV2RunsIndependentProvidersConcurrently(t *testing.T) {
 		}
 	}}
 	executor := newFactoryApplyExecutor(t, capture)
+	executor.Parallelism = 1
 	plan, err := executor.PlanV2(context.Background())
 	require.NoError(t, err)
+	executor.Parallelism = 2
+	require.Equal(t, 1, plan.Parallelism)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	done := make(chan error, 1)
@@ -419,33 +422,38 @@ func TestExecutorApplyPlanV2HandlesOnlyOutputs(t *testing.T) {
 }
 
 func TestExecutorApplyPlanV2ResolvesDeferredConfigurations(t *testing.T) {
-	capture := &factoryApplyCapture{}
-	executor := newFactoryApplyExecutor(t, capture)
-	source := ubtest.ReadValidFixture(t, "testdata/ub/plan-factory-v2", "pending-configuration")
-	executor.DAG, executor.SyntaxSource = syntaxDAGAndBody(t, source, executor.Libraries)
-	plan, err := executor.PlanV2(context.Background())
-	require.NoError(t, err)
-	require.Zero(t, capture.reads)
-	for _, step := range plan.Steps {
-		if step.Operation.LibraryConfiguration != nil {
-			require.Equal(t, PlannedConfigurationPending,
-				step.Operation.LibraryConfiguration.Result.Kind)
-		}
+	for _, fixture := range []string{"pending-configuration", "pending-configuration-local"} {
+		t.Run(fixture, func(t *testing.T) {
+			capture := &factoryApplyCapture{}
+			executor := newFactoryApplyExecutor(t, capture)
+			source := ubtest.ReadValidFixture(t, "testdata/ub/plan-factory-v2", fixture)
+			executor.DAG, executor.SyntaxSource = syntaxDAGAndBody(t, source, executor.Libraries)
+			plan, err := executor.PlanV2(context.Background())
+			require.NoError(t, err)
+			require.Zero(t, capture.reads)
+			for _, step := range plan.Steps {
+				if step.Operation.LibraryConfiguration != nil {
+					require.Equal(t, PlannedConfigurationPending,
+						step.Operation.LibraryConfiguration.Result.Kind)
+				}
+			}
+			result, err := executor.ApplyPlanV2(context.Background(), plan)
+			require.NoError(t, err)
+			require.Equal(t, "server-1", result.Outputs["value"])
+			require.Equal(t, 1, capture.reads)
+			require.Equal(t, 1, capture.runs)
+			require.Contains(t, capture.calls, "create:server:configured")
+			snapshot, err := executor.Store.(state.SnapshotBackendV2).GetV2(result.WrittenRev)
+			require.NoError(t, err)
+			require.Equal(t, []string{"/value"}, snapshot.SensitivePaths)
+			require.Equal(t, []string{"resource.seed"},
+				snapshot.Find("resource.main").Payload.Resource.Target.DependsOn)
+			target := snapshot.Find("resource.main").Payload.Resource.Target
+			fields, _ := target.Configuration.Value.ObjectFields()
+			require.Equal(t, StringValue("configured"), fields["endpoint"])
+
+		})
 	}
-	result, err := executor.ApplyPlanV2(context.Background(), plan)
-	require.NoError(t, err)
-	require.Equal(t, "server-1", result.Outputs["value"])
-	require.Equal(t, 1, capture.reads)
-	require.Equal(t, 1, capture.runs)
-	require.Contains(t, capture.calls, "create:server:configured")
-	snapshot, err := executor.Store.(state.SnapshotBackendV2).GetV2(result.WrittenRev)
-	require.NoError(t, err)
-	require.Equal(t, []string{"/value"}, snapshot.SensitivePaths)
-	require.Equal(t, []string{"resource.seed"},
-		snapshot.Find("resource.main").Payload.Resource.Target.DependsOn)
-	target := snapshot.Find("resource.main").Payload.Resource.Target
-	fields, _ := target.Configuration.Value.ObjectFields()
-	require.Equal(t, StringValue("configured"), fields["endpoint"])
 }
 
 func TestExecutorApplyPlanV2DrainsAndReportsCompletedWork(t *testing.T) {
@@ -510,4 +518,26 @@ func TestExecutorApplyPlanV2ReportsProviderTimeout(t *testing.T) {
 	require.Equal(t, "cloud", stepError.Alias)
 	require.Equal(t, DecisionCreate, stepError.Decision)
 	require.Less(t, stepError.Elapsed, time.Second)
+}
+
+func TestExecutorPlanAndApplyV2UseConfigurationInput(t *testing.T) {
+	capture := &factoryApplyCapture{}
+	executor := newFactoryApplyExecutor(t, capture)
+	source := ubtest.ReadValidFixture(t, "testdata/ub/plan-factory-v2", "configuration-input")
+	executor.DAG, executor.SyntaxSource = syntaxDAGAndBody(t, source, executor.Libraries)
+	value, _, err := decodeConcreteValue(testConfigurationValue(t), "configuration")
+	require.NoError(t, err)
+	executor.Inputs = map[string]any{"configuration": value}
+	plan, err := executor.PlanV2(context.Background())
+	require.NoError(t, err)
+	for _, step := range plan.Steps {
+		if op := step.Operation.LibraryConfiguration; op != nil {
+			require.Contains(t, op.Result.Record.SensitivePaths, "")
+		}
+	}
+	executor.Inputs = nil
+	result, err := executor.ApplyPlanV2(context.Background(), plan)
+	require.NoError(t, err)
+	require.Equal(t, "server-1", result.Outputs["value"])
+	require.Contains(t, capture.calls, "create:server:https://api.example")
 }

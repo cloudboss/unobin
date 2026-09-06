@@ -1,5 +1,5 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "state-command-edits",
     "version": "v0.0.0",
@@ -9,64 +9,374 @@
   "generated-at": "2026-06-20T00:00:00Z",
   "entries": [
     {
-      "address": "action.old",
-      "entry-kind": "action",
-      "category": "action",
-      "binding": {
-        "alias": "e2e",
-        "library-path": "example.com/unobin/e2elib",
-        "kind": "echo"
-      },
-      "inputs": {
-        "text": "hello",
-        "upper": false
-      },
-      "outputs": {
-        "length": 5,
-        "prefixed": "hello",
-        "text": "hello"
+      "address": "action.bye",
+      "kind": "action",
+      "payload": {
+        "kind": "action",
+        "action": {
+          "binding": {
+            "library-path": "example.com/unobin/e2elib",
+            "export": "echo"
+          },
+          "inputs": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "text",
+                "value": {
+                  "kind": "string",
+                  "value": "bye"
+                }
+              },
+              {
+                "name": "upper",
+                "value": {
+                  "kind": "boolean",
+                  "value": false
+                }
+              }
+            ]
+          },
+          "outputs": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "length",
+                "value": {
+                  "kind": "integer",
+                  "value": "3"
+                }
+              },
+              {
+                "name": "prefixed",
+                "value": {
+                  "kind": "string",
+                  "value": "bye"
+                }
+              },
+              {
+                "name": "text",
+                "value": {
+                  "kind": "string",
+                  "value": "bye"
+                }
+              }
+            ]
+          },
+          "configuration": {
+            "address": "library-config.e2e",
+            "library-path": "example.com/unobin/e2elib",
+            "schema-version": 1,
+            "schema-digest": "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3",
+            "value": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "base-dir",
+                  "value": {
+                    "kind": "string",
+                    "value": "."
+                  }
+                },
+                {
+                  "name": "event-log-path",
+                  "value": {
+                    "kind": "string",
+                    "value": "events.ndjson"
+                  }
+                },
+                {
+                  "name": "nested",
+                  "value": {
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "name": "enabled",
+                        "value": {
+                          "kind": "boolean",
+                          "value": true
+                        }
+                      },
+                      {
+                        "name": "label",
+                        "value": {
+                          "kind": "string",
+                          "value": "nested"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "prefix",
+                  "value": {
+                    "kind": "string",
+                    "value": ""
+                  }
+                }
+              ]
+            },
+            "sensitive-paths": [],
+            "sensitive-values": [],
+            "digest": "907db3228df122a8b3edd7a566e6db640759e4e3741439204008d688985e962f"
+          },
+          "trigger-hash": "",
+          "depends-on": [],
+          "sensitive-input-paths": [],
+          "sensitive-output-paths": []
+        }
       }
     },
     {
-      "address": "action.bye",
-      "entry-kind": "action",
-      "category": "action",
-      "binding": {
-        "alias": "e2e",
-        "library-path": "example.com/unobin/e2elib",
-        "kind": "echo"
-      },
-      "inputs": {
-        "text": "bye",
-        "upper": false
-      },
-      "outputs": {
-        "length": 3,
-        "prefixed": "bye",
-        "text": "bye"
+      "address": "action.old",
+      "kind": "action",
+      "payload": {
+        "kind": "action",
+        "action": {
+          "binding": {
+            "library-path": "example.com/unobin/e2elib",
+            "export": "echo"
+          },
+          "inputs": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "text",
+                "value": {
+                  "kind": "string",
+                  "value": "hello"
+                }
+              },
+              {
+                "name": "upper",
+                "value": {
+                  "kind": "boolean",
+                  "value": false
+                }
+              }
+            ]
+          },
+          "outputs": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "length",
+                "value": {
+                  "kind": "integer",
+                  "value": "5"
+                }
+              },
+              {
+                "name": "prefixed",
+                "value": {
+                  "kind": "string",
+                  "value": "hello"
+                }
+              },
+              {
+                "name": "text",
+                "value": {
+                  "kind": "string",
+                  "value": "hello"
+                }
+              }
+            ]
+          },
+          "configuration": {
+            "address": "library-config.e2e",
+            "library-path": "example.com/unobin/e2elib",
+            "schema-version": 1,
+            "schema-digest": "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3",
+            "value": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "base-dir",
+                  "value": {
+                    "kind": "string",
+                    "value": "."
+                  }
+                },
+                {
+                  "name": "event-log-path",
+                  "value": {
+                    "kind": "string",
+                    "value": "events.ndjson"
+                  }
+                },
+                {
+                  "name": "nested",
+                  "value": {
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "name": "enabled",
+                        "value": {
+                          "kind": "boolean",
+                          "value": true
+                        }
+                      },
+                      {
+                        "name": "label",
+                        "value": {
+                          "kind": "string",
+                          "value": "nested"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "prefix",
+                  "value": {
+                    "kind": "string",
+                    "value": ""
+                  }
+                }
+              ]
+            },
+            "sensitive-paths": [],
+            "sensitive-values": [],
+            "digest": "907db3228df122a8b3edd7a566e6db640759e4e3741439204008d688985e962f"
+          },
+          "trigger-hash": "",
+          "depends-on": [],
+          "sensitive-input-paths": [],
+          "sensitive-output-paths": []
+        }
       }
     },
     {
       "address": "action.temp",
-      "entry-kind": "action",
-      "category": "action",
-      "binding": {
-        "alias": "e2e",
-        "library-path": "example.com/unobin/e2elib",
-        "kind": "echo"
-      },
-      "inputs": {
-        "text": "temporary",
-        "upper": false
-      },
-      "outputs": {
-        "length": 9,
-        "prefixed": "temporary",
-        "text": "temporary"
+      "kind": "action",
+      "payload": {
+        "kind": "action",
+        "action": {
+          "binding": {
+            "library-path": "example.com/unobin/e2elib",
+            "export": "echo"
+          },
+          "inputs": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "text",
+                "value": {
+                  "kind": "string",
+                  "value": "temporary"
+                }
+              },
+              {
+                "name": "upper",
+                "value": {
+                  "kind": "boolean",
+                  "value": false
+                }
+              }
+            ]
+          },
+          "outputs": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "length",
+                "value": {
+                  "kind": "integer",
+                  "value": "9"
+                }
+              },
+              {
+                "name": "prefixed",
+                "value": {
+                  "kind": "string",
+                  "value": "temporary"
+                }
+              },
+              {
+                "name": "text",
+                "value": {
+                  "kind": "string",
+                  "value": "temporary"
+                }
+              }
+            ]
+          },
+          "configuration": {
+            "address": "library-config.e2e",
+            "library-path": "example.com/unobin/e2elib",
+            "schema-version": 1,
+            "schema-digest": "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3",
+            "value": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "base-dir",
+                  "value": {
+                    "kind": "string",
+                    "value": "."
+                  }
+                },
+                {
+                  "name": "event-log-path",
+                  "value": {
+                    "kind": "string",
+                    "value": "events.ndjson"
+                  }
+                },
+                {
+                  "name": "nested",
+                  "value": {
+                    "kind": "object",
+                    "fields": [
+                      {
+                        "name": "enabled",
+                        "value": {
+                          "kind": "boolean",
+                          "value": true
+                        }
+                      },
+                      {
+                        "name": "label",
+                        "value": {
+                          "kind": "string",
+                          "value": "nested"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "name": "prefix",
+                  "value": {
+                    "kind": "string",
+                    "value": ""
+                  }
+                }
+              ]
+            },
+            "sensitive-paths": [],
+            "sensitive-values": [],
+            "digest": "907db3228df122a8b3edd7a566e6db640759e4e3741439204008d688985e962f"
+          },
+          "trigger-hash": "",
+          "depends-on": [],
+          "sensitive-input-paths": [],
+          "sensitive-output-paths": []
+        }
       }
     }
   ],
   "outputs": {
-    "said": "hello"
-  }
+    "kind": "object",
+    "fields": [
+      {
+        "name": "said",
+        "value": {
+          "kind": "string",
+          "value": "hello"
+        }
+      }
+    ]
+  },
+  "sensitive-paths": []
 }

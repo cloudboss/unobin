@@ -53,7 +53,7 @@ func (e *Executor) planEvaluationV2ResourceRequest(
 		)
 	}
 	if resolve == nil && e.LibraryCatalog != nil {
-		resolve = e.LibraryCatalog.resource
+		resolve = e.factoryResourceV2
 	}
 	registration, configuration, err := resolve.resource(binding)
 	if err != nil {

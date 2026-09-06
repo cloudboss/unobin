@@ -1,5 +1,5 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "state-command-composite-move",
     "version": "v0.0.0",
@@ -9,66 +9,440 @@
   "generated-at": "2026-06-20T00:00:00Z",
   "entries": [
     {
+      "address": "resource.other",
+      "kind": "resource",
+      "payload": {
+        "kind": "resource",
+        "resource": {
+          "target": {
+            "binding": {
+              "library-path": "example.com/unobin/e2elib",
+              "export": "file"
+            },
+            "inputs": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "content",
+                  "value": {
+                    "kind": "string",
+                    "value": "other"
+                  }
+                },
+                {
+                  "name": "create-parents",
+                  "value": {
+                    "kind": "boolean",
+                    "value": true
+                  }
+                },
+                {
+                  "name": "fail-update",
+                  "value": {
+                    "kind": "absent"
+                  }
+                },
+                {
+                  "name": "mode",
+                  "value": {
+                    "kind": "integer",
+                    "value": "420"
+                  }
+                },
+                {
+                  "name": "path",
+                  "value": {
+                    "kind": "string",
+                    "value": "files/other.txt"
+                  }
+                },
+                {
+                  "name": "tags",
+                  "value": {
+                    "kind": "absent"
+                  }
+                }
+              ]
+            },
+            "outputs": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "content",
+                  "value": {
+                    "kind": "string",
+                    "value": "other"
+                  }
+                },
+                {
+                  "name": "exists",
+                  "value": {
+                    "kind": "boolean",
+                    "value": true
+                  }
+                },
+                {
+                  "name": "path",
+                  "value": {
+                    "kind": "string",
+                    "value": "files/other.txt"
+                  }
+                },
+                {
+                  "name": "sha256",
+                  "value": {
+                    "kind": "string",
+                    "value": "d9298a10d1b0735837dc4bd85dac641b0f3cef27a47e5d53a54f2f3f5b2fcffa"
+                  }
+                },
+                {
+                  "name": "size",
+                  "value": {
+                    "kind": "integer",
+                    "value": "5"
+                  }
+                }
+              ]
+            },
+            "depends-on": [],
+            "sensitive-input-paths": [],
+            "sensitive-output-paths": [],
+            "configuration": {
+              "address": "library-config.e2e",
+              "library-path": "example.com/unobin/e2elib",
+              "schema-version": 1,
+              "schema-digest": "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3",
+              "value": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "base-dir",
+                    "value": {
+                      "kind": "string",
+                      "value": "."
+                    }
+                  },
+                  {
+                    "name": "event-log-path",
+                    "value": {
+                      "kind": "string",
+                      "value": "events.ndjson"
+                    }
+                  },
+                  {
+                    "name": "nested",
+                    "value": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "enabled",
+                          "value": {
+                            "kind": "boolean",
+                            "value": true
+                          }
+                        },
+                        {
+                          "name": "label",
+                          "value": {
+                            "kind": "string",
+                            "value": "nested"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "prefix",
+                    "value": {
+                      "kind": "string",
+                      "value": ""
+                    }
+                  }
+                ]
+              },
+              "sensitive-paths": [],
+              "sensitive-values": [],
+              "digest": "907db3228df122a8b3edd7a566e6db640759e4e3741439204008d688985e962f"
+            },
+            "schema-version": 1,
+            "identity": {
+              "definition-digest": "3e60ba102e0efeef30d3203368707a24dd46e496a51f1d79f34878dd64315eb6",
+              "version": 1
+            }
+          }
+        }
+      }
+    },
+    {
       "address": "resource.welcome",
-      "entry-kind": "library-call",
-      "category": "resource",
-      "binding": { "alias": "greeter", "library-path": "local:libraries/greeter", "kind": "greeting" },
-      "inputs": {
-        "content": "hello",
-        "e2e-config": {
-          "base-dir": ".",
-          "event-log-path": "events.ndjson",
-          "nested": { "enabled": true, "label": "nested" },
-          "prefix": ""
-        },
-        "path": "files/hello.txt"
-      },
-      "outputs": {
-        "path": "files/hello.txt"
-      },
-      "depends-on": [
-        "resource.welcome/resource.this"
-      ]
+      "kind": "composite",
+      "payload": {
+        "kind": "composite",
+        "composite": {
+          "binding": {
+            "library-path": "local:libraries/greeter",
+            "export": "greeting"
+          },
+          "inputs": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "content",
+                "value": {
+                  "kind": "string",
+                  "value": "hello"
+                }
+              },
+              {
+                "name": "e2e-config",
+                "value": {
+                  "kind": "object",
+                  "fields": [
+                    {
+                      "name": "base-dir",
+                      "value": {
+                        "kind": "string",
+                        "value": "."
+                      }
+                    },
+                    {
+                      "name": "event-log-path",
+                      "value": {
+                        "kind": "string",
+                        "value": "events.ndjson"
+                      }
+                    },
+                    {
+                      "name": "nested",
+                      "value": {
+                        "kind": "object",
+                        "fields": [
+                          {
+                            "name": "enabled",
+                            "value": {
+                              "kind": "boolean",
+                              "value": true
+                            }
+                          },
+                          {
+                            "name": "label",
+                            "value": {
+                              "kind": "string",
+                              "value": "nested"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "prefix",
+                      "value": {
+                        "kind": "string",
+                        "value": ""
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "path",
+                "value": {
+                  "kind": "string",
+                  "value": "files/hello.txt"
+                }
+              }
+            ]
+          },
+          "outputs": {
+            "kind": "object",
+            "fields": [
+              {
+                "name": "path",
+                "value": {
+                  "kind": "string",
+                  "value": "files/hello.txt"
+                }
+              }
+            ]
+          },
+          "depends-on": [
+            "resource.welcome/resource.this"
+          ],
+          "sensitive-input-paths": [],
+          "sensitive-output-paths": [],
+          "category": "resource"
+        }
+      }
     },
     {
       "address": "resource.welcome/resource.this",
-      "entry-kind": "leaf",
-      "category": "resource",
-      "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "file" },
-      "schema-version": 1,
-      "inputs": {
-        "content": "hello",
-        "create-parents": true,
-        "mode": 420,
-        "path": "files/hello.txt"
-      },
-      "outputs": {
-        "content": "hello",
-        "exists": true,
-        "path": "files/hello.txt",
-        "sha256": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
-        "size": 5
-      }
-    },
-    {
-      "address": "resource.other",
-      "entry-kind": "leaf",
-      "category": "resource",
-      "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "file" },
-      "schema-version": 1,
-      "inputs": {
-        "content": "other",
-        "create-parents": true,
-        "mode": 420,
-        "path": "files/other.txt"
-      },
-      "outputs": {
-        "content": "other",
-        "exists": true,
-        "path": "files/other.txt",
-        "sha256": "d9298a10d1b0735837dc4bd85dac641b0f3cef27a47e5d53a54f2f3f5b2fcffa",
-        "size": 5
+      "kind": "resource",
+      "payload": {
+        "kind": "resource",
+        "resource": {
+          "target": {
+            "binding": {
+              "library-path": "example.com/unobin/e2elib",
+              "export": "file"
+            },
+            "inputs": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "content",
+                  "value": {
+                    "kind": "string",
+                    "value": "hello"
+                  }
+                },
+                {
+                  "name": "create-parents",
+                  "value": {
+                    "kind": "boolean",
+                    "value": true
+                  }
+                },
+                {
+                  "name": "fail-update",
+                  "value": {
+                    "kind": "absent"
+                  }
+                },
+                {
+                  "name": "mode",
+                  "value": {
+                    "kind": "integer",
+                    "value": "420"
+                  }
+                },
+                {
+                  "name": "path",
+                  "value": {
+                    "kind": "string",
+                    "value": "files/hello.txt"
+                  }
+                },
+                {
+                  "name": "tags",
+                  "value": {
+                    "kind": "absent"
+                  }
+                }
+              ]
+            },
+            "outputs": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "content",
+                  "value": {
+                    "kind": "string",
+                    "value": "hello"
+                  }
+                },
+                {
+                  "name": "exists",
+                  "value": {
+                    "kind": "boolean",
+                    "value": true
+                  }
+                },
+                {
+                  "name": "path",
+                  "value": {
+                    "kind": "string",
+                    "value": "files/hello.txt"
+                  }
+                },
+                {
+                  "name": "sha256",
+                  "value": {
+                    "kind": "string",
+                    "value": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+                  }
+                },
+                {
+                  "name": "size",
+                  "value": {
+                    "kind": "integer",
+                    "value": "5"
+                  }
+                }
+              ]
+            },
+            "depends-on": [],
+            "sensitive-input-paths": [],
+            "sensitive-output-paths": [],
+            "configuration": {
+              "address": "resource.welcome/library-config.e2e",
+              "library-path": "example.com/unobin/e2elib",
+              "schema-version": 1,
+              "schema-digest": "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3",
+              "value": {
+                "kind": "object",
+                "fields": [
+                  {
+                    "name": "base-dir",
+                    "value": {
+                      "kind": "string",
+                      "value": "."
+                    }
+                  },
+                  {
+                    "name": "event-log-path",
+                    "value": {
+                      "kind": "string",
+                      "value": "events.ndjson"
+                    }
+                  },
+                  {
+                    "name": "nested",
+                    "value": {
+                      "kind": "object",
+                      "fields": [
+                        {
+                          "name": "enabled",
+                          "value": {
+                            "kind": "boolean",
+                            "value": true
+                          }
+                        },
+                        {
+                          "name": "label",
+                          "value": {
+                            "kind": "string",
+                            "value": "nested"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "prefix",
+                    "value": {
+                      "kind": "string",
+                      "value": ""
+                    }
+                  }
+                ]
+              },
+              "sensitive-paths": [],
+              "sensitive-values": [],
+              "digest": "907db3228df122a8b3edd7a566e6db640759e4e3741439204008d688985e962f"
+            },
+            "schema-version": 1,
+            "identity": {
+              "definition-digest": "3e60ba102e0efeef30d3203368707a24dd46e496a51f1d79f34878dd64315eb6",
+              "version": 1
+            }
+          }
+        }
       }
     }
-  ]
+  ],
+  "outputs": {
+    "kind": "object",
+    "fields": []
+  },
+  "sensitive-paths": []
 }

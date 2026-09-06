@@ -1,5 +1,5 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "ub-composite-foreach",
     "version": "v0.0.0",
@@ -9,12 +9,11 @@
   "entries": [
     {
       "address": "resource.group",
-      "entry-kind": "library-call",
+      "entry-kind": "composite",
       "category": "resource",
       "binding": {
-        "alias": "groups",
         "library-path": "local:libraries/groups",
-        "kind": "group"
+        "export": "group"
       },
       "inputs": {
         "e2e-config": {
@@ -50,12 +49,11 @@
     },
     {
       "address": "resource.group/resource.file['one']",
-      "entry-kind": "leaf",
+      "entry-kind": "resource",
       "category": "resource",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "file"
+        "export": "file"
       },
       "schema-version": 1,
       "inputs": {
@@ -74,12 +72,11 @@
     },
     {
       "address": "resource.group/resource.file['two']",
-      "entry-kind": "leaf",
+      "entry-kind": "resource",
       "category": "resource",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "file"
+        "export": "file"
       },
       "schema-version": 1,
       "inputs": {
@@ -98,12 +95,11 @@
     },
     {
       "address": "resource.group/resource.single",
-      "entry-kind": "library-call",
+      "entry-kind": "composite",
       "category": "resource",
       "binding": {
-        "alias": "items",
         "library-path": "local:libraries/items",
-        "kind": "item"
+        "export": "item"
       },
       "inputs": {
         "content": "single",
@@ -128,12 +124,11 @@
     },
     {
       "address": "resource.group/resource.single/resource.file",
-      "entry-kind": "leaf",
+      "entry-kind": "resource",
       "category": "resource",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "file"
+        "export": "file"
       },
       "schema-version": 1,
       "inputs": {

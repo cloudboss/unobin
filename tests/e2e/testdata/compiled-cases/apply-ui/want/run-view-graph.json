@@ -7,7 +7,9 @@
     {
       "address": "library-config.e2e",
       "decision": "eval",
-      "node-kind": "library-config"
+      "import-alias": "e2e",
+      "library-path": "example.com/unobin/e2elib",
+      "node-kind": "library-configuration"
     },
     {
       "address": "action.hi",

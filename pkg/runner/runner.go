@@ -550,7 +550,7 @@ func doRefreshWithFormat(
 		},
 	}
 	assets.configureExecutor(exec)
-	res, err := exec.Refresh(context.Background())
+	res, err := exec.RefreshV2(context.Background())
 	if format == cmdout.FormatText {
 		if err != nil {
 			return err
@@ -1054,17 +1054,23 @@ func doPlanWithFormat(
 		Destroy:     destroy,
 	}
 	assets.configureExecutor(exec)
-	plan, err := exec.Plan(context.Background())
-	if err != nil {
-		return fail(err)
-	}
 	sc, err := parseStateConfig(config, configPath)
 	if err != nil {
 		return fail(err)
 	}
-	plan.Backend = toRuntimeStateRef(sc.Backend)
+	if sc.Backend != nil {
+		exec.PlanBackend, err = runtime.NewStateRefV2(sc.Backend.Name, sc.Backend.Body)
+		if err != nil {
+			return fail(err)
+		}
+	}
+	plan, err := exec.PlanV2(context.Background())
+	if err != nil {
+		return fail(err)
+	}
+	view := newPlanView(plan)
 	if format == cmdout.FormatText {
-		printPlan(cmd.OutOrStdout(), plan, ascii)
+		printPlan(cmd.OutOrStdout(), view, ascii)
 		_, _, err := writePlanArtifact(outPath, plan, enc)
 		return err
 	}
@@ -1075,7 +1081,7 @@ func doPlanWithFormat(
 		}
 		return fail(err)
 	}
-	result, err := buildPlanSummary(info, plan, digest, file, diagnostics)
+	result, err := buildPlanSummary(info, view, digest, file, diagnostics)
 	if err != nil {
 		return fail(err)
 	}
@@ -1084,13 +1090,13 @@ func doPlanWithFormat(
 
 func writePlanArtifact(
 	path string,
-	plan *runtime.Plan,
+	plan *runtime.PlanFileV2,
 	enc sdkencrypt.Encrypter,
 ) (*string, *filechange.Change, error) {
 	if path == "" {
 		return nil, nil, nil
 	}
-	sealed, err := runtime.SealPlan(plan, enc)
+	sealed, err := runtime.SealPlanV2(*plan, enc)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1531,7 +1537,7 @@ func doOutputWithFormat(
 	if err != nil {
 		return fail(err)
 	}
-	snap, err := store.Current()
+	snap, err := readStateSnapshot(store, "")
 	if err != nil {
 		return fail(err)
 	}
@@ -1540,15 +1546,24 @@ func doOutputWithFormat(
 		return fail(err)
 	}
 	sensitive := rootSensitiveOutputs(parsed)
+	for name := range nativeDisplayObject(snap.Outputs, nil) {
+		pointer := displayPointer("", name)
+		for _, path := range snap.SensitivePaths {
+			if path == "" || path == pointer || strings.HasPrefix(path, pointer+"/") {
+				sensitive[name] = true
+			}
+		}
+	}
+	outputs := nativeDisplayObject(snap.Outputs, snap.SensitivePaths)
 	if len(args) == 0 {
 		if format.Machine() {
 			return cmdout.WriteDocument(
 				cmd.OutOrStdout(), format,
-				buildOutputsResult(info, stack, snap.Outputs, sensitive, diagnostics),
+				buildOutputsResult(info, stack, outputs, sensitive, diagnostics),
 			)
 		}
-		for _, k := range sortedMapKeys(snap.Outputs) {
-			value := lang.RenderPretty(snap.Outputs[k])
+		for _, k := range sortedMapKeys(outputs) {
+			value := lang.RenderPretty(outputs[k])
 			if sensitive[k] {
 				value = sensitivePlaceholder
 			}
@@ -1557,7 +1572,7 @@ func doOutputWithFormat(
 		return nil
 	}
 	name := args[0]
-	val, ok := snap.Outputs[name]
+	val, ok := outputs[name]
 	if !ok {
 		return fail(fmt.Errorf("no output %q", name))
 	}

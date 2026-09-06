@@ -1,5 +1,5 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "composite-output-input",
     "version": "v0.0.0",
@@ -9,12 +9,11 @@
   "entries": [
     {
       "address": "resource.nested",
-      "entry-kind": "library-call",
+      "entry-kind": "composite",
       "category": "resource",
       "binding": {
-        "alias": "self",
         "library-path": "local:.",
-        "kind": "nested"
+        "export": "nested"
       },
       "inputs": {
         "e2e-config": {
@@ -37,12 +36,11 @@
     },
     {
       "address": "resource.nested/resource.consumer",
-      "entry-kind": "library-call",
+      "entry-kind": "composite",
       "category": "resource",
       "binding": {
-        "alias": "lib",
         "library-path": "local:libraries",
-        "kind": "consumer"
+        "export": "consumer"
       },
       "inputs": {
         "e2e-config": {
@@ -66,12 +64,11 @@
     },
     {
       "address": "resource.nested/resource.consumer/resource.file",
-      "entry-kind": "leaf",
+      "entry-kind": "resource",
       "category": "resource",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "file"
+        "export": "file"
       },
       "schema-version": 1,
       "inputs": {
@@ -93,12 +90,11 @@
     },
     {
       "address": "resource.producer",
-      "entry-kind": "library-call",
+      "entry-kind": "composite",
       "category": "resource",
       "binding": {
-        "alias": "lib",
         "library-path": "local:libraries",
-        "kind": "producer"
+        "export": "producer"
       },
       "inputs": {
         "e2e-config": {
@@ -121,12 +117,11 @@
     },
     {
       "address": "resource.producer/resource.file",
-      "entry-kind": "leaf",
+      "entry-kind": "resource",
       "category": "resource",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "file"
+        "export": "file"
       },
       "schema-version": 1,
       "inputs": {

@@ -30,7 +30,7 @@ func benchmarkInfo(b testing.TB, src string) Info {
 	coreMod := &runtime.Library{
 		Name: "core",
 		Actions: map[string]runtime.ActionRegistration{
-			"echo": runtime.MakeAction[echoAction, any, any](),
+			"echo": runtime.MakeAction[echoAction, *echoActionOutput, any](),
 		},
 	}
 	return Info{

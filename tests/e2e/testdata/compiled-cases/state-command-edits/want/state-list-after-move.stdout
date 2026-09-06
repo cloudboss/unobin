@@ -1,3 +1,3 @@
-action.bye (e2e.echo)
-action.hi (e2e.echo)
-action.temp (e2e.echo)
+action.bye (example.com/unobin/e2elib.echo)
+action.hi (example.com/unobin/e2elib.echo)
+action.temp (example.com/unobin/e2elib.echo)

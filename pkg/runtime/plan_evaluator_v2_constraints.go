@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"errors"
-	"fmt"
 	"maps"
 	"slices"
 
@@ -21,7 +20,7 @@ func (e *Executor) checkPlanEvaluationV2Constraints(node *Node, inputs EncodedVa
 		}
 		decoded, present, err := decodeConcreteValue(value, "constraint input")
 		if err != nil {
-			return fmt.Errorf("%s: %w", node.Address, err)
+			return err
 		}
 		if present {
 			values[name] = decoded
@@ -50,8 +49,5 @@ func (e *Executor) checkPlanEvaluationV2Constraints(node *Node, inputs EncodedVa
 			}
 		}
 	}
-	if err := errors.Join(violations...); err != nil {
-		return fmt.Errorf("%s: %w", node.Address, err)
-	}
-	return nil
+	return errors.Join(violations...)
 }

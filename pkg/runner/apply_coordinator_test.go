@@ -66,7 +66,7 @@ func applyCoordinatorSuccess(t *testing.T) applyCoordinatorCaseGolden {
 		apply: func(
 			_ context.Context,
 			executor *runtime.Executor,
-			_ *runtime.PlanFile,
+			_ *runtime.PlanFileV2,
 		) (*runtime.ExecResult, error) {
 			executor.Events <- runtime.ApplyEvent{
 				Stage: runtime.StageStart, Decision: runtime.DecisionCreate,
@@ -107,7 +107,7 @@ func applyCoordinatorBrowserFailure(
 		apply: func(
 			context.Context,
 			*runtime.Executor,
-			*runtime.PlanFile,
+			*runtime.PlanFileV2,
 		) (*runtime.ExecResult, error) {
 			return &runtime.ExecResult{WrittenRev: "written-revision"}, nil
 		},
@@ -122,7 +122,7 @@ func applyCoordinatorStepFailure(t *testing.T) applyCoordinatorCaseGolden {
 		apply: func(
 			_ context.Context,
 			executor *runtime.Executor,
-			_ *runtime.PlanFile,
+			_ *runtime.PlanFileV2,
 		) (*runtime.ExecResult, error) {
 			executor.Events <- runtime.ApplyEvent{
 				Stage: runtime.StageFail, Decision: runtime.DecisionUpdate,
@@ -145,7 +145,7 @@ func applyCoordinatorRevisionFailure(t *testing.T) applyCoordinatorCaseGolden {
 		apply: func(
 			context.Context,
 			*runtime.Executor,
-			*runtime.PlanFile,
+			*runtime.PlanFileV2,
 		) (*runtime.ExecResult, error) {
 			return nil, runtime.NewApplyFailure(
 				runtime.ApplyFailureFinalize, errors.New("persist failed"),
@@ -161,7 +161,7 @@ func applyCoordinatorCancellationDrain(t *testing.T) applyCoordinatorCaseGolden 
 		apply: func(
 			ctx context.Context,
 			executor *runtime.Executor,
-			_ *runtime.PlanFile,
+			_ *runtime.PlanFileV2,
 		) (*runtime.ExecResult, error) {
 			executor.Events <- runtime.ApplyEvent{Stage: "queued", Address: "resource.bad"}
 			select {
@@ -181,7 +181,7 @@ func applyCoordinatorInterruption(t *testing.T) applyCoordinatorCaseGolden {
 		apply: func(
 			_ context.Context,
 			executor *runtime.Executor,
-			_ *runtime.PlanFile,
+			_ *runtime.PlanFileV2,
 		) (*runtime.ExecResult, error) {
 			signals <- os.Interrupt
 			select {
@@ -202,7 +202,7 @@ func applyCoordinatorEncodingFailure(t *testing.T) applyCoordinatorCaseGolden {
 		apply: func(
 			context.Context,
 			*runtime.Executor,
-			*runtime.PlanFile,
+			*runtime.PlanFileV2,
 		) (*runtime.ExecResult, error) {
 			return &runtime.ExecResult{
 				WrittenRev: "written-revision",
@@ -218,7 +218,7 @@ func applyCoordinatorInvalidResult(t *testing.T) applyCoordinatorCaseGolden {
 		apply: func(
 			context.Context,
 			*runtime.Executor,
-			*runtime.PlanFile,
+			*runtime.PlanFileV2,
 		) (*runtime.ExecResult, error) {
 			return &runtime.ExecResult{Outputs: map[string]any{"would-write": "value"}}, nil
 		},
@@ -231,7 +231,7 @@ func applyCoordinatorWriteFailure(t *testing.T) applyCoordinatorCaseGolden {
 		apply: func(
 			context.Context,
 			*runtime.Executor,
-			*runtime.PlanFile,
+			*runtime.PlanFileV2,
 		) (*runtime.ExecResult, error) {
 			return &runtime.ExecResult{WrittenRev: "written-revision"}, nil
 		},
@@ -256,7 +256,7 @@ func runApplyCoordinatorCase(
 	writer := &applyCoordinatorWriter{fail: failWrite}
 	stream := newApplyStream(writer, cmdout.FormatJSON, applyTestClock())
 	prepared := &preparedApplyCommand{
-		plan:   &runtime.PlanFile{},
+		plan:   &runtime.PlanFileV2{},
 		parsed: &parsedFactory{},
 		store: &applyCoordinatorState{
 			revision: "current-revision",
@@ -271,7 +271,7 @@ func runApplyCoordinatorCase(
 	options.apply = func(
 		ctx context.Context,
 		executor *runtime.Executor,
-		plan *runtime.PlanFile,
+		plan *runtime.PlanFileV2,
 	) (*runtime.ExecResult, error) {
 		defer producerDone.Store(true)
 		return apply(ctx, executor, plan)

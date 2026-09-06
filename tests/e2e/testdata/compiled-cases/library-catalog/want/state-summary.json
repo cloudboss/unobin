@@ -1,5 +1,5 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "library-catalog",
     "version": "v0.0.0",
@@ -9,12 +9,11 @@
   "entries": [
     {
       "address": "resource.aliased",
-      "entry-kind": "leaf",
+      "entry-kind": "resource",
       "category": "resource",
       "binding": {
-        "alias": "second",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "object"
+        "export": "object"
       },
       "schema-version": 1,
       "inputs": {
@@ -34,12 +33,11 @@
     },
     {
       "address": "resource.direct",
-      "entry-kind": "leaf",
+      "entry-kind": "resource",
       "category": "resource",
       "binding": {
-        "alias": "first",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "object"
+        "export": "object"
       },
       "schema-version": 1,
       "inputs": {
@@ -59,12 +57,11 @@
     },
     {
       "address": "resource.nested",
-      "entry-kind": "library-call",
+      "entry-kind": "composite",
       "category": "resource",
       "binding": {
-        "alias": "wrappers",
         "library-path": "local:libraries/wrappers",
-        "kind": "wrapper"
+        "export": "wrapper"
       },
       "inputs": {
         "name": "one"
@@ -79,12 +76,11 @@
     },
     {
       "address": "resource.nested-again",
-      "entry-kind": "library-call",
+      "entry-kind": "composite",
       "category": "resource",
       "binding": {
-        "alias": "wrappers-again",
         "library-path": "local:libraries/wrappers",
-        "kind": "wrapper"
+        "export": "wrapper"
       },
       "inputs": {
         "name": "two"
@@ -99,12 +95,11 @@
     },
     {
       "address": "resource.nested-again/resource.object",
-      "entry-kind": "leaf",
+      "entry-kind": "resource",
       "category": "resource",
       "binding": {
-        "alias": "inside",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "object"
+        "export": "object"
       },
       "schema-version": 1,
       "inputs": {
@@ -124,12 +119,11 @@
     },
     {
       "address": "resource.nested/resource.object",
-      "entry-kind": "leaf",
+      "entry-kind": "resource",
       "category": "resource",
       "binding": {
-        "alias": "inside",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "object"
+        "export": "object"
       },
       "schema-version": 1,
       "inputs": {

@@ -1,10 +1,10 @@
 State moves:
   resource.old-direct -> resource.direct
-  resource.old-items['blue'] -> resource.items['blue']
   resource.old-group -> resource.group
   resource.old-group/resource.old-file -> resource.group/resource.file
   resource.old-group/resource.old-single -> resource.group/resource.single
   resource.old-group/resource.old-single/resource.old-file -> resource.group/resource.single/resource.file
+  resource.old-items['blue'] -> resource.items['blue']
 
   (update)  resource.bad
       content: 'old failure content' -> 'new failure content'

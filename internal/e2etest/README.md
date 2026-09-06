@@ -98,7 +98,7 @@ Compiled case fields:
 - `planEnvelopes`: plan envelope metadata compared to goldens.
 - `stateEnvelopes`: current state envelope metadata compared to goldens.
 - `stateSummary`: stable state JSON summary for the last stack file used.
-- `stateSeed`: seed state summary to install before commands run.
+- `stateSeed`: validated V2 snapshot body to install before commands run.
 - `extraStateSnapshots`: extra prior snapshots to create from `stateSeed`.
 - `stateLocks`: stack files whose state lock should exist before commands run.
 - `deterministic`: marks cases intended to be deterministic.

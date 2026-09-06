@@ -24,7 +24,7 @@ func (a *factoryApplyV2) dataSource(
 			return err
 		}
 		library := a.executor.librariesFor(node)[node.Alias]
-		definition, err := resolveLibraryConfigurationDefinition(library.LibraryPath, library)
+		definition, err := a.executor.factoryConfigurationV2(library)
 		if err != nil {
 			return err
 		}
@@ -54,7 +54,7 @@ func (a *factoryApplyV2) action(
 			return err
 		}
 		library := a.executor.librariesFor(node)[node.Alias]
-		definition, err := resolveLibraryConfigurationDefinition(library.LibraryPath, library)
+		definition, err := a.executor.factoryConfigurationV2(library)
 		if err != nil {
 			return err
 		}
@@ -82,7 +82,11 @@ func runFactoryV2Action(
 	if err := validateResourceValueRoot(root, false); err != nil {
 		return EncodedValue{}, err
 	}
-	decoded, _, err := decodeResourceObject(root, target.Inputs, false, "")
+	inputs, err := resolveEncodedAssets(configuration.assetCache, target.Inputs)
+	if err != nil {
+		return EncodedValue{}, err
+	}
+	decoded, _, err := decodeResourceObject(root, inputs, false, "")
 	if err != nil {
 		return EncodedValue{}, fmt.Errorf("action inputs: %w", err)
 	}

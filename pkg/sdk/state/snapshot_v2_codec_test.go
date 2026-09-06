@@ -11,11 +11,11 @@ import (
 func TestSnapshotV2Codec(t *testing.T) {
 	snapshot := validSnapshotV2(t)
 
-	encoded, err := encodeSnapshotV2(snapshot)
+	encoded, err := EncodeSnapshotV2(snapshot)
 	require.NoError(t, err)
 	require.True(t, bytes.HasSuffix(encoded, []byte{'\n'}))
 
-	decoded, err := decodeSnapshotV2(encoded)
+	decoded, err := DecodeSnapshotV2(encoded)
 	require.NoError(t, err)
 	require.Equal(t, snapshot, decoded)
 }
@@ -68,9 +68,9 @@ func TestSnapshotV2CodecPreservesEveryEntryKind(t *testing.T) {
 			snapshot := validSnapshotV2(t)
 			snapshot.Entries = []StateEntryV2{tt.entry}
 
-			encoded, err := encodeSnapshotV2(snapshot)
+			encoded, err := EncodeSnapshotV2(snapshot)
 			require.NoError(t, err)
-			decoded, err := decodeSnapshotV2(encoded)
+			decoded, err := DecodeSnapshotV2(encoded)
 			require.NoError(t, err)
 			require.Equal(t, snapshot, decoded)
 		})
@@ -81,7 +81,7 @@ func TestEncodeSnapshotV2RejectsInvalidSnapshot(t *testing.T) {
 	snapshot := validSnapshotV2(t)
 	snapshot.Stack = ""
 
-	encoded, err := encodeSnapshotV2(snapshot)
+	encoded, err := EncodeSnapshotV2(snapshot)
 	require.ErrorContains(t, err, "stack is required")
 	require.Nil(t, encoded)
 }
@@ -153,7 +153,7 @@ func TestDecodeSnapshotV2RejectsInvalidJSONContract(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			input := replaceSnapshotV2JSON(t, valid, tt.old, tt.new)
-			snapshot, err := decodeSnapshotV2(input)
+			snapshot, err := DecodeSnapshotV2(input)
 			require.ErrorContains(t, err, tt.message)
 			require.Equal(t, SnapshotV2{}, snapshot)
 		})
@@ -163,13 +163,13 @@ func TestDecodeSnapshotV2RejectsInvalidJSONContract(t *testing.T) {
 func TestDecodeSnapshotV2RejectsTrailingValue(t *testing.T) {
 	input := append(marshalSnapshotV2(t, validSnapshotV2(t)), []byte(` {}`)...)
 
-	snapshot, err := decodeSnapshotV2(input)
+	snapshot, err := DecodeSnapshotV2(input)
 	require.ErrorContains(t, err, "$: unexpected value after JSON value")
 	require.Equal(t, SnapshotV2{}, snapshot)
 }
 
 func TestDecodeSnapshotV2RejectsObsoleteAlphaFormat(t *testing.T) {
-	snapshot, err := decodeSnapshotV2([]byte(`{"format-version":1}`))
+	snapshot, err := DecodeSnapshotV2([]byte(`{"format-version":1}`))
 	require.ErrorContains(t, err, "obsolete alpha format; create a new plan or state")
 	require.Equal(t, SnapshotV2{}, snapshot)
 }
@@ -183,7 +183,7 @@ func TestDecodeSnapshotV2VerifiesNestedDigest(t *testing.T) {
 		`"value":"us-west-2"`,
 	)
 
-	snapshot, err := decodeSnapshotV2(input)
+	snapshot, err := DecodeSnapshotV2(input)
 	require.ErrorContains(t, err, "configuration digest does not match record contents")
 	require.Equal(t, SnapshotV2{}, snapshot)
 }

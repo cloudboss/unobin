@@ -6,10 +6,12 @@ import (
 	"errors"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	internalconfig "github.com/cloudboss/unobin/internal/configuration"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/encrypters"
 	"github.com/cloudboss/unobin/pkg/runtime"
@@ -198,7 +200,7 @@ func stateMutationGoldenCase(
 	t.Helper()
 	current, currentErr := store.CurrentRev()
 	require.NoError(t, currentErr)
-	snapshot, currentErr := store.Current()
+	snapshot, currentErr := readStateSnapshot(store, current)
 	require.NoError(t, currentErr)
 	entries := make([]string, 0, len(snapshot.Entries))
 	for _, entry := range snapshot.Entries {
@@ -217,18 +219,26 @@ func newStateMutationStore(t *testing.T, address string) (*local.Store, string) 
 	t.Helper()
 	store, err := local.NewStore(t.TempDir(), "appdeploy", "dev", encrypters.Noop{})
 	require.NoError(t, err)
-	snapshot := state.NewSnapshot(
-		state.FactoryInfo{Name: "appdeploy", Version: "v1", ContentRevision: "content"},
-		"dev",
+	snapshot, err := state.NewSnapshotV2(
+		state.FactoryInfo{Name: "appdeploy", Version: "v1", ContentRevision: "content"}, "dev",
 	)
-	snapshot.Entries = []*state.Entry{{
-		Address: address, Type: state.EntryAction, Category: "action",
-		Binding: &state.Binding{
-			Alias: "core", LibraryPath: "example.com/core", Export: "record",
-		},
-		Inputs: map[string]any{}, Outputs: map[string]any{},
-	}}
-	revision, err := store.Write(snapshot)
+	require.NoError(t, err)
+	empty, err := runtime.ObjectValue(nil)
+	require.NoError(t, err)
+	configuration, err := internalconfig.Build(internalconfig.Record{
+		Address: "library-config.core", LibraryPath: "example.com/core", SchemaVersion: 1,
+		SchemaDigest: strings.Repeat("a", 64), Value: empty, SensitivePaths: []string{},
+	}, nil, nil)
+	require.NoError(t, err)
+	require.NoError(t, snapshot.SetEntry(state.StateEntryV2{
+		Address: address, Kind: state.StateAction,
+		Payload: state.StatePayload{Kind: state.StateAction, Action: &state.ActionStatePayload{
+			Binding: state.CanonicalBinding{LibraryPath: "example.com/core", Export: "record"},
+			Inputs:  empty, Outputs: empty, Configuration: configuration,
+			DependsOn: []string{}, SensitiveInputPaths: []string{}, SensitiveOutputPaths: []string{},
+		}},
+	}))
+	revision, err := store.WriteV2(snapshot)
 	require.NoError(t, err)
 	require.NoError(t, store.SetCurrent(revision))
 	return store, revision
@@ -323,4 +333,12 @@ type stateGCLock struct {
 func (l *stateGCLock) Unlock() error {
 	l.calls++
 	return l.err
+}
+
+func (b *stateMutationBackend) GetV2(revision string) (*state.SnapshotV2, error) {
+	return b.Backend.(state.SnapshotBackendV2).GetV2(revision)
+}
+
+func (b *stateMutationBackend) WriteV2(snapshot *state.SnapshotV2) (string, error) {
+	return b.Backend.(state.SnapshotBackendV2).WriteV2(snapshot)
 }

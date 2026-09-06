@@ -1,5 +1,5 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "state-move-alias-change",
     "version": "v0.0.0",
@@ -9,12 +9,11 @@
   "entries": [
     {
       "address": "resource.current",
-      "entry-kind": "leaf",
+      "entry-kind": "resource",
       "category": "resource",
       "binding": {
-        "alias": "old",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "file"
+        "export": "file"
       },
       "schema-version": 1,
       "inputs": {

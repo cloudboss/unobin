@@ -8,6 +8,11 @@ import (
 
 func linkRunnerLibraries(info Info) (Info, error) {
 	if info.LibraryRegistrations == nil && info.LibraryBindings == nil {
+		if info.libraryCatalog == nil && len(info.Libraries) == 0 {
+			catalog, err := runtime.NewLibraryCatalog(nil)
+			info.libraryCatalog = catalog
+			return info, err
+		}
 		return info, nil
 	}
 	if info.Libraries != nil {

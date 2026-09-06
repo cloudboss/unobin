@@ -55,8 +55,9 @@ func Library() *ubruntime.Library {
 		Name:        "e2elib",
 		Description: "Fixture library for Unobin e2e tests.",
 		Configuration: &cfg.ConfigurationType[*Configuration]{
-			Description: "Filesystem-backed e2e test settings.",
-			New:         func() *Configuration { return &Configuration{} },
+			Description:   "Filesystem-backed e2e test settings.",
+			SchemaVersion: 1,
+			New:           func() *Configuration { return &Configuration{} },
 		},
 		Resources: map[string]ubruntime.ResourceRegistration{
 			"archive-zipfile": ubruntime.MakeResource[

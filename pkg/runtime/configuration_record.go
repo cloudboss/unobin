@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	internalconfig "github.com/cloudboss/unobin/internal/configuration"
+	"github.com/cloudboss/unobin/pkg/asset"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
@@ -84,6 +85,7 @@ func validPendingReference(ref string) bool {
 }
 
 type resolvedConfigurationDefinition struct {
+	assetCache     *asset.Cache
 	libraryPath    string
 	schemaVersion  int
 	schemaDigest   string
@@ -275,7 +277,7 @@ func (d resolvedConfigurationDefinition) prepareConfigurationRecord(
 			err,
 		)
 	}
-	decoded, err := decodeLibraryConfig(d.library, raw)
+	decoded, err := d.decodeConfiguration(raw)
 	if err != nil {
 		return ConfigurationRecord{}, nil, fmt.Errorf(
 			"decode recorded configuration: %w",
@@ -319,7 +321,7 @@ func (d resolvedConfigurationDefinition) validateConfigurationValue(
 	if err := checkConfigObject(d.schemaFields, raw, nil); err != nil {
 		return fmt.Errorf("configuration value: %w", err)
 	}
-	if _, err := decodeLibraryConfig(d.library, raw); err != nil {
+	if _, err := d.decodeConfiguration(raw); err != nil {
 		return fmt.Errorf("configuration value: %w", err)
 	}
 	return nil
@@ -337,4 +339,15 @@ func randomSensitiveValueID() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(value[:]), nil
+}
+
+func (d resolvedConfigurationDefinition) decodeConfiguration(raw map[string]any) (any, error) {
+	resolve := func(values map[string]any) (map[string]any, error) {
+		resolved, err := resolveAssetValue(d.assetCache, values)
+		if err != nil {
+			return nil, err
+		}
+		return resolved.(map[string]any), nil
+	}
+	return decodeLibraryConfigWith(d.library, raw, resolve)
 }

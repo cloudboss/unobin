@@ -45,8 +45,10 @@ func (e *Executor) ApplyPlanV2(
 	}
 	result, err := applyPlanFileV2WithStateLock(ctx, e.Store, e.Factory, *plan,
 		applyPlanStepsV2Callbacks{
-			Schedule: applyScheduleV2Options{Nodes: e.DAG.Nodes, Drain: e.Drain, Events: e.Events},
-			Prepare:  apply.prepare, Resource: apply.resource, DataSource: apply.dataSource,
+			Schedule: applyScheduleV2Options{
+				Nodes: e.DAG.Nodes, Drain: e.Drain, Events: e.Events, Parallelism: e.Parallelism,
+			},
+			Prepare: apply.prepare, Resource: apply.resource, DataSource: apply.dataSource,
 			Action: apply.action, LibraryConfiguration: apply.configuration,
 			Composite: apply.composite, Output: apply.output,
 		},
@@ -91,7 +93,7 @@ func (a *factoryApplyV2) prepare(_ context.Context, applyState *applyStateV2) er
 	for _, step := range a.plan.Steps {
 		if operation := step.Operation.Resource; operation != nil {
 			for _, binding := range resourceOperationBindings(*operation) {
-				if _, _, err := a.executor.LibraryCatalog.resource(binding); err != nil {
+				if _, _, err := a.executor.factoryResourceV2(binding); err != nil {
 					return fmt.Errorf("%s: %w", step.Address, err)
 				}
 			}
@@ -200,7 +202,7 @@ func (a *factoryApplyV2) resource(
 		library := a.executor.librariesFor(node)[node.Alias]
 		binding := Binding{LibraryPath: library.LibraryPath, Export: node.Type}
 		request.DesiredRegistration, request.DesiredConfigType, err =
-			a.executor.LibraryCatalog.resource(binding)
+			a.executor.factoryResourceV2(binding)
 		if err != nil {
 			return err
 		}
@@ -213,7 +215,7 @@ func (a *factoryApplyV2) resource(
 	}
 	if prior := step.Operation.Resource.Prior; prior != nil {
 		request.PriorRegistration, request.PriorConfigType, err =
-			a.executor.LibraryCatalog.resource(prior.Binding)
+			a.executor.factoryResourceV2(prior.Binding)
 		if err != nil {
 			return err
 		}
@@ -230,7 +232,7 @@ func (a *factoryApplyV2) configuration(
 		return err
 	}
 	library := a.executor.librariesFor(node)[node.Alias]
-	definition, err := resolveLibraryConfigurationDefinition(library.LibraryPath, library)
+	definition, err := a.executor.factoryConfigurationV2(library)
 	if err != nil {
 		return err
 	}
@@ -238,7 +240,7 @@ func (a *factoryApplyV2) configuration(
 	if err != nil {
 		return err
 	}
-	values, err := evalBody(node.Body, scope)
+	values, err := evalConfigurationBody(node.Body, scope)
 	if err != nil {
 		return err
 	}
@@ -246,9 +248,7 @@ func (a *factoryApplyV2) configuration(
 	if err != nil {
 		return err
 	}
-	sensitivePaths := planEvaluationV2SensitivePaths(
-		a.executor.sensitivityAnalyzer().sensitiveInputs(node.Body, node.Composite),
-	)
+	sensitivePaths := a.executor.configurationSensitivePathsV2(node)
 	operation := *step.Operation.LibraryConfiguration
 	prior := operation.Result.Record
 	if prior == nil {

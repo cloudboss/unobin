@@ -1,10 +1,8 @@
 address: action.hi
-import-alias: e2e
 library-path: example.com/unobin/e2elib
 kind: echo
 category: action
-schema-version: 0
-trigger-hash: af79597b88b538443285c8682d49a45f6dee02e65253fc74104bd7e9a4743b6e
+trigger-hash: e192f7b7bbfed10d9ccc92ed2fcc1cab2acb2e2ddb67ecf4b3df4795128831fa
 inputs:
   text: 'hello encrypted state'
   upper: false

@@ -1,5 +1,5 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "state-command-edits",
     "version": "v0.0.0",
@@ -12,9 +12,8 @@
       "entry-kind": "action",
       "category": "action",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "echo"
+        "export": "echo"
       },
       "inputs": {
         "text": "hello",

@@ -1,9 +1,7 @@
 address: action.old
-import-alias: e2e
 library-path: example.com/unobin/e2elib
 kind: echo
 category: action
-schema-version: 0
 inputs:
   text: 'hello'
   upper: false

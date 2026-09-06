@@ -56,7 +56,7 @@ func (e *Executor) planEvaluationV2DataSourceRequest(
 	if registration == nil {
 		return planStepV2Request{}, fmt.Errorf("%s: data-source registration is required", node.Address)
 	}
-	configuration, err := resolveLibraryConfigurationDefinition(library.LibraryPath, library)
+	configuration, err := e.factoryConfigurationV2(library)
 	if err != nil {
 		return planStepV2Request{}, fmt.Errorf("%s: %w", node.Address, err)
 	}
@@ -119,7 +119,11 @@ func readPlanEvaluationV2DataSource(
 	if err := validateResourceValueRoot(root, false); err != nil {
 		return EncodedValue{}, err
 	}
-	decoded, _, err := decodeResourceObject(root, target.Inputs, false, "")
+	inputs, err := resolveEncodedAssets(configuration.assetCache, target.Inputs)
+	if err != nil {
+		return EncodedValue{}, err
+	}
+	decoded, _, err := decodeResourceObject(root, inputs, false, "")
 	if err != nil {
 		return EncodedValue{}, fmt.Errorf("data-source inputs: %w", err)
 	}

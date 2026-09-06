@@ -118,7 +118,7 @@ func (e *Executor) planEvaluationV2LibraryConfigurationRequest(
 			node.Alias,
 		)
 	}
-	definition, err := resolveLibraryConfigurationDefinition(library.LibraryPath, library)
+	definition, err := e.factoryConfigurationV2(library)
 	if err != nil {
 		return planStepV2Request{}, fmt.Errorf("%s: %w", node.Address, err)
 	}
@@ -126,9 +126,7 @@ func (e *Executor) planEvaluationV2LibraryConfigurationRequest(
 	if err != nil {
 		return planStepV2Request{}, err
 	}
-	sensitivePaths := planEvaluationV2SensitivePaths(
-		e.sensitivityAnalyzer().sensitiveInputs(node.Body, node.Composite),
-	)
+	sensitivePaths := e.configurationSensitivePathsV2(node)
 	planningDependencies := slices.Clone(dependencies)
 	planningSensitivePaths := slices.Clone(sensitivePaths)
 
@@ -172,7 +170,7 @@ func (e *Executor) planEvaluationV2LibraryConfiguration(
 	if err != nil {
 		return nil, err
 	}
-	values, _, err := planEvalBody(node.Body, scope)
+	values, err := planConfigurationBodyV2(node.Body, scope, definition.schemaFields)
 	if err != nil {
 		return nil, err
 	}

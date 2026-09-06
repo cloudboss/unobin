@@ -23,8 +23,12 @@ type echoAction struct {
 	Echo string
 }
 
-func (a *echoAction) Run(_ context.Context, _ any) (any, error) {
-	return map[string]any{"echo": a.Echo}, nil
+type echoActionOutput struct {
+	Echo string `ub:"echo"`
+}
+
+func (a *echoAction) Run(_ context.Context, _ any) (*echoActionOutput, error) {
+	return &echoActionOutput{Echo: a.Echo}, nil
 }
 
 func testInfo(t *testing.T, src string) Info {
@@ -37,7 +41,7 @@ func testInfo(t *testing.T, src string) Info {
 	coreMod := &runtime.Library{
 		Name: "core",
 		Actions: map[string]runtime.ActionRegistration{
-			"echo": runtime.MakeAction[echoAction, any, any](),
+			"echo": runtime.MakeAction[echoAction, *echoActionOutput, any](),
 		},
 		// A library-exported function, so tests can cover calls against
 		// an imported library's own function set, distinct from @core.
@@ -54,6 +58,10 @@ func testInfo(t *testing.T, src string) Info {
 				}),
 		},
 	}
+	catalog, err := runtime.NewLibraryCatalog([]runtime.LibraryRegistration{
+		{LibraryPath: "example.com/core", New: func() *runtime.Library { return coreMod }},
+	})
+	require.NoError(t, err)
 	body := testFactoryBody(t, sourceFactory(src))
 	return Info{
 		FactoryName:     "test-stack",
@@ -61,6 +69,7 @@ func testInfo(t *testing.T, src string) Info {
 		ContentRevision: "abcdef",
 		FactoryBody:     &body,
 		Libraries:       map[string]*runtime.Library{"core": coreMod},
+		libraryCatalog:  catalog,
 	}
 }
 
@@ -140,8 +149,8 @@ func TestParseEnvValueJSON(t *testing.T) {
 }
 
 func TestPrintPlanQuotesNonIdentMapKeys(t *testing.T) {
-	plan := &runtime.Plan{
-		Steps: []*runtime.PlanStep{
+	plan := &planView{
+		Steps: []*planStepView{
 			{
 				Address:  "resource.x",
 				Kind:     runtime.NodeResource,
@@ -166,9 +175,9 @@ func TestPrintPlanQuotesNonIdentMapKeys(t *testing.T) {
 }
 
 func TestPrintPlanMarksAlreadyAbsentDestroy(t *testing.T) {
-	plan := &runtime.Plan{
+	plan := &planView{
 		Destroy: true,
-		Steps: []*runtime.PlanStep{
+		Steps: []*planStepView{
 			{
 				Address:     "resource.local.file.gone",
 				Kind:        runtime.NodeResource,
@@ -191,8 +200,8 @@ func TestPrintPlanMarksAlreadyAbsentDestroy(t *testing.T) {
 }
 
 func TestPrintPlanShowsUnresolvedInputRefs(t *testing.T) {
-	plan := &runtime.Plan{
-		Steps: []*runtime.PlanStep{
+	plan := &planView{
+		Steps: []*planStepView{
 			{
 				Address:  "resource.core.thing.two",
 				Kind:     runtime.NodeResource,
@@ -215,8 +224,8 @@ func TestPrintPlanShowsUnresolvedInputRefs(t *testing.T) {
 }
 
 func TestPrintPlanBracketsUnresolvedList(t *testing.T) {
-	plan := &runtime.Plan{
-		Steps: []*runtime.PlanStep{
+	plan := &planView{
+		Steps: []*planStepView{
 			{
 				Address:  "action.std.exec-command.run",
 				Kind:     runtime.NodeAction,
@@ -244,8 +253,8 @@ func TestPrintPlanBracketsUnresolvedList(t *testing.T) {
 }
 
 func TestPrintPlanBracketsPartiallyKnownList(t *testing.T) {
-	plan := &runtime.Plan{
-		Steps: []*runtime.PlanStep{
+	plan := &planView{
+		Steps: []*planStepView{
 			{
 				Address:  "action.std.exec-command.run",
 				Kind:     runtime.NodeAction,
@@ -269,8 +278,8 @@ func TestPrintPlanBracketsPartiallyKnownList(t *testing.T) {
 }
 
 func TestPrintPlanShowsInputDiffForUpdate(t *testing.T) {
-	plan := &runtime.Plan{
-		Steps: []*runtime.PlanStep{
+	plan := &planView{
+		Steps: []*planStepView{
 			{
 				Address:     "resource.aws.instance.web",
 				Kind:        runtime.NodeResource,
@@ -290,8 +299,8 @@ func TestPrintPlanShowsInputDiffForUpdate(t *testing.T) {
 }
 
 func TestPrintPlanTagsReplaceTrigger(t *testing.T) {
-	plan := &runtime.Plan{
-		Steps: []*runtime.PlanStep{
+	plan := &planView{
+		Steps: []*planStepView{
 			{
 				Address:         "resource.aws.instance.api",
 				Kind:            runtime.NodeResource,
@@ -311,8 +320,8 @@ func TestPrintPlanTagsReplaceTrigger(t *testing.T) {
 }
 
 func TestPrintPlanShowsDriftSection(t *testing.T) {
-	plan := &runtime.Plan{
-		Steps: []*runtime.PlanStep{
+	plan := &planView{
+		Steps: []*planStepView{
 			{
 				Address:         "resource.x",
 				Kind:            runtime.NodeResource,
@@ -336,8 +345,8 @@ func TestPrintPlanShowsDriftSection(t *testing.T) {
 }
 
 func TestPrintPlanMasksSensitiveInput(t *testing.T) {
-	plan := &runtime.Plan{
-		Steps: []*runtime.PlanStep{
+	plan := &planView{
+		Steps: []*planStepView{
 			{
 				Address:         "resource.local.secret.s",
 				Kind:            runtime.NodeResource,
@@ -356,8 +365,8 @@ func TestPrintPlanMasksSensitiveInput(t *testing.T) {
 }
 
 func TestPrintPlanMasksSensitiveDrift(t *testing.T) {
-	plan := &runtime.Plan{
-		Steps: []*runtime.PlanStep{
+	plan := &planView{
+		Steps: []*planStepView{
 			{
 				Address:          "resource.local.secret.s",
 				Kind:             runtime.NodeResource,
@@ -378,14 +387,15 @@ func TestPrintPlanMasksSensitiveDrift(t *testing.T) {
 }
 
 func TestPrintPlanShowsGoneSection(t *testing.T) {
-	plan := &runtime.Plan{
-		Steps: []*runtime.PlanStep{
+	plan := &planView{
+		Steps: []*planStepView{
 			{
-				Address:      "resource.local.file.y",
-				Kind:         runtime.NodeResource,
-				Decision:     runtime.DecisionCreate,
-				Inputs:       map[string]any{"path": "/tmp/y"},
-				PriorOutputs: map[string]any{"path": "/tmp/y", "sha256": "abc"},
+				Address:       "resource.local.file.y",
+				RemoteMissing: true,
+				Kind:          runtime.NodeResource,
+				Decision:      runtime.DecisionCreate,
+				Inputs:        map[string]any{"path": "/tmp/y"},
+				PriorOutputs:  map[string]any{"path": "/tmp/y", "sha256": "abc"},
 			},
 		},
 	}
@@ -400,13 +410,13 @@ func TestPrintPlanShowsGoneSection(t *testing.T) {
 func TestPrintPlanForEachInstanceCount(t *testing.T) {
 	tests := []struct {
 		name     string
-		plan     *runtime.Plan
+		plan     *planView
 		wantPath string
 	}{
 		{
 			name: "singular",
-			plan: &runtime.Plan{
-				Steps: []*runtime.PlanStep{
+			plan: &planView{
+				Steps: []*planStepView{
 					{
 						Address:  "resource.many['only']",
 						Kind:     runtime.NodeResource,
@@ -419,8 +429,8 @@ func TestPrintPlanForEachInstanceCount(t *testing.T) {
 		},
 		{
 			name: "plural",
-			plan: &runtime.Plan{
-				Steps: []*runtime.PlanStep{
+			plan: &planView{
+				Steps: []*planStepView{
 					{
 						Address:  "resource.many['alpha']",
 						Kind:     runtime.NodeResource,
@@ -439,8 +449,8 @@ func TestPrintPlanForEachInstanceCount(t *testing.T) {
 		},
 		{
 			name: "plural with one change",
-			plan: &runtime.Plan{
-				Steps: []*runtime.PlanStep{
+			plan: &planView{
+				Steps: []*planStepView{
 					{
 						Address:  "resource.many['alpha']",
 						Kind:     runtime.NodeResource,
@@ -470,8 +480,8 @@ func TestPrintPlanForEachInstanceCount(t *testing.T) {
 }
 
 func TestPrintPlanGroupsForEachInstancesInsideComposite(t *testing.T) {
-	plan := &runtime.Plan{
-		Steps: []*runtime.PlanStep{
+	plan := &planView{
+		Steps: []*planStepView{
 			{
 				Address:   "resource.welcome",
 				Kind:      runtime.NodeResource,
@@ -509,8 +519,8 @@ Plan: 2 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.
 }
 
 func TestPrintPlanGroupsCompositeInternals(t *testing.T) {
-	plan := &runtime.Plan{
-		Steps: []*runtime.PlanStep{
+	plan := &planView{
+		Steps: []*planStepView{
 			{
 				Address:   "resource.greeter.greeting.welcome",
 				Kind:      runtime.NodeResource,
@@ -547,8 +557,8 @@ Plan: 1 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.
 }
 
 func TestPrintPlanRendersNestedComposites(t *testing.T) {
-	plan := &runtime.Plan{
-		Steps: []*runtime.PlanStep{
+	plan := &planView{
+		Steps: []*planStepView{
 			{
 				Address:   "resource.greeter.greeting.welcome",
 				Kind:      runtime.NodeResource,
@@ -622,8 +632,8 @@ func TestAsciiLabel(t *testing.T) {
 }
 
 func TestPrintPlanAsciiUsesWordLabels(t *testing.T) {
-	plan := &runtime.Plan{
-		Steps: []*runtime.PlanStep{
+	plan := &planView{
+		Steps: []*planStepView{
 			{Address: "resource.aws.lb.main", Kind: runtime.NodeResource, Decision: runtime.DecisionReplace},
 			{Address: "resource.aws.vpc.main", Kind: runtime.NodeResource, Decision: runtime.DecisionCreate},
 		},
@@ -639,8 +649,8 @@ Plan: 1 to create, 0 to update, 1 to replace, 0 to destroy, 0 to rerun.
 }
 
 func TestPrintPlanHidesCompositeWhenInternalsUnchanged(t *testing.T) {
-	plan := &runtime.Plan{
-		Steps: []*runtime.PlanStep{
+	plan := &planView{
+		Steps: []*planStepView{
 			{
 				Address:   "resource.greeter.greeting.welcome",
 				Kind:      runtime.NodeResource,

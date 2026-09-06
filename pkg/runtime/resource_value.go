@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"slices"
 
+	"github.com/cloudboss/unobin/pkg/asset"
 	"github.com/cloudboss/unobin/pkg/encoding/ub"
 )
 
@@ -221,6 +222,11 @@ func encodeResourceValue(
 			return EncodedValue{}, resourceValueError(path, "%v", err)
 		}
 		return value, nil
+	}
+	if expected.Kind() == reflect.Slice && expected.Elem().Kind() == reflect.Uint8 {
+		if token, ok := resourceAssetToken(input); ok {
+			return StringValue(token), nil
+		}
 	}
 	if input == nil {
 		if expected.Kind() == reflect.Pointer {
@@ -698,4 +704,14 @@ func resourceValueError(path, format string, args ...any) error {
 		return fmt.Errorf("%s", message)
 	}
 	return fmt.Errorf("field %q: %s", path, message)
+}
+
+func resourceAssetToken(value any) (string, bool) {
+	reflected := reflect.ValueOf(value)
+	if !reflected.IsValid() || reflected.Kind() != reflect.String {
+		return "", false
+	}
+	token := reflected.String()
+	_, ok := asset.ParseReference(token)
+	return token, ok
 }

@@ -1,5 +1,5 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "assets-composite-runtime",
     "version": "v0.0.0",
@@ -9,12 +9,11 @@
   "entries": [
     {
       "address": "resource.first",
-      "entry-kind": "library-call",
+      "entry-kind": "composite",
       "category": "resource",
       "binding": {
-        "alias": "archives",
         "library-path": "local:library",
-        "kind": "archive"
+        "export": "archive"
       },
       "inputs": {
         "e2e-config": {
@@ -37,12 +36,11 @@
     },
     {
       "address": "resource.first/resource.zippy",
-      "entry-kind": "leaf",
+      "entry-kind": "resource",
       "category": "resource",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "archive-zipfile"
+        "export": "archive-zipfile"
       },
       "schema-version": 1,
       "inputs": {
@@ -82,12 +80,11 @@
     },
     {
       "address": "resource.second",
-      "entry-kind": "library-call",
+      "entry-kind": "composite",
       "category": "resource",
       "binding": {
-        "alias": "archives",
         "library-path": "local:library",
-        "kind": "archive"
+        "export": "archive"
       },
       "inputs": {
         "e2e-config": {
@@ -110,12 +107,11 @@
     },
     {
       "address": "resource.second/resource.zippy",
-      "entry-kind": "leaf",
+      "entry-kind": "resource",
       "category": "resource",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "archive-zipfile"
+        "export": "archive-zipfile"
       },
       "schema-version": 1,
       "inputs": {

@@ -78,7 +78,27 @@ func encodePlanningValue(
 		typ = typ.Unwrap()
 	}
 
+	if token, ok := resourceAssetToken(value); ok &&
+		(typ.Kind == typecheck.String || typ.Kind == typecheck.AssetPath || typ.Kind == typecheck.Bytes) {
+		return StringValue(token), nil
+	}
 	switch typ.Kind {
+	case typecheck.Bytes:
+		if err := checkConfigValue(typ, value); err != nil {
+			return EncodedValue{}, err
+		}
+		if _, ok := value.([]any); ok {
+			return encodePlanningConfigurationList(typecheck.TInteger(), value)
+		}
+		content, ok := value.([]byte)
+		if !ok {
+			return EncodedValue{}, planningConfigurationTypeError("bytes", value)
+		}
+		items := make([]EncodedValue, len(content))
+		for i, b := range content {
+			items[i] = IntegerValue(int64(b))
+		}
+		return ListValue(items)
 	case typecheck.Unknown, typecheck.Opaque:
 		return encodeUntypedPlanningValue(value)
 	case typecheck.String, typecheck.AssetPath:

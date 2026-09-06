@@ -71,9 +71,9 @@ through SIGPIPE before stderr is written.
 
 ## Encoding and values
 
-Every document and record starts with `kind` and `format-version`. All contracts
-in this reference currently use format version `1`. Single-document results have
-no timestamps.
+Every document and record starts with `kind` and `format-version`. State list and
+state entry documents use format version `2`; the other contracts in this
+reference use version `1`. Single-document results have no timestamps.
 
 JSON documents are UTF-8, compact JSON with HTML escaping disabled and one
 trailing newline. They are encoded completely before the first write. Apply JSON
@@ -99,7 +99,7 @@ Invalid UTF-8 is replaced with the Unicode replacement character in both formats
 Required collection fields are always arrays or objects, never null. This applies
 to `diagnostics`, `files`, `dependencies`, `inputs`, `outputs`, `nodes`, `edges`,
 `state-moves`, `steps`, `replace-triggers`, `depends-on`, `sensitive`,
-`sensitive-inputs`, `sensitive-outputs`, `entries`, `snapshots`, and `mismatches`.
+`sensitive-input-paths`, `sensitive-output-paths`, `entries`, `snapshots`, and `mismatches`.
 
 In the contract tables below, every field is required unless it is explicitly
 marked "omitted when absent." A field whose type includes null is still required
@@ -364,6 +364,10 @@ null. Step category uses the graph category enum. A summary contains no input,
 output, prior, or observed values and no sensitivity lists. Without `-o`, both
 `plan-digest` and `file` are null.
 
+Replacement triggers identify `binding`, `configuration`, or
+`configuration-pending` changes, or use `address:`, `input:`, and `drift:` prefixes
+followed by a dotted descriptor path such as `address:location.region`.
+
 #### Refresh and output
 
 | Kind | Command | Required fields after the common header |
@@ -392,13 +396,15 @@ uses an `unchanged` file change.
 
 `state-list.state-rev` and `state-snapshots.current` are string or null. A state
 entry summary has required `address`, `entry-type`, `category`, and `binding`.
-Entry type is `leaf`, `library-call`, `action`, or `data-source`. State category is
-`resource`, `data-source`, or `action`. Binding is required for valid current
-entries.
+Entry type is `resource`, `composite`, `action`, or `data-source`. State category is
+`resource`, `data-source`, or `action`. The binding contains required `library-path`
+and `export` strings identifying the recorded implementation.
 
 A detailed `state-entry.entry` adds required `schema-version`, `trigger-hash`,
-`inputs`, `outputs`, `depends-on`, `sensitive-inputs`, and `sensitive-outputs`.
-`trigger-hash` is string or null. Each snapshot has required `revision` and
+`inputs`, `outputs`, `depends-on`, `sensitive-input-paths`, and `sensitive-output-paths`.
+Sensitive paths are JSON pointers; the corresponding values are masked, including
+nested values. `schema-version` is positive for resources and zero for other
+entries. `trigger-hash` is string or null. Each snapshot has required `revision` and
 `current` fields. Snapshots remain in backend chronological order.
 
 #### State mutation

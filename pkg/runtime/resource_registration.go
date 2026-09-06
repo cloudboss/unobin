@@ -3,6 +3,9 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"reflect"
+
+	"github.com/cloudboss/unobin/pkg/asset"
 )
 
 type registeredResourcePtr[In, Out, Config any] interface {
@@ -27,6 +30,7 @@ type resourceRegistrationApplyCallbacks struct {
 }
 
 type resourceDefinitionRegistration struct {
+	forAssets         func(*asset.Cache) *resourceDefinitionRegistration
 	identityScope     IdentityScope
 	prepareInputsFunc func(map[string]any) (EncodedValue, error)
 	preparePriorFunc  func(ResourceTarget) (ResourceTarget, error)
@@ -67,10 +71,28 @@ func newResolvedResourceDefinitionRegistration[
 	deleteResource := newResourceProviderDelete[In, Out, Config, PT](construct)
 
 	return &resourceDefinitionRegistration{
+		forAssets: func(cache *asset.Cache) *resourceDefinitionRegistration {
+			scoped := resolved
+			scoped.decodeInputs = func(value EncodedValue, pending bool) (In, error) {
+				var zero In
+				inputs, err := resolveEncodedAssets(cache, value)
+				if err != nil {
+					return zero, err
+				}
+				return decodeResourceInputValue[In](inputs, pending)
+			}
+			return newResolvedResourceDefinitionRegistration[In, Out, Config, PT](scoped, construct)
+		},
 		identityScope: resolved.identityScope,
 		prepareInputsFunc: func(values map[string]any) (EncodedValue, error) {
-			encoded, _, err := prepareResourceInputs[In](values)
-			return encoded, err
+			encoded, err := encodeResourceObject(reflect.TypeFor[In](), values, "")
+			if err != nil {
+				return EncodedValue{}, err
+			}
+			if _, err := resolved.resourceInputs(encoded, true); err != nil {
+				return EncodedValue{}, err
+			}
+			return encoded, nil
 		},
 		preparePriorFunc: func(target ResourceTarget) (ResourceTarget, error) {
 			prepared, err := resolved.prepareResourcePrior(&target)
@@ -149,7 +171,7 @@ func newResolvedResourceDefinitionRegistration[
 			configuration any,
 			outputs EncodedValue,
 		) error {
-			decodedInputs, err := decodeResourceInputs[In](inputs)
+			decodedInputs, err := resolved.resourceInputs(inputs, false)
 			if err != nil {
 				return fmt.Errorf("delete resource inputs: %w", err)
 			}

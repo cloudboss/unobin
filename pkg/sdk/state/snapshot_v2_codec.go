@@ -8,7 +8,7 @@ import (
 	"github.com/cloudboss/unobin/internal/strictjson"
 )
 
-func encodeSnapshotV2(snapshot SnapshotV2) ([]byte, error) {
+func EncodeSnapshotV2(snapshot SnapshotV2) ([]byte, error) {
 	if err := snapshot.Validate(); err != nil {
 		return nil, fmt.Errorf("snapshot: %w", err)
 	}
@@ -19,7 +19,7 @@ func encodeSnapshotV2(snapshot SnapshotV2) ([]byte, error) {
 	return append(encoded, '\n'), nil
 }
 
-func decodeSnapshotV2(data []byte) (SnapshotV2, error) {
+func DecodeSnapshotV2(data []byte) (SnapshotV2, error) {
 	if err := strictjson.Validate(data); err != nil {
 		return SnapshotV2{}, fmt.Errorf("snapshot: %w", err)
 	}

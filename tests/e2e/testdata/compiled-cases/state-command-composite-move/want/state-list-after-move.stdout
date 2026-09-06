@@ -1,3 +1,3 @@
-resource.hello (greeter.greeting)
-resource.hello/resource.this (e2e.file)
-resource.other (e2e.file)
+resource.hello (local:libraries/greeter.greeting)
+resource.hello/resource.this (example.com/unobin/e2elib.file)
+resource.other (example.com/unobin/e2elib.file)

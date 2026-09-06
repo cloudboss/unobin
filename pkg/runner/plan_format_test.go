@@ -55,7 +55,7 @@ func TestPlanSummaryGolden(t *testing.T) {
 
 func TestPlanSummaryArtifactActionsGolden(t *testing.T) {
 	digest := "sha256:0123456789abcdef"
-	plan := &runtime.Plan{Stack: "dev", Parallelism: 2, Steps: []*runtime.PlanStep{}}
+	plan := &planView{Stack: "dev", Parallelism: 2, Steps: []*planStepView{}}
 	var got bytes.Buffer
 	for _, action := range []filechange.Action{
 		filechange.ActionCreated,
@@ -77,10 +77,10 @@ func TestPlanSummaryErrorsGolden(t *testing.T) {
 	digest := "sha256:0123456789abcdef"
 	file := filechange.Change{Path: "dev.ubp", Action: filechange.ActionCreated}
 	invalidFile := filechange.Change{Path: "dev.ubp", Action: "rewritten"}
-	emptyPlan := &runtime.Plan{Steps: []*runtime.PlanStep{}}
+	emptyPlan := &planView{Steps: []*planStepView{}}
 	cases := []struct {
 		name   string
-		plan   *runtime.Plan
+		plan   *planView
 		digest *string
 		file   *filechange.Change
 	}{
@@ -90,9 +90,9 @@ func TestPlanSummaryErrorsGolden(t *testing.T) {
 		{name: "invalid file action", plan: emptyPlan, digest: &digest, file: &invalidFile},
 		{
 			name: "unsupported decision",
-			plan: &runtime.Plan{Steps: []*runtime.PlanStep{{Decision: "future"}}},
+			plan: &planView{Steps: []*planStepView{{Decision: "future"}}},
 		},
-		{name: "nil step", plan: &runtime.Plan{Steps: []*runtime.PlanStep{nil}}},
+		{name: "nil step", plan: &planView{Steps: []*planStepView{nil}}},
 	}
 	result := make([]planSummaryErrorGolden, 0, len(cases))
 	for _, tc := range cases {
@@ -107,13 +107,13 @@ func TestPlanSummaryErrorsGolden(t *testing.T) {
 	require.Equal(t, string(want), string(got))
 }
 
-func planSummaryFixture() *runtime.Plan {
-	steps := []*runtime.PlanStep{
+func planSummaryFixture() *planView {
+	steps := []*planStepView{
 		{
 			Address: "z.create", Kind: runtime.NodeResource, Decision: runtime.DecisionCreate,
-			Inputs:       map[string]any{"token": "super-secret"},
-			PriorOutputs: map[string]any{"token": "super-secret"},
-			TriggerHash:  "super-secret", SensitiveInputs: []string{"token"},
+			Inputs:        map[string]any{"token": "super-secret"},
+			PriorOutputs:  map[string]any{"token": "super-secret"},
+			RemoteMissing: true, SensitiveInputs: []string{"token"},
 			ReplaceTriggers: []string{"z-last", "a-first"},
 			DeferredConfig:  "library-config.cloud",
 		},
@@ -139,7 +139,7 @@ func planSummaryFixture() *runtime.Plan {
 		{Address: "g.no-op", Kind: runtime.NodeOutput, Decision: runtime.DecisionNoOp},
 		{Address: "h.eval", Kind: runtime.NodeLibraryConfig, Decision: runtime.DecisionEval},
 	}
-	return &runtime.Plan{
+	return &planView{
 		Stack: "dev", StateRev: "revision-1", Parallelism: 0, Steps: steps,
 		StateMoves: []runtime.PlannedEntryMove{
 			{From: "resource.z", To: "resource.a"},

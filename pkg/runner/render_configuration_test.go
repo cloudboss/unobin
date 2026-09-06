@@ -9,7 +9,7 @@ import (
 )
 
 func TestPrintPlanShowsDeferredLibraryConfigReads(t *testing.T) {
-	plan := &runtime.Plan{Steps: []*runtime.PlanStep{
+	plan := &planView{Steps: []*planStepView{
 		{
 			Address:  "resource.fix.config-echo.app",
 			Kind:     runtime.NodeResource,
@@ -34,9 +34,9 @@ func TestPrintPlanShowsDeferredLibraryConfigReads(t *testing.T) {
 	want := `  + resource.fix.config-echo.app
       name: 'apps'
 
-Deferred reads (2):
+Pending configuration (2):
   data-source.fix.probe.p    library-config.fix pending; read deferred to apply
-  resource.fix.other.b    library-config.fix pending; drift unchecked this plan
+  resource.fix.other.b    library-config.fix pending; configuration resolved at apply
 
 Plan: 1 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.
 `

@@ -51,7 +51,7 @@ func TestPlanWriterFailureGolden(t *testing.T) {
 		resolveEncrypter := func(*runtime.StateRef) (sdkencrypt.Encrypter, error) {
 			return encrypters.Noop{}, nil
 		}
-		plan, openErr := runtime.OpenPlan(sealed, resolveEncrypter)
+		plan, openErr := runtime.OpenPlanV2(sealed, resolveEncrypter)
 		if openErr == nil {
 			artifactStack = plan.Stack
 		}

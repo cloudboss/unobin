@@ -332,11 +332,11 @@ func moveStateMetadata(
 		}
 	}()
 
-	snap, err := metadata.Store.Current()
+	snap, err := readStateSnapshot(metadata.Store, "")
 	if err != nil {
 		return nil, err
 	}
-	next, moved, err := runtime.ApplyEntryMoves(
+	next, moved, err := runtime.ApplyEntryMovesV2(
 		snap,
 		dag,
 		libraries,
@@ -348,7 +348,7 @@ func moveStateMetadata(
 	}
 	movedCount = len(moved)
 
-	rev, err := metadata.Store.Write(next)
+	rev, err := writeStateSnapshot(metadata.Store, next)
 	if err != nil {
 		return nil, err
 	}
@@ -472,24 +472,18 @@ func removeStateMetadata(
 		}
 	}()
 
-	snap, err := metadata.Store.Current()
+	snap, err := readStateSnapshot(metadata.Store, "")
 	if err != nil {
 		return nil, err
 	}
-	idx := -1
-	for i, e := range snap.Entries {
-		entryRef, ok := runtime.EntryRefFromEntry(e)
-		if ok && runtime.SameEntryRef(entryRef, ref) {
-			idx = i
-			break
-		}
-	}
-	if idx < 0 {
+	if snap.Find(ref.String()) == nil {
 		return nil, fmt.Errorf("no entry at %s", ref.String())
 	}
-	snap.Entries = append(snap.Entries[:idx], snap.Entries[idx+1:]...)
+	if err := snap.RemoveEntry(ref.String()); err != nil {
+		return nil, err
+	}
 
-	rev, err := metadata.Store.Write(snap)
+	rev, err := writeStateSnapshot(metadata.Store, snap)
 	if err != nil {
 		return nil, err
 	}
@@ -558,9 +552,9 @@ func newStateListCmd(info Info) *cobra.Command {
 			if err != nil {
 				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
 			}
-			var snapshot *state.Snapshot
+			var snapshot *state.SnapshotV2
 			if revision != nil {
-				snapshot, err = metadata.Store.Current()
+				snapshot, err = readStateSnapshot(metadata.Store, *revision)
 				if err != nil {
 					return commandResultFailure(cmd, format, collector.Diagnostics(), err)
 				}
@@ -675,26 +669,23 @@ func newStateShowCmd(info Info) *cobra.Command {
 					cmd, format, collector.Diagnostics(), state.ErrNoCurrent,
 				)
 			}
-			snap, err := metadata.Store.Current()
+			snap, err := readStateSnapshot(metadata.Store, *revision)
 			if err != nil {
 				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
 			}
-			for _, ent := range snap.Entries {
-				entryRef, ok := runtime.EntryRefFromEntry(ent)
-				if ok && runtime.SameEntryRef(entryRef, ref) {
-					if format.Machine() {
-						result, err := buildStateEntryResult(
-							info, metadata.Stack, *revision, ent, collector.Diagnostics(),
+			if ent := snap.Find(ref.String()); ent != nil {
+				if format.Machine() {
+					result, err := buildStateEntryResult(
+						info, metadata.Stack, *revision, ent, collector.Diagnostics(),
+					)
+					if err != nil {
+						return commandResultFailure(
+							cmd, format, collector.Diagnostics(), err,
 						)
-						if err != nil {
-							return commandResultFailure(
-								cmd, format, collector.Diagnostics(), err,
-							)
-						}
-						return cmdout.WriteDocument(cmd.OutOrStdout(), format, result)
 					}
-					return printStateEntry(cmd, ent)
+					return cmdout.WriteDocument(cmd.OutOrStdout(), format, result)
 				}
+				return printStateEntry(cmd, ent)
 			}
 			return commandResultFailure(
 				cmd, format, collector.Diagnostics(), fmt.Errorf("no entry at %s", ref.String()),
@@ -718,16 +709,16 @@ func newStatePullCmd(info Info) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			var snap *state.Snapshot
+			var snap *state.SnapshotV2
 			if len(args) == 0 {
-				snap, err = store.Current()
+				snap, err = readStateSnapshot(store, "")
 			} else {
-				snap, err = store.Get(args[0])
+				snap, err = readStateSnapshot(store, args[0])
 			}
 			if err != nil {
 				return err
 			}
-			body, err := state.EncodeSnapshot(snap)
+			body, err := state.EncodeSnapshotV2(*snap)
 			if err != nil {
 				return err
 			}
@@ -817,55 +808,46 @@ func stateCommandFailure(
 	return cmdout.WriteCommandError(cmd, format, collected, failure)
 }
 
-type listedStateEntry struct {
-	ref string
-	ent *state.Entry
-}
-
-func sortedStateEntries(snap *state.Snapshot) ([]*state.Entry, error) {
-	entries := make([]listedStateEntry, 0, len(snap.Entries))
-	for i, ent := range snap.Entries {
-		ref, ok := runtime.EntryRefFromEntry(ent)
-		if !ok {
-			return nil, fmt.Errorf("state entry %d is missing a valid state ref", i)
+func sortedStateEntries(snap *state.SnapshotV2) ([]*state.StateEntryV2, error) {
+	entries := make([]*state.StateEntryV2, len(snap.Entries))
+	for i := range snap.Entries {
+		if err := snap.Entries[i].Validate(); err != nil {
+			return nil, err
 		}
-		entries = append(entries, listedStateEntry{ref: ref.String(), ent: ent})
+		entries[i] = &snap.Entries[i]
 	}
-	slices.SortFunc(entries, func(a, b listedStateEntry) int {
-		return strings.Compare(a.ref, b.ref)
+	slices.SortFunc(entries, func(a, b *state.StateEntryV2) int {
+		return strings.Compare(a.Address, b.Address)
 	})
-	out := make([]*state.Entry, 0, len(entries))
-	for _, entry := range entries {
-		out = append(out, entry.ent)
-	}
-	return out, nil
+	return entries, nil
 }
 
-func stateEntryListLine(ent *state.Entry) string {
-	if ent.Binding == nil || ent.Binding.Alias == "" || ent.Binding.Export == "" {
-		return ent.Address
-	}
-	return fmt.Sprintf("%s (%s.%s)", ent.Address, ent.Binding.Alias, ent.Binding.Export)
+func stateEntryListLine(ent *state.StateEntryV2) string {
+	binding, _ := publicStateBinding(ent)
+	return fmt.Sprintf("%s (%s.%s)", ent.Address, binding.LibraryPath, binding.Export)
 }
 
-func printStateEntry(cmd *cobra.Command, ent *state.Entry) error {
+func printStateEntry(cmd *cobra.Command, ent *state.StateEntryV2) error {
+	detail, err := buildStateEntryDetail(ent)
+	if err != nil {
+		return err
+	}
 	out := cmd.OutOrStdout()
-	fmt.Fprintf(out, "address: %s\n", ent.Address)
-	if ent.Binding != nil {
-		fmt.Fprintf(out, "import-alias: %s\n", ent.Binding.Alias)
-		fmt.Fprintf(out, "library-path: %s\n", ent.Binding.LibraryPath)
-		fmt.Fprintf(out, "kind: %s\n", ent.Binding.Export)
+	fmt.Fprintf(out, "address: %s\n", detail.Address)
+	fmt.Fprintf(out, "library-path: %s\n", detail.Binding.LibraryPath)
+	fmt.Fprintf(out, "kind: %s\n", detail.Binding.Export)
+	fmt.Fprintf(out, "category: %s\n", detail.Category)
+	if detail.SchemaVersion > 0 {
+		fmt.Fprintf(out, "schema-version: %d\n", detail.SchemaVersion)
 	}
-	fmt.Fprintf(out, "category: %s\n", ent.Category)
-	fmt.Fprintf(out, "schema-version: %d\n", ent.SchemaVersion)
-	if ent.TriggerHash != "" {
-		fmt.Fprintf(out, "trigger-hash: %s\n", ent.TriggerHash)
+	if detail.TriggerHash != nil {
+		fmt.Fprintf(out, "trigger-hash: %s\n", *detail.TriggerHash)
 	}
-	printStateMap(out, "inputs", ent.Inputs, ent.SensitiveInputs)
-	printStateMap(out, "outputs", ent.Outputs, ent.SensitiveOutputs)
-	printStateList(out, "depends-on", ent.DependsOn)
-	printStateList(out, "sensitive-inputs", ent.SensitiveInputs)
-	printStateList(out, "sensitive-outputs", ent.SensitiveOutputs)
+	printStateMap(out, "inputs", detail.Inputs, nil)
+	printStateMap(out, "outputs", detail.Outputs, nil)
+	printStateList(out, "depends-on", detail.DependsOn)
+	printStateList(out, "sensitive-input-paths", detail.SensitiveInputs)
+	printStateList(out, "sensitive-output-paths", detail.SensitiveOutputs)
 	return nil
 }
 

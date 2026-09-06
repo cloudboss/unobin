@@ -1,5 +1,5 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "sensitivity",
     "version": "v0.0.0",
@@ -12,15 +12,14 @@
       "entry-kind": "action",
       "category": "action",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "secret"
+        "export": "secret"
       },
       "sensitive-inputs": [
-        "value"
+        "/value"
       ],
       "sensitive-outputs": [
-        "value"
+        "/value"
       ],
       "inputs": {
         "label": "deploy",
@@ -36,12 +35,11 @@
       "entry-kind": "action",
       "category": "action",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "record"
+        "export": "record"
       },
       "sensitive-inputs": [
-        "message"
+        "/message"
       ],
       "inputs": {
         "message": "top-secret",
@@ -58,12 +56,11 @@
       "entry-kind": "action",
       "category": "action",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "record"
+        "export": "record"
       },
       "sensitive-inputs": [
-        "message"
+        "/message"
       ],
       "inputs": {
         "message": "top-secret",
@@ -80,12 +77,11 @@
       "entry-kind": "action",
       "category": "action",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "record"
+        "export": "record"
       },
       "sensitive-inputs": [
-        "message"
+        "/message"
       ],
       "inputs": {
         "message": "top-secret",
@@ -102,16 +98,15 @@
     },
     {
       "address": "resource.go-secret",
-      "entry-kind": "leaf",
+      "entry-kind": "resource",
       "category": "resource",
       "binding": {
-        "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
-        "kind": "secret"
+        "export": "secret"
       },
       "schema-version": 1,
       "sensitive-inputs": [
-        "value"
+        "/value"
       ],
       "inputs": {
         "label": "deploy",

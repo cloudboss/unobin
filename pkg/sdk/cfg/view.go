@@ -182,6 +182,9 @@ func viewType(
 			return typecheck.TOpaque(), nil, nil
 		}
 	case reflect.Slice:
+		if t.Elem().Kind() == reflect.Uint8 {
+			return typecheck.TBytes(), nil, nil
+		}
 		elem, _, err := viewType(t.Elem(), reflect.Value{}, path, visiting)
 		if err != nil {
 			return typecheck.TUnknown(), nil, err

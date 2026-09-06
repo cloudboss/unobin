@@ -12,12 +12,13 @@ import (
 	"github.com/cloudboss/unobin/pkg/asset"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/stateref"
 )
 
-func printPlan(out io.Writer, plan *runtime.Plan, ascii bool) {
+func printPlan(out io.Writer, plan *planView, ascii bool) {
 	printedStateMoves := printStateMoves(out, plan.StateMoves)
 
-	var drift []*runtime.PlanStep
+	var drift []*planStepView
 	for _, s := range plan.Steps {
 		if s.Drift() || s.Gone() {
 			drift = append(drift, s)
@@ -47,7 +48,7 @@ func printPlan(out io.Writer, plan *runtime.Plan, ascii bool) {
 	renderPlanTree(out, tree, "", 0, ascii)
 	printDeferredReads(out, plan.Steps)
 
-	var leaves []*runtime.PlanStep
+	var leaves []*planStepView
 	collectChangedLeaves(tree, "", &leaves)
 	c := summarize(leaves)
 	fmt.Fprintln(out)
@@ -68,12 +69,8 @@ func printStateMoves(out io.Writer, moves []runtime.PlannedEntryMove) bool {
 	return true
 }
 
-// printDeferredReads lists every step whose read was held back by a
-// pending library config, so a plan that checked no drift for a node
-// says so instead of staying silent. Resources fall back to stored
-// state for their decision; data sources read at apply.
-func printDeferredReads(out io.Writer, steps []*runtime.PlanStep) {
-	var deferred []*runtime.PlanStep
+func printDeferredReads(out io.Writer, steps []*planStepView) {
+	var deferred []*planStepView
 	for _, s := range steps {
 		if s.DeferredConfig != "" {
 			deferred = append(deferred, s)
@@ -82,13 +79,13 @@ func printDeferredReads(out io.Writer, steps []*runtime.PlanStep) {
 	if len(deferred) == 0 {
 		return
 	}
-	slices.SortFunc(deferred, func(a, b *runtime.PlanStep) int {
+	slices.SortFunc(deferred, func(a, b *planStepView) int {
 		return cmp.Compare(a.Address, b.Address)
 	})
 	fmt.Fprintln(out)
-	fmt.Fprintf(out, "Deferred reads (%d):\n", len(deferred))
+	fmt.Fprintf(out, "Pending configuration (%d):\n", len(deferred))
 	for _, s := range deferred {
-		reason := "drift unchecked this plan"
+		reason := "configuration resolved at apply"
 		if s.Kind == runtime.NodeDataSource {
 			reason = "read deferred to apply"
 		}
@@ -104,14 +101,14 @@ func printDeferredReads(out io.Writer, steps []*runtime.PlanStep) {
 // orphan destroys for removed call sites). boundaries holds every
 // composite step keyed by address.
 type planTree struct {
-	children   map[string][]*runtime.PlanStep
-	boundaries map[string]*runtime.PlanStep
+	children   map[string][]*planStepView
+	boundaries map[string]*planStepView
 }
 
-func buildPlanTree(steps []*runtime.PlanStep) *planTree {
+func buildPlanTree(steps []*planStepView) *planTree {
 	t := &planTree{
-		children:   map[string][]*runtime.PlanStep{},
-		boundaries: map[string]*runtime.PlanStep{},
+		children:   map[string][]*planStepView{},
+		boundaries: map[string]*planStepView{},
 	}
 	for _, s := range steps {
 		if s.Composite {
@@ -129,8 +126,8 @@ func buildPlanTree(steps []*runtime.PlanStep) *planTree {
 }
 
 func renderPlanTree(out io.Writer, t *planTree, parent string, depth int, ascii bool) {
-	children := append([]*runtime.PlanStep{}, t.children[parent]...)
-	slices.SortFunc(children, func(a, b *runtime.PlanStep) int {
+	children := append([]*planStepView{}, t.children[parent]...)
+	slices.SortFunc(children, func(a, b *planStepView) int {
 		return cmp.Compare(a.Address, b.Address)
 	})
 
@@ -152,8 +149,8 @@ func renderPlanTree(out io.Writer, t *planTree, parent string, depth int, ascii 
 			i++
 			continue
 		}
-		tmpl, key := runtime.SplitInstanceAddress(child.Address)
-		if key != "" {
+		tmpl, _, keyed, _ := stateref.SplitInstanceKey(child.Address)
+		if keyed {
 			n := renderForEachGroup(out, t, parent, children, i, tmpl, depth, ascii)
 			i += n
 			continue
@@ -174,7 +171,21 @@ func renderPlanTree(out io.Writer, t *planTree, parent string, depth int, ascii 
 // changed from the prior apply reads as `old -> new`; one still waiting on an
 // upstream shows the source addresses in angle brackets; a field that forces a
 // replacement is tagged so the reason for the replace is visible.
-func renderStepInputs(out io.Writer, pad string, step *runtime.PlanStep) {
+func renderStepInputs(out io.Writer, pad string, step *planStepView) {
+	for _, reason := range step.ReplaceTriggers {
+		var description string
+		switch reason {
+		case "binding":
+			description = "provider binding changed"
+		case "configuration":
+			description = "configuration changed"
+		case "configuration-pending":
+			description = "configuration resolved at apply"
+		default:
+			continue
+		}
+		fmt.Fprintf(out, "%sreplacement: %s\n", pad, description)
+	}
 	for _, key := range sortedMapKeys(step.Inputs) {
 		fmt.Fprintf(out, "%s%s: %s%s\n",
 			pad, key, renderInputValue(step, key), replaceNote(step, key))
@@ -185,7 +196,7 @@ func renderStepInputs(out io.Writer, pad string, step *runtime.PlanStep) {
 // inputs a prior apply saw and this field's value changed, it reads as
 // `old -> new`; an unchanged field, or a create with no prior, shows the new
 // value alone.
-func renderInputValue(step *runtime.PlanStep, field string) string {
+func renderInputValue(step *planStepView, field string) string {
 	newVal := newInputValue(step, field)
 	prior, ok := step.PriorInputs[field]
 	if !ok || sameJSONValue(prior, step.Inputs[field]) {
@@ -201,7 +212,7 @@ func renderInputValue(step *runtime.PlanStep, field string) string {
 // newInputValue renders the field's new value: a masked placeholder for a
 // sensitive field, the upstream sources for one still waiting on an upstream,
 // otherwise the formatted value.
-func newInputValue(step *runtime.PlanStep, field string) string {
+func newInputValue(step *planStepView, field string) string {
 	if slices.Contains(step.SensitiveInputs, field) {
 		return sensitivePlaceholder
 	}
@@ -215,8 +226,14 @@ func newInputValue(step *runtime.PlanStep, field string) string {
 }
 
 // replaceNote tags a field the plan flagged as forcing a replacement.
-func replaceNote(step *runtime.PlanStep, field string) string {
-	if slices.Contains(step.ReplaceTriggers, field) {
+func replaceNote(step *planStepView, field string) string {
+	if slices.ContainsFunc(step.ReplaceTriggers, func(reason string) bool {
+		if reason == field {
+			return true
+		}
+		_, path, ok := strings.Cut(reason, ":")
+		return ok && (path == field || strings.HasPrefix(path, field+"."))
+	}) {
 		return "  (forces replacement)"
 	}
 	return ""
@@ -232,7 +249,7 @@ func renderForEachGroup(
 	out io.Writer,
 	t *planTree,
 	parent string,
-	children []*runtime.PlanStep,
+	children []*planStepView,
 	start int,
 	tmpl string,
 	depth int,
@@ -240,14 +257,14 @@ func renderForEachGroup(
 ) int {
 	end := start
 	for end < len(children) {
-		t2, k2 := runtime.SplitInstanceAddress(children[end].Address)
-		if t2 != tmpl || k2 == "" {
+		t2, _, keyed, _ := stateref.SplitInstanceKey(children[end].Address)
+		if t2 != tmpl || !keyed {
 			break
 		}
 		end++
 	}
 	group := children[start:end]
-	var changing []*runtime.PlanStep
+	var changing []*planStepView
 	for _, g := range group {
 		if isChange(g.Decision) {
 			changing = append(changing, g)
@@ -278,7 +295,7 @@ func renderForEachGroup(
 // strongestDecision picks the most consequential decision among a
 // group of per-instance steps. Destroy > Replace > Create > Update >
 // Rerun; anything else returns NoOp.
-func strongestDecision(steps []*runtime.PlanStep) runtime.Decision {
+func strongestDecision(steps []*planStepView) runtime.Decision {
 	priority := map[runtime.Decision]int{
 		runtime.DecisionDestroy: 5,
 		runtime.DecisionReplace: 4,
@@ -339,7 +356,7 @@ func boundaryDecisionRecursive(t *planTree, addr string) runtime.Decision {
 	return best
 }
 
-func collectChangedLeaves(t *planTree, parent string, into *[]*runtime.PlanStep) {
+func collectChangedLeaves(t *planTree, parent string, into *[]*planStepView) {
 	for _, child := range t.children[parent] {
 		if child.Composite {
 			collectChangedLeaves(t, child.Address, into)
@@ -371,7 +388,7 @@ func isChange(d runtime.Decision) bool {
 	return true
 }
 
-func printDriftStep(out io.Writer, s *runtime.PlanStep) {
+func printDriftStep(out io.Writer, s *planStepView) {
 	if s.Gone() {
 		fmt.Fprintf(out, "  ! %s  (no longer present)\n", s.Address)
 		return
@@ -388,7 +405,7 @@ func printDriftStep(out io.Writer, s *runtime.PlanStep) {
 	}
 }
 
-func driftedFields(s *runtime.PlanStep) []string {
+func driftedFields(s *planStepView) []string {
 	seen := map[string]bool{}
 	for k := range s.PriorOutputs {
 		seen[k] = true
@@ -407,6 +424,10 @@ func driftedFields(s *runtime.PlanStep) []string {
 }
 
 func sameJSONValue(a, b any) bool {
+	if av, ok := a.(displayValue); ok {
+		bv, ok := b.(displayValue)
+		return ok && av.sameValue(bv)
+	}
 	aj, err := json.Marshal(a)
 	if err != nil {
 		return false
@@ -422,7 +443,7 @@ type planCounts struct {
 	create, update, replace, destroy, rerun int
 }
 
-func summarize(steps []*runtime.PlanStep) planCounts {
+func summarize(steps []*planStepView) planCounts {
 	var c planCounts
 	for _, s := range steps {
 		switch s.Decision {
@@ -462,6 +483,10 @@ func formatValue(v any) string {
 			parts = append(parts, fmt.Sprintf("%s: %s", lang.RenderKey(k), formatValue(x[k])))
 		}
 		return "{" + strings.Join(parts, ", ") + "}"
+	case displayValue:
+		return formatValue(x.native())
+	case sensitiveDisplayValue:
+		return sensitivePlaceholder
 	case runtime.PendingValue:
 		return formatPending(x)
 	case asset.PathRef:
@@ -502,7 +527,7 @@ func sortedMapKeys(m map[string]any) []string {
 
 // destroyNote annotates a destroy step the plan read as already
 // absent, so the output shows there is no resource left to delete.
-func destroyNote(s *runtime.PlanStep) string {
+func destroyNote(s *planStepView) string {
 	if s.Decision == runtime.DecisionDestroy && s.AlreadyGone {
 		return "  (already absent)"
 	}

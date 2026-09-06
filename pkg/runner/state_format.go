@@ -2,20 +2,24 @@ package runner
 
 import (
 	"fmt"
-	"maps"
 	"slices"
 
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/filechange"
-	"github.com/cloudboss/unobin/pkg/graphprint"
+	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
 )
 
+type stateBinding struct {
+	LibraryPath string `json:"library-path" ub:"library-path"`
+	Export      string `json:"export" ub:"export"`
+}
+
 type stateEntrySummary struct {
-	Address   string             `json:"address"    ub:"address"`
-	EntryType string             `json:"entry-type" ub:"entry-type"`
-	Category  string             `json:"category"   ub:"category"`
-	Binding   graphprint.Binding `json:"binding"    ub:"binding"`
+	Address   string       `json:"address"    ub:"address"`
+	EntryType string       `json:"entry-type" ub:"entry-type"`
+	Category  string       `json:"category"   ub:"category"`
+	Binding   stateBinding `json:"binding"    ub:"binding"`
 }
 
 type stateListResult struct {
@@ -29,17 +33,17 @@ type stateListResult struct {
 }
 
 type stateEntryDetail struct {
-	Address          string             `json:"address"           ub:"address"`
-	EntryType        string             `json:"entry-type"        ub:"entry-type"`
-	Category         string             `json:"category"          ub:"category"`
-	Binding          graphprint.Binding `json:"binding"           ub:"binding"`
-	SchemaVersion    int                `json:"schema-version"     ub:"schema-version"`
-	TriggerHash      *string            `json:"trigger-hash"       ub:"trigger-hash"`
-	Inputs           map[string]any     `json:"inputs"             ub:"inputs"`
-	Outputs          map[string]any     `json:"outputs"            ub:"outputs"`
-	DependsOn        []string           `json:"depends-on"         ub:"depends-on"`
-	SensitiveInputs  []string           `json:"sensitive-inputs"   ub:"sensitive-inputs"`
-	SensitiveOutputs []string           `json:"sensitive-outputs"  ub:"sensitive-outputs"`
+	Address          string         `json:"address"           ub:"address"`
+	EntryType        string         `json:"entry-type"        ub:"entry-type"`
+	Category         string         `json:"category"          ub:"category"`
+	Binding          stateBinding   `json:"binding"           ub:"binding"`
+	SchemaVersion    int            `json:"schema-version"     ub:"schema-version"`
+	TriggerHash      *string        `json:"trigger-hash"       ub:"trigger-hash"`
+	Inputs           map[string]any `json:"inputs"             ub:"inputs"`
+	Outputs          map[string]any `json:"outputs"            ub:"outputs"`
+	DependsOn        []string       `json:"depends-on"         ub:"depends-on"`
+	SensitiveInputs  []string       `json:"sensitive-input-paths" ub:"sensitive-input-paths"`
+	SensitiveOutputs []string       `json:"sensitive-output-paths" ub:"sensitive-output-paths"`
 }
 
 type stateEntryResult struct {
@@ -139,12 +143,12 @@ func buildStateListResult(
 	info Info,
 	stack string,
 	revision *string,
-	snapshot *state.Snapshot,
+	snapshot *state.SnapshotV2,
 	diagnostics []diagnostic.Diagnostic,
 ) (stateListResult, error) {
 	result := stateListResult{
 		Kind:          "state-list",
-		FormatVersion: 1,
+		FormatVersion: 2,
 		Factory:       factoryIdentityFor(info),
 		Stack:         stack,
 		StateRev:      copyOptionalString(revision),
@@ -172,7 +176,7 @@ func buildStateEntryResult(
 	info Info,
 	stack string,
 	revision string,
-	entry *state.Entry,
+	entry *state.StateEntryV2,
 	diagnostics []diagnostic.Diagnostic,
 ) (stateEntryResult, error) {
 	if revision == "" {
@@ -184,7 +188,7 @@ func buildStateEntryResult(
 	}
 	return stateEntryResult{
 		Kind:          "state-entry",
-		FormatVersion: 1,
+		FormatVersion: 2,
 		Factory:       factoryIdentityFor(info),
 		Stack:         stack,
 		StateRev:      revision,
@@ -358,79 +362,84 @@ func buildRefreshResult(
 	}
 }
 
-func buildStateEntrySummary(entry *state.Entry) (stateEntrySummary, error) {
+func buildStateEntrySummary(entry *state.StateEntryV2) (stateEntrySummary, error) {
 	binding, err := publicStateBinding(entry)
 	if err != nil {
 		return stateEntrySummary{}, err
 	}
-	return stateEntrySummary{
-		Address:   entry.Address,
-		EntryType: string(entry.Type),
-		Category:  entry.Category,
-		Binding:   binding,
-	}, nil
+	category := string(entry.Kind)
+	if entry.Kind == state.StateComposite {
+		category = entry.Payload.Composite.Category
+	}
+	return stateEntrySummary{Address: entry.Address, EntryType: string(entry.Kind),
+		Category: category, Binding: binding}, nil
 }
 
-func buildStateEntryDetail(entry *state.Entry) (stateEntryDetail, error) {
+func buildStateEntryDetail(entry *state.StateEntryV2) (stateEntryDetail, error) {
 	summary, err := buildStateEntrySummary(entry)
 	if err != nil {
 		return stateEntryDetail{}, err
 	}
-	inputs := maskStateValues(entry.Inputs, entry.SensitiveInputs)
-	outputs := maskStateValues(entry.Outputs, entry.SensitiveOutputs)
-	dependsOn := sortedStrings(entry.DependsOn)
-	sensitiveInputs := sortedStrings(entry.SensitiveInputs)
-	sensitiveOutputs := sortedStrings(entry.SensitiveOutputs)
-	var triggerHash *string
-	if entry.TriggerHash != "" {
-		value := entry.TriggerHash
-		triggerHash = &value
-	}
-	return stateEntryDetail{
-		Address:          summary.Address,
-		EntryType:        summary.EntryType,
-		Category:         summary.Category,
-		Binding:          summary.Binding,
-		SchemaVersion:    entry.SchemaVersion,
-		TriggerHash:      triggerHash,
-		Inputs:           inputs,
-		Outputs:          outputs,
-		DependsOn:        dependsOn,
-		SensitiveInputs:  sensitiveInputs,
-		SensitiveOutputs: sensitiveOutputs,
-	}, nil
-}
-
-func publicStateBinding(entry *state.Entry) (graphprint.Binding, error) {
-	if entry == nil {
-		return graphprint.Binding{}, fmt.Errorf("state entry is required")
-	}
-	if entry.Binding == nil || entry.Binding.Alias == "" || entry.Binding.Export == "" {
-		return graphprint.Binding{}, fmt.Errorf(
-			"state entry %q is missing a valid binding", entry.Address,
-		)
-	}
-	var libraryPath *string
-	if entry.Binding.LibraryPath != "" {
-		value := entry.Binding.LibraryPath
-		libraryPath = &value
-	}
-	return graphprint.Binding{
-		LibraryPath: libraryPath,
-		Alias:       entry.Binding.Alias,
-		Export:      entry.Binding.Export,
-	}, nil
-}
-
-func maskStateValues(values map[string]any, sensitive []string) map[string]any {
-	masked := make(map[string]any, len(values))
-	maps.Copy(masked, values)
-	for _, key := range sensitive {
-		if _, ok := masked[key]; ok {
-			masked[key] = sensitivePlaceholder
+	detail := stateEntryDetail{Address: summary.Address, EntryType: summary.EntryType,
+		Category: summary.Category, Binding: summary.Binding}
+	var inputs, outputs runtime.EncodedValue
+	switch entry.Kind {
+	case state.StateResource:
+		target := entry.Payload.Resource.Target
+		inputs, outputs = target.Inputs, target.Outputs
+		detail.SchemaVersion, detail.DependsOn = target.SchemaVersion, target.DependsOn
+		detail.SensitiveInputs = target.SensitiveInputPaths
+		detail.SensitiveOutputs = target.SensitiveOutputPaths
+	case state.StateAction:
+		action := entry.Payload.Action
+		inputs, outputs = action.Inputs, action.Outputs
+		detail.DependsOn = action.DependsOn
+		if action.TriggerHash != "" {
+			value := action.TriggerHash
+			detail.TriggerHash = &value
 		}
+		detail.SensitiveInputs = action.SensitiveInputPaths
+		detail.SensitiveOutputs = action.SensitiveOutputPaths
+	case state.StateDataSource:
+		data := entry.Payload.DataSource
+		inputs, outputs = data.Inputs, data.Outputs
+		detail.DependsOn = data.DependsOn
+		detail.SensitiveInputs = data.SensitiveInputPaths
+		detail.SensitiveOutputs = data.SensitiveOutputPaths
+	case state.StateComposite:
+		composite := entry.Payload.Composite
+		inputs, outputs = composite.Inputs, composite.Outputs
+		detail.DependsOn = composite.DependsOn
+		detail.SensitiveInputs = composite.SensitiveInputPaths
+		detail.SensitiveOutputs = composite.SensitiveOutputPaths
 	}
-	return masked
+	detail.Inputs = nativeDisplayObject(inputs, detail.SensitiveInputs)
+	detail.Outputs = nativeDisplayObject(outputs, detail.SensitiveOutputs)
+	detail.DependsOn = sortedStrings(detail.DependsOn)
+	detail.SensitiveInputs = sortedStrings(detail.SensitiveInputs)
+	detail.SensitiveOutputs = sortedStrings(detail.SensitiveOutputs)
+	return detail, nil
+}
+
+func publicStateBinding(entry *state.StateEntryV2) (stateBinding, error) {
+	if entry == nil {
+		return stateBinding{}, fmt.Errorf("state entry is required")
+	}
+	if err := entry.Validate(); err != nil {
+		return stateBinding{}, err
+	}
+	var binding state.CanonicalBinding
+	switch entry.Kind {
+	case state.StateResource:
+		binding = entry.Payload.Resource.Target.Binding
+	case state.StateAction:
+		binding = entry.Payload.Action.Binding
+	case state.StateDataSource:
+		binding = entry.Payload.DataSource.Binding
+	case state.StateComposite:
+		binding = entry.Payload.Composite.Binding
+	}
+	return stateBinding{LibraryPath: binding.LibraryPath, Export: binding.Export}, nil
 }
 
 func sortedStrings(values []string) []string {

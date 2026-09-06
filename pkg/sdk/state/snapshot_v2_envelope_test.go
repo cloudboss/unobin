@@ -68,7 +68,7 @@ func TestOpenSnapshotV2UsesConfiguredEncrypter(t *testing.T) {
 }
 
 func TestOpenSnapshotV2RejectsPlanEnvelope(t *testing.T) {
-	body, err := encodeSnapshotV2(validSnapshotV2(t))
+	body, err := EncodeSnapshotV2(validSnapshotV2(t))
 	require.NoError(t, err)
 	sealed, err := Seal(body, PayloadTypePlan, reversingEncrypter{})
 	require.NoError(t, err)

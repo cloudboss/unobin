@@ -1,0 +1,17 @@
+locals: {
+  settings: {
+    endpoint: resource.seed.name
+    credentials: { token: 'secret', empty: [] }
+    servers: ['first', 'second']
+    labels: { '01': 'numeric-secret', 'a/b~': 'label-secret', plain: 'visible' }
+    nullable: null
+  }
+}
+library-configs: { cloud: local.settings }
+resources: {
+  seed: seed.plain { name: 'configured' }
+  main: cloud.server { name: 'server', size: 1 }
+}
+data-sources: { settings: cloud.lookup { name: resource.main.value } }
+actions: { notify: cloud.lookup { name: resource.main.value } }
+outputs: { value: { value: resource.main.value, @sensitive: true } }

@@ -7,7 +7,8 @@ import (
 
 func LibraryConfiguration() *cfg.ConfigurationType[*awscfg.Configuration] {
 	return &cfg.ConfigurationType[*awscfg.Configuration]{
-		Description: "AWS config fixture.",
+		Description:   "AWS config fixture.",
+		SchemaVersion: 1,
 		New: func() *awscfg.Configuration {
 			return &awscfg.Configuration{}
 		},
