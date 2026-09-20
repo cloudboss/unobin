@@ -10,7 +10,9 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "badoption",
 		Resources: map[string]runtime.ResourceRegistration{
-			"thing": runtime.MakeResource[Thing, *ThingOutput, any](),
+			"thing": runtime.MakeResource[Thing, *ThingOutput, any](
+				runtime.ResourceDefinition[Thing, *ThingOutput, any]{SchemaVersion: 1},
+			),
 		},
 	}
 }
@@ -25,20 +27,22 @@ type ThingOutput struct {
 	ID string
 }
 
-func (t *Thing) SchemaVersion() int { return 1 }
-
 func (t *Thing) Create(_ context.Context, _ any) (*ThingOutput, error) { return nil, nil }
 
-func (t *Thing) Read(_ context.Context, _ any, _ *ThingOutput) (*ThingOutput, error) {
-	return nil, nil
-}
-
-func (t *Thing) Update(
-	_ context.Context, _ any, _ runtime.Prior[Thing, *ThingOutput],
+func (t *Thing) Read(
+	_ context.Context, _ any, _ runtime.Prior[Thing, *ThingOutput, any],
 ) (*ThingOutput, error) {
 	return nil, nil
 }
 
-func (t *Thing) Delete(_ context.Context, _ any, _ *ThingOutput) error { return nil }
+func (t *Thing) Update(
+	_ context.Context, _ any, _ runtime.Prior[Thing, *ThingOutput, any],
+) (*ThingOutput, error) {
+	return nil, nil
+}
 
-func (t *Thing) ReplaceFields() []string { return nil }
+func (t *Thing) Delete(
+	_ context.Context, _ any, _ runtime.Prior[Thing, *ThingOutput, any],
+) error {
+	return nil
+}

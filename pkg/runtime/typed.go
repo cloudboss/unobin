@@ -4,32 +4,18 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
+	"strings"
 
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 )
 
-// Prior is everything known before Update acts: the inputs the body
-// evaluated to on the last apply, the outputs the resource returned
-// then, and the reality a plan-time Read last saw. Compare current
-// inputs against Inputs with Changed to decide what to reconcile, read
-// Outputs for the prior handle (an id, an arn) the update acts against,
-// and read Observed to patch from current reality rather than the
-// recorded result when the two have drifted apart.
-//
-// Inputs is the input struct by value, so it is never nil and needs no
-// guard; a prior whose recorded inputs no longer decode into the
-// current struct degrades to the zero value, which reads as "every
-// field changed". Outputs and Observed keep the same pointer type the
-// rest of the contract uses, so a resource with no recorded result or
-// no plan-time read still passes nil.
-//
-// Observed is plan-time, not apply-time: apply does not re-Read before
-// Update, so between plan and apply reality can move further. A resource
-// that needs apply-time truth must Read itself.
-type Prior[In, Out any] struct {
-	Inputs   In
-	Outputs  Out
-	Observed Out
+// Prior describes the recorded provider target and the latest observation.
+type Prior[In, Out, Config any] struct {
+	Inputs        In
+	Outputs       Out
+	Observed      Out
+	Configuration Config
 }
 
 // Changed reports whether a field differs between its prior and current
@@ -43,77 +29,12 @@ func Changed[T any](prior, current T) bool {
 // NoConfig is the config parameter for libraries that declare no config.
 type NoConfig struct{}
 
-// TypedResource is the typed contract a library author implements for
-// one primitive resource type. In names the input struct, which is the
-// method receiver; Out names the output struct, usually a pointer (e.g.
-// *VpcOutput) so a "no prior state" call passes nil. Config names the
-// decoded library config type. Update receives a Prior bundling the
-// last apply's inputs and outputs.
+// TypedResource is the provider operation contract for one resource type.
 type TypedResource[In, Out, Config any] interface {
-	SchemaVersion() int
 	Create(ctx context.Context, config Config) (Out, error)
-	Read(ctx context.Context, config Config, prior Out) (Out, error)
-	Update(ctx context.Context, config Config, prior Prior[In, Out]) (Out, error)
-	Delete(ctx context.Context, config Config, prior Out) error
-	ReplaceFields() []string
-}
-
-// InputValidator is an optional resource interface for checks that run
-// after desired inputs are decoded and before create, update, or replacement
-// work starts. It is not called for no-op or destroy steps.
-type InputValidator[Config any] interface {
-	ValidateInputs(ctx context.Context, config Config) error
-}
-
-// InputEquivalencer is an optional resource interface for treating a
-// changed input field as equivalent to its prior value. field is the UB
-// field name from the resource body. An equivalent field does not count
-// as an input change or a replace trigger.
-type InputEquivalencer[In any] interface {
-	EquivalentInput(field string, prior, current In) bool
-}
-
-// ResourcePlanModifier is an optional resource interface for adjusting
-// a resource's plan after inputs decode and before its read result is
-// finalized. The runtime calls it for resources with prior state when
-// their library config is available.
-type ResourcePlanModifier[In, Out, Config any] interface {
-	ModifyResourcePlan(req ResourcePlanRequest[In, Out, Config], resp *ResourcePlanResponse) error
-}
-
-// ResourcePlanRequest is the typed input to a resource plan modifier.
-type ResourcePlanRequest[In, Out, Config any] struct {
-	// Config is the decoded library config.
-	Config Config
-
-	// PriorInputs is the migrated and defaulted input stored in state.
-	PriorInputs In
-
-	// CurrentInputs is the desired input decoded from the resource body.
-	CurrentInputs In
-
-	// PriorOutputs is the output stored in state.
-	PriorOutputs Out
-
-	// HasPriorState reports whether the resource has a state entry.
-	HasPriorState bool
-}
-
-// ResourcePlanResponse records plan-time requests made by a resource.
-type ResourcePlanResponse struct {
-	// UnknownOutputs names output fields whose apply result should be
-	// treated as unknown during the rest of planning.
-	UnknownOutputs map[string]bool
-}
-
-// MarkOutputUnknown records output fields that apply will recompute.
-func (r *ResourcePlanResponse) MarkOutputUnknown(fields ...string) {
-	if r.UnknownOutputs == nil {
-		r.UnknownOutputs = map[string]bool{}
-	}
-	for _, field := range fields {
-		r.UnknownOutputs[field] = true
-	}
+	Read(ctx context.Context, config Config, prior Prior[In, Out, Config]) (Out, error)
+	Update(ctx context.Context, config Config, prior Prior[In, Out, Config]) (Out, error)
+	Delete(ctx context.Context, config Config, prior Prior[In, Out, Config]) error
 }
 
 // TypedAction is the typed contract for actions. Out names the
@@ -127,25 +48,13 @@ type TypedDataSource[Out, Config any] interface {
 	Read(ctx context.Context, config Config) (Out, error)
 }
 
-// MigrationState is the pair of persisted maps a Migrator upgrades: the
-// inputs the body evaluated to on the last apply and the outputs the
-// resource returned then. Observed (see Prior) is plan-time only and is
-// never persisted, so a migration covers inputs and outputs alone.
+// MigrationState is the pair of persisted maps a resource migration upgrades:
+// the inputs evaluated during the last apply and the outputs returned then.
+// Observed (see Prior) is plan-time only and is never persisted, so a migration
+// covers inputs and outputs alone.
 type MigrationState struct {
 	Inputs  map[string]any
 	Outputs map[string]any
-}
-
-// Migrator is an optional add-on a TypedResource may implement when its
-// SchemaVersion has incremented past 1 and an older state entry needs
-// upgrading. Migrate receives the whole recorded entry at the version it
-// was written and returns it at the current version. Upgrading both
-// halves together keeps the entry's single SchemaVersion stamp correct:
-// were only the outputs upgraded, the entry would be stamped current
-// while its inputs stayed at the old version, and a later input
-// migration would never run.
-type Migrator interface {
-	Migrate(oldVersion int, prior MigrationState) (MigrationState, error)
 }
 
 // ResourceRegistration is the type-erased registration the runtime's
@@ -157,18 +66,23 @@ type ResourceRegistration interface {
 	Migrate(oldVersion int, prior MigrationState) (MigrationState, error)
 	NewReceiver() any
 	Create(ctx context.Context, receiver, cfg any) (any, error)
-	Read(ctx context.Context, receiver, cfg, prior any) (any, error)
-	Update(ctx context.Context, receiver, cfg, priorInputs, priorOutputs, observed any) (any, error)
+	Read(ctx context.Context, receiver, cfg any, prior resourcePrior) (any, error)
+	Update(ctx context.Context, receiver, cfg any, prior resourcePrior) (any, error)
 	ValidateInputs(ctx context.Context, receiver, cfg any) error
-	Delete(ctx context.Context, receiver, cfg, prior any) error
-	ReplaceFields(receiver any) []string
-	EquivalentInput(receiver any, field string, priorInputs map[string]any) bool
-	ModifyResourcePlan(
-		receiver, cfg any,
-		priorInputs, priorOutputs map[string]any,
-		hasPriorState bool,
-	) (ResourcePlanResponse, error)
+	Delete(ctx context.Context, receiver, cfg any, prior resourcePrior) error
+	InputsEqual(receiver any, priorInputs map[string]any) (bool, error)
+	ReplacementReasons(receiver, cfg any, prior resourcePrior) ([]string, error)
+	PendingReplacementReasons(unresolved map[string][]string, configPending bool) []string
+	StableID(inputs, outputs map[string]any) (*string, error)
+	HasStableID() bool
 	OutputType() reflect.Type
+}
+
+type resourcePrior struct {
+	Inputs        map[string]any
+	Outputs       map[string]any
+	Observed      map[string]any
+	Configuration map[string]any
 }
 
 // ActionRegistration is the type-erased registration for actions.
@@ -205,12 +119,13 @@ type dataSourcePtr[T, Out, Config any] interface {
 	TypedDataSource[Out, Config]
 }
 
-// MakeResource produces a ResourceRegistration that wraps a
-// TypedResource[Out, Config] implemented by *T. Use as
-// `runtime.MakeResource[Vpc, *VpcOutput, any]()`. Each
-// receiver is zero-constructed via new(T) when the runtime asks for one.
-func MakeResource[T, Out, Config any, PT resourcePtr[T, Out, Config]]() ResourceRegistration {
-	return typedResourceReg[T, Out, Config, PT]{}
+// MakeResource registers a typed resource with its lifecycle definition.
+func MakeResource[T, Out, Config any, PT resourcePtr[T, Out, Config]](
+	definition ResourceDefinition[T, Out, Config],
+) ResourceRegistration {
+	return typedResourceReg[T, Out, Config, PT]{
+		definition: mustResolveResourceDefinition(definition),
+	}
 }
 
 // MakeResourceWith is the variant of MakeResource for callers that
@@ -218,9 +133,26 @@ func MakeResource[T, Out, Config any, PT resourcePtr[T, Out, Config]]() Resource
 // once per instance the runtime needs; Decode then fills it from the
 // inputs.
 func MakeResourceWith[T, Out, Config any, PT resourcePtr[T, Out, Config]](
+	definition ResourceDefinition[T, Out, Config],
 	construct func() *T,
 ) ResourceRegistration {
-	return typedResourceReg[T, Out, Config, PT]{construct: construct}
+	if construct == nil {
+		panic("resource constructor is nil")
+	}
+	return typedResourceReg[T, Out, Config, PT]{
+		definition: mustResolveResourceDefinition(definition),
+		construct:  construct,
+	}
+}
+
+func mustResolveResourceDefinition[In, Out, Config any](
+	definition ResourceDefinition[In, Out, Config],
+) resolvedResourceDefinition[In, Out, Config] {
+	resolved, err := resolveResourceDefinition(definition)
+	if err != nil {
+		panic(err)
+	}
+	return resolved
 }
 
 // MakeAction produces an ActionRegistration that wraps a
@@ -252,22 +184,22 @@ func MakeDataSourceWith[T, Out, Config any, PT dataSourcePtr[T, Out, Config]](
 }
 
 type typedResourceReg[T, Out, Config any, PT resourcePtr[T, Out, Config]] struct {
-	construct func() *T
+	definition resolvedResourceDefinition[T, Out, Config]
+	construct  func() *T
 }
 
-func (typedResourceReg[T, Out, Config, PT]) SchemaVersion() int {
-	return PT(new(T)).SchemaVersion()
+func (r typedResourceReg[T, Out, Config, PT]) SchemaVersion() int {
+	return r.definition.schemaVersion
 }
 
-func (typedResourceReg[T, Out, Config, PT]) Migrate(
+func (r typedResourceReg[T, Out, Config, PT]) Migrate(
 	old int, prior MigrationState,
 ) (MigrationState, error) {
-	m, ok := any(PT(new(T))).(Migrator)
-	if !ok {
+	if r.definition.migrate == nil {
 		return MigrationState{}, fmt.Errorf("no migration registered for version %d", old)
 	}
 	return guard("migrating this resource's state", false, func() (MigrationState, error) {
-		return m.Migrate(old, prior)
+		return r.definition.migrate(old, prior)
 	})
 }
 
@@ -285,57 +217,59 @@ func (typedResourceReg[T, Out, Config, PT]) Create(
 	if err != nil {
 		return nil, err
 	}
-	return guard("creating this resource", false, func() (Out, error) {
+	result, err := guard("creating this resource", false, func() (Out, error) {
 		return PT(receiver.(*T)).Create(ctx, config)
 	})
+	if err != nil {
+		return nil, err
+	}
+	return result, validateResourceOutput(result)
 }
 
 func (typedResourceReg[T, Out, Config, PT]) Read(
-	ctx context.Context, receiver, cfg, prior any,
+	ctx context.Context, receiver, cfg any, rawPrior resourcePrior,
 ) (any, error) {
 	config, err := coerceConfig[Config](cfg)
 	if err != nil {
 		return nil, err
 	}
-	p, err := coercePrior[Out](prior)
+	prior, err := makeTypedPrior[T, Out, Config](rawPrior)
 	if err != nil {
 		return nil, err
 	}
-	return guard("reading this resource", false, func() (Out, error) {
-		return PT(receiver.(*T)).Read(ctx, config, p)
+	result, err := guard("reading this resource", false, func() (Out, error) {
+		return PT(receiver.(*T)).Read(ctx, config, prior)
 	})
+	if err != nil {
+		return nil, err
+	}
+	return result, validateResourceOutput(result)
 }
 
 func (typedResourceReg[T, Out, Config, PT]) Update(
-	ctx context.Context, receiver, cfg, priorInputs, priorOutputs, observed any,
+	ctx context.Context, receiver, cfg any, rawPrior resourcePrior,
 ) (any, error) {
 	config, err := coerceConfig[Config](cfg)
 	if err != nil {
 		return nil, err
 	}
-	out, err := coercePrior[Out](priorOutputs)
+	prior, err := makeTypedPrior[T, Out, Config](rawPrior)
 	if err != nil {
 		return nil, err
 	}
-	obs, err := coercePrior[Out](observed)
-	if err != nil {
-		return nil, err
-	}
-	prior := Prior[T, Out]{
-		Inputs:   coercePriorInputs[T](priorInputs),
-		Outputs:  out,
-		Observed: obs,
-	}
-	return guard("updating this resource", false, func() (Out, error) {
+	result, err := guard("updating this resource", false, func() (Out, error) {
 		return PT(receiver.(*T)).Update(ctx, config, prior)
 	})
+	if err != nil {
+		return nil, err
+	}
+	return result, validateResourceOutput(result)
 }
 
-func (typedResourceReg[T, Out, Config, PT]) ValidateInputs(
+func (r typedResourceReg[T, Out, Config, PT]) ValidateInputs(
 	ctx context.Context, receiver, cfg any,
 ) error {
-	validator, ok := any(PT(receiver.(*T))).(InputValidator[Config])
-	if !ok {
+	if r.definition.validate == nil {
 		return nil
 	}
 	config, err := coerceConfig[Config](cfg)
@@ -343,70 +277,116 @@ func (typedResourceReg[T, Out, Config, PT]) ValidateInputs(
 		return err
 	}
 	return guardErr("validating this resource's inputs", false, func() error {
-		return validator.ValidateInputs(ctx, config)
+		return r.definition.validate(ctx, *receiver.(*T), config)
 	})
 }
 
 func (typedResourceReg[T, Out, Config, PT]) Delete(
-	ctx context.Context, receiver, cfg, prior any,
+	ctx context.Context, receiver, cfg any, rawPrior resourcePrior,
 ) error {
 	config, err := coerceConfig[Config](cfg)
 	if err != nil {
 		return err
 	}
-	p, err := coercePrior[Out](prior)
+	prior, err := makeTypedPrior[T, Out, Config](rawPrior)
 	if err != nil {
 		return err
 	}
 	return guardErr("deleting this resource", false, func() error {
-		return PT(receiver.(*T)).Delete(ctx, config, p)
+		return PT(receiver.(*T)).Delete(ctx, config, prior)
 	})
 }
 
-func (typedResourceReg[T, Out, Config, PT]) ReplaceFields(receiver any) []string {
-	return PT(receiver.(*T)).ReplaceFields()
-}
-
-func (typedResourceReg[T, Out, Config, PT]) EquivalentInput(
-	receiver any, field string, priorInputs map[string]any,
-) bool {
-	equivalencer, ok := any(PT(receiver.(*T))).(InputEquivalencer[T])
-	if !ok {
-		return false
+func (r typedResourceReg[T, Out, Config, PT]) InputsEqual(
+	receiver any, priorInputs map[string]any,
+) (bool, error) {
+	prior, err := coerceResourceInputs[T](priorInputs)
+	if err != nil {
+		return false, err
 	}
-	return equivalencer.EquivalentInput(field, coercePriorInputs[T](priorInputs), *receiver.(*T))
+	return r.definition.inputsEqual(prior, *receiver.(*T))
 }
 
-func (typedResourceReg[T, Out, Config, PT]) ModifyResourcePlan(
-	receiver, cfg any,
-	priorInputs, priorOutputs map[string]any,
-	hasPriorState bool,
-) (ResourcePlanResponse, error) {
-	modifier, ok := any(PT(receiver.(*T))).(ResourcePlanModifier[T, Out, Config])
-	if !ok {
-		return ResourcePlanResponse{}, nil
+func (r typedResourceReg[T, Out, Config, PT]) ReplacementReasons(
+	receiver, cfg any, rawPrior resourcePrior,
+) ([]string, error) {
+	prior, err := makeTypedPrior[T, Out, Config](rawPrior)
+	if err != nil {
+		return nil, err
 	}
 	config, err := coerceConfig[Config](cfg)
 	if err != nil {
-		return ResourcePlanResponse{}, err
+		return nil, err
 	}
-	out, err := coercePrior[Out](priorOutputs)
+	return r.definition.replacementReasons(
+		prior.Inputs,
+		*receiver.(*T),
+		prior.Configuration,
+		config,
+		prior.Outputs,
+		prior.Observed,
+	)
+}
+
+func (r typedResourceReg[T, Out, Config, PT]) PendingReplacementReasons(
+	unresolved map[string][]string,
+	configPending bool,
+) []string {
+	var reasons []string
+	for _, field := range r.definition.replacementFields {
+		if _, pending := unresolved[topLevelPath(field.path)]; pending {
+			reasons = append(reasons, field.path)
+		}
+	}
+	for _, rule := range r.definition.replacementRules {
+		if _, pending := unresolved[topLevelPath(rule.field.path)]; pending {
+			reasons = append(reasons, rule.field.path)
+		}
+	}
+	if configPending {
+		for _, field := range r.definition.configurationFields {
+			reasons = append(reasons, field.path)
+		}
+	}
+	slices.Sort(reasons)
+	return slices.Compact(reasons)
+}
+
+func topLevelPath(path string) string {
+	if i := strings.IndexByte(path, '.'); i >= 0 {
+		return path[:i]
+	}
+	return path
+}
+
+func (r typedResourceReg[T, Out, Config, PT]) StableID(
+	inputs, outputs map[string]any,
+) (*string, error) {
+	if r.definition.stableID == nil {
+		return nil, nil
+	}
+	typedInputs, err := coerceResourceInputs[T](inputs)
 	if err != nil {
-		return ResourcePlanResponse{}, err
+		return nil, err
 	}
-	current := *receiver.(*T)
-	return guard("modifying this resource's plan", false,
-		func() (ResourcePlanResponse, error) {
-			resp := ResourcePlanResponse{}
-			err := modifier.ModifyResourcePlan(ResourcePlanRequest[T, Out, Config]{
-				Config:        config,
-				PriorInputs:   coercePriorInputs[T](priorInputs),
-				CurrentInputs: current,
-				PriorOutputs:  out,
-				HasPriorState: hasPriorState,
-			}, &resp)
-			return resp, err
-		})
+	typedOutputs, err := coercePrior[Out](outputs)
+	if err != nil {
+		return nil, err
+	}
+	id, err := guard("deriving this resource's stable ID", false, func() (string, error) {
+		return r.definition.stableID(typedInputs, typedOutputs)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if id == "" {
+		return nil, fmt.Errorf("stable ID is empty")
+	}
+	return &id, nil
+}
+
+func (r typedResourceReg[T, Out, Config, PT]) HasStableID() bool {
+	return r.definition.stableID != nil
 }
 
 func (typedResourceReg[T, Out, Config, PT]) OutputType() reflect.Type {
@@ -482,6 +462,77 @@ func coerceConfig[Config any](cfg any) (Config, error) {
 	return config, nil
 }
 
+func makeTypedPrior[In, Out, Config any](
+	prior resourcePrior,
+) (Prior[In, Out, Config], error) {
+	inputs, err := coerceResourceInputs[In](prior.Inputs)
+	if err != nil {
+		return Prior[In, Out, Config]{}, diagnostic.Context("prior inputs", err)
+	}
+	outputs, err := coercePrior[Out](prior.Outputs)
+	if err != nil {
+		return Prior[In, Out, Config]{}, diagnostic.Context("prior outputs", err)
+	}
+	observed, err := coercePrior[Out](prior.Observed)
+	if err != nil {
+		return Prior[In, Out, Config]{}, diagnostic.Context("observed outputs", err)
+	}
+	configuration, err := coerceRecordedConfiguration[Config](prior.Configuration)
+	if err != nil {
+		return Prior[In, Out, Config]{}, diagnostic.Context("prior configuration", err)
+	}
+	return Prior[In, Out, Config]{
+		Inputs:        inputs,
+		Outputs:       outputs,
+		Observed:      observed,
+		Configuration: configuration,
+	}, nil
+}
+
+func coerceResourceInputs[In any](inputs map[string]any) (In, error) {
+	var zero In
+	target := reflect.New(reflect.TypeFor[In]())
+	if err := Decode(target.Interface(), inputs); err != nil {
+		return zero, diagnostic.Context("decode resource inputs", err)
+	}
+	return target.Elem().Interface().(In), nil
+}
+
+func coerceRecordedConfiguration[Config any](value any) (Config, error) {
+	var zero Config
+	if value == nil {
+		return zero, nil
+	}
+	if typed, ok := value.(Config); ok {
+		return typed, nil
+	}
+	m, ok := value.(map[string]any)
+	if !ok {
+		return zero, fmt.Errorf("configuration type mismatch: expected %T, got %T", zero, value)
+	}
+	t := reflect.TypeFor[Config]()
+	if t.Kind() == reflect.Pointer {
+		target := reflect.New(t.Elem())
+		if err := Decode(target.Interface(), m); err != nil {
+			return zero, err
+		}
+		return target.Interface().(Config), nil
+	}
+	target := reflect.New(t)
+	if err := Decode(target.Interface(), m); err != nil {
+		return zero, err
+	}
+	return target.Elem().Interface().(Config), nil
+}
+
+func validateResourceOutput[Out any](output Out) error {
+	value := reflect.ValueOf(output)
+	if !value.IsValid() || (value.Kind() == reflect.Pointer && value.IsNil()) {
+		return fmt.Errorf("resource returned a nil output")
+	}
+	return nil
+}
+
 // coercePrior returns prior as Out. nil is the runtime's "no prior
 // state" sentinel and yields the zero value (a nil pointer for the
 // usual Out = *Something). An already-typed Out passes through. State
@@ -495,6 +546,14 @@ func coercePrior[Out any](prior any) (Out, error) {
 	var zero Out
 	if prior == nil {
 		return zero, nil
+	}
+	priorValue := reflect.ValueOf(prior)
+	switch priorValue.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map,
+		reflect.Pointer, reflect.Slice:
+		if priorValue.IsNil() {
+			return zero, nil
+		}
 	}
 	if typed, ok := prior.(Out); ok {
 		return typed, nil
@@ -512,30 +571,4 @@ func coercePrior[Out any](prior any) (Out, error) {
 		return zero, diagnostic.Context(fmt.Sprintf("coerce prior state into %s", t), err)
 	}
 	return target.Interface().(Out), nil
-}
-
-// coercePriorInputs decodes a prior inputs map into the input struct In
-// for comparison inside Update. Unlike prior outputs, prior inputs are
-// advisory: they gate an optimization, not the correctness of the
-// update, so any problem decoding them (a field removed or retyped
-// since the last apply, a hand-edited entry) degrades to the zero
-// value, which reads as "every field changed" and triggers a full
-// reconcile rather than failing the apply.
-func coercePriorInputs[In any](prior any) In {
-	var zero In
-	if prior == nil {
-		return zero
-	}
-	if typed, ok := prior.(In); ok {
-		return typed
-	}
-	m, ok := prior.(map[string]any)
-	if !ok {
-		return zero
-	}
-	target := reflect.New(reflect.TypeOf(zero))
-	if err := Decode(target.Interface(), m); err != nil {
-		return zero
-	}
-	return target.Elem().Interface().(In)
 }

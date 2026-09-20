@@ -21,47 +21,55 @@ type ghostResource struct {
 	gone *bool
 }
 
-func (r *ghostResource) SchemaVersion() int { return 1 }
-
-func (r *ghostResource) Create(_ context.Context, _ any) (any, error) {
-	*r.gen++
-	return map[string]any{"tag": r.Tag, "id": fmt.Sprintf("gen-%d", *r.gen)}, nil
+type ghostResourceOutput struct {
+	Tag string
+	ID  string
 }
 
-func (r *ghostResource) Read(_ context.Context, _, prior any) (any, error) {
-	if *r.gone || prior == nil {
+func (r *ghostResource) Create(_ context.Context, _ any) (*ghostResourceOutput, error) {
+	*r.gen++
+	return &ghostResourceOutput{Tag: r.Tag, ID: fmt.Sprintf("gen-%d", *r.gen)}, nil
+}
+
+func (r *ghostResource) Read(
+	_ context.Context, _ any, prior Prior[ghostResource, *ghostResourceOutput, any],
+) (*ghostResourceOutput, error) {
+	if *r.gone || prior.Outputs == nil {
 		return nil, ErrNotFound
 	}
-	return prior, nil
+	return prior.Outputs, nil
 }
 
 func (r *ghostResource) Update(
-	_ context.Context, _ any, _ Prior[ghostResource, any],
-) (any, error) {
+	_ context.Context, _ any, _ Prior[ghostResource, *ghostResourceOutput, any],
+) (*ghostResourceOutput, error) {
 	*r.gen++
-	return map[string]any{"tag": r.Tag, "id": fmt.Sprintf("gen-%d", *r.gen)}, nil
+	return &ghostResourceOutput{Tag: r.Tag, ID: fmt.Sprintf("gen-%d", *r.gen)}, nil
 }
 
-func (r *ghostResource) Delete(_ context.Context, _, _ any) error { return nil }
-func (r *ghostResource) ReplaceFields() []string                  { return nil }
+func (r *ghostResource) Delete(
+	_ context.Context, _ any, _ Prior[ghostResource, *ghostResourceOutput, any],
+) error {
+	return nil
+}
 
-// A concrete plan-time input that evaluates differently at apply
-// fails the step: the decision was computed from a premise that no
-// longer holds, so the answer is a fresh plan. Here the upstream was
-// recreated out of band, the plan diffed the downstream against the
-// dead id and chose no-op, and apply must refuse rather than write
-// the new id into state without running anything.
-func TestApplyErrorsWhenResourceInputChangedSincePlan(t *testing.T) {
+// An input that reads an output from a resource being recreated remains
+// pending until apply. The dependent then evaluates against the new output
+// and updates in the same apply.
+func TestApplyResolvesInputAfterGoneDependencyRecreated(t *testing.T) {
 	var gen int64
 	gone := false
 	libs := map[string]*Library{
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"ghost": MakeResourceWith[ghostResource, any, any](
+				"ghost": MakeResourceWith[ghostResource, *ghostResourceOutput, any](
+					testResourceDefinition[ghostResource, *ghostResourceOutput, any](),
 					func() *ghostResource { return &ghostResource{gen: &gen, gone: &gone} },
 				),
-				"thing": MakeResource[trackedResource, any, any](),
+				"thing": MakeResource[trackedResource, *trackedResourceOutput, any](
+					testResourceDefinition[trackedResource, *trackedResourceOutput, any](),
+				),
 			},
 		},
 	}
@@ -78,8 +86,8 @@ func TestApplyErrorsWhenResourceInputChangedSincePlan(t *testing.T) {
 		Factory:      stack,
 	})
 
-	// The plan sees the upstream gone and decides to recreate it; the
-	// downstream diffs against the seeded prior id and plans no-op.
+	// The plan sees the upstream gone and leaves its output unavailable to
+	// the downstream until Create returns the new value.
 	gone = true
 	second := &Executor{
 		DAG:          g,
@@ -91,20 +99,18 @@ func TestApplyErrorsWhenResourceInputChangedSincePlan(t *testing.T) {
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, DecisionCreate, findStep(t, plan, "resource.one").Decision)
-	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.two").Decision)
+	downstream := findStep(t, plan, "resource.two")
+	require.Equal(t, DecisionUpdate, downstream.Decision)
+	require.Contains(t, downstream.UnresolvedInputs, "tag")
+	require.IsType(t, PendingValue{}, downstream.Inputs["tag"])
 
-	// The recreate mints gen-2, so the downstream's tag re-evaluates
-	// to a value the plan never showed.
+	// The recreate mints gen-2, which the downstream consumes when apply
+	// resolves its pending input.
 	gone = false
 	_, err = planAndApplyExisting(second, plan)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "resource.two")
-	require.Contains(t, err.Error(), "inputs changed since the plan was computed; plan again")
-	require.Contains(t, err.Error(), `tag: "gen-1" -> "gen-2"`,
-		"the error names each moved field with both values")
+	require.NoError(t, err)
 
-	// The recreate persisted before the failure, so one re-plan diffs
-	// the downstream against the new id and converges.
+	// Both resources converge in the same apply.
 	third := &Executor{
 		DAG:          g,
 		SyntaxSource: syntaxSource,
@@ -115,7 +121,7 @@ func TestApplyErrorsWhenResourceInputChangedSincePlan(t *testing.T) {
 	plan, err = third.Plan(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.one").Decision)
-	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.two").Decision)
+	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.two").Decision)
 	_, err = planAndApplyExisting(third, plan)
 	require.NoError(t, err)
 
@@ -135,10 +141,13 @@ func TestApplyAcceptsResolvedPendingInput(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"ghost": MakeResourceWith[ghostResource, any, any](
+				"ghost": MakeResourceWith[ghostResource, *ghostResourceOutput, any](
+					testResourceDefinition[ghostResource, *ghostResourceOutput, any](),
 					func() *ghostResource { return &ghostResource{gen: &gen, gone: &gone} },
 				),
-				"thing": MakeResource[trackedResource, any, any](),
+				"thing": MakeResource[trackedResource, *trackedResourceOutput, any](
+					testResourceDefinition[trackedResource, *trackedResourceOutput, any](),
+				),
 			},
 		},
 	}

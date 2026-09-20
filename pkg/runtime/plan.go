@@ -412,10 +412,6 @@ type PlanStep struct {
 	// target waits for apply while this is set, even with settled
 	// inputs. Plan-walk state only; not part of the plan file.
 	mayChangeOutputs bool
-
-	// unknownOutputs names outputs a planned operation will recompute.
-	// Plan-time readers of these fields wait for apply.
-	unknownOutputs map[string]bool
 }
 
 // Drift reports whether the resource's observed outputs differ from
@@ -520,6 +516,11 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 		rs.plannedByTemplate = map[string][]*PlanStep{}
 		for _, addr := range rs.order {
 			node := e.DAG.Nodes[addr]
+			if e.pendingReadBlocksNode(rs, node) {
+				if err := e.finishPendingReads(ctx, rs); err != nil {
+					return nil, err
+				}
+			}
 			steps, err := e.planNodeSteps(ctx, rs, node)
 			if err != nil {
 				return nil, diagnostic.Context(addr, err)
@@ -547,10 +548,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 			}
 		}
 
-		if err := e.runPendingReads(ctx, rs); err != nil {
-			return nil, err
-		}
-		if err := e.finalizePendingReads(rs); err != nil {
+		if err := e.finishPendingReads(ctx, rs); err != nil {
 			return nil, err
 		}
 		upgradeActionRerun(plan.Steps, e.DAG, newScopeLocals(e.rootLocalExprs(), e.DAG.Nodes))
@@ -681,14 +679,23 @@ func (e *Executor) readDestroyTarget(ctx context.Context, step *PlanStep) (bool,
 	if err != nil {
 		return false, err
 	}
-	_, err = e.readObserved(ctx, rt, alias,
-		cfg, step.Inputs, step.PriorOutputs)
+	prior := resourcePrior{
+		Inputs:        step.PriorInputs,
+		Outputs:       step.PriorOutputs,
+		Configuration: step.PriorConfiguration,
+	}
+	observed, err := e.readObserved(ctx, rt, alias, cfg, prior)
 	if errors.Is(err, ErrNotFound) {
 		return true, nil
 	}
 	if err != nil {
 		return false, err
 	}
+	expected, err := stableIDForObservation(rt, prior.Inputs, prior.Outputs, observed)
+	if err != nil {
+		return false, err
+	}
+	step.ExpectedStableID = expected
 	return false, nil
 }
 
@@ -872,13 +879,8 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 	if step.ObservedOutputs != nil {
 		outputs = step.ObservedOutputs
 	}
-	if step.regeneratesOutputs {
+	if step.regeneratesOutputs || step.mayChangeOutputs {
 		outputs = nil
-	} else {
-		outputs = withoutFields(outputs, step.unknownOutputs)
-		if step.mayChangeOutputs {
-			outputs = withoutDeclared(outputs, step.Inputs)
-		}
 	}
 	attrs := mergeAttrs(knownFields(step, step.Inputs), outputs)
 	if instKey == "" {
@@ -924,37 +926,6 @@ func (e *Executor) seedCompositeOutputs(rs *runState, step *PlanStep) error {
 		seedAddressInstance(target, tmpl, instKey, outputs)
 	}
 	return nil
-}
-
-// withoutDeclared returns outputs minus the fields the body declares.
-// A declared field's plan-time value is the body's, whether settled or
-// pending, so a stale same-named output must not be read in its place.
-func withoutDeclared(outputs, declared map[string]any) map[string]any {
-	if len(outputs) == 0 {
-		return outputs
-	}
-	out := make(map[string]any, len(outputs))
-	for name, value := range outputs {
-		if _, ok := declared[name]; ok {
-			continue
-		}
-		out[name] = value
-	}
-	return out
-}
-
-func withoutFields(outputs map[string]any, fields map[string]bool) map[string]any {
-	if len(outputs) == 0 || len(fields) == 0 {
-		return outputs
-	}
-	out := make(map[string]any, len(outputs))
-	for name, value := range outputs {
-		if fields[name] {
-			continue
-		}
-		out[name] = value
-	}
-	return out
 }
 
 // knownFields returns inputs minus the fields the step left
@@ -1318,18 +1289,22 @@ func (e *Executor) planOneAction(
 // workers; finalizePendingReads then sets each step's Decision and
 // ObservedOutputs from the result.
 type pendingRead struct {
-	step          *PlanStep
-	rt            ResourceRegistration
-	alias         string
-	cfg           any
-	inputs        map[string]any
-	priorBinding  *state.Binding
-	priorInputs   map[string]any
-	priorOutputs  map[string]any
-	observed      map[string]any
-	err           error
-	priorObserved map[string]any
-	priorErr      error
+	step             *PlanStep
+	readRT           ResourceRegistration
+	classifyRT       ResourceRegistration
+	receiver         any
+	alias            string
+	readConfig       any
+	desiredCfg       any
+	prior            resourcePrior
+	inputsSame       bool
+	observed         map[string]any
+	err              error
+	fallbackBinding  *state.Binding
+	fallbackRT       ResourceRegistration
+	fallbackAlias    string
+	fallbackObserved map[string]any
+	fallbackErr      error
 }
 
 // planOneResource plans a single resource instance against the given
@@ -1372,26 +1347,18 @@ func (e *Executor) planOneResource(
 	inputs := withoutPending(display, unresolved)
 	priorBinding := bindingFromEntry(prior)
 	bindingChanged := !sameBinding(priorBinding, step.Binding)
-	if bindingChanged && !sameResourceImplementationKind(priorBinding, step.Binding) {
-		priorRT, priorAlias, err := e.resourceRegistrationForBinding(addr, priorBinding)
-		if err != nil {
-			return nil, err
-		}
-		migrated, err := migrateEntry(priorRT, priorAlias, prior.SchemaVersion,
-			MigrationState{Inputs: prior.Inputs, Outputs: prior.Outputs})
+	implementationChanged := bindingChanged &&
+		!sameResourceImplementationKind(priorBinding, step.Binding)
+	priorRT := rt
+	priorAlias := n.Alias
+	if implementationChanged {
+		priorRT, priorAlias, err = e.resourceRegistrationForBinding(addr, priorBinding)
 		if err != nil {
 			return nil, err
 		}
 		step.PriorBinding = priorBinding
-		step.PriorInputs = cloneMap(migrated.Inputs)
-		step.PriorOutputs = migrated.Outputs
-		step.ReplacementReasons = []string{"binding"}
-		step.Decision = DecisionReplace
-		step.regeneratesOutputs = true
-		step.mayChangeOutputs = true
-		return step, nil
 	}
-	migrated, err := migrateEntry(rt, n.Alias, prior.SchemaVersion,
+	migrated, err := migrateEntry(priorRT, priorAlias, prior.SchemaVersion,
 		MigrationState{Inputs: prior.Inputs, Outputs: prior.Outputs})
 	if err != nil {
 		return nil, err
@@ -1406,8 +1373,10 @@ func (e *Executor) planOneResource(
 	if priorInputs == nil {
 		priorInputs = map[string]any{}
 	}
-	if err := e.applyInputDefaults(n, priorInputs, nil); err != nil {
-		return nil, err
+	if !implementationChanged {
+		if err := e.applyInputDefaults(n, priorInputs, nil); err != nil {
+			return nil, err
+		}
 	}
 	step.PriorOutputs = migrated.Outputs
 	step.PriorInputs = priorInputs
@@ -1415,29 +1384,48 @@ func (e *Executor) planOneResource(
 	if err := e.decodeInputs(probe, inputs); err != nil {
 		return nil, err
 	}
-	inputsSame, err := e.sameResourceInputs(rt, probe, priorInputs, inputs)
-	if err != nil {
-		return nil, err
-	}
-	step.mayChangeOutputs = !inputsSame
-	// Whether changed inputs force a replace is decided here, mid-walk,
-	// from inputs alone: downstream nodes plan next and need to know
-	// whether this node's outputs survive. A replace-marked field still
-	// waiting on an upstream compares as changed, since the value it
-	// settles to cannot be assumed equal to the prior one.
-	if step.mayChangeOutputs {
-		step.ReplacementReasons, err = e.changedReplaceFieldsForResource(
-			rt, probe, rt.ReplaceFields(probe), priorInputs, inputs)
+	inputsSame := false
+	if implementationChanged {
+		step.ReplacementReasons = []string{"binding"}
+	} else {
+		inputsSame, err = e.sameResourceInputs(rt, probe, priorInputs)
 		if err != nil {
 			return nil, err
 		}
-		step.regeneratesOutputs = len(step.ReplacementReasons) > 0
 	}
+	configAddr, configPending := e.pendingInternalConfig(n)
+	if !implementationChanged {
+		step.ReplacementReasons = rt.PendingReplacementReasons(unresolved, configPending)
+	}
+	if configPending && !implementationChanged {
+		resolvedPrior, err := e.resolveResourcePrior(resourcePrior{
+			Inputs:        priorInputs,
+			Outputs:       migrated.Outputs,
+			Observed:      migrated.Outputs,
+			Configuration: prior.Configuration,
+		})
+		if err != nil {
+			return nil, err
+		}
+		reasons, err := rt.ReplacementReasons(
+			probe,
+			e.configFor(n),
+			resolvedPrior,
+		)
+		if err != nil {
+			return nil, err
+		}
+		step.ReplacementReasons = append(step.ReplacementReasons, reasons...)
+	}
+	slices.Sort(step.ReplacementReasons)
+	step.ReplacementReasons = slices.Compact(step.ReplacementReasons)
+	step.mayChangeOutputs = implementationChanged || !inputsSame
+	step.regeneratesOutputs = len(step.ReplacementReasons) > 0
 	// A pending internal configuration means the read cannot run: there
 	// is nothing valid to hand the API client. The stored state stands
 	// in for the observed world, so drift goes unchecked this plan and
 	// the decision comes from the input diff alone.
-	if configAddr, pending := e.pendingInternalConfig(n); pending {
+	if configPending {
 		step.DeferredConfig = configAddr
 		switch {
 		case step.regeneratesOutputs:
@@ -1449,44 +1437,40 @@ func (e *Executor) planOneResource(
 		}
 		return step, nil
 	}
-	resolvedPriorInputs, err := e.resolveAssetMap(priorInputs)
-	if err != nil {
-		return nil, diagnostic.Context("prior inputs", err)
-	}
-	resolvedPriorOutputs, err := e.resolveAssetMap(migrated.Outputs)
-	if err != nil {
-		return nil, diagnostic.Context("prior outputs", err)
-	}
-	planResp, err := rt.ModifyResourcePlan(
-		probe,
-		e.configFor(n),
-		resolvedPriorInputs,
-		resolvedPriorOutputs,
-		true,
-	)
-	if err != nil {
-		blameLibrary(err, n.Alias)
-		return nil, err
-	}
-	if len(planResp.UnknownOutputs) > 0 {
-		step.unknownOutputs = maps.Clone(planResp.UnknownOutputs)
-		step.mayChangeOutputs = true
-	}
-	var priorReadBinding *state.Binding
-	if bindingChanged {
-		priorReadBinding = priorBinding
+	readConfig := e.configFor(n)
+	if implementationChanged {
+		readConfig, err = e.configForStateAddress(addr, priorAlias)
+		if err != nil {
+			return nil, err
+		}
 	}
 	rs.pendingReads = append(rs.pendingReads, &pendingRead{
-		step:         step,
-		rt:           rt,
-		alias:        n.Alias,
-		cfg:          e.configFor(n),
-		inputs:       priorInputs,
-		priorBinding: priorReadBinding,
-		priorInputs:  priorInputs,
-		priorOutputs: migrated.Outputs,
+		step:       step,
+		readRT:     priorRT,
+		classifyRT: rt,
+		receiver:   probe,
+		alias:      priorAlias,
+		readConfig: readConfig,
+		desiredCfg: e.configFor(n),
+		prior: resourcePrior{
+			Inputs:        priorInputs,
+			Outputs:       migrated.Outputs,
+			Configuration: prior.Configuration,
+		},
+		inputsSame:      inputsSame,
+		fallbackBinding: fallbackBinding(bindingChanged, implementationChanged, priorBinding),
 	})
 	return step, nil
+}
+
+func fallbackBinding(
+	bindingChanged, implementationChanged bool,
+	prior *state.Binding,
+) *state.Binding {
+	if !bindingChanged || implementationChanged {
+		return nil
+	}
+	return cloneBinding(prior)
 }
 
 // runPendingReads runs every queued resource Read concurrently, up to
@@ -1504,54 +1488,47 @@ func (e *Executor) runPendingReads(ctx context.Context, rs *runState) error {
 		wg.Go(func() {
 			defer func() { <-sem }()
 			pr.observed, pr.err = guard("reading this resource", true, func() (map[string]any, error) {
-				return e.readObserved(ctx, pr.rt, pr.alias, pr.cfg, pr.inputs, pr.priorOutputs)
+				return e.readObserved(
+					ctx,
+					pr.readRT,
+					pr.alias,
+					pr.readConfig,
+					pr.prior,
+				)
 			})
-			if !errors.Is(pr.err, ErrNotFound) || pr.priorBinding == nil {
+			if !errors.Is(pr.err, ErrNotFound) || pr.fallbackBinding == nil {
 				return
 			}
-			pr.priorObserved, pr.priorErr = guard(
-				"reading this resource", true,
-				func() (map[string]any, error) { return e.readPriorBinding(ctx, pr) },
-			)
+			pr.fallbackRT, pr.fallbackAlias, pr.fallbackObserved, pr.fallbackErr =
+				e.readPriorBinding(ctx, pr)
 		})
 	}
 	wg.Wait()
 	return nil
 }
 
-// finalizePendingReads walks the queued reads in plan order and turns
-// each (observed, err) pair into a step Decision: ErrNotFound becomes
-// Create, any other error propagates, and a clean read picks between
-// Replace, Update, and NoOp using the existing input-diff and
-// drift-diff rules.
-func (e *Executor) finalizePendingReads(rs *runState) error {
-	for _, pr := range rs.pendingReads {
-		if err := finalizeResourceRead(pr); err != nil {
-			return diagnostic.Context(pr.step.Address, err)
-		}
-	}
-	return nil
-}
-
-func (e *Executor) readPriorBinding(ctx context.Context, pr *pendingRead) (map[string]any, error) {
-	priorRT, priorAlias, err := e.resourceRegistrationForBinding(
-		pr.step.Address, pr.priorBinding,
-	)
+func (e *Executor) readPriorBinding(
+	ctx context.Context,
+	pr *pendingRead,
+) (ResourceRegistration, string, map[string]any, error) {
+	rt, alias, err := e.resourceRegistrationForBinding(pr.step.Address, pr.fallbackBinding)
 	if err != nil {
-		return nil, priorBindingUnavailableError(pr.priorBinding, err)
+		return nil, "", nil, priorBindingUnavailableError(pr.fallbackBinding, err)
 	}
-	priorCfg, err := e.configForStateAddress(pr.step.Address, priorAlias)
+	config, err := e.configForStateAddress(pr.step.Address, alias)
 	if err != nil {
-		return nil, priorBindingUnavailableError(pr.priorBinding, err)
+		return nil, "", nil, priorBindingUnavailableError(pr.fallbackBinding, err)
 	}
-	return e.readObserved(ctx, priorRT, priorAlias, priorCfg, pr.priorInputs, pr.priorOutputs)
+	observed, err := e.readObserved(ctx, rt, alias, config, pr.prior)
+	return rt, alias, observed, err
 }
 
 func priorBindingUnavailableError(binding *state.Binding, err error) error {
 	return diagnostic.Context(fmt.Sprintf(
 		"prior binding %s is needed after current binding read returned not found; "+
 			"restore the import alias and library config or edit state manually",
-		priorBindingLabel(binding)), err)
+		priorBindingLabel(binding),
+	), err)
 }
 
 func priorBindingLabel(binding *state.Binding) string {
@@ -1574,48 +1551,138 @@ func priorBindingLabel(binding *state.Binding) string {
 	return strings.Join(parts, ", ")
 }
 
-func finalizeResourceRead(pr *pendingRead) error {
+// pendingReadBlocksNode reports whether a node depends directly on a
+// resource whose plan-time Read has not finished. Independent reads stay
+// grouped, while a dependent waits for the current observation before its
+// inputs are evaluated.
+func (e *Executor) pendingReadBlocksNode(rs *runState, node *Node) bool {
+	if len(rs.pendingReads) == 0 || node == nil {
+		return false
+	}
+	pending := make(map[string]struct{}, len(rs.pendingReads))
+	for _, read := range rs.pendingReads {
+		pending[templateAddress(read.step.Address)] = struct{}{}
+	}
+	for _, dependency := range e.DAG.Edges[node.Address] {
+		if _, ok := pending[templateAddress(dependency)]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// finishPendingReads completes the current independent read group, decides
+// each resource operation, and updates evaluation state before a dependent
+// node is planned.
+func (e *Executor) finishPendingReads(ctx context.Context, rs *runState) error {
+	if len(rs.pendingReads) == 0 {
+		return nil
+	}
+	reads := rs.pendingReads
+	if err := e.runPendingReads(ctx, rs); err != nil {
+		return err
+	}
+	if err := e.finalizePendingReads(rs); err != nil {
+		return err
+	}
+	for _, read := range reads {
+		if err := e.seedStepAttrs(rs, read.step); err != nil {
+			return diagnostic.Context(read.step.Address, err)
+		}
+	}
+	rs.pendingReads = nil
+	return nil
+}
+
+// finalizePendingReads walks the queued reads in plan order and turns
+// each (observed, err) pair into a step Decision: ErrNotFound becomes
+// Create, any other error propagates, and a clean read picks between
+// Replace, Update, and NoOp using the existing input-diff and
+// drift-diff rules.
+func (e *Executor) finalizePendingReads(rs *runState) error {
+	for _, pr := range rs.pendingReads {
+		if err := e.finalizeResourceRead(pr); err != nil {
+			return diagnostic.Context(pr.step.Address, err)
+		}
+	}
+	return nil
+}
+
+func (e *Executor) finalizeResourceRead(pr *pendingRead) error {
+	if errors.Is(pr.err, ErrNotFound) && pr.fallbackBinding != nil {
+		switch {
+		case errors.Is(pr.fallbackErr, ErrNotFound):
+			pr.step.Decision = DecisionCreate
+			pr.step.ReplacementReasons = nil
+			pr.step.regeneratesOutputs = true
+			pr.step.mayChangeOutputs = true
+			return nil
+		case pr.fallbackErr != nil:
+			return diagnostic.Context("prior read", pr.fallbackErr)
+		default:
+			pr.err = nil
+			pr.readRT = pr.fallbackRT
+			pr.alias = pr.fallbackAlias
+			pr.observed = pr.fallbackObserved
+			pr.step.PriorBinding = cloneBinding(pr.fallbackBinding)
+			pr.step.ReplacementReasons = append(pr.step.ReplacementReasons, "binding")
+		}
+	}
 	if errors.Is(pr.err, ErrNotFound) {
-		return finalizeMissingCurrentRead(pr)
+		pr.step.Decision = DecisionCreate
+		pr.step.ReplacementReasons = nil
+		pr.step.regeneratesOutputs = true
+		pr.step.mayChangeOutputs = true
+		return nil
 	}
 	if pr.err != nil {
 		return diagnostic.Context("read", pr.err)
 	}
 	pr.step.ObservedOutputs = pr.observed
-	if pr.step.mayChangeOutputs {
-		if pr.step.regeneratesOutputs {
-			pr.step.Decision = DecisionReplace
-		} else {
-			pr.step.Decision = DecisionUpdate
+	expected, err := stableIDForObservation(
+		pr.readRT,
+		pr.prior.Inputs,
+		pr.prior.Outputs,
+		pr.observed,
+	)
+	if err != nil {
+		return err
+	}
+	if pr.step.PriorBinding == nil {
+		resolvedPrior, err := e.resolveResourcePrior(resourcePrior{
+			Inputs:        pr.prior.Inputs,
+			Outputs:       pr.prior.Outputs,
+			Observed:      pr.observed,
+			Configuration: pr.prior.Configuration,
+		})
+		if err != nil {
+			return err
 		}
+		reasons, err := pr.classifyRT.ReplacementReasons(
+			pr.receiver,
+			pr.desiredCfg,
+			resolvedPrior,
+		)
+		if err != nil {
+			return err
+		}
+		pr.step.ReplacementReasons = append(pr.step.ReplacementReasons, reasons...)
+		slices.Sort(pr.step.ReplacementReasons)
+		pr.step.ReplacementReasons = slices.Compact(pr.step.ReplacementReasons)
+	}
+	if len(pr.step.ReplacementReasons) > 0 {
+		pr.step.Decision = DecisionReplace
+		pr.step.ExpectedStableID = expected
+		pr.step.regeneratesOutputs = true
+		pr.step.mayChangeOutputs = true
 		return nil
 	}
-	if pr.step.Drift() {
+	if !pr.inputsSame || pr.step.Drift() {
 		pr.step.Decision = DecisionUpdate
+		pr.step.mayChangeOutputs = true
 		return nil
 	}
 	pr.step.Decision = DecisionNoOp
-	return nil
-}
-
-func finalizeMissingCurrentRead(pr *pendingRead) error {
-	if pr.priorBinding == nil {
-		pr.step.Decision = DecisionCreate
-		return nil
-	}
-	if errors.Is(pr.priorErr, ErrNotFound) {
-		pr.step.Decision = DecisionCreate
-		return nil
-	}
-	if pr.priorErr != nil {
-		return diagnostic.Context("prior read", pr.priorErr)
-	}
-	pr.step.PriorBinding = cloneBinding(pr.priorBinding)
-	pr.step.ObservedOutputs = pr.priorObserved
-	pr.step.ReplacementReasons = []string{"binding"}
-	pr.step.Decision = DecisionReplace
-	pr.step.regeneratesOutputs = true
-	pr.step.mayChangeOutputs = true
 	return nil
 }
 
@@ -1744,13 +1811,13 @@ func readObserved(
 	rt ResourceRegistration,
 	alias string,
 	cfg any,
-	inputs, priorOutputs map[string]any,
+	prior resourcePrior,
 ) (map[string]any, error) {
 	receiver := rt.NewReceiver()
-	if err := Decode(receiver, inputs); err != nil {
+	if err := Decode(receiver, prior.Inputs); err != nil {
 		return nil, err
 	}
-	result, err := rt.Read(ctx, receiver, cfg, priorOutputs)
+	result, err := rt.Read(ctx, receiver, cfg, prior)
 	if err != nil {
 		blameLibrary(err, alias)
 		return nil, err
@@ -1763,17 +1830,17 @@ func (e *Executor) readObserved(
 	rt ResourceRegistration,
 	alias string,
 	cfg any,
-	inputs, priorOutputs map[string]any,
+	prior resourcePrior,
 ) (map[string]any, error) {
 	receiver := rt.NewReceiver()
-	if err := e.decodeInputs(receiver, inputs); err != nil {
+	if err := e.decodeInputs(receiver, prior.Inputs); err != nil {
 		return nil, err
 	}
-	resolvedOutputs, err := e.resolveAssetMap(priorOutputs)
+	resolvedPrior, err := e.resolveResourcePrior(prior)
 	if err != nil {
-		return nil, diagnostic.Context("prior outputs", err)
+		return nil, err
 	}
-	result, err := rt.Read(ctx, receiver, cfg, resolvedOutputs)
+	result, err := rt.Read(ctx, receiver, cfg, resolvedPrior)
 	if err != nil {
 		blameLibrary(err, alias)
 		return nil, err

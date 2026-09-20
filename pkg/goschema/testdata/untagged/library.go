@@ -8,7 +8,9 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "untagged",
 		Resources: map[string]runtime.ResourceRegistration{
-			"thing": runtime.MakeResource[Thing, *ThingOutput, any](),
+			"thing": runtime.MakeResource[Thing, *ThingOutput, any](
+				runtime.ResourceDefinition[Thing, *ThingOutput, any]{SchemaVersion: 1},
+			),
 		},
 	}
 }

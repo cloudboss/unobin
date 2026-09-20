@@ -98,7 +98,7 @@ Invalid UTF-8 is replaced with the Unicode replacement character in both formats
 
 Required collection fields are always arrays or objects, never null. This applies
 to `diagnostics`, `files`, `dependencies`, `inputs`, `outputs`, `nodes`, `edges`,
-`state-moves`, `steps`, `replace-triggers`, `depends-on`, `sensitive`,
+`state-moves`, `steps`, `replacement-reasons`, `depends-on`, `sensitive`,
 `sensitive-inputs`, `sensitive-outputs`, `entries`, `snapshots`, and `mismatches`.
 
 In the contract tables below, every field is required unless it is explicitly
@@ -359,7 +359,7 @@ The summary has required integer fields `create`, `read`, `update`, `replace`,
 values.
 
 Each step has required `address`, `category`, `decision`, `composite`, `drift`,
-`gone`, `replace-triggers`, and `deferred-config`. `deferred-config` is string or
+`gone`, `replacement-reasons`, and `deferred-config`. `deferred-config` is string or
 null. Step category uses the graph category enum. A summary contains no input,
 output, prior, or observed values and no sensitivity lists. Without `-o`, both
 `plan-digest` and `file` are null.

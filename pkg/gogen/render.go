@@ -70,19 +70,41 @@ func ResourceFile(rs ResourceSchema, from string) ([]byte, error) {
 	}
 	b.WriteString("}\n\n")
 
-	fmt.Fprintf(&b, "func (r *%s) SchemaVersion() int { return 1 }\n\n", rs.GoName)
-
-	fmt.Fprintf(&b, "func (r *%s) ReplaceFields() []string {\n", rs.GoName)
+	fmt.Fprintf(
+		&b,
+		"func %sDefinition() runtime.ResourceDefinition[%s, *%s, any] {\n",
+		rs.GoName,
+		rs.GoName,
+		outName,
+	)
+	fmt.Fprintf(
+		&b,
+		"\treturn runtime.ResourceDefinition[%s, *%s, any]{\n",
+		rs.GoName,
+		outName,
+	)
+	b.WriteString("\t\tSchemaVersion: 1,\n")
 	if len(rs.CreateOnlyFields) > 0 {
-		b.WriteString("\treturn []string{\n")
+		fmt.Fprintf(
+			&b,
+			"\t\tReplace: runtime.Replacement[%s, *%s, any]{\n",
+			rs.GoName,
+			outName,
+		)
+		fmt.Fprintf(&b, "\t\t\tFields: []runtime.AnyInputField[%s]{\n", rs.GoName)
 		for _, f := range rs.CreateOnlyFields {
-			tag := UBTag(f)
-			fmt.Fprintf(&b, "\t\t\"%s\",\n", tag)
+			fmt.Fprintf(
+				&b,
+				"\t\t\t\truntime.InputField(func(input *%s) *%s { return &input.%s }),\n",
+				rs.GoName,
+				resourceFieldType(rs, f),
+				f,
+			)
 		}
-		b.WriteString("\t}\n")
-	} else {
-		b.WriteString("\treturn nil\n")
+		b.WriteString("\t\t\t},\n")
+		b.WriteString("\t\t},\n")
 	}
+	b.WriteString("\t}\n")
 	b.WriteString("}\n\n")
 
 	outPtr := "*" + outName
@@ -90,13 +112,24 @@ func ResourceFile(rs ResourceSchema, from string) ([]byte, error) {
 		method, params, returns string
 	}{
 		{"Create", "ctx context.Context, cfg any", "(" + outPtr + ", error)"},
-		{"Read", "ctx context.Context, cfg any, priorOutputs " + outPtr, "(" + outPtr + ", error)"},
 		{
-			"Update",
-			"ctx context.Context, cfg any, prior runtime.Prior[" + rs.GoName + ", " + outPtr + "]",
+			"Read",
+			"ctx context.Context, cfg any, prior runtime.Prior[" +
+				rs.GoName + ", " + outPtr + ", any]",
 			"(" + outPtr + ", error)",
 		},
-		{"Delete", "ctx context.Context, cfg any, priorOutputs " + outPtr, "error"},
+		{
+			"Update",
+			"ctx context.Context, cfg any, prior runtime.Prior[" +
+				rs.GoName + ", " + outPtr + ", any]",
+			"(" + outPtr + ", error)",
+		},
+		{
+			"Delete",
+			"ctx context.Context, cfg any, prior runtime.Prior[" +
+				rs.GoName + ", " + outPtr + ", any]",
+			"error",
+		},
 	} {
 		b.WriteString(writeStub(rs.GoName, op.method, op.params, op.returns))
 	}
@@ -107,6 +140,19 @@ func ResourceFile(rs ResourceSchema, from string) ([]byte, error) {
 		return nil, fmt.Errorf("format: %w\n\nraw source:\n%s", err, raw)
 	}
 	return out, nil
+}
+
+func resourceFieldType(resource ResourceSchema, name string) string {
+	for _, field := range resource.InputFields {
+		if field.Name != name {
+			continue
+		}
+		if field.Required {
+			return field.GoType
+		}
+		return PointerType(field.GoType)
+	}
+	return "any"
 }
 
 // DataSourceFile renders a Go source file for one data source into the data/
@@ -231,8 +277,11 @@ func LibraryFile(
 		for _, rs := range resources {
 			typeKey := lang.PascalToKebab(rs.GoName)
 			fmt.Fprintf(&b,
-				"\t\t\t\"%s\": runtime.MakeResource[resources.%s, *resources.%sOutput, any](),\n",
-				typeKey, rs.GoName, rs.GoName)
+				"\t\t\t\"%s\": runtime.MakeResource[resources.%s, "+
+					"*resources.%sOutput, any](\n"+
+					"\t\t\t\tresources.%sDefinition(),\n"+
+					"\t\t\t),\n",
+				typeKey, rs.GoName, rs.GoName, rs.GoName)
 		}
 		b.WriteString("\t\t},\n")
 	}

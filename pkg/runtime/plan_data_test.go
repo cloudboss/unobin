@@ -23,27 +23,35 @@ type trackedResource struct {
 	Tag string
 }
 
-func (r *trackedResource) SchemaVersion() int { return 1 }
-
-func (r *trackedResource) Create(_ context.Context, _ any) (any, error) {
-	return map[string]any{"tag": r.Tag, "id": "id-1"}, nil
+type trackedResourceOutput struct {
+	Tag string
+	ID  string
 }
 
-func (r *trackedResource) Read(_ context.Context, _, prior any) (any, error) {
-	if prior == nil {
+func (r *trackedResource) Create(_ context.Context, _ any) (*trackedResourceOutput, error) {
+	return &trackedResourceOutput{Tag: r.Tag, ID: "id-1"}, nil
+}
+
+func (r *trackedResource) Read(
+	_ context.Context, _ any, prior Prior[trackedResource, *trackedResourceOutput, any],
+) (*trackedResourceOutput, error) {
+	if prior.Outputs == nil {
 		return nil, ErrNotFound
 	}
-	return prior, nil
+	return prior.Outputs, nil
 }
 
 func (r *trackedResource) Update(
-	_ context.Context, _ any, _ Prior[trackedResource, any],
-) (any, error) {
-	return map[string]any{"tag": r.Tag, "id": "id-1"}, nil
+	_ context.Context, _ any, _ Prior[trackedResource, *trackedResourceOutput, any],
+) (*trackedResourceOutput, error) {
+	return &trackedResourceOutput{Tag: r.Tag, ID: "id-1"}, nil
 }
 
-func (r *trackedResource) Delete(_ context.Context, _, _ any) error { return nil }
-func (r *trackedResource) ReplaceFields() []string                  { return nil }
+func (r *trackedResource) Delete(
+	_ context.Context, _ any, _ Prior[trackedResource, *trackedResourceOutput, any],
+) error {
+	return nil
+}
 
 // dialDataSource returns whatever the test dialed in, suffixed with
 // the key, and counts reads so a test can pin when reads happen.
@@ -64,7 +72,9 @@ func dataPlanModules(value *string, reads *int64) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResource[trackedResource, any, any](),
+				"thing": MakeResource[trackedResource, *trackedResourceOutput, any](
+					testResourceDefinition[trackedResource, *trackedResourceOutput, any](),
+				),
 			},
 			DataSources: map[string]DataSourceRegistration{
 				"dial": MakeDataSourceWith[dialDataSource, any, any](
@@ -349,27 +359,35 @@ type versionedResource struct {
 	Tag string
 }
 
-func (r *versionedResource) SchemaVersion() int { return 1 }
-
-func (r *versionedResource) Create(_ context.Context, _ any) (any, error) {
-	return map[string]any{"tag": r.Tag, "id": "id-" + r.Tag}, nil
+type versionedResourceOutput struct {
+	Tag string
+	ID  string
 }
 
-func (r *versionedResource) Read(_ context.Context, _, prior any) (any, error) {
-	if prior == nil {
+func (r *versionedResource) Create(_ context.Context, _ any) (*versionedResourceOutput, error) {
+	return &versionedResourceOutput{Tag: r.Tag, ID: "id-" + r.Tag}, nil
+}
+
+func (r *versionedResource) Read(
+	_ context.Context, _ any, prior Prior[versionedResource, *versionedResourceOutput, any],
+) (*versionedResourceOutput, error) {
+	if prior.Outputs == nil {
 		return nil, ErrNotFound
 	}
-	return prior, nil
+	return prior.Outputs, nil
 }
 
 func (r *versionedResource) Update(
-	_ context.Context, _ any, _ Prior[versionedResource, any],
-) (any, error) {
-	return map[string]any{"tag": r.Tag, "id": "id-" + r.Tag}, nil
+	_ context.Context, _ any, _ Prior[versionedResource, *versionedResourceOutput, any],
+) (*versionedResourceOutput, error) {
+	return &versionedResourceOutput{Tag: r.Tag, ID: "id-" + r.Tag}, nil
 }
 
-func (r *versionedResource) Delete(_ context.Context, _, _ any) error { return nil }
-func (r *versionedResource) ReplaceFields() []string                  { return nil }
+func (r *versionedResource) Delete(
+	_ context.Context, _ any, _ Prior[versionedResource, *versionedResourceOutput, any],
+) error {
+	return nil
+}
 
 // A data source reading a computed output of an updating resource
 // defers rather than reading the seeded prior value at plan. The
@@ -381,7 +399,13 @@ func TestDataDefersComputedOutputOfUpdatingResource(t *testing.T) {
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
-	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any, any]()
+	libs["core"].Resources["versioned"] = MakeResource[
+		versionedResource,
+		*versionedResourceOutput,
+		any,
+	](
+		testResourceDefinition[versionedResource, *versionedResourceOutput, any](),
+	)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
@@ -405,7 +429,7 @@ func TestDataDefersComputedOutputOfUpdatingResource(t *testing.T) {
 	ds := findStep(t, plan, "data-source.cfg")
 	require.Nil(t, ds.ObservedOutputs,
 		"an updating upstream defers the read past the stale prior id")
-	require.Empty(t, ds.UnresolvedInputs)
+	require.Contains(t, ds.UnresolvedInputs, "key")
 
 	res2, err := planAndApplyExisting(second, plan)
 	require.NoError(t, err)
@@ -421,7 +445,13 @@ func TestDataDefersWhenUpstreamResourceUpdated(t *testing.T) {
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
-	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any, any]()
+	libs["core"].Resources["versioned"] = MakeResource[
+		versionedResource,
+		*versionedResourceOutput,
+		any,
+	](
+		testResourceDefinition[versionedResource, *versionedResourceOutput, any](),
+	)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
@@ -447,16 +477,20 @@ func TestDataDefersWhenUpstreamResourceUpdated(t *testing.T) {
 	require.Equal(t, "a:2", res.Outputs["v"])
 }
 
-// A resource reading a computed output of an updating upstream diffs
-// the seeded prior value at plan. When the update then changes that
-// output, the apply-time premise check refuses loudly and one re-plan
-// converges on the fresh value.
-func TestPremiseCheckCatchesChangedUpstreamOutput(t *testing.T) {
+// A resource reading an updating resource's output keeps that input
+// pending and resolves it after the upstream update completes.
+func TestResourceDefersChangedUpstreamOutput(t *testing.T) {
 	src := planDataFixture(t, "upstream-output-premise")
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
-	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any, any]()
+	libs["core"].Resources["versioned"] = MakeResource[
+		versionedResource,
+		*versionedResourceOutput,
+		any,
+	](
+		testResourceDefinition[versionedResource, *versionedResourceOutput, any](),
+	)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
@@ -473,26 +507,10 @@ func TestPremiseCheckCatchesChangedUpstreamOutput(t *testing.T) {
 	plan, err := second.Plan(context.Background())
 	require.NoError(t, err)
 	step := findStep(t, plan, "resource.two")
-	require.Equal(t, DecisionNoOp, step.Decision)
-	require.Empty(t, step.UnresolvedInputs)
-	require.Equal(t, "id-1", step.Inputs["tag"])
+	require.Equal(t, DecisionUpdate, step.Decision)
+	require.Contains(t, step.UnresolvedInputs, "tag")
 
-	_, err = planAndApplyExisting(second, plan)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "resource.two")
-	require.Contains(t, err.Error(), "inputs changed since the plan was computed; plan again")
-	require.Contains(t, err.Error(), `tag: "id-1" -> "id-2"`)
-
-	// The update persisted before the failure, so a fresh plan diffs
-	// the downstream against the new id and converges.
-	third := &Executor{
-		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
-		Inputs: map[string]any{"t": "2"},
-	}
-	plan, err = third.Plan(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.two").Decision)
-	res, err := planAndApplyExisting(third, plan)
+	res, err := planAndApplyExisting(second, plan)
 	require.NoError(t, err)
 	require.Equal(t, "id-2", res.Outputs["fed"])
 }
@@ -505,7 +523,13 @@ func TestDataDefersWhenDependsOnTargetChanges(t *testing.T) {
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
-	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any, any]()
+	libs["core"].Resources["versioned"] = MakeResource[
+		versionedResource,
+		*versionedResourceOutput,
+		any,
+	](
+		testResourceDefinition[versionedResource, *versionedResourceOutput, any](),
+	)
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	g, syntaxSource := syntaxDAGAndBody(t, src, libs)
@@ -551,7 +575,13 @@ func TestDataDefersWhenDependsOnCompositeChanges(t *testing.T) {
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
-	libs["core"].Resources["versioned"] = MakeResource[versionedResource, any, any]()
+	libs["core"].Resources["versioned"] = MakeResource[
+		versionedResource,
+		*versionedResourceOutput,
+		any,
+	](
+		testResourceDefinition[versionedResource, *versionedResourceOutput, any](),
+	)
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{

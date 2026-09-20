@@ -11,7 +11,9 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "unmappable",
 		Resources: map[string]runtime.ResourceRegistration{
-			"thing": runtime.MakeResource[Thing, *ThingOutput, any](),
+			"thing": runtime.MakeResource[Thing, *ThingOutput, any](
+				runtime.ResourceDefinition[Thing, *ThingOutput, any]{SchemaVersion: 1},
+			),
 		},
 	}
 }
@@ -26,10 +28,21 @@ type ThingOutput struct {
 	Seen time.Time
 }
 
-func (t *Thing) Create(_ context.Context) (*ThingOutput, error) { return &ThingOutput{}, nil }
-func (t *Thing) Read(_ context.Context) (*ThingOutput, error)   { return &ThingOutput{}, nil }
-func (t *Thing) Update(_ context.Context, _ runtime.Prior[Thing, *ThingOutput]) (*ThingOutput, error) {
+func (t *Thing) Create(_ context.Context, _ any) (*ThingOutput, error) {
 	return &ThingOutput{}, nil
 }
-func (t *Thing) Delete(_ context.Context, _ *ThingOutput) error { return nil }
-func (t *Thing) SchemaVersion() int                             { return 1 }
+func (t *Thing) Read(
+	_ context.Context, _ any, _ runtime.Prior[Thing, *ThingOutput, any],
+) (*ThingOutput, error) {
+	return &ThingOutput{}, nil
+}
+func (t *Thing) Update(
+	_ context.Context, _ any, _ runtime.Prior[Thing, *ThingOutput, any],
+) (*ThingOutput, error) {
+	return &ThingOutput{}, nil
+}
+func (t *Thing) Delete(
+	_ context.Context, _ any, _ runtime.Prior[Thing, *ThingOutput, any],
+) error {
+	return nil
+}

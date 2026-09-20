@@ -11,7 +11,9 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "lenlib",
 		Resources: map[string]runtime.ResourceRegistration{
-			"length": runtime.MakeResource[LengthInputs, *LengthOutput, any](),
+			"length": runtime.MakeResource[LengthInputs, *LengthOutput, any](
+				runtime.ResourceDefinition[LengthInputs, *LengthOutput, any]{SchemaVersion: 1},
+			),
 		},
 	}
 }
@@ -51,24 +53,26 @@ type LengthOutput struct {
 	ID string
 }
 
-func (v *LengthInputs) SchemaVersion() int { return 1 }
-
 func (v *LengthInputs) Create(context.Context, any) (*LengthOutput, error) {
 	return &LengthOutput{ID: v.Name}, nil
 }
 
-func (v *LengthInputs) Read(context.Context, any, *LengthOutput) (*LengthOutput, error) {
+func (v *LengthInputs) Read(
+	context.Context, any, runtime.Prior[LengthInputs, *LengthOutput, any],
+) (*LengthOutput, error) {
 	return &LengthOutput{ID: v.Name}, nil
 }
 
 func (v *LengthInputs) Update(
 	context.Context,
 	any,
-	runtime.Prior[LengthInputs, *LengthOutput],
+	runtime.Prior[LengthInputs, *LengthOutput, any],
 ) (*LengthOutput, error) {
 	return &LengthOutput{ID: v.Name}, nil
 }
 
-func (v *LengthInputs) Delete(context.Context, any, *LengthOutput) error { return nil }
-
-func (v *LengthInputs) ReplaceFields() []string { return nil }
+func (v *LengthInputs) Delete(
+	context.Context, any, runtime.Prior[LengthInputs, *LengthOutput, any],
+) error {
+	return nil
+}

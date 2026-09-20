@@ -12,30 +12,46 @@ type fakeResource struct {
 	Name string
 }
 
-func (r *fakeResource) SchemaVersion() int { return 1 }
-
-func (r *fakeResource) Create(_ context.Context, _ any) (any, error) {
-	return map[string]any{"id": "fake-" + r.Name}, nil
+type fakeResourceOutput struct {
+	ID string
 }
 
-func (r *fakeResource) Read(_ context.Context, _ any, prior any) (any, error) {
-	if prior == nil {
+func (r *fakeResource) Create(_ context.Context, _ any) (*fakeResourceOutput, error) {
+	return &fakeResourceOutput{ID: "fake-" + r.Name}, nil
+}
+
+func (r *fakeResource) Read(
+	_ context.Context, _ any, prior Prior[fakeResource, *fakeResourceOutput, any],
+) (*fakeResourceOutput, error) {
+	if prior.Outputs == nil {
 		return nil, ErrNotFound
 	}
-	return prior, nil
+	return prior.Outputs, nil
 }
 
 func (r *fakeResource) Update(
-	_ context.Context, _ any, prior Prior[fakeResource, any],
-) (any, error) {
-	m := prior.Outputs.(map[string]any)
-	m["id"] = "fake-" + r.Name + "-updated"
-	return m, nil
+	_ context.Context, _ any, prior Prior[fakeResource, *fakeResourceOutput, any],
+) (*fakeResourceOutput, error) {
+	prior.Outputs.ID = "fake-" + r.Name + "-updated"
+	return prior.Outputs, nil
 }
 
-func (r *fakeResource) Delete(_ context.Context, _ any, _ any) error { return nil }
+func (r *fakeResource) Delete(
+	_ context.Context, _ any, _ Prior[fakeResource, *fakeResourceOutput, any],
+) error {
+	return nil
+}
 
-func (r *fakeResource) ReplaceFields() []string { return []string{"name"} }
+func fakeResourceDefinition() ResourceDefinition[fakeResource, *fakeResourceOutput, any] {
+	return ResourceDefinition[fakeResource, *fakeResourceOutput, any]{
+		SchemaVersion: 1,
+		Replace: Replacement[fakeResource, *fakeResourceOutput, any]{
+			Fields: []AnyInputField[fakeResource]{
+				InputField(func(input *fakeResource) *string { return &input.Name }),
+			},
+		},
+	}
+}
 
 type fakeDataSource struct {
 	Key string
@@ -57,7 +73,8 @@ func TestLibraryHoldsAllRegistrationKinds(t *testing.T) {
 	lib := &Library{
 		Name: "fake",
 		Resources: map[string]ResourceRegistration{
-			"thing": MakeResourceWith[fakeResource, any, any](
+			"thing": MakeResourceWith[fakeResource, *fakeResourceOutput, any](
+				fakeResourceDefinition(),
 				func() *fakeResource { return &fakeResource{Name: "x"} },
 			),
 		},
@@ -79,7 +96,8 @@ func TestLibraryHoldsAllRegistrationKinds(t *testing.T) {
 }
 
 func TestResourceLifecycle(t *testing.T) {
-	rt := MakeResourceWith[fakeResource, any, any](
+	rt := MakeResourceWith[fakeResource, *fakeResourceOutput, any](
+		fakeResourceDefinition(),
 		func() *fakeResource { return &fakeResource{Name: "alpha"} },
 	)
 	r := rt.NewReceiver()
@@ -87,19 +105,21 @@ func TestResourceLifecycle(t *testing.T) {
 
 	out, err := rt.Create(ctx, r, nil)
 	require.NoError(t, err)
-	require.Equal(t, "fake-alpha", out.(map[string]any)["id"])
+	require.Equal(t, "fake-alpha", out.(*fakeResourceOutput).ID)
 
-	got, err := rt.Read(ctx, r, nil, out)
+	prior := resourcePrior{Inputs: map[string]any{"name": "alpha"}, Outputs: mapify(out)}
+	got, err := rt.Read(ctx, r, nil, prior)
 	require.NoError(t, err)
 	require.Equal(t, out, got)
 
-	updated, err := rt.Update(ctx, r, nil, nil, out, nil)
+	updated, err := rt.Update(ctx, r, nil, prior)
 	require.NoError(t, err)
-	require.Equal(t, "fake-alpha-updated", updated.(map[string]any)["id"])
+	require.Equal(t, "fake-alpha-updated", updated.(*fakeResourceOutput).ID)
 
-	require.NoError(t, rt.Delete(ctx, r, nil, updated))
+	prior.Outputs = mapify(updated)
+	require.NoError(t, rt.Delete(ctx, r, nil, prior))
 
-	gone, err := rt.Read(ctx, r, nil, nil)
+	gone, err := rt.Read(ctx, r, nil, resourcePrior{Inputs: map[string]any{"name": "alpha"}})
 	require.True(t, errors.Is(err, ErrNotFound))
 	require.Nil(t, gone)
 }

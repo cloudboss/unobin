@@ -26,7 +26,18 @@ func Library() *runtime.Library {
 		Name:        "deploy",
 		Description: "Demonstrates Go-declared constraints by rendering a service spec to a file.",
 		Resources: map[string]runtime.ResourceRegistration{
-			"service": runtime.MakeResource[Service, *ServiceOutput, any](),
+			"service": runtime.MakeResource[Service, *ServiceOutput, any](serviceDefinition()),
+		},
+	}
+}
+
+func serviceDefinition() runtime.ResourceDefinition[Service, *ServiceOutput, any] {
+	return runtime.ResourceDefinition[Service, *ServiceOutput, any]{
+		SchemaVersion: 1,
+		Replace: runtime.Replacement[Service, *ServiceOutput, any]{
+			Fields: []runtime.AnyInputField[Service]{
+				runtime.InputField(func(input *Service) *string { return &input.Path }),
+			},
 		},
 	}
 }
@@ -80,14 +91,15 @@ type ServiceOutput struct {
 	Size   int64
 }
 
-func (s *Service) SchemaVersion() int      { return 1 }
-func (s *Service) ReplaceFields() []string { return []string{"path"} }
-
 func (s *Service) Create(_ context.Context, _ any) (*ServiceOutput, error) {
 	return s.write()
 }
 
-func (s *Service) Read(_ context.Context, _ any, _ *ServiceOutput) (*ServiceOutput, error) {
+func (s *Service) Read(
+	_ context.Context,
+	_ any,
+	_ runtime.Prior[Service, *ServiceOutput, any],
+) (*ServiceOutput, error) {
 	info, err := os.Stat(s.Path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -107,12 +119,16 @@ func (s *Service) Read(_ context.Context, _ any, _ *ServiceOutput) (*ServiceOutp
 }
 
 func (s *Service) Update(
-	_ context.Context, _ any, _ runtime.Prior[Service, *ServiceOutput],
+	_ context.Context, _ any, _ runtime.Prior[Service, *ServiceOutput, any],
 ) (*ServiceOutput, error) {
 	return s.write()
 }
 
-func (s *Service) Delete(_ context.Context, _ any, _ *ServiceOutput) error {
+func (s *Service) Delete(
+	_ context.Context,
+	_ any,
+	_ runtime.Prior[Service, *ServiceOutput, any],
+) error {
 	err := os.Remove(s.Path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err

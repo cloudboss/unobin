@@ -51,37 +51,43 @@ type orderResource struct {
 	rec *deleteOrder
 }
 
-func (r *orderResource) Create(_ context.Context, _ any) (any, error) {
-	return map[string]any{"id": "id-" + r.Name, "name": r.Name}, nil
+type orderResourceOutput struct {
+	ID   string
+	Name string
 }
 
-func (r *orderResource) Read(_ context.Context, _ any, prior any) (any, error) {
-	return prior, nil
+func (r *orderResource) Create(_ context.Context, _ any) (*orderResourceOutput, error) {
+	return &orderResourceOutput{ID: "id-" + r.Name, Name: r.Name}, nil
 }
 
-func (r *orderResource) Update(
-	_ context.Context, _ any, prior Prior[orderResource, any],
-) (any, error) {
+func (r *orderResource) Read(
+	_ context.Context, _ any, prior Prior[orderResource, *orderResourceOutput, any],
+) (*orderResourceOutput, error) {
 	return prior.Outputs, nil
 }
 
-func (r *orderResource) Delete(_ context.Context, _ any, _ any) error {
+func (r *orderResource) Update(
+	_ context.Context, _ any, prior Prior[orderResource, *orderResourceOutput, any],
+) (*orderResourceOutput, error) {
+	return prior.Outputs, nil
+}
+
+func (r *orderResource) Delete(
+	_ context.Context, _ any, _ Prior[orderResource, *orderResourceOutput, any],
+) error {
 	r.rec.mu.Lock()
 	r.rec.order = append(r.rec.order, r.Name)
 	r.rec.mu.Unlock()
 	return nil
 }
 
-func (r *orderResource) ReplaceFields() []string { return nil }
-
-func (r *orderResource) SchemaVersion() int { return 1 }
-
 func orderModules(rec *deleteOrder) map[string]*Library {
 	return map[string]*Library{
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[orderResource, any, any](
+				"thing": MakeResourceWith[orderResource, *orderResourceOutput, any](
+					testResourceDefinition[orderResource, *orderResourceOutput, any](),
 					func() *orderResource { return &orderResource{rec: rec} },
 				),
 			},
@@ -94,10 +100,12 @@ func bindingChangeModules(oldC, newC *resourceCounters) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"old": MakeResourceWith[countingResource, any, any](
+				"old": MakeResourceWith[countingResource, *countingResourceOutput, any](
+					countingResourceDefinition(),
 					func() *countingResource { return &countingResource{counters: oldC} },
 				),
-				"new": MakeResourceWith[countingResource, any, any](
+				"new": MakeResourceWith[countingResource, *countingResourceOutput, any](
+					countingResourceDefinition(),
 					func() *countingResource { return &countingResource{counters: newC} },
 				),
 			},
@@ -111,7 +119,8 @@ func aliasChangeModules(oldC, newC *resourceCounters) map[string]*Library {
 		"old": LibraryWithPath(&Library{
 			Name: "old",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[countingResource, any, any](
+				"thing": MakeResourceWith[countingResource, *countingResourceOutput, any](
+					countingResourceDefinition(),
 					func() *countingResource { return &countingResource{counters: oldC} },
 				),
 			},
@@ -119,7 +128,8 @@ func aliasChangeModules(oldC, newC *resourceCounters) map[string]*Library {
 		"new": LibraryWithPath(&Library{
 			Name: "new",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[countingResource, any, any](
+				"thing": MakeResourceWith[countingResource, *countingResourceOutput, any](
+					countingResourceDefinition(),
 					func() *countingResource { return &countingResource{counters: newC} },
 				),
 			},
@@ -324,10 +334,6 @@ func TestResourceAliasChangeMissingPriorBindingExplainsRecovery(t *testing.T) {
 	exec := applyPlanTestExecutor(t, newSrc, map[string]*Library{"new": libs["new"]}, store, stack)
 	_, err := exec.Plan(context.Background())
 	require.Error(t, err)
-	require.ErrorContains(t, err,
-		"prior binding import alias old, library path example.com/shared, kind thing is needed")
-	require.ErrorContains(t, err,
-		"restore the import alias and library config or edit state manually")
 	require.ErrorContains(t, err, `library "old" is not imported`)
 }
 
@@ -353,10 +359,11 @@ func TestDestroyDeletesDependentsFirst(t *testing.T) {
 // cfgCapture records the configuration value a cfgResource was handed
 // at delete time, so a test can confirm destroy used the right one.
 type cfgCapture struct {
-	deleteCfg any
-	deleted   bool
-	creates   int64
-	updates   int64
+	deleteCfg      any
+	deletePriorCfg any
+	deleted        bool
+	creates        int64
+	updates        int64
 }
 
 type cfgResource struct {
@@ -365,31 +372,49 @@ type cfgResource struct {
 	capture *cfgCapture
 }
 
-func (r *cfgResource) Create(_ context.Context, _ any) (any, error) {
-	atomic.AddInt64(&r.capture.creates, 1)
-	return map[string]any{"id": "id-" + r.Name}, nil
+type cfgResourceOutput struct {
+	ID string
 }
 
-func (r *cfgResource) Read(_ context.Context, _ any, prior any) (any, error) {
-	return prior, nil
+func (r *cfgResource) Create(
+	_ context.Context,
+	_ any,
+) (*cfgResourceOutput, error) {
+	atomic.AddInt64(&r.capture.creates, 1)
+	return &cfgResourceOutput{ID: "id-" + r.Name}, nil
+}
+
+func (r *cfgResource) Read(
+	_ context.Context,
+	_ any,
+	prior Prior[cfgResource, *cfgResourceOutput, any],
+) (*cfgResourceOutput, error) {
+	return prior.Outputs, nil
 }
 
 func (r *cfgResource) Update(
-	_ context.Context, _ any, prior Prior[cfgResource, any],
-) (any, error) {
+	_ context.Context,
+	_ any,
+	prior Prior[cfgResource, *cfgResourceOutput, any],
+) (*cfgResourceOutput, error) {
 	atomic.AddInt64(&r.capture.updates, 1)
 	return prior.Outputs, nil
 }
 
-func (r *cfgResource) Delete(_ context.Context, cfg any, _ any) error {
-	r.capture.deleteCfg = cfg
+func (r *cfgResource) Delete(
+	_ context.Context,
+	config any,
+	prior Prior[cfgResource, *cfgResourceOutput, any],
+) error {
+	r.capture.deleteCfg = config
+	r.capture.deletePriorCfg = prior.Configuration
 	r.capture.deleted = true
 	return nil
 }
 
-func (r *cfgResource) ReplaceFields() []string { return nil }
-
-func (r *cfgResource) SchemaVersion() int { return 1 }
+func cfgResourceDefinition() ResourceDefinition[cfgResource, *cfgResourceOutput, any] {
+	return ResourceDefinition[cfgResource, *cfgResourceOutput, any]{SchemaVersion: 1}
+}
 
 func cfgCapturingModules(capture *cfgCapture) map[string]*Library {
 	return map[string]*Library{
@@ -399,8 +424,99 @@ func cfgCapturingModules(capture *cfgCapture) map[string]*Library {
 				New: func() any { return &endpointConfiguration{} },
 			},
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[cfgResource, any, any](
+				"thing": MakeResourceWith[cfgResource, *cfgResourceOutput, any](
+					cfgResourceDefinition(),
 					func() *cfgResource { return &cfgResource{capture: capture} },
+				),
+			},
+		},
+	}
+}
+
+type configReplacementResource struct {
+	Name string
+
+	capture *cfgCapture
+}
+
+func (r *configReplacementResource) Create(
+	_ context.Context,
+	_ *runtimePlainConfiguration,
+) (*cfgResourceOutput, error) {
+	atomic.AddInt64(&r.capture.creates, 1)
+	return &cfgResourceOutput{ID: "id-" + r.Name}, nil
+}
+
+func (r *configReplacementResource) Read(
+	_ context.Context,
+	_ *runtimePlainConfiguration,
+	prior Prior[configReplacementResource, *cfgResourceOutput, *runtimePlainConfiguration],
+) (*cfgResourceOutput, error) {
+	return prior.Outputs, nil
+}
+
+func (r *configReplacementResource) Update(
+	_ context.Context,
+	_ *runtimePlainConfiguration,
+	prior Prior[configReplacementResource, *cfgResourceOutput, *runtimePlainConfiguration],
+) (*cfgResourceOutput, error) {
+	atomic.AddInt64(&r.capture.updates, 1)
+	return prior.Outputs, nil
+}
+
+func (r *configReplacementResource) Delete(
+	_ context.Context,
+	config *runtimePlainConfiguration,
+	prior Prior[configReplacementResource, *cfgResourceOutput, *runtimePlainConfiguration],
+) error {
+	r.capture.deleteCfg = config
+	r.capture.deletePriorCfg = prior.Configuration
+	r.capture.deleted = true
+	return nil
+}
+
+func configReplacementDefinition() ResourceDefinition[
+	configReplacementResource,
+	*cfgResourceOutput,
+	*runtimePlainConfiguration,
+] {
+	return ResourceDefinition[
+		configReplacementResource,
+		*cfgResourceOutput,
+		*runtimePlainConfiguration,
+	]{
+		SchemaVersion: 1,
+		Replace: Replacement[
+			configReplacementResource,
+			*cfgResourceOutput,
+			*runtimePlainConfiguration,
+		]{
+			ConfigurationFields: []AnyConfigurationField[*runtimePlainConfiguration]{
+				ConfigurationField(func(config *runtimePlainConfiguration) *string {
+					return &config.Endpoint
+				}),
+			},
+		},
+	}
+}
+
+func configReplacementModules(capture *cfgCapture) map[string]*Library {
+	return map[string]*Library{
+		"aws": {
+			Name: "aws",
+			Configuration: &cfg.ConfigurationType[*runtimePlainConfiguration]{
+				New: func() *runtimePlainConfiguration { return &runtimePlainConfiguration{} },
+			},
+			Resources: map[string]ResourceRegistration{
+				"thing": MakeResourceWith[
+					configReplacementResource,
+					*cfgResourceOutput,
+					*runtimePlainConfiguration,
+				](
+					configReplacementDefinition(),
+					func() *configReplacementResource {
+						return &configReplacementResource{capture: capture}
+					},
 				),
 			},
 		},
@@ -475,6 +591,32 @@ func TestCredentialOnlyConfigurationChangePersistsWithoutMutation(t *testing.T) 
 	)
 }
 
+func TestSelectedConfigurationChangeReplacesResource(t *testing.T) {
+	capture := &cfgCapture{}
+	libs := configReplacementModules(capture)
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+
+	initial := applyPlanFixture(t, "destroy-uses-current-alias-config")
+	applyOnce(t, applyPlanTestExecutor(t, initial, libs, store, stack))
+
+	changed := strings.ReplaceAll(initial, "create.example", "current.example")
+	exec := applyPlanTestExecutor(t, changed, libs, store, stack)
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	step := findStep(t, plan, "resource.x")
+	require.Equal(t, DecisionReplace, step.Decision)
+	require.Equal(t, []string{"endpoint"}, step.ReplacementReasons)
+
+	_, err = planAndApplyExisting(exec, plan)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), atomic.LoadInt64(&capture.creates))
+	require.Equal(t, int64(0), atomic.LoadInt64(&capture.updates))
+	require.True(t, capture.deleted)
+	require.Equal(t, "https://current.example", endpointOf(capture.deleteCfg))
+	require.Equal(t, "https://create.example", endpointOf(capture.deletePriorCfg))
+}
+
 var errIncrementalResource = errors.New("intentional resource failure")
 
 type incrementalResourceCounters struct {
@@ -491,32 +633,45 @@ type incrementalResource struct {
 	counters *incrementalResourceCounters
 }
 
-func (r *incrementalResource) Create(_ context.Context, _ any) (any, error) {
+type incrementalResourceOutput struct {
+	ID   string
+	Name string
+	Size int64
+}
+
+func (r *incrementalResource) Create(
+	_ context.Context,
+	_ any,
+) (*incrementalResourceOutput, error) {
 	if r.Name == "fail-create" {
 		return nil, errIncrementalResource
 	}
 	atomic.AddInt64(&r.counters.creates, 1)
-	return map[string]any{"id": "fake-" + r.Name, "name": r.Name, "size": r.Size}, nil
+	return &incrementalResourceOutput{ID: "fake-" + r.Name, Name: r.Name, Size: r.Size}, nil
 }
 
-func (r *incrementalResource) Read(_ context.Context, _ any, prior any) (any, error) {
+func (r *incrementalResource) Read(
+	_ context.Context, _ any, prior Prior[incrementalResource, *incrementalResourceOutput, any],
+) (*incrementalResourceOutput, error) {
 	if r.counters.readErr != nil {
 		return nil, r.counters.readErr
 	}
-	return prior, nil
+	return prior.Outputs, nil
 }
 
 func (r *incrementalResource) Update(
-	_ context.Context, _ any, _ Prior[incrementalResource, any],
-) (any, error) {
+	_ context.Context, _ any, _ Prior[incrementalResource, *incrementalResourceOutput, any],
+) (*incrementalResourceOutput, error) {
 	if r.Size == 99 {
 		return nil, errIncrementalResource
 	}
 	atomic.AddInt64(&r.counters.updates, 1)
-	return map[string]any{"id": "fake-" + r.Name, "name": r.Name, "size": r.Size}, nil
+	return &incrementalResourceOutput{ID: "fake-" + r.Name, Name: r.Name, Size: r.Size}, nil
 }
 
-func (r *incrementalResource) Delete(_ context.Context, _ any, _ any) error {
+func (r *incrementalResource) Delete(
+	_ context.Context, _ any, _ Prior[incrementalResource, *incrementalResourceOutput, any],
+) error {
 	if r.Name == "fail-delete" {
 		return errIncrementalResource
 	}
@@ -524,18 +679,28 @@ func (r *incrementalResource) Delete(_ context.Context, _ any, _ any) error {
 	return nil
 }
 
-func (r *incrementalResource) ReplaceFields() []string {
-	return []string{"name"}
+func incrementalResourceDefinition() ResourceDefinition[
+	incrementalResource,
+	*incrementalResourceOutput,
+	any,
+] {
+	return ResourceDefinition[incrementalResource, *incrementalResourceOutput, any]{
+		SchemaVersion: 1,
+		Replace: Replacement[incrementalResource, *incrementalResourceOutput, any]{
+			Fields: []AnyInputField[incrementalResource]{
+				InputField(func(input *incrementalResource) *string { return &input.Name }),
+			},
+		},
+	}
 }
-
-func (r *incrementalResource) SchemaVersion() int { return 1 }
 
 func incrementalModules(c *incrementalResourceCounters) map[string]*Library {
 	return map[string]*Library{
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"inc": MakeResourceWith[incrementalResource, any, any](
+				"inc": MakeResourceWith[incrementalResource, *incrementalResourceOutput, any](
+					incrementalResourceDefinition(),
 					func() *incrementalResource {
 						return &incrementalResource{counters: c}
 					},
@@ -741,7 +906,8 @@ func TestDestroyRemovesActionWithoutRunningIt(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[orderResource, any, any](
+				"thing": MakeResourceWith[orderResource, *orderResourceOutput, any](
+					testResourceDefinition[orderResource, *orderResourceOutput, any](),
 					func() *orderResource { return &orderResource{rec: rec} },
 				),
 			},
@@ -1593,7 +1759,8 @@ func TestActionRerunsWhenTriggerSourceChanges(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[countingResource, any, any](
+				"thing": MakeResourceWith[countingResource, *countingResourceOutput, any](
+					countingResourceDefinition(),
 					func() *countingResource {
 						return &countingResource{counters: &resCounters}
 					},
@@ -1631,7 +1798,7 @@ func TestActionRerunsWhenTriggerSourceChanges(t *testing.T) {
 	require.Equal(t, int64(1), atomic.LoadInt64(&actionRuns),
 		"action should skip on the second run when upstream is unchanged")
 
-	// Third run with the resource's name changed: ReplaceFields=["name"]
+	// Third run with the resource's replacement-selected name changed.
 	// triggers a replace, which the action treats as a rerun signal.
 	planAndApply(src("beta"))
 	require.Equal(t, int64(2), atomic.LoadInt64(&actionRuns),

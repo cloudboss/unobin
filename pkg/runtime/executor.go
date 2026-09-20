@@ -850,64 +850,81 @@ func sameInputs(a, b map[string]any) bool {
 }
 
 func (e *Executor) sameResourceInputs(
-	rt ResourceRegistration, receiver any, prior, current map[string]any,
+	rt ResourceRegistration, receiver any, prior map[string]any,
 ) (bool, error) {
-	if sameInputs(prior, current) {
-		return true, nil
-	}
 	resolvedPrior, err := e.resolveAssetMap(prior)
 	if err != nil {
 		return false, diagnostic.Context("prior inputs", err)
 	}
-	for _, field := range inputFieldNames(prior, current) {
-		if sameValue(prior[field], current[field]) {
-			continue
-		}
-		if rt.EquivalentInput(receiver, field, resolvedPrior) {
-			continue
-		}
-		return false, nil
-	}
-	return true, nil
+	return rt.InputsEqual(receiver, resolvedPrior)
 }
 
-func inputFieldNames(a, b map[string]any) []string {
-	seen := map[string]bool{}
-	for name := range a {
-		seen[name] = true
-	}
-	for name := range b {
-		seen[name] = true
-	}
-	fields := make([]string, 0, len(seen))
-	for name := range seen {
-		fields = append(fields, name)
-	}
-	slices.Sort(fields)
-	return fields
-}
-
-func (e *Executor) changedReplaceFieldsForResource(
-	rt ResourceRegistration,
-	receiver any,
-	replaceFields []string,
-	prior, current map[string]any,
-) ([]string, error) {
-	resolvedPrior, err := e.resolveAssetMap(prior)
+func (e *Executor) resolveResourcePrior(prior resourcePrior) (resourcePrior, error) {
+	inputs, err := e.resolveAssetMap(prior.Inputs)
 	if err != nil {
-		return nil, diagnostic.Context("prior inputs", err)
+		return resourcePrior{}, diagnostic.Context("prior inputs", err)
 	}
-	var changed []string
-	for _, field := range replaceFields {
-		if sameValue(prior[field], current[field]) {
-			continue
-		}
-		if rt.EquivalentInput(receiver, field, resolvedPrior) {
-			continue
-		}
-		changed = append(changed, field)
+	outputs, err := e.resolveAssetMap(prior.Outputs)
+	if err != nil {
+		return resourcePrior{}, diagnostic.Context("prior outputs", err)
 	}
-	return changed, nil
+	observed, err := e.resolveAssetMap(prior.Observed)
+	if err != nil {
+		return resourcePrior{}, diagnostic.Context("observed outputs", err)
+	}
+	configuration, err := e.resolveAssetMap(prior.Configuration)
+	if err != nil {
+		return resourcePrior{}, diagnostic.Context("prior configuration", err)
+	}
+	return resourcePrior{
+		Inputs:        inputs,
+		Outputs:       outputs,
+		Observed:      observed,
+		Configuration: configuration,
+	}, nil
+}
+
+func stableIDForObservation(
+	rt ResourceRegistration,
+	inputs, recorded, observed map[string]any,
+) (*string, error) {
+	if !rt.HasStableID() {
+		return nil, nil
+	}
+	recordedID, err := rt.StableID(inputs, recorded)
+	if err != nil {
+		return nil, diagnostic.Context("recorded stable ID", err)
+	}
+	observedID, err := rt.StableID(inputs, observed)
+	if err != nil {
+		return nil, diagnostic.Context("observed stable ID", err)
+	}
+	if *recordedID != *observedID {
+		return nil, fmt.Errorf(
+			"stable ID changed from %q to %q",
+			*recordedID,
+			*observedID,
+		)
+	}
+	return observedID, nil
+}
+
+func verifyStableID(
+	rt ResourceRegistration,
+	inputs, outputs map[string]any,
+	expected *string,
+) error {
+	if !rt.HasStableID() {
+		return nil
+	}
+	actual, err := rt.StableID(inputs, outputs)
+	if err != nil {
+		return err
+	}
+	if expected != nil && *actual != *expected {
+		return fmt.Errorf("stable ID changed from %q to %q", *expected, *actual)
+	}
+	return nil
 }
 
 func sameValue(a, b any) bool {

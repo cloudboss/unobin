@@ -59,8 +59,13 @@ func TestArchiveZIPFileLifecycle(t *testing.T) {
 	written, err := os.ReadFile(filepath.Join(root, input.Path))
 	require.NoError(t, err)
 	assert.Equal(t, archiveContent, written)
+	prior := ubruntime.Prior[ArchiveZIPFile, *ArchiveZIPFileOutput, *Configuration]{
+		Inputs:        input,
+		Outputs:       output,
+		Configuration: config,
+	}
 
-	readOutput, err := input.Read(context.Background(), config, output)
+	readOutput, err := input.Read(context.Background(), config, prior)
 	require.NoError(t, err)
 	assert.Equal(t, output, readOutput)
 
@@ -69,7 +74,7 @@ func TestArchiveZIPFileLifecycle(t *testing.T) {
 	_, err = mismatch.Update(
 		context.Background(),
 		config,
-		ubruntime.Prior[ArchiveZIPFile, *ArchiveZIPFileOutput]{},
+		ubruntime.Prior[ArchiveZIPFile, *ArchiveZIPFileOutput, *Configuration]{},
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "selected file content")
@@ -94,8 +99,8 @@ func TestArchiveZIPFileLifecycle(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "open archive-content")
 
-	require.NoError(t, input.Delete(context.Background(), config, output))
-	_, err = input.Read(context.Background(), config, output)
+	require.NoError(t, input.Delete(context.Background(), config, prior))
+	_, err = input.Read(context.Background(), config, prior)
 	require.ErrorIs(t, err, ubruntime.ErrNotFound)
 }
 

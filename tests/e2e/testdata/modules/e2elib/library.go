@@ -59,14 +59,16 @@ func Library() *ubruntime.Library {
 				ArchiveZIPFile,
 				*ArchiveZIPFileOutput,
 				*Configuration,
-			](),
-			"file":   ubruntime.MakeResource[File, *FileOutput, *Configuration](),
-			"object": ubruntime.MakeResource[Object, *ObjectOutput, *Configuration](),
+			](archiveZIPFileDefinition()),
+			"file": ubruntime.MakeResource[File, *FileOutput, *Configuration](fileDefinition()),
+			"object": ubruntime.MakeResource[Object, *ObjectOutput, *Configuration](
+				objectDefinition(),
+			),
 			"secret": ubruntime.MakeResource[
 				SecretResource,
 				*SecretResourceOutput,
 				*Configuration,
-			](),
+			](secretResourceDefinition()),
 		},
 		DataSources: map[string]ubruntime.DataSourceRegistration{
 			"read-file": ubruntime.MakeDataSource[ReadFile, *ReadFileOutput, *Configuration](),
@@ -89,6 +91,63 @@ func Library() *ubruntime.Library {
 			"fail":    ubruntime.MakeFunc("fail", "Return a typed error.", fnFail),
 		},
 	}
+}
+
+func archiveZIPFileDefinition() ubruntime.ResourceDefinition[
+	ArchiveZIPFile,
+	*ArchiveZIPFileOutput,
+	*Configuration,
+] {
+	return ubruntime.ResourceDefinition[
+		ArchiveZIPFile,
+		*ArchiveZIPFileOutput,
+		*Configuration,
+	]{
+		SchemaVersion: 1,
+		Replace: ubruntime.Replacement[
+			ArchiveZIPFile,
+			*ArchiveZIPFileOutput,
+			*Configuration,
+		]{
+			Fields: []ubruntime.AnyInputField[ArchiveZIPFile]{
+				ubruntime.InputField(func(input *ArchiveZIPFile) *string { return &input.Path }),
+			},
+		},
+	}
+}
+
+func fileDefinition() ubruntime.ResourceDefinition[File, *FileOutput, *Configuration] {
+	return ubruntime.ResourceDefinition[File, *FileOutput, *Configuration]{
+		SchemaVersion: 1,
+		Replace: ubruntime.Replacement[File, *FileOutput, *Configuration]{
+			Fields: []ubruntime.AnyInputField[File]{
+				ubruntime.InputField(func(input *File) *string { return &input.Path }),
+			},
+		},
+	}
+}
+
+func objectDefinition() ubruntime.ResourceDefinition[Object, *ObjectOutput, *Configuration] {
+	return ubruntime.ResourceDefinition[Object, *ObjectOutput, *Configuration]{
+		SchemaVersion: 1,
+		Replace: ubruntime.Replacement[Object, *ObjectOutput, *Configuration]{
+			Fields: []ubruntime.AnyInputField[Object]{
+				ubruntime.InputField(func(input *Object) *string { return &input.Name }),
+			},
+		},
+	}
+}
+
+func secretResourceDefinition() ubruntime.ResourceDefinition[
+	SecretResource,
+	*SecretResourceOutput,
+	*Configuration,
+] {
+	return ubruntime.ResourceDefinition[
+		SecretResource,
+		*SecretResourceOutput,
+		*Configuration,
+	]{SchemaVersion: 1}
 }
 
 type ArchiveZIPFile struct {
@@ -129,10 +188,6 @@ func (a ArchiveZIPFile) Constraints() []constraint.Constraint {
 	}
 }
 
-func (a *ArchiveZIPFile) SchemaVersion() int { return 1 }
-
-func (a *ArchiveZIPFile) ReplaceFields() []string { return []string{"path"} }
-
 func (a *ArchiveZIPFile) Create(
 	_ context.Context,
 	config *Configuration,
@@ -142,10 +197,10 @@ func (a *ArchiveZIPFile) Create(
 
 func (a *ArchiveZIPFile) Read(
 	_ context.Context,
-	config *Configuration,
-	_ *ArchiveZIPFileOutput,
+	_ *Configuration,
+	prior ubruntime.Prior[ArchiveZIPFile, *ArchiveZIPFileOutput, *Configuration],
 ) (*ArchiveZIPFileOutput, error) {
-	path := resolvePath(config, a.Path)
+	path := resolvePath(prior.Configuration, prior.Inputs.Path)
 	content, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -162,17 +217,17 @@ func (a *ArchiveZIPFile) Read(
 func (a *ArchiveZIPFile) Update(
 	_ context.Context,
 	config *Configuration,
-	_ ubruntime.Prior[ArchiveZIPFile, *ArchiveZIPFileOutput],
+	_ ubruntime.Prior[ArchiveZIPFile, *ArchiveZIPFileOutput, *Configuration],
 ) (*ArchiveZIPFileOutput, error) {
 	return a.write(config)
 }
 
 func (a *ArchiveZIPFile) Delete(
 	_ context.Context,
-	config *Configuration,
-	_ *ArchiveZIPFileOutput,
+	_ *Configuration,
+	prior ubruntime.Prior[ArchiveZIPFile, *ArchiveZIPFileOutput, *Configuration],
 ) error {
-	err := os.Remove(resolvePath(config, a.Path))
+	err := os.Remove(resolvePath(prior.Configuration, prior.Inputs.Path))
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
@@ -447,10 +502,6 @@ func (f File) Constraints() []constraint.Constraint {
 	}
 }
 
-func (f *File) SchemaVersion() int { return 1 }
-
-func (f *File) ReplaceFields() []string { return []string{"path"} }
-
 func (f *File) Create(_ context.Context, config *Configuration) (*FileOutput, error) {
 	return f.write(config, "create")
 }
@@ -458,11 +509,11 @@ func (f *File) Create(_ context.Context, config *Configuration) (*FileOutput, er
 func (f *File) Read(
 	_ context.Context,
 	config *Configuration,
-	prior *FileOutput,
+	prior ubruntime.Prior[File, *FileOutput, *Configuration],
 ) (*FileOutput, error) {
 	path := resolvePath(config, f.Path)
-	if prior != nil && prior.Path != "" {
-		path = prior.Path
+	if prior.Outputs != nil && prior.Outputs.Path != "" {
+		path = prior.Outputs.Path
 	}
 	body, err := os.ReadFile(path)
 	if err != nil {
@@ -481,7 +532,7 @@ func (f *File) Read(
 func (f *File) Update(
 	_ context.Context,
 	config *Configuration,
-	_ ubruntime.Prior[File, *FileOutput],
+	_ ubruntime.Prior[File, *FileOutput, *Configuration],
 ) (*FileOutput, error) {
 	if f.FailUpdate != nil && *f.FailUpdate {
 		return nil, errors.New("file update failed")
@@ -489,10 +540,14 @@ func (f *File) Update(
 	return f.write(config, "update")
 }
 
-func (f *File) Delete(_ context.Context, config *Configuration, prior *FileOutput) error {
+func (f *File) Delete(
+	_ context.Context,
+	config *Configuration,
+	prior ubruntime.Prior[File, *FileOutput, *Configuration],
+) error {
 	path := resolvePath(config, f.Path)
-	if prior != nil && prior.Path != "" {
-		path = prior.Path
+	if prior.Outputs != nil && prior.Outputs.Path != "" {
+		path = prior.Outputs.Path
 	}
 	err := os.Remove(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -549,10 +604,6 @@ func (o Object) Constraints() []constraint.Constraint {
 	}
 }
 
-func (o *Object) SchemaVersion() int { return 1 }
-
-func (o *Object) ReplaceFields() []string { return []string{"name"} }
-
 func (o *Object) Create(_ context.Context, config *Configuration) (*ObjectOutput, error) {
 	return o.write(config, "create")
 }
@@ -560,11 +611,11 @@ func (o *Object) Create(_ context.Context, config *Configuration) (*ObjectOutput
 func (o *Object) Read(
 	_ context.Context,
 	config *Configuration,
-	prior *ObjectOutput,
+	prior ubruntime.Prior[Object, *ObjectOutput, *Configuration],
 ) (*ObjectOutput, error) {
 	path := objectPath(config, o.Name)
-	if prior != nil && prior.Path != "" {
-		path = prior.Path
+	if prior.Outputs != nil && prior.Outputs.Path != "" {
+		path = prior.Outputs.Path
 	}
 	body, err := os.ReadFile(path)
 	if err != nil {
@@ -579,8 +630,8 @@ func (o *Object) Read(
 	}
 	out := objectOutput(config, o.Name, value, body)
 	out.Path = path
-	if prior != nil && prior.ID != "" {
-		out.ID = prior.ID
+	if prior.Outputs != nil && prior.Outputs.ID != "" {
+		out.ID = prior.Outputs.ID
 	}
 	return out, nil
 }
@@ -588,15 +639,19 @@ func (o *Object) Read(
 func (o *Object) Update(
 	_ context.Context,
 	config *Configuration,
-	_ ubruntime.Prior[Object, *ObjectOutput],
+	_ ubruntime.Prior[Object, *ObjectOutput, *Configuration],
 ) (*ObjectOutput, error) {
 	return o.write(config, "update")
 }
 
-func (o *Object) Delete(_ context.Context, config *Configuration, prior *ObjectOutput) error {
+func (o *Object) Delete(
+	_ context.Context,
+	config *Configuration,
+	prior ubruntime.Prior[Object, *ObjectOutput, *Configuration],
+) error {
 	path := objectPath(config, o.Name)
-	if prior != nil && prior.Path != "" {
-		path = prior.Path
+	if prior.Outputs != nil && prior.Outputs.Path != "" {
+		path = prior.Outputs.Path
 	}
 	err := os.Remove(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -736,10 +791,6 @@ type SecretResourceOutput struct {
 	Label string
 }
 
-func (s *SecretResource) SchemaVersion() int { return 1 }
-
-func (s *SecretResource) ReplaceFields() []string { return nil }
-
 func (s *SecretResource) Create(
 	_ context.Context,
 	_ *Configuration,
@@ -750,18 +801,18 @@ func (s *SecretResource) Create(
 func (s *SecretResource) Read(
 	_ context.Context,
 	_ *Configuration,
-	prior *SecretResourceOutput,
+	prior ubruntime.Prior[SecretResource, *SecretResourceOutput, *Configuration],
 ) (*SecretResourceOutput, error) {
-	if prior == nil {
+	if prior.Outputs == nil {
 		return nil, ubruntime.ErrNotFound
 	}
-	return prior, nil
+	return prior.Outputs, nil
 }
 
 func (s *SecretResource) Update(
 	_ context.Context,
 	_ *Configuration,
-	_ ubruntime.Prior[SecretResource, *SecretResourceOutput],
+	_ ubruntime.Prior[SecretResource, *SecretResourceOutput, *Configuration],
 ) (*SecretResourceOutput, error) {
 	return &SecretResourceOutput{Label: s.Label}, nil
 }
@@ -769,7 +820,7 @@ func (s *SecretResource) Update(
 func (s *SecretResource) Delete(
 	_ context.Context,
 	_ *Configuration,
-	_ *SecretResourceOutput,
+	_ ubruntime.Prior[SecretResource, *SecretResourceOutput, *Configuration],
 ) error {
 	return nil
 }

@@ -8,7 +8,9 @@ func Library() *runtime.Library {
         Name:        "files",
         Description: "File resources.",
         Resources: map[string]runtime.ResourceRegistration{
-            "file": runtime.MakeResource[File, *FileOutput, runtime.NoConfig](),
+            "file": runtime.MakeResource[File, *FileOutput, runtime.NoConfig](
+                fileDefinition(),
+            ),
         },
     }
 }

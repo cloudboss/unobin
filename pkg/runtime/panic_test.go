@@ -18,25 +18,29 @@ type panicResource struct {
 	Name string
 }
 
-func (r *panicResource) SchemaVersion() int { return 1 }
+type panicResourceOutput struct{}
 
-func (r *panicResource) Create(context.Context, any) (any, error) {
+func (r *panicResource) Create(context.Context, any) (*panicResourceOutput, error) {
 	panic("boom in create")
 }
 
-func (r *panicResource) Read(context.Context, any, any) (any, error) {
+func (r *panicResource) Read(
+	context.Context, any, Prior[panicResource, *panicResourceOutput, any],
+) (*panicResourceOutput, error) {
 	panic("boom in read")
 }
 
-func (r *panicResource) Update(context.Context, any, Prior[panicResource, any]) (any, error) {
+func (r *panicResource) Update(
+	context.Context, any, Prior[panicResource, *panicResourceOutput, any],
+) (*panicResourceOutput, error) {
 	panic("boom in update")
 }
 
-func (r *panicResource) Delete(context.Context, any, any) error {
+func (r *panicResource) Delete(
+	context.Context, any, Prior[panicResource, *panicResourceOutput, any],
+) error {
 	panic("boom in delete")
 }
-
-func (r *panicResource) ReplaceFields() []string { return nil }
 
 // createPanicResource panics only in Create and reports absence from
 // Read, so a plan for a fresh resource reaches apply without tripping
@@ -45,25 +49,27 @@ type createPanicResource struct {
 	Name string
 }
 
-func (r *createPanicResource) SchemaVersion() int { return 1 }
-
-func (r *createPanicResource) Create(context.Context, any) (any, error) {
+func (r *createPanicResource) Create(context.Context, any) (*panicResourceOutput, error) {
 	panic("boom in create")
 }
 
-func (r *createPanicResource) Read(context.Context, any, any) (any, error) {
+func (r *createPanicResource) Read(
+	context.Context, any, Prior[createPanicResource, *panicResourceOutput, any],
+) (*panicResourceOutput, error) {
 	return nil, ErrNotFound
 }
 
 func (r *createPanicResource) Update(
-	context.Context, any, Prior[createPanicResource, any],
-) (any, error) {
+	context.Context, any, Prior[createPanicResource, *panicResourceOutput, any],
+) (*panicResourceOutput, error) {
 	return nil, nil
 }
 
-func (r *createPanicResource) Delete(context.Context, any, any) error { return nil }
-
-func (r *createPanicResource) ReplaceFields() []string { return nil }
+func (r *createPanicResource) Delete(
+	context.Context, any, Prior[createPanicResource, *panicResourceOutput, any],
+) error {
+	return nil
+}
 
 // migratePanicResource reports a newer schema version than its recorded
 // state and panics during migration, so the plan/refresh upgrade path
@@ -72,49 +78,33 @@ type migratePanicResource struct {
 	Name string
 }
 
-func (r *migratePanicResource) SchemaVersion() int                       { return 2 }
-func (r *migratePanicResource) Create(context.Context, any) (any, error) { return nil, nil }
-func (r *migratePanicResource) Read(context.Context, any, any) (any, error) {
-	return nil, nil
+func (r *migratePanicResource) Create(
+	context.Context,
+	any,
+) (*panicResourceOutput, error) {
+	return &panicResourceOutput{}, nil
+}
+func (r *migratePanicResource) Read(
+	context.Context, any, Prior[migratePanicResource, *panicResourceOutput, any],
+) (*panicResourceOutput, error) {
+	return &panicResourceOutput{}, nil
 }
 
 func (r *migratePanicResource) Update(
-	context.Context, any, Prior[migratePanicResource, any],
-) (any, error) {
-	return nil, nil
+	context.Context, any, Prior[migratePanicResource, *panicResourceOutput, any],
+) (*panicResourceOutput, error) {
+	return &panicResourceOutput{}, nil
 }
 
-func (r *migratePanicResource) Delete(context.Context, any, any) error { return nil }
-func (r *migratePanicResource) ReplaceFields() []string                { return nil }
+func (r *migratePanicResource) Delete(
+	context.Context, any, Prior[migratePanicResource, *panicResourceOutput, any],
+) error {
+	return nil
+}
 
-func (r *migratePanicResource) Migrate(int, MigrationState) (MigrationState, error) {
+func migratePanic(int, MigrationState) (MigrationState, error) {
 	panic("boom in migrate")
 }
-
-// schemaPanicResource creates cleanly but panics in SchemaVersion, an
-// accessor the library-call guard does not cover. The panic escapes
-// into the apply worker goroutine, where the backstop catches it.
-type schemaPanicResource struct {
-	Name string
-}
-
-func (r *schemaPanicResource) SchemaVersion() int { panic("boom in schema-version") }
-func (r *schemaPanicResource) Create(context.Context, any) (any, error) {
-	return map[string]any{"name": r.Name}, nil
-}
-
-func (r *schemaPanicResource) Read(context.Context, any, any) (any, error) {
-	return nil, ErrNotFound
-}
-
-func (r *schemaPanicResource) Update(
-	context.Context, any, Prior[schemaPanicResource, any],
-) (any, error) {
-	return nil, nil
-}
-
-func (r *schemaPanicResource) Delete(context.Context, any, any) error { return nil }
-func (r *schemaPanicResource) ReplaceFields() []string                { return nil }
 
 type panicAction struct{}
 
@@ -150,27 +140,35 @@ func TestPanicErrorMessage(t *testing.T) {
 }
 
 func TestResourceCreatePanicBecomesError(t *testing.T) {
-	reg := MakeResource[panicResource, any, any]()
+	reg := MakeResource[panicResource, *panicResourceOutput, any](
+		testResourceDefinition[panicResource, *panicResourceOutput, any](),
+	)
 	_, err := reg.Create(context.Background(), reg.NewReceiver(), nil)
 	pe := requirePanicError(t, err, "boom in create")
 	require.False(t, pe.Core)
 }
 
 func TestResourceReadPanicBecomesError(t *testing.T) {
-	reg := MakeResource[panicResource, any, any]()
-	_, err := reg.Read(context.Background(), reg.NewReceiver(), nil, nil)
+	reg := MakeResource[panicResource, *panicResourceOutput, any](
+		testResourceDefinition[panicResource, *panicResourceOutput, any](),
+	)
+	_, err := reg.Read(context.Background(), reg.NewReceiver(), nil, resourcePrior{})
 	_ = requirePanicError(t, err, "boom in read")
 }
 
 func TestResourceUpdatePanicBecomesError(t *testing.T) {
-	reg := MakeResource[panicResource, any, any]()
-	_, err := reg.Update(context.Background(), reg.NewReceiver(), nil, nil, nil, nil)
+	reg := MakeResource[panicResource, *panicResourceOutput, any](
+		testResourceDefinition[panicResource, *panicResourceOutput, any](),
+	)
+	_, err := reg.Update(context.Background(), reg.NewReceiver(), nil, resourcePrior{})
 	_ = requirePanicError(t, err, "boom in update")
 }
 
 func TestResourceDeletePanicBecomesError(t *testing.T) {
-	reg := MakeResource[panicResource, any, any]()
-	err := reg.Delete(context.Background(), reg.NewReceiver(), nil, nil)
+	reg := MakeResource[panicResource, *panicResourceOutput, any](
+		testResourceDefinition[panicResource, *panicResourceOutput, any](),
+	)
+	err := reg.Delete(context.Background(), reg.NewReceiver(), nil, resourcePrior{})
 	_ = requirePanicError(t, err, "boom in delete")
 }
 
@@ -236,14 +234,21 @@ func TestBlameLibrary(t *testing.T) {
 // and destroy read paths at once: they all funnel resource reads through
 // readObserved, which names the failing library from the alias in hand.
 func TestReadObservedPanicNamesLibrary(t *testing.T) {
-	reg := MakeResource[panicResource, any, any]()
-	_, err := readObserved(context.Background(), reg, "boom", nil, nil, nil)
+	reg := MakeResource[panicResource, *panicResourceOutput, any](
+		testResourceDefinition[panicResource, *panicResourceOutput, any](),
+	)
+	_, err := readObserved(context.Background(), reg, "boom", nil, resourcePrior{})
 	pe := requirePanicError(t, err, "boom in read")
 	require.Equal(t, "boom", pe.Library)
 }
 
 func TestMigrateEntryPanicNamesLibrary(t *testing.T) {
-	reg := MakeResource[migratePanicResource, any, any]()
+	reg := MakeResource[migratePanicResource, *panicResourceOutput, any](
+		ResourceDefinition[migratePanicResource, *panicResourceOutput, any]{
+			SchemaVersion: 2,
+			Migrate:       migratePanic,
+		},
+	)
 	_, err := migrateEntry(reg, "boom", 1, MigrationState{})
 	pe := requirePanicError(t, err, "boom in migrate")
 	require.Equal(t, "boom", pe.Library)
@@ -259,7 +264,9 @@ func TestApplyResourcePanicBecomesApplyError(t *testing.T) {
 		"boom": {
 			Name: "boom",
 			Resources: map[string]ResourceRegistration{
-				"it": MakeResource[createPanicResource, any, any](),
+				"it": MakeResource[createPanicResource, *panicResourceOutput, any](
+					testResourceDefinition[createPanicResource, *panicResourceOutput, any](),
+				),
 			},
 		},
 	}
@@ -286,39 +293,4 @@ func TestApplyResourcePanicBecomesApplyError(t *testing.T) {
 	assert.Contains(t, pe.Error(), "boom in create")
 	assert.Contains(t, pe.Error(),
 		"panic in the boom library while creating this resource")
-}
-
-// TestApplyRuntimePanicHitsBackstop proves the worker-goroutine backstop:
-// a panic that escapes the library-call guards (here SchemaVersion, an
-// unguarded accessor) is recovered in the apply worker instead of
-// crashing, and is reported as an ApplyError attributed to unobin.
-func TestApplyRuntimePanicHitsBackstop(t *testing.T) {
-	libs := map[string]*Library{
-		"boom": {
-			Name: "boom",
-			Resources: map[string]ResourceRegistration{
-				"it": MakeResource[schemaPanicResource, any, any](),
-			},
-		},
-	}
-	dag, syntaxSource := syntaxDAGAndBody(t,
-		ubtest.ReadValidFixture(t, "testdata/ub/panic", "resource"), libs)
-	exec := &Executor{
-		DAG:          dag,
-		SyntaxSource: syntaxSource,
-		Libraries:    libs,
-		Store:        newStateStore(t),
-		Factory:      state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
-		Parallelism:  1,
-	}
-	_, err := planAndApply(exec)
-	require.Error(t, err)
-
-	var ae *ApplyError
-	require.True(t, errors.As(err, &ae), "want *ApplyError, got %T", err)
-
-	var pe *PanicError
-	require.True(t, errors.As(err, &pe), "ApplyError should unwrap to *PanicError")
-	require.True(t, pe.Core, "a panic outside the library calls is attributed to unobin")
-	assert.Contains(t, pe.Error(), "boom in schema-version")
 }

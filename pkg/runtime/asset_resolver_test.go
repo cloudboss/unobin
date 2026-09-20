@@ -253,10 +253,6 @@ type assetBoundaryResource struct {
 	recorder    *assetBoundaryRecorder
 }
 
-func (r *assetBoundaryResource) SchemaVersion() int {
-	return 1
-}
-
 func (r *assetBoundaryResource) Create(
 	_ context.Context,
 	config *assetBoundaryConfig,
@@ -277,19 +273,19 @@ func (r *assetBoundaryResource) Create(
 func (r *assetBoundaryResource) Read(
 	_ context.Context,
 	config *assetBoundaryConfig,
-	prior *assetBoundaryOutput,
+	prior Prior[assetBoundaryResource, *assetBoundaryOutput, *assetBoundaryConfig],
 ) (*assetBoundaryOutput, error) {
 	if err := verifyAssetBoundaryValues(r.Path, r.Content, config); err != nil {
 		return nil, err
 	}
 	r.recorder.add("resource-read", r.Path)
-	return prior, nil
+	return prior.Outputs, nil
 }
 
 func (r *assetBoundaryResource) Update(
 	_ context.Context,
 	config *assetBoundaryConfig,
-	prior Prior[assetBoundaryResource, *assetBoundaryOutput],
+	prior Prior[assetBoundaryResource, *assetBoundaryOutput, *assetBoundaryConfig],
 ) (*assetBoundaryOutput, error) {
 	if err := verifyAssetBoundaryValues(r.Path, r.Content, config); err != nil {
 		return nil, err
@@ -305,7 +301,7 @@ func (r *assetBoundaryResource) Update(
 func (r *assetBoundaryResource) Delete(
 	_ context.Context,
 	config *assetBoundaryConfig,
-	_ *assetBoundaryOutput,
+	_ Prior[assetBoundaryResource, *assetBoundaryOutput, *assetBoundaryConfig],
 ) error {
 	if err := verifyAssetBoundaryValues(r.Path, r.Content, config); err != nil {
 		return err
@@ -314,53 +310,37 @@ func (r *assetBoundaryResource) Delete(
 	return nil
 }
 
-func (r *assetBoundaryResource) ReplaceFields() []string {
-	return []string{"replacement"}
-}
-
-func (r *assetBoundaryResource) ValidateInputs(
-	_ context.Context,
-	config *assetBoundaryConfig,
-) error {
-	if err := verifyAssetBoundaryValues(r.Path, r.Content, config); err != nil {
-		return err
-	}
-	r.recorder.add("resource-validate", r.Path)
-	return nil
-}
-
-func (r *assetBoundaryResource) EquivalentInput(
-	_ string,
-	prior, _ assetBoundaryResource,
-) bool {
-	if err := verifyAssetBoundaryInputs(prior.Path, prior.Content); err != nil {
-		r.recorder.add("resource-equivalent-invalid", err.Error())
-	} else {
-		r.recorder.add("resource-equivalent", prior.Path)
-	}
-	return false
-}
-
-func (r *assetBoundaryResource) ModifyResourcePlan(
-	req ResourcePlanRequest[
+func assetBoundaryDefinition(
+	recorder *assetBoundaryRecorder,
+) ResourceDefinition[assetBoundaryResource, *assetBoundaryOutput, *assetBoundaryConfig] {
+	replacement := InputField(
+		func(input *assetBoundaryResource) *string { return &input.Replacement },
+	)
+	return ResourceDefinition[
 		assetBoundaryResource,
 		*assetBoundaryOutput,
 		*assetBoundaryConfig,
-	],
-	_ *ResourcePlanResponse,
-) error {
-	if err := verifyAssetBoundaryValues(r.Path, r.Content, req.Config); err != nil {
-		return err
+	]{
+		SchemaVersion: 1,
+		Validate: func(
+			_ context.Context,
+			input assetBoundaryResource,
+			config *assetBoundaryConfig,
+		) error {
+			if err := verifyAssetBoundaryValues(input.Path, input.Content, config); err != nil {
+				return err
+			}
+			recorder.add("resource-validate", input.Path)
+			return nil
+		},
+		Replace: Replacement[
+			assetBoundaryResource,
+			*assetBoundaryOutput,
+			*assetBoundaryConfig,
+		]{
+			Fields: []AnyInputField[assetBoundaryResource]{replacement},
+		},
 	}
-	if err := verifyAssetBoundaryInputs(
-		req.PriorInputs.Path,
-		req.PriorInputs.Content,
-	); err != nil {
-		return fmt.Errorf("prior inputs: %w", err)
-	}
-	r.recorder.add("resource-modify-plan", r.Path)
-	r.recorder.add("resource-modify-plan-prior", req.PriorInputs.Path)
-	return nil
 }
 
 type assetBoundaryData struct {
@@ -538,9 +518,6 @@ func TestExecutorResolvesAssetReferencesForPriorAndLifecycleCalls(t *testing.T) 
 	require.NoError(t, err)
 	assertEncodedPlanOmitsAssetPayload(t, updatePlan, updatePlanRoot)
 	require.Equal(t, DecisionUpdate, decisionFor(updatePlan, "resource.item"))
-	assertAssetBoundaryRecordUnder(t, recorder, "resource-equivalent", updatePlanRoot)
-	assertAssetBoundaryRecordUnder(t, recorder, "resource-modify-plan", updatePlanRoot)
-	assertAssetBoundaryRecordUnder(t, recorder, "resource-modify-plan-prior", updatePlanRoot)
 	assertAssetBoundaryRecordUnder(t, recorder, "resource-read", updatePlanRoot)
 
 	updateApplyRoot := filepath.Join(t.TempDir(), "update-apply")
@@ -555,8 +532,6 @@ func TestExecutorResolvesAssetReferencesForPriorAndLifecycleCalls(t *testing.T) 
 	require.NoError(t, err)
 	assertEncodedPlanOmitsAssetPayload(t, replacePlan, replacePlanRoot)
 	require.Equal(t, DecisionReplace, decisionFor(replacePlan, "resource.item"))
-	assertAssetBoundaryRecordUnder(t, recorder, "resource-equivalent", replacePlanRoot)
-	assertAssetBoundaryRecordUnder(t, recorder, "resource-modify-plan", replacePlanRoot)
 	assertAssetBoundaryRecordUnder(t, recorder, "resource-read", replacePlanRoot)
 
 	replaceApplyRoot := filepath.Join(t.TempDir(), "replace-apply")
@@ -588,7 +563,6 @@ func TestExecutorResolvesAssetReferencesForPriorAndLifecycleCalls(t *testing.T) 
 	destroyApplyRoot := filepath.Join(t.TempDir(), "destroy-apply")
 	applyAssetBoundaryPlan(t, exec, destroyPlan, destroyApplyRoot)
 	assertAssetBoundaryRecordUnder(t, recorder, "resource-delete", destroyApplyRoot)
-	require.Empty(t, recorder.paths("resource-equivalent-invalid"))
 
 	snapshot, err = store.Current()
 	require.NoError(t, err)
@@ -699,7 +673,7 @@ func assetBoundaryLibrary(recorder *assetBoundaryRecorder) *Library {
 				assetBoundaryResource,
 				*assetBoundaryOutput,
 				*assetBoundaryConfig,
-			](func() *assetBoundaryResource {
+			](assetBoundaryDefinition(recorder), func() *assetBoundaryResource {
 				return &assetBoundaryResource{recorder: recorder}
 			}),
 		},

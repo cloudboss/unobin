@@ -18,7 +18,9 @@ func Library() *runtime.Library {
 		Name:          "aws-service",
 		Configuration: config.LibraryConfiguration(),
 		Resources: map[string]runtime.ResourceRegistration{
-			"bucket": runtime.MakeResource[Bucket, *BucketOutput, any](),
+			"bucket": runtime.MakeResource[Bucket, *BucketOutput, any](
+				runtime.ResourceDefinition[Bucket, *BucketOutput, any]{SchemaVersion: 1},
+			),
 		},
 	}
 }

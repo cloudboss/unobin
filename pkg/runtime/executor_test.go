@@ -156,10 +156,10 @@ type resourceCounters struct {
 	readFn func(prior any) (any, error)
 	// gotUpdatePrior captures the Prior the last Update received, so a
 	// test can assert what reached the resource through plan and apply.
-	gotUpdatePrior *Prior[countingResource, any]
+	gotUpdatePrior *Prior[countingResource, *countingResourceOutput, any]
 	// gotInputMigratePrior captures the Prior an inputMigratingResource's
 	// Update received, so a test can assert the migrated inputs reached it.
-	gotInputMigratePrior *Prior[inputMigratingResource, any]
+	gotInputMigratePrior *Prior[inputMigratingResource, *migratedCountingOutput, any]
 }
 
 type countingResource struct {
@@ -169,43 +169,72 @@ type countingResource struct {
 	counters *resourceCounters
 }
 
-func (r *countingResource) Create(_ context.Context, _ any) (any, error) {
-	atomic.AddInt64(&r.counters.creates, 1)
-	return map[string]any{"id": "fake-" + r.Name, "name": r.Name, "size": r.Size}, nil
+type countingResourceOutput struct {
+	ID   string
+	Name string
+	Size int64
 }
 
-func (r *countingResource) Read(_ context.Context, _ any, prior any) (any, error) {
+type migratedCountingOutput struct {
+	NameID string `ub:"name-id"`
+	Name   string
+	Size   int64
+}
+
+func (r *countingResource) Create(_ context.Context, _ any) (*countingResourceOutput, error) {
+	atomic.AddInt64(&r.counters.creates, 1)
+	return &countingResourceOutput{ID: "fake-" + r.Name, Name: r.Name, Size: r.Size}, nil
+}
+
+func (r *countingResource) Read(
+	_ context.Context, _ any, prior Prior[countingResource, *countingResourceOutput, any],
+) (*countingResourceOutput, error) {
 	atomic.AddInt64(&r.counters.reads, 1)
 	if r.counters.readFn != nil {
-		return r.counters.readFn(prior)
+		value, err := r.counters.readFn(mapify(prior.Outputs))
+		if err != nil {
+			return nil, err
+		}
+		return coercePrior[*countingResourceOutput](value)
 	}
-	return prior, nil
+	return prior.Outputs, nil
 }
 
 func (r *countingResource) Update(
-	_ context.Context, _ any, prior Prior[countingResource, any],
-) (any, error) {
+	_ context.Context, _ any, prior Prior[countingResource, *countingResourceOutput, any],
+) (*countingResourceOutput, error) {
 	atomic.AddInt64(&r.counters.updates, 1)
 	r.counters.gotUpdatePrior = &prior
-	m, _ := prior.Outputs.(map[string]any)
-	if m == nil {
-		m = map[string]any{}
+	output := prior.Outputs
+	if output == nil {
+		output = &countingResourceOutput{}
 	}
-	m["name"] = r.Name
-	m["size"] = r.Size
-	return m, nil
+	output.Name = r.Name
+	output.Size = r.Size
+	return output, nil
 }
 
-func (r *countingResource) Delete(_ context.Context, _ any, _ any) error {
+func (r *countingResource) Delete(
+	_ context.Context, _ any, _ Prior[countingResource, *countingResourceOutput, any],
+) error {
 	atomic.AddInt64(&r.counters.deletes, 1)
 	return nil
 }
 
-func (r *countingResource) ReplaceFields() []string {
-	return []string{"name"}
+func countingResourceDefinition() ResourceDefinition[
+	countingResource,
+	*countingResourceOutput,
+	any,
+] {
+	return ResourceDefinition[countingResource, *countingResourceOutput, any]{
+		SchemaVersion: 1,
+		Replace: Replacement[countingResource, *countingResourceOutput, any]{
+			Fields: []AnyInputField[countingResource]{
+				InputField(func(input *countingResource) *string { return &input.Name }),
+			},
+		},
+	}
 }
-
-func (r *countingResource) SchemaVersion() int { return 1 }
 
 // countingResourceV2 is countingResource with SchemaVersion bumped
 // to 2 and no Migrate, used by plan tests that exercise the
@@ -214,12 +243,47 @@ type countingResourceV2 struct {
 	countingResource `ub:",squash"`
 }
 
-func (r *countingResourceV2) SchemaVersion() int { return 2 }
-
 func (r *countingResourceV2) Update(
-	ctx context.Context, cfg any, prior Prior[countingResourceV2, any],
-) (any, error) {
-	return r.countingResource.Update(ctx, cfg, Prior[countingResource, any]{Outputs: prior.Outputs})
+	ctx context.Context,
+	cfg any,
+	prior Prior[countingResourceV2, *countingResourceOutput, any],
+) (*countingResourceOutput, error) {
+	return r.countingResource.Update(
+		ctx,
+		cfg,
+		Prior[countingResource, *countingResourceOutput, any]{
+			Inputs:        r.countingResource,
+			Outputs:       prior.Outputs,
+			Observed:      prior.Observed,
+			Configuration: prior.Configuration,
+		},
+	)
+}
+
+func (r *countingResourceV2) Read(
+	ctx context.Context,
+	cfg any,
+	prior Prior[countingResourceV2, *countingResourceOutput, any],
+) (*countingResourceOutput, error) {
+	return r.countingResource.Read(ctx, cfg, Prior[countingResource, *countingResourceOutput, any]{
+		Inputs:        r.countingResource,
+		Outputs:       prior.Outputs,
+		Observed:      prior.Observed,
+		Configuration: prior.Configuration,
+	})
+}
+
+func (r *countingResourceV2) Delete(
+	ctx context.Context,
+	cfg any,
+	prior Prior[countingResourceV2, *countingResourceOutput, any],
+) error {
+	return r.countingResource.Delete(ctx, cfg, Prior[countingResource, *countingResourceOutput, any]{
+		Inputs:        r.countingResource,
+		Outputs:       prior.Outputs,
+		Observed:      prior.Observed,
+		Configuration: prior.Configuration,
+	})
 }
 
 // migratingCountingResource is countingResourceV2 with a Migrate
@@ -229,19 +293,63 @@ type migratingCountingResource struct {
 	countingResource `ub:",squash"`
 }
 
-func (r *migratingCountingResource) SchemaVersion() int { return 2 }
-
-func (r *migratingCountingResource) Update(
-	ctx context.Context, cfg any, prior Prior[migratingCountingResource, any],
-) (any, error) {
-	return r.countingResource.Update(ctx, cfg, Prior[countingResource, any]{Outputs: prior.Outputs})
+func (r *migratingCountingResource) Create(
+	_ context.Context,
+	_ any,
+) (*migratedCountingOutput, error) {
+	atomic.AddInt64(&r.counters.creates, 1)
+	return &migratedCountingOutput{
+		NameID: "fake-" + r.Name,
+		Name:   r.Name,
+		Size:   r.Size,
+	}, nil
 }
 
-func (r *migratingCountingResource) Migrate(_ int, prior MigrationState) (MigrationState, error) {
+func (r *migratingCountingResource) Update(
+	_ context.Context,
+	_ any,
+	prior Prior[migratingCountingResource, *migratedCountingOutput, any],
+) (*migratedCountingOutput, error) {
+	atomic.AddInt64(&r.counters.updates, 1)
+	output := prior.Outputs
+	if output == nil {
+		output = &migratedCountingOutput{}
+	}
+	output.Name = r.Name
+	output.Size = r.Size
+	return output, nil
+}
+
+func migrateCountingResource(_ int, prior MigrationState) (MigrationState, error) {
 	return MigrationState{
 		Inputs:  prior.Inputs,
 		Outputs: renamedKey(prior.Outputs, "id", "name-id"),
 	}, nil
+}
+
+func (r *migratingCountingResource) Read(
+	_ context.Context,
+	_ any,
+	prior Prior[migratingCountingResource, *migratedCountingOutput, any],
+) (*migratedCountingOutput, error) {
+	atomic.AddInt64(&r.counters.reads, 1)
+	if r.counters.readFn != nil {
+		value, err := r.counters.readFn(mapify(prior.Outputs))
+		if err != nil {
+			return nil, err
+		}
+		return coercePrior[*migratedCountingOutput](value)
+	}
+	return prior.Outputs, nil
+}
+
+func (r *migratingCountingResource) Delete(
+	_ context.Context,
+	_ any,
+	_ Prior[migratingCountingResource, *migratedCountingOutput, any],
+) error {
+	atomic.AddInt64(&r.counters.deletes, 1)
+	return nil
 }
 
 // inputMigratingResource bumps SchemaVersion to 2 and migrates both
@@ -250,30 +358,98 @@ func (r *migratingCountingResource) Migrate(_ int, prior MigrationState) (Migrat
 // receives so a test can assert the migrated inputs reached the resource
 // through plan and apply.
 type inputMigratingResource struct {
-	countingResource `ub:",squash"`
+	Name string
+	Size int64
+
+	counters *resourceCounters
 }
 
-func (r *inputMigratingResource) SchemaVersion() int { return 2 }
+func (r *inputMigratingResource) Create(
+	_ context.Context,
+	_ any,
+) (*migratedCountingOutput, error) {
+	atomic.AddInt64(&r.counters.creates, 1)
+	return &migratedCountingOutput{
+		NameID: "fake-" + r.Name,
+		Name:   r.Name,
+		Size:   r.Size,
+	}, nil
+}
 
 func (r *inputMigratingResource) Update(
-	_ context.Context, _ any, prior Prior[inputMigratingResource, any],
-) (any, error) {
+	_ context.Context,
+	_ any,
+	prior Prior[inputMigratingResource, *migratedCountingOutput, any],
+) (*migratedCountingOutput, error) {
 	atomic.AddInt64(&r.counters.updates, 1)
 	r.counters.gotInputMigratePrior = &prior
-	m, _ := prior.Outputs.(map[string]any)
-	if m == nil {
-		m = map[string]any{}
+	output := prior.Outputs
+	if output == nil {
+		output = &migratedCountingOutput{}
 	}
-	m["name"] = r.Name
-	m["size"] = r.Size
-	return m, nil
+	output.Name = r.Name
+	output.Size = r.Size
+	return output, nil
 }
 
-func (r *inputMigratingResource) Migrate(_ int, prior MigrationState) (MigrationState, error) {
+func migrateInputResource(_ int, prior MigrationState) (MigrationState, error) {
 	return MigrationState{
 		Inputs:  renamedKey(prior.Inputs, "label", "name"),
 		Outputs: renamedKey(prior.Outputs, "id", "name-id"),
 	}, nil
+}
+
+func (r *inputMigratingResource) Read(
+	_ context.Context,
+	_ any,
+	prior Prior[inputMigratingResource, *migratedCountingOutput, any],
+) (*migratedCountingOutput, error) {
+	atomic.AddInt64(&r.counters.reads, 1)
+	if r.counters.readFn != nil {
+		value, err := r.counters.readFn(mapify(prior.Outputs))
+		if err != nil {
+			return nil, err
+		}
+		return coercePrior[*migratedCountingOutput](value)
+	}
+	return prior.Outputs, nil
+}
+
+func (r *inputMigratingResource) Delete(
+	_ context.Context, _ any, _ Prior[inputMigratingResource, *migratedCountingOutput, any],
+) error {
+	atomic.AddInt64(&r.counters.deletes, 1)
+	return nil
+}
+
+func countingResourceV2Definition() ResourceDefinition[
+	countingResourceV2,
+	*countingResourceOutput,
+	any,
+] {
+	return ResourceDefinition[countingResourceV2, *countingResourceOutput, any]{SchemaVersion: 2}
+}
+
+func migratingCountingResourceDefinition() ResourceDefinition[
+	migratingCountingResource,
+	*migratedCountingOutput,
+	any,
+] {
+	return ResourceDefinition[migratingCountingResource, *migratedCountingOutput, any]{
+		SchemaVersion: 2,
+		Migrate:       migrateCountingResource,
+	}
+}
+
+func inputMigratingResourceDefinition() ResourceDefinition[
+	inputMigratingResource,
+	*migratedCountingOutput,
+	any,
+] {
+	return ResourceDefinition[inputMigratingResource, *migratedCountingOutput, any]{
+		SchemaVersion: 2,
+		Migrate:       migrateInputResource,
+	}
 }
 
 // renamedKey returns a copy of m with the value at from moved to to,
@@ -293,7 +469,8 @@ func resourceModules(c *resourceCounters) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[countingResource, any, any](
+				"thing": MakeResourceWith[countingResource, *countingResourceOutput, any](
+					countingResourceDefinition(),
 					func() *countingResource { return &countingResource{counters: c} },
 				),
 			},
@@ -312,10 +489,15 @@ func inputMigratingLibs(c *resourceCounters) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[inputMigratingResource, any, any](
+				"thing": MakeResourceWith[
+					inputMigratingResource,
+					*migratedCountingOutput,
+					any,
+				](
+					inputMigratingResourceDefinition(),
 					func() *inputMigratingResource {
 						return &inputMigratingResource{
-							countingResource: countingResource{counters: c},
+							counters: c,
 						}
 					},
 				),
@@ -332,7 +514,8 @@ func defaultingLibs(c *resourceCounters) map[string]*Library {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[countingResource, any, any](
+				"thing": MakeResourceWith[countingResource, *countingResourceOutput, any](
+					countingResourceDefinition(),
 					func() *countingResource { return &countingResource{counters: c} },
 				),
 			},

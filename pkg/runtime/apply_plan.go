@@ -320,7 +320,7 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 			rt,
 			receiver,
 			step,
-			prep.inputs,
+			cfg,
 		)
 		if err != nil {
 			return err
@@ -346,30 +346,36 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 			return err
 		}
 		outputs = mapify(result)
+		if err := verifyStableID(rt, prep.inputs, outputs, nil); err != nil {
+			return diagnostic.Context("create", err)
+		}
 	case DecisionNoOp:
 		outputs = step.ObservedOutputs
 		if outputs == nil {
 			outputs = step.PriorOutputs
 		}
 	case DecisionUpdate:
-		priorInputs, err := e.resolveAssetMap(step.PriorInputs)
+		prior, err := e.resolveResourcePrior(resourcePrior{
+			Inputs:        step.PriorInputs,
+			Outputs:       step.PriorOutputs,
+			Observed:      step.ObservedOutputs,
+			Configuration: step.PriorConfiguration,
+		})
 		if err != nil {
-			return diagnostic.Context("update: prior inputs", err)
+			return diagnostic.Context("update", err)
 		}
-		priorOutputs, err := e.resolveAssetMap(step.PriorOutputs)
-		if err != nil {
-			return diagnostic.Context("update: prior outputs", err)
-		}
-		observedOutputs, err := e.resolveAssetMap(step.ObservedOutputs)
-		if err != nil {
-			return diagnostic.Context("update: observed outputs", err)
-		}
-		result, err := rt.Update(ctx, receiver, cfg,
-			priorInputs, priorOutputs, observedOutputs)
+		result, err := rt.Update(ctx, receiver, cfg, prior)
 		if err != nil {
 			return err
 		}
 		outputs = mapify(result)
+		expected, err := rt.StableID(prior.Inputs, prior.Outputs)
+		if err != nil {
+			return diagnostic.Context("update: stable ID", err)
+		}
+		if err := verifyStableID(rt, prep.inputs, outputs, expected); err != nil {
+			return diagnostic.Context("update", err)
+		}
 	case DecisionReplace:
 		deleteRT := rt
 		deleteReceiver := rt.NewReceiver()
@@ -397,23 +403,50 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 			deleteCfg = priorCfg
 			deleteAlias = priorAlias
 		}
-		priorOutputs, err := e.resolveAssetMap(step.PriorOutputs)
-		if err != nil {
-			return diagnostic.Context("replace: prior outputs", err)
+		prior := resourcePrior{
+			Inputs:        step.PriorInputs,
+			Outputs:       step.PriorOutputs,
+			Configuration: step.PriorConfiguration,
 		}
-		_, readErr := e.readObserved(
+		observed, readErr := e.readObserved(
 			ctx,
 			deleteRT,
 			deleteAlias,
 			deleteCfg,
-			step.PriorInputs,
-			step.PriorOutputs,
+			prior,
 		)
 		if readErr != nil && !errors.Is(readErr, ErrNotFound) {
 			return diagnostic.Context("replace: read prior", readErr)
 		}
 		if readErr == nil {
-			if err := deleteRT.Delete(ctx, deleteReceiver, deleteCfg, priorOutputs); err != nil {
+			expected, err := stableIDForObservation(
+				deleteRT,
+				step.PriorInputs,
+				step.PriorOutputs,
+				observed,
+			)
+			if err != nil {
+				return diagnostic.Context("replace", err)
+			}
+			if step.ExpectedStableID != nil && expected != nil &&
+				*step.ExpectedStableID != *expected {
+				return fmt.Errorf(
+					"replace: stable ID changed from %q to %q",
+					*step.ExpectedStableID,
+					*expected,
+				)
+			}
+			prior.Observed = observed
+			resolvedPrior, err := e.resolveResourcePrior(prior)
+			if err != nil {
+				return diagnostic.Context("replace", err)
+			}
+			if err := deleteRT.Delete(
+				ctx,
+				deleteReceiver,
+				deleteCfg,
+				resolvedPrior,
+			); err != nil {
 				return diagnostic.Context("replace: delete prior", err)
 			}
 		}
@@ -422,6 +455,9 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 			return diagnostic.Context("replace: create", err)
 		}
 		outputs = mapify(result)
+		if err := verifyStableID(rt, prep.inputs, outputs, nil); err != nil {
+			return diagnostic.Context("replace: create", err)
+		}
 	default:
 		return fmt.Errorf("resource: unexpected decision %q", step.Decision)
 	}
@@ -458,32 +494,27 @@ func (e *Executor) reclassifyResourceApply(
 	rt ResourceRegistration,
 	receiver any,
 	step *PlanStep,
-	desiredInputs map[string]any,
+	cfg any,
 ) (Decision, []string, error) {
-	priorInputs, err := e.resolveAssetMap(step.PriorInputs)
-	if err != nil {
-		return "", nil, diagnostic.Context("replacement: prior inputs", err)
+	if step.PriorBinding != nil && !sameBinding(step.PriorBinding, step.Binding) {
+		return DecisionReplace, []string{"binding"}, nil
 	}
-	inputsSame, err := e.sameResourceInputs(rt, receiver, priorInputs, desiredInputs)
+	prior, err := e.resolveResourcePrior(resourcePrior{
+		Inputs:        step.PriorInputs,
+		Outputs:       step.PriorOutputs,
+		Observed:      step.ObservedOutputs,
+		Configuration: step.PriorConfiguration,
+	})
 	if err != nil {
 		return "", nil, err
 	}
-	var reasons []string
-	if step.PriorBinding != nil && !sameBinding(step.PriorBinding, step.Binding) {
-		reasons = append(reasons, "binding")
+	inputsSame, err := rt.InputsEqual(receiver, prior.Inputs)
+	if err != nil {
+		return "", nil, err
 	}
-	if !inputsSame {
-		inputReasons, err := e.changedReplaceFieldsForResource(
-			rt,
-			receiver,
-			rt.ReplaceFields(receiver),
-			priorInputs,
-			desiredInputs,
-		)
-		if err != nil {
-			return "", nil, err
-		}
-		reasons = append(reasons, inputReasons...)
+	reasons, err := rt.ReplacementReasons(receiver, cfg, prior)
+	if err != nil {
+		return "", nil, err
 	}
 	slices.Sort(reasons)
 	reasons = slices.Compact(reasons)
@@ -544,23 +575,45 @@ func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanSte
 	if err != nil {
 		return err
 	}
-	priorOutputs, err := e.resolveAssetMap(step.PriorOutputs)
-	if err != nil {
-		return diagnostic.Context("destroy: prior outputs", err)
+	prior := resourcePrior{
+		Inputs:        step.PriorInputs,
+		Outputs:       step.PriorOutputs,
+		Configuration: step.PriorConfiguration,
 	}
-	_, readErr := e.readObserved(
+	observed, readErr := e.readObserved(
 		ctx,
 		rt,
 		alias,
 		cfg,
-		step.PriorInputs,
-		step.PriorOutputs,
+		prior,
 	)
 	if readErr != nil && !errors.Is(readErr, ErrNotFound) {
 		return diagnostic.Context("destroy: read prior", readErr)
 	}
 	if readErr == nil {
-		if err := rt.Delete(ctx, receiver, cfg, priorOutputs); err != nil {
+		expected, err := stableIDForObservation(
+			rt,
+			step.PriorInputs,
+			step.PriorOutputs,
+			observed,
+		)
+		if err != nil {
+			return diagnostic.Context("destroy", err)
+		}
+		if step.ExpectedStableID != nil && expected != nil &&
+			*step.ExpectedStableID != *expected {
+			return fmt.Errorf(
+				"destroy: stable ID changed from %q to %q",
+				*step.ExpectedStableID,
+				*expected,
+			)
+		}
+		prior.Observed = observed
+		resolvedPrior, err := e.resolveResourcePrior(prior)
+		if err != nil {
+			return diagnostic.Context("destroy", err)
+		}
+		if err := rt.Delete(ctx, receiver, cfg, resolvedPrior); err != nil {
 			return err
 		}
 	}

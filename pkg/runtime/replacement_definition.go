@@ -505,17 +505,6 @@ func (definition resolvedResourceDefinition[In, Out, Config]) inputValuesEqual(
 		}
 	}
 
-	hasDescendantRule := false
-	for _, rule := range definition.equality {
-		if len(rule.field.index) > len(index) && indexPrefix(index, rule.field.index) {
-			hasDescendantRule = true
-			break
-		}
-	}
-	if !hasDescendantRule {
-		return reflect.DeepEqual(priorValue.Interface(), desiredValue.Interface()), nil
-	}
-
 	priorValue, priorKnown := dereferenceSelectedRoot(priorValue)
 	desiredValue, desiredKnown := dereferenceSelectedRoot(desiredValue)
 	if !priorKnown || !desiredKnown {
