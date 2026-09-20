@@ -28,14 +28,14 @@ type planStateMove struct {
 }
 
 type planSummaryStep struct {
-	Address         string   `json:"address"          ub:"address"`
-	Category        string   `json:"category"         ub:"category"`
-	Decision        string   `json:"decision"         ub:"decision"`
-	Composite       bool     `json:"composite"        ub:"composite"`
-	Drift           bool     `json:"drift"            ub:"drift"`
-	Gone            bool     `json:"gone"             ub:"gone"`
-	ReplaceTriggers []string `json:"replace-triggers" ub:"replace-triggers"`
-	DeferredConfig  *string  `json:"deferred-config"  ub:"deferred-config"`
+	Address            string   `json:"address"          ub:"address"`
+	Category           string   `json:"category"         ub:"category"`
+	Decision           string   `json:"decision"         ub:"decision"`
+	Composite          bool     `json:"composite"        ub:"composite"`
+	Drift              bool     `json:"drift"            ub:"drift"`
+	Gone               bool     `json:"gone"             ub:"gone"`
+	ReplacementReasons []string `json:"replace-triggers" ub:"replace-triggers"`
+	DeferredConfig     *string  `json:"deferred-config"  ub:"deferred-config"`
 }
 
 type planSummaryResult struct {
@@ -114,25 +114,25 @@ func buildPlanSummary(
 		if err := incrementPlanDecision(&result.Summary, step.Decision); err != nil {
 			return planSummaryResult{}, err
 		}
-		triggers := slices.Clone(step.ReplaceTriggers)
-		if triggers == nil {
-			triggers = []string{}
+		reasons := slices.Clone(step.ReplacementReasons)
+		if reasons == nil {
+			reasons = []string{}
 		}
-		slices.Sort(triggers)
+		slices.Sort(reasons)
 		var deferred *string
 		if step.DeferredConfig != "" {
 			value := step.DeferredConfig
 			deferred = &value
 		}
 		result.Steps = append(result.Steps, planSummaryStep{
-			Address:         step.Address,
-			Category:        string(step.Kind),
-			Decision:        string(step.Decision),
-			Composite:       step.Composite,
-			Drift:           step.Drift(),
-			Gone:            step.Gone() || step.AlreadyGone,
-			ReplaceTriggers: triggers,
-			DeferredConfig:  deferred,
+			Address:            step.Address,
+			Category:           string(step.Kind),
+			Decision:           string(step.Decision),
+			Composite:          step.Composite,
+			Drift:              step.Drift(),
+			Gone:               step.Gone() || step.AlreadyGone,
+			ReplacementReasons: reasons,
+			DeferredConfig:     deferred,
 		})
 	}
 	slices.SortFunc(result.Steps, func(a, b planSummaryStep) int {

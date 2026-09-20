@@ -293,12 +293,12 @@ func TestPrintPlanTagsReplaceTrigger(t *testing.T) {
 	plan := &runtime.Plan{
 		Steps: []*runtime.PlanStep{
 			{
-				Address:         "resource.aws.instance.api",
-				Kind:            runtime.NodeResource,
-				Decision:        runtime.DecisionReplace,
-				Inputs:          map[string]any{"ami": "ami-2", "instance-type": "t2.micro"},
-				PriorInputs:     map[string]any{"ami": "ami-1", "instance-type": "t2.micro"},
-				ReplaceTriggers: []string{"ami"},
+				Address:            "resource.aws.instance.api",
+				Kind:               runtime.NodeResource,
+				Decision:           runtime.DecisionReplace,
+				Inputs:             map[string]any{"ami": "ami-2", "instance-type": "t2.micro"},
+				PriorInputs:        map[string]any{"ami": "ami-1", "instance-type": "t2.micro"},
+				ReplacementReasons: []string{"ami"},
 			},
 		},
 	}

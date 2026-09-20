@@ -1,5 +1,5 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "config-defaults-constraints",
     "version": "v0.0.0",

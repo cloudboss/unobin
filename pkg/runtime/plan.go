@@ -347,6 +347,7 @@ type PlanStep struct {
 
 	Decision         Decision            `json:"decision"`
 	Inputs           map[string]any      `json:"inputs,omitempty"`
+	Configuration    map[string]any      `json:"configuration,omitempty"`
 	UnresolvedInputs map[string][]string `json:"unresolved-inputs,omitempty"`
 
 	// DeferredConfig names the library-config node whose pending evaluation
@@ -358,16 +359,19 @@ type PlanStep struct {
 	// can show a changed field as `old -> new` rather than the new value
 	// alone. Nil for a create, where there is no prior to compare against.
 	PriorInputs map[string]any `json:"prior-inputs,omitempty"`
+	// PriorConfiguration is the configuration recorded with the prior target.
+	PriorConfiguration map[string]any `json:"prior-configuration,omitempty"`
 
 	PriorBinding    *state.Binding `json:"prior-binding,omitempty"`
 	PriorOutputs    map[string]any `json:"prior-outputs,omitempty"`
 	ObservedOutputs map[string]any `json:"observed-outputs,omitempty"`
 	TriggerHash     string         `json:"trigger-hash,omitempty"`
 
-	// ReplaceTriggers names the replace-forcing fields whose value changed,
-	// the reason a step replaces rather than updates. The renderer tags each
-	// with `(forces replacement)`. Empty unless Decision is replace.
-	ReplaceTriggers []string `json:"replace-triggers,omitempty"`
+	// ReplacementReasons names the canonical fields that require recreation.
+	ReplacementReasons []string `json:"replacement-reasons,omitempty"`
+
+	// ExpectedStableID identifies the provider object observed during planning.
+	ExpectedStableID *string `json:"expected-stable-id,omitempty"`
 
 	// DependsOn carries a destroy step's recorded dependencies from
 	// prior state. Apply reverses these edges so a resource is deleted
@@ -574,14 +578,16 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 				continue
 			}
 			plan.Steps = append(plan.Steps, &PlanStep{
-				Address:      prior.Address,
-				Kind:         kind,
-				Binding:      bindingFromEntry(prior),
-				Composite:    composite,
-				Decision:     DecisionDestroy,
-				Inputs:       prior.Inputs,
-				PriorOutputs: prior.Outputs,
-				DependsOn:    prior.DependsOn,
+				Address:            prior.Address,
+				Kind:               kind,
+				Binding:            bindingFromEntry(prior),
+				Composite:          composite,
+				Decision:           DecisionDestroy,
+				Inputs:             prior.Inputs,
+				PriorInputs:        prior.Inputs,
+				PriorOutputs:       prior.Outputs,
+				PriorConfiguration: prior.Configuration,
+				DependsOn:          prior.DependsOn,
 			})
 		}
 	}
@@ -1103,6 +1109,7 @@ func (e *Executor) planConfigNode(rs *runState, n *Node) (*PlanStep, error) {
 		return nil, diagnostic.Context(n.Address, err)
 	}
 	e.storeInternalConfiguration(n.Address, decoded)
+	e.storeInternalConfigurationInput(n.Address, inputs)
 	return step, nil
 }
 
@@ -1354,10 +1361,14 @@ func (e *Executor) planOneResource(
 		Inputs:           display,
 		UnresolvedInputs: unresolved,
 	}
+	if _, pending := e.pendingInternalConfig(n); !pending {
+		step.Configuration = e.configurationInputFor(n)
+	}
 	if prior == nil {
 		step.Decision = DecisionCreate
 		return step, nil
 	}
+	step.PriorConfiguration = cloneMap(prior.Configuration)
 	inputs := withoutPending(display, unresolved)
 	priorBinding := bindingFromEntry(prior)
 	bindingChanged := !sameBinding(priorBinding, step.Binding)
@@ -1374,6 +1385,7 @@ func (e *Executor) planOneResource(
 		step.PriorBinding = priorBinding
 		step.PriorInputs = cloneMap(migrated.Inputs)
 		step.PriorOutputs = migrated.Outputs
+		step.ReplacementReasons = []string{"binding"}
 		step.Decision = DecisionReplace
 		step.regeneratesOutputs = true
 		step.mayChangeOutputs = true
@@ -1414,12 +1426,12 @@ func (e *Executor) planOneResource(
 	// waiting on an upstream compares as changed, since the value it
 	// settles to cannot be assumed equal to the prior one.
 	if step.mayChangeOutputs {
-		step.ReplaceTriggers, err = e.changedReplaceFieldsForResource(
+		step.ReplacementReasons, err = e.changedReplaceFieldsForResource(
 			rt, probe, rt.ReplaceFields(probe), priorInputs, inputs)
 		if err != nil {
 			return nil, err
 		}
-		step.regeneratesOutputs = len(step.ReplaceTriggers) > 0
+		step.regeneratesOutputs = len(step.ReplacementReasons) > 0
 	}
 	// A pending internal configuration means the read cannot run: there
 	// is nothing valid to hand the API client. The stored state stands
@@ -1469,7 +1481,7 @@ func (e *Executor) planOneResource(
 		rt:           rt,
 		alias:        n.Alias,
 		cfg:          e.configFor(n),
-		inputs:       inputs,
+		inputs:       priorInputs,
 		priorBinding: priorReadBinding,
 		priorInputs:  priorInputs,
 		priorOutputs: migrated.Outputs,
@@ -1600,6 +1612,7 @@ func finalizeMissingCurrentRead(pr *pendingRead) error {
 	}
 	pr.step.PriorBinding = cloneBinding(pr.priorBinding)
 	pr.step.ObservedOutputs = pr.priorObserved
+	pr.step.ReplacementReasons = []string{"binding"}
 	pr.step.Decision = DecisionReplace
 	pr.step.regeneratesOutputs = true
 	pr.step.mayChangeOutputs = true

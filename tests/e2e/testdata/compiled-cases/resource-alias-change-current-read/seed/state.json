@@ -1,5 +1,5 @@
 {
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "resource-alias-change-current-read",
     "version": "v0.0.0",

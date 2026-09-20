@@ -164,6 +164,7 @@ func (e *Executor) refreshLeaf(
 		TriggerHash:      ent.TriggerHash,
 		Inputs:           migrated.Inputs,
 		Outputs:          observed,
+		Configuration:    cloneMap(ent.Configuration),
 		DependsOn:        ent.DependsOn,
 	}, false, nil
 }

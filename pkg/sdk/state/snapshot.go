@@ -9,7 +9,7 @@ import (
 
 // CurrentFormatVersion is the schema version this package reads and writes
 // for snapshots. Older versions error on read.
-const CurrentFormatVersion = 1
+const CurrentFormatVersion = 2
 
 // EntryType discriminates the records a snapshot can hold.
 type EntryType string
@@ -51,9 +51,14 @@ type Entry struct {
 
 	TriggerHash string `json:"trigger-hash,omitempty"`
 
-	Inputs    map[string]any `json:"inputs,omitempty"`
-	Outputs   map[string]any `json:"outputs,omitempty"`
-	DependsOn []string       `json:"depends-on,omitempty"`
+	Inputs  map[string]any `json:"inputs,omitempty"`
+	Outputs map[string]any `json:"outputs,omitempty"`
+
+	// Configuration records the library settings reviewed for this resource.
+	// The current configuration supplies access settings; this value identifies
+	// the target that was managed when the entry was written.
+	Configuration map[string]any `json:"configuration,omitempty"`
+	DependsOn     []string       `json:"depends-on,omitempty"`
 }
 
 type entryJSON struct {
@@ -67,6 +72,7 @@ type entryJSON struct {
 	TriggerHash      string         `json:"trigger-hash,omitempty"`
 	Inputs           map[string]any `json:"inputs,omitempty"`
 	Outputs          map[string]any `json:"outputs,omitempty"`
+	Configuration    map[string]any `json:"configuration,omitempty"`
 	DependsOn        []string       `json:"depends-on,omitempty"`
 }
 
@@ -82,6 +88,7 @@ func (e *Entry) MarshalJSON() ([]byte, error) {
 		TriggerHash:      e.TriggerHash,
 		Inputs:           e.Inputs,
 		Outputs:          e.Outputs,
+		Configuration:    e.Configuration,
 		DependsOn:        e.DependsOn,
 	})
 }
@@ -157,8 +164,11 @@ func DecodeSnapshot(b []byte) (*Snapshot, error) {
 		return nil, fmt.Errorf("snapshot: %w", err)
 	}
 	if s.FormatVersion != CurrentFormatVersion {
-		return nil, fmt.Errorf("snapshot: unsupported format-version %d (this build expects %d)",
-			s.FormatVersion, CurrentFormatVersion)
+		return nil, fmt.Errorf(
+			"snapshot: unsupported format-version %d (this build expects %d); recreate the state",
+			s.FormatVersion,
+			CurrentFormatVersion,
+		)
 	}
 	if err := s.Validate(); err != nil {
 		return nil, err

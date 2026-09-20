@@ -13,7 +13,7 @@ import (
 func TestSeedStateWritesCurrentSnapshot(t *testing.T) {
 	caseDir := t.TempDir()
 	writeText(t, filepath.Join(caseDir, "seed/state.json"), `{
-  "format-version": 1,
+  "format-version": 2,
   "factory": {
     "name": "seeded",
     "version": "v0.0.0",

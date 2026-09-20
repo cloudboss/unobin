@@ -971,7 +971,7 @@ func TestPlanUpdateForNonReplaceFieldChange(t *testing.T) {
 	plan := runPlan(t, second, libs, store)
 	one := stepFor(plan, "resource.one")
 	require.Equal(t, DecisionUpdate, one.Decision)
-	require.Empty(t, one.ReplaceTriggers)
+	require.Empty(t, one.ReplacementReasons)
 	require.Equal(t, float64(1), one.PriorInputs["size"],
 		"the prior body is recorded (state round trip renders numbers as float)")
 }
@@ -988,7 +988,8 @@ func TestPlanReplaceForReplaceFieldChange(t *testing.T) {
 	plan := runPlan(t, second, libs, store)
 	one := stepFor(plan, "resource.one")
 	require.Equal(t, DecisionReplace, one.Decision)
-	require.Equal(t, []string{"name"}, one.ReplaceTriggers, "the changed replace field is named")
+	require.Equal(t, []string{"name"}, one.ReplacementReasons,
+		"the changed replacement field is named")
 	require.Equal(t, "alpha", one.PriorInputs["name"])
 }
 
