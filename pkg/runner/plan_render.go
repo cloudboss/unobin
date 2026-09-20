@@ -216,7 +216,7 @@ func newInputValue(step *runtime.PlanStep, field string) string {
 
 // replaceNote tags a field the plan flagged as forcing a replacement.
 func replaceNote(step *runtime.PlanStep, field string) string {
-	if slices.Contains(step.ReplaceTriggers, field) {
+	if slices.Contains(step.ReplacementReasons, field) {
 		return "  (forces replacement)"
 	}
 	return ""

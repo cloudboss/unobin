@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -354,6 +355,8 @@ func TestDestroyDeletesDependentsFirst(t *testing.T) {
 type cfgCapture struct {
 	deleteCfg any
 	deleted   bool
+	creates   int64
+	updates   int64
 }
 
 type cfgResource struct {
@@ -363,6 +366,7 @@ type cfgResource struct {
 }
 
 func (r *cfgResource) Create(_ context.Context, _ any) (any, error) {
+	atomic.AddInt64(&r.capture.creates, 1)
 	return map[string]any{"id": "id-" + r.Name}, nil
 }
 
@@ -373,6 +377,7 @@ func (r *cfgResource) Read(_ context.Context, _ any, prior any) (any, error) {
 func (r *cfgResource) Update(
 	_ context.Context, _ any, prior Prior[cfgResource, any],
 ) (any, error) {
+	atomic.AddInt64(&r.capture.updates, 1)
 	return prior.Outputs, nil
 }
 
@@ -431,12 +436,52 @@ library-configs: { aws: { endpoint: 'https://delete.example' } }
 	require.Empty(t, snap.Entries)
 }
 
+func TestCredentialOnlyConfigurationChangePersistsWithoutMutation(t *testing.T) {
+	capture := &cfgCapture{}
+	libs := cfgCapturingModules(capture)
+	store := newStateStore(t)
+	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+
+	initial := applyPlanFixture(t, "destroy-uses-current-alias-config")
+	applyOnce(t, applyPlanTestExecutor(t, initial, libs, store, stack))
+	require.Equal(t, int64(1), atomic.LoadInt64(&capture.creates))
+
+	changed := strings.ReplaceAll(initial, "create.example", "current.example")
+	exec := applyPlanTestExecutor(t, changed, libs, store, stack)
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	step := findStep(t, plan, "resource.x")
+	require.Equal(t, DecisionNoOp, step.Decision)
+	require.Equal(t,
+		map[string]any{"endpoint": "https://create.example"},
+		step.PriorConfiguration,
+	)
+	require.Equal(t,
+		map[string]any{"endpoint": "https://current.example"},
+		step.Configuration,
+	)
+
+	_, err = planAndApplyExisting(exec, plan)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), atomic.LoadInt64(&capture.creates))
+	require.Equal(t, int64(0), atomic.LoadInt64(&capture.updates))
+	require.False(t, capture.deleted)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	require.Equal(t,
+		map[string]any{"endpoint": "https://current.example"},
+		snap.Find("resource.x").Configuration,
+	)
+}
+
 var errIncrementalResource = errors.New("intentional resource failure")
 
 type incrementalResourceCounters struct {
 	creates int64
 	updates int64
 	deletes int64
+	readErr error
 }
 
 type incrementalResource struct {
@@ -455,6 +500,9 @@ func (r *incrementalResource) Create(_ context.Context, _ any) (any, error) {
 }
 
 func (r *incrementalResource) Read(_ context.Context, _ any, prior any) (any, error) {
+	if r.counters.readErr != nil {
+		return nil, r.counters.readErr
+	}
 	return prior, nil
 }
 
@@ -996,6 +1044,66 @@ func TestApplyPlanPersistsDestroyBeforeLaterFailure(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, snap.Find("resource.orphan"))
 	require.NotNil(t, snap.Find("resource.later"))
+}
+
+func TestReplacementImmediateNotFoundSkipsDelete(t *testing.T) {
+	store := newStateStore(t)
+	seedIncrementalState(t, store, incrementalEntry("resource.one", "old", 1))
+	var counters incrementalResourceCounters
+	libs := incrementalModules(&counters)
+	exec := applyPlanTestExecutor(
+		t,
+		applyPlanFixture(t, "replacement-new"),
+		libs,
+		store,
+		state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"},
+	)
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DecisionReplace, findStep(t, plan, "resource.one").Decision)
+
+	counters.readErr = ErrNotFound
+	_, err = planAndApplyExisting(exec, plan)
+	require.NoError(t, err)
+	require.Equal(t, int64(0), atomic.LoadInt64(&counters.deletes))
+	require.Equal(t, int64(1), atomic.LoadInt64(&counters.creates))
+}
+
+func TestReplacementDeleteFailurePreventsCreate(t *testing.T) {
+	store := newStateStore(t)
+	seedIncrementalState(t, store, incrementalEntry("resource.one", "fail-delete", 1))
+	var counters incrementalResourceCounters
+	err := applyIncrementalPlan(
+		t,
+		store,
+		&counters,
+		applyPlanFixture(t, "replacement-new"),
+	)
+	require.ErrorIs(t, err, errIncrementalResource)
+	require.Equal(t, int64(0), atomic.LoadInt64(&counters.creates))
+	requireIncrementalOutputs(t, currentEntry(t, store, "resource.one"), "fail-delete", 1)
+}
+
+func TestReplacementCreateFailurePreservesPriorState(t *testing.T) {
+	store := newStateStore(t)
+	seedIncrementalState(t, store, incrementalEntry("resource.one", "old", 1))
+	var counters incrementalResourceCounters
+	err := applyIncrementalPlan(
+		t,
+		store,
+		&counters,
+		applyPlanFixture(t, "replacement-create-fails"),
+	)
+	require.ErrorIs(t, err, errIncrementalResource)
+	require.Equal(t, int64(1), atomic.LoadInt64(&counters.deletes))
+	requireIncrementalOutputs(t, currentEntry(t, store, "resource.one"), "old", 1)
+}
+
+func currentEntry(t *testing.T, store *local.Store, address string) *state.Entry {
+	t.Helper()
+	snap, err := store.Current()
+	require.NoError(t, err)
+	return snap.Find(address)
 }
 
 func TestApplyPlanForEachComposite(t *testing.T) {
@@ -1567,7 +1675,7 @@ func TestEncodePlanUsesDeferredConfig(t *testing.T) {
 
 func TestDecodePlanReadsDeferredConfig(t *testing.T) {
 	b := []byte(`{
-  "format-version": 1,
+  "format-version": 2,
   "factory": {"name": "x", "version": "v1", "content-revision": "abc"},
   "steps": [{
     "address": "data-source.lookup",
@@ -1586,4 +1694,5 @@ func TestDecodePlanRejectsBadFormatVersion(t *testing.T) {
 	_, err := DecodePlan(bad)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported format-version")
+	require.Contains(t, err.Error(), "recreate the plan")
 }

@@ -12,7 +12,7 @@ import (
 
 // PlanFormatVersion is the schema version this package reads and writes
 // for plan files.
-const PlanFormatVersion = 1
+const PlanFormatVersion = 2
 
 // PlanFile is the on-disk form of a plan. Steps in the file mirror the
 // in-memory Plan.Steps. Inputs holds the validated root inputs the plan was
@@ -85,8 +85,11 @@ func DecodePlan(b []byte) (*PlanFile, error) {
 		return nil, diagnostic.Context("plan", err)
 	}
 	if pf.FormatVersion != PlanFormatVersion {
-		return nil, fmt.Errorf("plan: unsupported format-version %d (this build expects %d)",
-			pf.FormatVersion, PlanFormatVersion)
+		return nil, fmt.Errorf(
+			"plan: unsupported format-version %d (this build expects %d); recreate the plan",
+			pf.FormatVersion,
+			PlanFormatVersion,
+		)
 	}
 	pf.Inputs = coerceMap(pf.Inputs)
 	if pf.Backend != nil {
@@ -95,6 +98,9 @@ func DecodePlan(b []byte) (*PlanFile, error) {
 	for i := range pf.Steps {
 		s := &pf.Steps[i]
 		s.Inputs = coerceMap(s.Inputs)
+		s.Configuration = coerceMap(s.Configuration)
+		s.PriorInputs = coerceMap(s.PriorInputs)
+		s.PriorConfiguration = coerceMap(s.PriorConfiguration)
 		s.PriorOutputs = coerceMap(s.PriorOutputs)
 		s.ObservedOutputs = coerceMap(s.ObservedOutputs)
 	}

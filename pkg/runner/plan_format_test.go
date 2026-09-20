@@ -114,8 +114,8 @@ func planSummaryFixture() *runtime.Plan {
 			Inputs:       map[string]any{"token": "super-secret"},
 			PriorOutputs: map[string]any{"token": "super-secret"},
 			TriggerHash:  "super-secret", SensitiveInputs: []string{"token"},
-			ReplaceTriggers: []string{"z-last", "a-first"},
-			DeferredConfig:  "library-config.cloud",
+			ReplacementReasons: []string{"z-last", "a-first"},
+			DeferredConfig:     "library-config.cloud",
 		},
 		{Address: "a.read", Kind: runtime.NodeDataSource, Decision: runtime.DecisionRead},
 		{
@@ -125,7 +125,7 @@ func planSummaryFixture() *runtime.Plan {
 		},
 		{
 			Address: "c.replace", Kind: runtime.NodeResource,
-			Decision: runtime.DecisionReplace, ReplaceTriggers: []string{"second", "first"},
+			Decision: runtime.DecisionReplace, ReplacementReasons: []string{"second", "first"},
 		},
 		{
 			Address: "d.destroy", Kind: runtime.NodeResource,

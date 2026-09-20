@@ -27,6 +27,7 @@ func sampleSnapshot() *Snapshot {
 				SchemaVersion: 1,
 				Inputs:        map[string]any{"cidr-block": "10.0.0.0/16"},
 				Outputs:       map[string]any{"id": "vpc-abc"},
+				Configuration: map[string]any{"region": "us-east-1"},
 			},
 			{
 				Address:   "resource.web",
@@ -74,6 +75,7 @@ func TestSnapshotRejectsBadFormatVersion(t *testing.T) {
 	_, err := DecodeSnapshot(b)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported format-version")
+	require.Contains(t, err.Error(), "recreate the state")
 }
 
 func TestSnapshotRejectsLeafWithoutCategory(t *testing.T) {
@@ -102,7 +104,7 @@ func TestSnapshotRejectsUnknownType(t *testing.T) {
 
 func TestSnapshotRejectsNodeKindJSON(t *testing.T) {
 	body := []byte(`{
-  "format-version": 1,
+  "format-version": 2,
   "factory": { "name": "cluster" },
   "stack": "prod",
   "generated-at": "2026-05-01T00:00:00Z",
@@ -156,7 +158,7 @@ func TestSnapshotJSONShape(t *testing.T) {
 	require.NoError(t, err)
 	out := string(b)
 	require.True(t, strings.HasSuffix(out, "\n"))
-	require.Contains(t, out, `"format-version": 1`)
+	require.Contains(t, out, `"format-version": 2`)
 	require.Contains(t, out, `"address": "resource.main"`)
 	require.Contains(t, out, `"entry-kind": "leaf"`)
 	require.Contains(t, out, `"category": "resource"`)
@@ -164,6 +166,8 @@ func TestSnapshotJSONShape(t *testing.T) {
 	require.Contains(t, out, `"alias": "aws"`)
 	require.Contains(t, out, `"library-path": "example.com/aws"`)
 	require.Contains(t, out, `"kind": "vpc"`)
+	require.Contains(t, out, `"configuration": {`)
+	require.Contains(t, out, `"region": "us-east-1"`)
 	require.NotContains(t, out, `"node-kind":`)
 	require.NotContains(t, out, `"selector":`)
 	require.NotContains(t, out, `"export":`)

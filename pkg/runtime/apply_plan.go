@@ -220,6 +220,7 @@ func (e *Executor) applyConfigNode(rs *runState, step *PlanStep, node *Node) err
 		return diagnostic.Context(step.Address, err)
 	}
 	e.storeInternalConfiguration(step.Address, decoded)
+	e.storeInternalConfigurationInput(step.Address, raw)
 	return nil
 }
 
@@ -300,16 +301,37 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 	// no longer holds, and the answer is a fresh plan.
 	planned := knownFields(step, step.Inputs)
 	applied := knownFields(step, prep.inputs)
-	inputsSame, err := e.sameResourceInputs(rt, receiver, planned, applied)
-	if err != nil {
-		return err
-	}
-	if !inputsSame {
+	if !sameInputs(planned, applied) {
 		return fmt.Errorf(
 			"resource %s inputs changed since the plan was computed; plan again\n%s",
 			step.Address, diffFields(planned, applied, step.SensitiveInputs))
 	}
 	cfg := e.configFor(prep.node)
+	configuration := e.configurationInputFor(prep.node)
+	if step.DeferredConfig == "" && !sameInputs(step.Configuration, configuration) {
+		return fmt.Errorf(
+			"resource %s configuration changed since the plan was computed; plan again\n%s",
+			step.Address,
+			diffFields(step.Configuration, configuration, nil),
+		)
+	}
+	if step.Decision != DecisionCreate {
+		decision, reasons, err := e.reclassifyResourceApply(
+			rt,
+			receiver,
+			step,
+			prep.inputs,
+		)
+		if err != nil {
+			return err
+		}
+		if decision != step.Decision || !slices.Equal(reasons, step.ReplacementReasons) {
+			return fmt.Errorf(
+				"resource %s decision changed since the plan was computed; plan again",
+				step.Address,
+			)
+		}
+	}
 	switch step.Decision {
 	case DecisionCreate, DecisionUpdate, DecisionReplace:
 		if err := rt.ValidateInputs(ctx, receiver, cfg); err != nil {
@@ -325,7 +347,10 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		}
 		outputs = mapify(result)
 	case DecisionNoOp:
-		outputs = step.PriorOutputs
+		outputs = step.ObservedOutputs
+		if outputs == nil {
+			outputs = step.PriorOutputs
+		}
 	case DecisionUpdate:
 		priorInputs, err := e.resolveAssetMap(step.PriorInputs)
 		if err != nil {
@@ -347,8 +372,12 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		outputs = mapify(result)
 	case DecisionReplace:
 		deleteRT := rt
-		deleteReceiver := receiver
+		deleteReceiver := rt.NewReceiver()
+		if err := e.decodeInputs(deleteReceiver, step.PriorInputs); err != nil {
+			return diagnostic.Context("replace: decode prior", err)
+		}
 		deleteCfg := cfg
+		deleteAlias := prep.node.Alias
 		if step.PriorBinding != nil && !sameBinding(step.PriorBinding, bindingForNode(prep.node)) {
 			priorRT, priorAlias, err := e.resourceRegistrationForBinding(
 				step.Address, step.PriorBinding,
@@ -366,13 +395,27 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 				return err
 			}
 			deleteCfg = priorCfg
+			deleteAlias = priorAlias
 		}
 		priorOutputs, err := e.resolveAssetMap(step.PriorOutputs)
 		if err != nil {
 			return diagnostic.Context("replace: prior outputs", err)
 		}
-		if err := deleteRT.Delete(ctx, deleteReceiver, deleteCfg, priorOutputs); err != nil {
-			return diagnostic.Context("replace: delete prior", err)
+		_, readErr := e.readObserved(
+			ctx,
+			deleteRT,
+			deleteAlias,
+			deleteCfg,
+			step.PriorInputs,
+			step.PriorOutputs,
+		)
+		if readErr != nil && !errors.Is(readErr, ErrNotFound) {
+			return diagnostic.Context("replace: read prior", readErr)
+		}
+		if readErr == nil {
+			if err := deleteRT.Delete(ctx, deleteReceiver, deleteCfg, priorOutputs); err != nil {
+				return diagnostic.Context("replace: delete prior", err)
+			}
 		}
 		result, err := rt.Create(ctx, receiver, cfg)
 		if err != nil {
@@ -398,16 +441,61 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		SchemaVersion:    rt.SchemaVersion(),
 		Inputs:           prep.inputs,
 		Outputs:          outputs,
+		Configuration:    configuration,
 		SensitiveInputs:  step.SensitiveInputs,
 		SensitiveOutputs: step.SensitiveOutputs,
 		DependsOn:        rs.dependsOn[step.Address],
 	})
 	switch step.Decision {
-	case DecisionCreate, DecisionUpdate, DecisionReplace:
+	case DecisionCreate, DecisionUpdate, DecisionReplace, DecisionNoOp:
 		_, err := e.persist(rs)
 		return err
 	}
 	return nil
+}
+
+func (e *Executor) reclassifyResourceApply(
+	rt ResourceRegistration,
+	receiver any,
+	step *PlanStep,
+	desiredInputs map[string]any,
+) (Decision, []string, error) {
+	priorInputs, err := e.resolveAssetMap(step.PriorInputs)
+	if err != nil {
+		return "", nil, diagnostic.Context("replacement: prior inputs", err)
+	}
+	inputsSame, err := e.sameResourceInputs(rt, receiver, priorInputs, desiredInputs)
+	if err != nil {
+		return "", nil, err
+	}
+	var reasons []string
+	if step.PriorBinding != nil && !sameBinding(step.PriorBinding, step.Binding) {
+		reasons = append(reasons, "binding")
+	}
+	if !inputsSame {
+		inputReasons, err := e.changedReplaceFieldsForResource(
+			rt,
+			receiver,
+			rt.ReplaceFields(receiver),
+			priorInputs,
+			desiredInputs,
+		)
+		if err != nil {
+			return "", nil, err
+		}
+		reasons = append(reasons, inputReasons...)
+	}
+	slices.Sort(reasons)
+	reasons = slices.Compact(reasons)
+
+	switch {
+	case len(reasons) > 0:
+		return DecisionReplace, reasons, nil
+	case !inputsSame || step.Drift():
+		return DecisionUpdate, nil, nil
+	default:
+		return DecisionNoOp, nil, nil
+	}
 }
 
 // instanceScope returns the scope a step body should be evaluated
@@ -436,11 +524,6 @@ func instanceScope(
 // identifies the library, so this works whether the resource was
 // orphaned (removed from source) or is part of a full teardown.
 func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanStep) error {
-	// The plan read this resource and found it already absent, so there
-	// is nothing to delete; just drop it from state.
-	if step.AlreadyGone {
-		return e.removeRecord(rs, step)
-	}
 	alias, typeName, ok := stepBindingParts(step)
 	if !ok {
 		return fmt.Errorf("destroy: missing binding for %q", step.Address)
@@ -465,8 +548,21 @@ func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanSte
 	if err != nil {
 		return diagnostic.Context("destroy: prior outputs", err)
 	}
-	if err := rt.Delete(ctx, receiver, cfg, priorOutputs); err != nil {
-		return err
+	_, readErr := e.readObserved(
+		ctx,
+		rt,
+		alias,
+		cfg,
+		step.PriorInputs,
+		step.PriorOutputs,
+	)
+	if readErr != nil && !errors.Is(readErr, ErrNotFound) {
+		return diagnostic.Context("destroy: read prior", readErr)
+	}
+	if readErr == nil {
+		if err := rt.Delete(ctx, receiver, cfg, priorOutputs); err != nil {
+			return err
+		}
 	}
 	rs.mu.Lock()
 	defer rs.mu.Unlock()

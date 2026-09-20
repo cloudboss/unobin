@@ -164,7 +164,7 @@ func TestInputEquivalencerSuppressesReplace(t *testing.T) {
 	plan := runPlan(t, resourcePlanFixture(t, "equivalent-name"), libs, store)
 	step := findStep(t, plan, "resource.one")
 	require.Equal(t, DecisionNoOp, step.Decision)
-	require.Empty(t, step.ReplaceTriggers)
+	require.Empty(t, step.ReplacementReasons)
 }
 
 func TestInputEquivalencerKeepsMutableChangeAsUpdate(t *testing.T) {
@@ -175,10 +175,10 @@ func TestInputEquivalencerKeepsMutableChangeAsUpdate(t *testing.T) {
 	plan := runPlan(t, resourcePlanFixture(t, "equivalent-name-and-size"), libs, store)
 	step := findStep(t, plan, "resource.one")
 	require.Equal(t, DecisionUpdate, step.Decision)
-	require.Empty(t, step.ReplaceTriggers)
+	require.Empty(t, step.ReplacementReasons)
 }
 
-func TestInputEquivalencerAppliesToApplyPremise(t *testing.T) {
+func TestApplyPremiseRejectsSemanticallyEquivalentUnreviewedInput(t *testing.T) {
 	store := newStateStore(t)
 	libs := resourcePlanModules(nil)
 	src := resourcePlanFixture(t, "equivalent-input")
@@ -194,7 +194,8 @@ func TestInputEquivalencerAppliesToApplyPremise(t *testing.T) {
 
 	second.Inputs = map[string]any{"n": "alpha"}
 	_, err = planAndApplyExisting(second, plan)
-	require.NoError(t, err)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "inputs changed since the plan was computed")
 }
 
 func TestResourcePlanModifierMarksOutputUnknown(t *testing.T) {

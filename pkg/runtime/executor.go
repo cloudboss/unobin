@@ -84,8 +84,9 @@ type Executor struct {
 	// configuration once its node evaluates, keyed by node address.
 	// Apply evaluates configurations on worker goroutines while
 	// consumers read concurrently, so access goes through internalMu.
-	internalConfigurations map[string]any
-	internalMu             sync.Mutex
+	internalConfigurations      map[string]any
+	internalConfigurationInputs map[string]map[string]any
+	internalMu                  sync.Mutex
 
 	// priorInternalConfigurations holds internal configurations
 	// evaluated against the prior snapshot instead of the live run.
@@ -106,6 +107,15 @@ func (e *Executor) storeInternalConfiguration(addr string, value any) {
 	e.internalConfigurations[addr] = value
 }
 
+func (e *Executor) storeInternalConfigurationInput(addr string, value map[string]any) {
+	e.internalMu.Lock()
+	defer e.internalMu.Unlock()
+	if e.internalConfigurationInputs == nil {
+		e.internalConfigurationInputs = map[string]map[string]any{}
+	}
+	e.internalConfigurationInputs[addr] = cloneMap(value)
+}
+
 // internalConfiguration returns the decoded value of an internal
 // configuration, or false when its node has not evaluated.
 func (e *Executor) internalConfiguration(addr string) (any, bool) {
@@ -113,6 +123,13 @@ func (e *Executor) internalConfiguration(addr string) (any, bool) {
 	defer e.internalMu.Unlock()
 	v, ok := e.internalConfigurations[addr]
 	return v, ok
+}
+
+func (e *Executor) internalConfigurationInput(addr string) (map[string]any, bool) {
+	e.internalMu.Lock()
+	defer e.internalMu.Unlock()
+	v, ok := e.internalConfigurationInputs[addr]
+	return cloneMap(v), ok
 }
 
 func (e *Executor) priorInternalConfiguration(addr string) (any, bool) {
@@ -265,6 +282,16 @@ func (e *Executor) configFor(n *Node) any {
 	return emptyDecodedConfig(e.librariesFor(n)[n.Alias])
 }
 
+func (e *Executor) configurationInputFor(n *Node) map[string]any {
+	if e.DAG != nil {
+		if addr, ok := libraryConfigNode(e.DAG.Nodes, n.Composite, n.Alias); ok {
+			value, _ := e.internalConfigurationInput(addr)
+			return value
+		}
+	}
+	return mapify(emptyDecodedConfig(e.librariesFor(n)[n.Alias]))
+}
+
 func emptyDecodedConfig(lib *Library) any {
 	if lib == nil || lib.Configuration == nil || !lib.Configuration.Empty() {
 		return nil
@@ -280,14 +307,14 @@ func (e *Executor) configForStateAddress(addr, alias string) (any, error) {
 	if e.DAG != nil {
 		scope := templateAddress(DirectParent(addr))
 		if configAddr, ok := libraryConfigNode(e.DAG.Nodes, scope, alias); ok {
-			if v, ok := e.priorInternalConfiguration(configAddr); ok {
-				return v, nil
-			}
 			if v, ok := e.internalConfiguration(configAddr); ok {
 				return v, nil
 			}
+			if v, ok := e.priorInternalConfiguration(configAddr); ok {
+				return v, nil
+			}
 			return nil, fmt.Errorf(
-				"library config %s could not be evaluated from prior state", configAddr)
+				"library config %s could not be evaluated", configAddr)
 		}
 	}
 	return emptyDecodedConfig(e.librariesForAddress(addr)[alias]), nil
@@ -600,6 +627,7 @@ func cloneEntry(ent *state.Entry) *state.Entry {
 	out.SensitiveOutputs = append([]string(nil), ent.SensitiveOutputs...)
 	out.Inputs = cloneMap(ent.Inputs)
 	out.Outputs = cloneMap(ent.Outputs)
+	out.Configuration = cloneMap(ent.Configuration)
 	out.DependsOn = append([]string(nil), ent.DependsOn...)
 	return &out
 }
