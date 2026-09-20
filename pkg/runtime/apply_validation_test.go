@@ -12,8 +12,6 @@ import (
 
 var errValidationFailed = errors.New("validation failed")
 
-var _ InputValidator[any] = (*validatingResource)(nil)
-
 type validationCounters struct {
 	creates     int64
 	updates     int64
@@ -28,54 +26,86 @@ type validatingResource struct {
 	counters *validationCounters
 }
 
-func (r *validatingResource) SchemaVersion() int { return 1 }
+type validatingResourceOutput struct {
+	ID    string
+	Name  string
+	Valid bool
+}
 
-func (r *validatingResource) ValidateInputs(_ context.Context, _ any) error {
-	atomic.AddInt64(&r.counters.validations, 1)
-	if !r.Valid {
+func validateResourceInput(
+	_ context.Context, input validatingResource, _ any,
+) error {
+	atomic.AddInt64(&input.counters.validations, 1)
+	if !input.Valid {
 		return errValidationFailed
 	}
 	return nil
 }
 
-func (r *validatingResource) Create(_ context.Context, _ any) (any, error) {
+func (r *validatingResource) Create(
+	_ context.Context,
+	_ any,
+) (*validatingResourceOutput, error) {
 	atomic.AddInt64(&r.counters.creates, 1)
-	return map[string]any{"id": "resource-" + r.Name, "name": r.Name, "valid": r.Valid}, nil
+	return &validatingResourceOutput{
+		ID:    "resource-" + r.Name,
+		Name:  r.Name,
+		Valid: r.Valid,
+	}, nil
 }
 
-func (r *validatingResource) Read(_ context.Context, _ any, prior any) (any, error) {
-	if prior == nil {
+func (r *validatingResource) Read(
+	_ context.Context, _ any, prior Prior[validatingResource, *validatingResourceOutput, any],
+) (*validatingResourceOutput, error) {
+	if prior.Outputs == nil {
 		return nil, ErrNotFound
 	}
-	return prior, nil
+	return prior.Outputs, nil
 }
 
 func (r *validatingResource) Update(
-	_ context.Context, _ any, prior Prior[validatingResource, any],
-) (any, error) {
+	_ context.Context, _ any, prior Prior[validatingResource, *validatingResourceOutput, any],
+) (*validatingResourceOutput, error) {
 	atomic.AddInt64(&r.counters.updates, 1)
-	out, _ := prior.Outputs.(map[string]any)
-	if out == nil {
-		out = map[string]any{}
+	output := prior.Outputs
+	if output == nil {
+		output = &validatingResourceOutput{}
 	}
-	out["name"] = r.Name
-	out["valid"] = r.Valid
-	return out, nil
+	output.Name = r.Name
+	output.Valid = r.Valid
+	return output, nil
 }
 
-func (r *validatingResource) Delete(_ context.Context, _ any, _ any) error {
+func (r *validatingResource) Delete(
+	_ context.Context, _ any, _ Prior[validatingResource, *validatingResourceOutput, any],
+) error {
 	atomic.AddInt64(&r.counters.deletes, 1)
 	return nil
 }
 
-func (r *validatingResource) ReplaceFields() []string { return []string{"name"} }
+func validatingResourceDefinition() ResourceDefinition[
+	validatingResource,
+	*validatingResourceOutput,
+	any,
+] {
+	return ResourceDefinition[validatingResource, *validatingResourceOutput, any]{
+		SchemaVersion: 1,
+		Validate:      validateResourceInput,
+		Replace: Replacement[validatingResource, *validatingResourceOutput, any]{
+			Fields: []AnyInputField[validatingResource]{
+				InputField(func(input *validatingResource) *string { return &input.Name }),
+			},
+		},
+	}
+}
 
 func validationModules(c *validationCounters) map[string]*Library {
 	return map[string]*Library{
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[validatingResource, any, any](
+				"thing": MakeResourceWith[validatingResource, *validatingResourceOutput, any](
+					validatingResourceDefinition(),
 					func() *validatingResource { return &validatingResource{counters: c} },
 				),
 			},
@@ -88,10 +118,12 @@ func bindingValidationModules(oldC, newC *validationCounters) map[string]*Librar
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"old": MakeResourceWith[validatingResource, any, any](
+				"old": MakeResourceWith[validatingResource, *validatingResourceOutput, any](
+					validatingResourceDefinition(),
 					func() *validatingResource { return &validatingResource{counters: oldC} },
 				),
-				"new": MakeResourceWith[validatingResource, any, any](
+				"new": MakeResourceWith[validatingResource, *validatingResourceOutput, any](
+					validatingResourceDefinition(),
 					func() *validatingResource { return &validatingResource{counters: newC} },
 				),
 			},
@@ -99,7 +131,7 @@ func bindingValidationModules(oldC, newC *validationCounters) map[string]*Librar
 	}
 }
 
-func TestInputValidatorPreventsCreate(t *testing.T) {
+func TestResourceValidationPreventsCreate(t *testing.T) {
 	var c validationCounters
 	store := newStateStore(t)
 	exec := validationExecutor(t, validationFixture(t, "create-invalid"), validationModules(&c), store)
@@ -110,7 +142,7 @@ func TestInputValidatorPreventsCreate(t *testing.T) {
 	require.EqualValues(t, 0, c.creates)
 }
 
-func TestInputValidatorPreventsUpdate(t *testing.T) {
+func TestResourceValidationPreventsUpdate(t *testing.T) {
 	var c validationCounters
 	store := newStateStore(t)
 	libs := validationModules(&c)
@@ -128,7 +160,7 @@ func TestInputValidatorPreventsUpdate(t *testing.T) {
 	require.EqualValues(t, 0, c.updates)
 }
 
-func TestInputValidatorRunsBeforeReplacementDelete(t *testing.T) {
+func TestResourceValidationRunsBeforeReplacementDelete(t *testing.T) {
 	var c validationCounters
 	store := newStateStore(t)
 	libs := validationModules(&c)
@@ -146,7 +178,7 @@ func TestInputValidatorRunsBeforeReplacementDelete(t *testing.T) {
 	require.EqualValues(t, 0, c.deletes)
 }
 
-func TestInputValidatorUsesDesiredReceiverBeforePriorBindingDelete(t *testing.T) {
+func TestResourceValidationUsesDesiredReceiverBeforePriorBindingDelete(t *testing.T) {
 	oldC := &validationCounters{}
 	newC := &validationCounters{}
 	store := newStateStore(t)
@@ -167,7 +199,7 @@ func TestInputValidatorUsesDesiredReceiverBeforePriorBindingDelete(t *testing.T)
 	require.EqualValues(t, 0, newC.creates)
 }
 
-func TestInputValidatorDoesNotRunForDestroy(t *testing.T) {
+func TestResourceValidationDoesNotRunForDestroy(t *testing.T) {
 	var c validationCounters
 	store := newStateStore(t)
 	seedIncrementalState(t, store, validationEntry("resource.one", "alpha", false))

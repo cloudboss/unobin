@@ -51,7 +51,11 @@ func Library() *runtime.Library {
 			},
 		},
 		Resources: map[string]runtime.ResourceRegistration{
-			"bucket": runtime.MakeResource[Bucket, *BucketOutput, *Configuration](),
+			"bucket": runtime.MakeResource[Bucket, *BucketOutput, *Configuration](
+				runtime.ResourceDefinition[Bucket, *BucketOutput, *Configuration]{
+					SchemaVersion: 1,
+				},
+			),
 		},
 	}
 }

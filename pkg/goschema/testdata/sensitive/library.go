@@ -10,7 +10,9 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "sensitive",
 		Resources: map[string]runtime.ResourceRegistration{
-			"secret": runtime.MakeResource[Secret, *SecretOutput, any](),
+			"secret": runtime.MakeResource[Secret, *SecretOutput, any](
+				runtime.ResourceDefinition[Secret, *SecretOutput, any]{SchemaVersion: 1},
+			),
 		},
 	}
 }
@@ -25,22 +27,24 @@ type SecretOutput struct {
 	Value string `ub:",sensitive"`
 }
 
-func (s *Secret) SchemaVersion() int { return 1 }
-
 func (s *Secret) Create(_ context.Context, _ any) (*SecretOutput, error) {
 	return nil, nil
 }
 
-func (s *Secret) Read(_ context.Context, _ any, _ *SecretOutput) (*SecretOutput, error) {
-	return nil, nil
-}
-
-func (s *Secret) Update(
-	_ context.Context, _ any, _ runtime.Prior[Secret, *SecretOutput],
+func (s *Secret) Read(
+	_ context.Context, _ any, _ runtime.Prior[Secret, *SecretOutput, any],
 ) (*SecretOutput, error) {
 	return nil, nil
 }
 
-func (s *Secret) Delete(_ context.Context, _ any, _ *SecretOutput) error {
+func (s *Secret) Update(
+	_ context.Context, _ any, _ runtime.Prior[Secret, *SecretOutput, any],
+) (*SecretOutput, error) {
+	return nil, nil
+}
+
+func (s *Secret) Delete(
+	_ context.Context, _ any, _ runtime.Prior[Secret, *SecretOutput, any],
+) error {
 	return nil
 }

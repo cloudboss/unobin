@@ -210,40 +210,55 @@ type profileResource struct {
 	capture *profileCapture
 }
 
-func (r *profileResource) Create(_ context.Context, _ any) (any, error) {
+type profileResourceOutput struct {
+	ID      string
+	Name    string
+	Profile *string
+}
+
+func (r *profileResource) Create(_ context.Context, _ any) (*profileResourceOutput, error) {
 	r.capture.add(r.Profile)
 	return profileOutput(r), nil
 }
 
-func (r *profileResource) Read(_ context.Context, _ any, prior any) (any, error) {
-	return prior, nil
+func (r *profileResource) Read(
+	_ context.Context, _ any, prior Prior[profileResource, *profileResourceOutput, any],
+) (*profileResourceOutput, error) {
+	return prior.Outputs, nil
 }
 
 func (r *profileResource) Update(
 	_ context.Context,
 	_ any,
-	_ Prior[profileResource, any],
-) (any, error) {
+	_ Prior[profileResource, *profileResourceOutput, any],
+) (*profileResourceOutput, error) {
 	r.capture.add(r.Profile)
 	return profileOutput(r), nil
 }
 
-func (r *profileResource) Delete(_ context.Context, _ any, _ any) error {
+func (r *profileResource) Delete(
+	_ context.Context, _ any, _ Prior[profileResource, *profileResourceOutput, any],
+) error {
 	return nil
 }
 
-func (r *profileResource) ReplaceFields() []string { return []string{"name"} }
-
-func (r *profileResource) SchemaVersion() int { return 1 }
-
-func profileOutput(r *profileResource) map[string]any {
-	out := map[string]any{"id": "fake-" + r.Name, "name": r.Name}
-	if r.Profile == nil {
-		out["profile"] = nil
-	} else {
-		out["profile"] = *r.Profile
+func profileResourceDefinition() ResourceDefinition[profileResource, *profileResourceOutput, any] {
+	return ResourceDefinition[profileResource, *profileResourceOutput, any]{
+		SchemaVersion: 1,
+		Replace: Replacement[profileResource, *profileResourceOutput, any]{
+			Fields: []AnyInputField[profileResource]{
+				InputField(func(input *profileResource) *string { return &input.Name }),
+			},
+		},
 	}
-	return out
+}
+
+func profileOutput(r *profileResource) *profileResourceOutput {
+	return &profileResourceOutput{
+		ID:      "fake-" + r.Name,
+		Name:    r.Name,
+		Profile: r.Profile,
+	}
 }
 
 func nullableDefaultExecutor(
@@ -256,7 +271,8 @@ func nullableDefaultExecutor(
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"profile": MakeResourceWith[profileResource, any, any](
+				"profile": MakeResourceWith[profileResource, *profileResourceOutput, any](
+					profileResourceDefinition(),
 					func() *profileResource { return &profileResource{capture: capture} },
 				),
 			},

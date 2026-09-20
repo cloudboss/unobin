@@ -14,7 +14,9 @@ func Library() *runtime.Library {
 			New: func() *Config { return &Config{} },
 		},
 		Resources: map[string]runtime.ResourceRegistration{
-			"server": runtime.MakeResource[Server, *ServerOutput, any](),
+			"server": runtime.MakeResource[Server, *ServerOutput, any](
+				runtime.ResourceDefinition[Server, *ServerOutput, any]{SchemaVersion: 1},
+			),
 		},
 		DataSources: map[string]runtime.DataSourceRegistration{
 			"lookup": runtime.MakeDataSource[Lookup, *LookupOutput, any](),

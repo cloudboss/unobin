@@ -524,3 +524,21 @@ func TestResourceDefinitionRejectsInvalidSelector(t *testing.T) {
 	})
 	require.ErrorContains(t, err, "does not select a field")
 }
+
+func TestResourceDefinitionRejectsValueOutput(t *testing.T) {
+	_, err := resolveResourceDefinition(ResourceDefinition[
+		replacementTestInput,
+		replacementTestOutput,
+		*replacementTestConfig,
+	]{SchemaVersion: 1})
+	require.ErrorContains(t, err, "resource outputs must be a pointer to a struct")
+}
+
+func TestResourceDefinitionRejectsInterfaceOutput(t *testing.T) {
+	_, err := resolveResourceDefinition(ResourceDefinition[
+		replacementTestInput,
+		any,
+		*replacementTestConfig,
+	]{SchemaVersion: 1})
+	require.ErrorContains(t, err, "resource outputs must be a pointer to a struct")
+}

@@ -286,7 +286,8 @@ func planForwardRefConstraintErr(t *testing.T, specs []lang.ConstraintSpec, body
 	t.Helper()
 	c := &resourceCounters{}
 	libs := resourceModules(c)
-	libs["core"].Resources["plain"] = MakeResourceWith[countingResource, any, any](
+	libs["core"].Resources["plain"] = MakeResourceWith[countingResource, *countingResourceOutput, any](
+		countingResourceDefinition(),
 		func() *countingResource { return &countingResource{counters: c} },
 	)
 	libs["core"].Constraints = map[string][]lang.ConstraintSpec{"resource.thing": specs}
@@ -1039,9 +1040,9 @@ func TestUpdateSeesObservedDriftAtApply(t *testing.T) {
 	applyOnce(t, planTestExecutor(t, src, libs, store, stack))
 
 	require.NotNil(t, c.gotUpdatePrior)
-	require.Equal(t, int64(1), c.gotUpdatePrior.Outputs.(map[string]any)["size"],
+	require.Equal(t, int64(1), c.gotUpdatePrior.Outputs.Size,
 		"Outputs is the result recorded by the last apply")
-	require.Equal(t, int64(99), c.gotUpdatePrior.Observed.(map[string]any)["size"],
+	require.Equal(t, int64(99), c.gotUpdatePrior.Observed.Size,
 		"Observed is what the plan-time Read saw, the drifted reality")
 }
 
@@ -1069,7 +1070,12 @@ func TestPlanMigratesPriorOutputsOnSchemaBump(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[migratingCountingResource, any, any](
+				"thing": MakeResourceWith[
+					migratingCountingResource,
+					*migratedCountingOutput,
+					any,
+				](
+					migratingCountingResourceDefinition(),
 					func() *migratingCountingResource {
 						return &migratingCountingResource{
 							countingResource: countingResource{counters: &c},
@@ -1124,7 +1130,8 @@ func TestPlanErrorsWhenSchemaBumpHasNoMigrate(t *testing.T) {
 		"core": {
 			Name: "core",
 			Resources: map[string]ResourceRegistration{
-				"thing": MakeResourceWith[countingResourceV2, any, any](
+				"thing": MakeResourceWith[countingResourceV2, *countingResourceOutput, any](
+					countingResourceV2Definition(),
 					func() *countingResourceV2 {
 						return &countingResourceV2{
 							countingResource: countingResource{counters: &c},
@@ -1203,7 +1210,10 @@ func TestApplyUpdateReceivesMigratedPriorInputs(t *testing.T) {
 	var c resourceCounters
 	libs := inputMigratingLibs(&c)
 	exec := planTestExecutor(t, src, libs, store, stack)
-	_, err = planAndApply(exec)
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, DecisionUpdate, findStep(t, plan, "resource.one").Decision)
+	_, err = planAndApplyExisting(exec, plan)
 	require.NoError(t, err)
 
 	require.NotNil(t, c.gotInputMigratePrior)
@@ -1249,7 +1259,7 @@ func TestPlanDefaultsOverlayPreventsSpuriousUpdate(t *testing.T) {
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha"},
-		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},
+		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": int64(0)},
 	})
 
 	var c resourceCounters
@@ -1303,7 +1313,7 @@ func TestApplyDefaultsOverlayAdditiveFieldMakesNoCloudUpdate(t *testing.T) {
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
 		Inputs:        map[string]any{"name": "alpha"},
-		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},
+		Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha", "size": int64(0)},
 	})
 
 	var c resourceCounters
@@ -1373,7 +1383,9 @@ func TestApplyDefaultsOverlayForEachIsNoOp(t *testing.T) {
 			Binding:       &state.Binding{Alias: "core", Export: "thing"},
 			SchemaVersion: 1,
 			Inputs:        map[string]any{"name": "alpha"},
-			Outputs:       map[string]any{"id": "fake-alpha", "name": "alpha"},
+			Outputs: map[string]any{
+				"id": "fake-alpha", "name": "alpha", "size": int64(0),
+			},
 		},
 		&state.Entry{
 			Address:       "resource.many['beta']",
@@ -1382,7 +1394,9 @@ func TestApplyDefaultsOverlayForEachIsNoOp(t *testing.T) {
 			Binding:       &state.Binding{Alias: "core", Export: "thing"},
 			SchemaVersion: 1,
 			Inputs:        map[string]any{"name": "beta"},
-			Outputs:       map[string]any{"id": "fake-beta", "name": "beta"},
+			Outputs: map[string]any{
+				"id": "fake-beta", "name": "beta", "size": int64(0),
+			},
 		},
 	)
 
@@ -1434,32 +1448,36 @@ type pendingObjectInput struct {
 	Broken int64
 }
 
-func (p *pendingListResource) Create(_ context.Context, _ any) (any, error) {
+type pendingListOutput struct {
+	ID string
+}
+
+func (p *pendingListResource) Create(_ context.Context, _ any) (*pendingListOutput, error) {
 	if p.SubnetIDs != nil && p.received != nil {
 		*p.received = append([]string{}, (*p.SubnetIDs)...)
 	}
-	return map[string]any{"id": "fake-" + p.Name}, nil
+	return &pendingListOutput{ID: "fake-" + p.Name}, nil
 }
 
-func (p *pendingListResource) Read(_ context.Context, _ any, prior any) (any, error) {
-	return prior, nil
+func (p *pendingListResource) Read(
+	_ context.Context, _ any, prior Prior[pendingListResource, *pendingListOutput, any],
+) (*pendingListOutput, error) {
+	return prior.Outputs, nil
 }
 
 func (p *pendingListResource) Update(
 	ctx context.Context,
 	cfg any,
-	_ Prior[pendingListResource, any],
-) (any, error) {
+	_ Prior[pendingListResource, *pendingListOutput, any],
+) (*pendingListOutput, error) {
 	return p.Create(ctx, cfg)
 }
 
-func (p *pendingListResource) Delete(_ context.Context, _ any, _ any) error {
+func (p *pendingListResource) Delete(
+	_ context.Context, _ any, _ Prior[pendingListResource, *pendingListOutput, any],
+) error {
 	return nil
 }
-
-func (p *pendingListResource) ReplaceFields() []string { return nil }
-
-func (p *pendingListResource) SchemaVersion() int { return 1 }
 
 func pendingPlanLibraries(
 	counters *resourceCounters,
@@ -1467,7 +1485,8 @@ func pendingPlanLibraries(
 ) map[string]*Library {
 	libs := resourceModules(counters)
 	libs["core"].Resources["pending-list"] =
-		MakeResourceWith[pendingListResource, any, any](
+		MakeResourceWith[pendingListResource, *pendingListOutput, any](
+			testResourceDefinition[pendingListResource, *pendingListOutput, any](),
 			func() *pendingListResource {
 				return &pendingListResource{received: received}
 			},

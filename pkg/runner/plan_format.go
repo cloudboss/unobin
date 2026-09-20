@@ -34,7 +34,7 @@ type planSummaryStep struct {
 	Composite          bool     `json:"composite"        ub:"composite"`
 	Drift              bool     `json:"drift"            ub:"drift"`
 	Gone               bool     `json:"gone"             ub:"gone"`
-	ReplacementReasons []string `json:"replace-triggers" ub:"replace-triggers"`
+	ReplacementReasons []string `json:"replacement-reasons" ub:"replacement-reasons"`
 	DeferredConfig     *string  `json:"deferred-config"  ub:"deferred-config"`
 }
 
@@ -71,7 +71,7 @@ func buildPlanSummary(
 	}
 	result := planSummaryResult{
 		Kind:          "plan-summary",
-		FormatVersion: 1,
+		FormatVersion: 2,
 		Factory:       factoryIdentityFor(info),
 		Stack:         plan.Stack,
 		Parallelism:   plan.Parallelism,

@@ -1,9 +1,8 @@
 # Resources
 
-A resource manages CRUD operations on an external object. It is implemented as
-an instance of the `runtime.TypedResource[In, Out, Config any]` interface.
-
-The following is a `runtime.TypedResource[File, *FileOutput, runtime.NoConfig]`:
+A resource implements provider operations with
+`runtime.TypedResource[In, Out, Config]`. Lifecycle policy belongs in one
+`runtime.ResourceDefinition` passed during registration.
 
 ```go
 type File struct {
@@ -17,143 +16,179 @@ type FileOutput struct {
     Exists bool
 }
 
-func (f *File) SchemaVersion() int { return 1 }
-func (f *File) ReplaceFields() []string { return []string{"path"} }
+func fileDefinition() runtime.ResourceDefinition[
+    File,
+    *FileOutput,
+    runtime.NoConfig,
+] {
+    path := runtime.InputField(func(input *File) *string {
+        return &input.Path
+    })
+    return runtime.ResourceDefinition[File, *FileOutput, runtime.NoConfig]{
+        SchemaVersion: 1,
+        Replace: runtime.Replacement[File, *FileOutput, runtime.NoConfig]{
+            Fields: []runtime.AnyInputField[File]{path},
+        },
+    }
+}
 
-func (f *File) Create(ctx context.Context, cfg runtime.NoConfig) (*FileOutput, error) {
+func (f *File) Create(
+    ctx context.Context,
+    config runtime.NoConfig,
+) (*FileOutput, error) {
     return writeFile(f.Path, f.Content)
 }
 
 func (f *File) Read(
     ctx context.Context,
-    cfg runtime.NoConfig,
-    prior *FileOutput,
+    config runtime.NoConfig,
+    prior runtime.Prior[File, *FileOutput, runtime.NoConfig],
 ) (*FileOutput, error) {
-    return readFile(prior)
+    return readFile(prior.Inputs.Path, prior.Outputs)
 }
 
 func (f *File) Update(
     ctx context.Context,
-    cfg runtime.NoConfig,
-    prior runtime.Prior[File, *FileOutput],
+    config runtime.NoConfig,
+    prior runtime.Prior[File, *FileOutput, runtime.NoConfig],
 ) (*FileOutput, error) {
     return writeFile(f.Path, f.Content)
 }
 
-func (f *File) Delete(ctx context.Context, cfg runtime.NoConfig, prior *FileOutput) error {
-    return removeFile(prior)
+func (f *File) Delete(
+    ctx context.Context,
+    config runtime.NoConfig,
+    prior runtime.Prior[File, *FileOutput, runtime.NoConfig],
+) error {
+    return removeFile(prior.Inputs.Path, prior.Observed)
 }
 ```
 
-Register it:
+Register the resource with its definition:
 
 ```go
 Resources: map[string]runtime.ResourceRegistration{
-    "file": runtime.MakeResource[File, *FileOutput, runtime.NoConfig](),
+    "file": runtime.MakeResource[File, *FileOutput, runtime.NoConfig](
+        fileDefinition(),
+    ),
 }
 ```
 
-Use `MakeResourceWith` when each receiver needs a constructed client, fake, or other external
-state. The constructor runs each time the runtime needs a receiver, then the resource body is
-decoded into that receiver.
+Use `MakeResourceWith` when each receiver needs a constructed client, fake, or
+other external state. Pass the definition first and the constructor second.
 
-## Read and not found
+## Prior target information
 
-Return `runtime.ErrNotFound` from `Read` when the external object is absent. The runtime treats
-that as a request to create it again.
+`runtime.Prior[In, Out, Config]` contains:
 
-`Read` runs during planning for resources that already have state. `Create`, `Update`, `Delete`,
-and replacement work run only during apply.
+- `Inputs`, the recorded inputs for the managed target.
+- `Outputs`, the outputs saved after the previous apply.
+- `Observed`, the latest read result. It is zero during `Read`, the saved
+  plan-time observation during `Update`, and the immediate observation during
+  `Delete`.
+- `Configuration`, the configuration recorded for the managed target.
 
-## Update
+The separate `Config` method argument is the current configuration. Use it for
+credentials, endpoints, timeouts, and other settings needed to perform the
+operation. Use `Prior.Configuration`, `Prior.Inputs`, and `Prior.Outputs` to
+identify the previously managed target.
 
-`runtime.Prior[In, Out]` includes:
+Return `runtime.ErrNotFound` from `Read` only when the recorded target is
+absent. The runtime then plans `Create`.
 
-- `Inputs`, the prior evaluated inputs.
-- `Outputs`, the prior resource outputs.
-- `Observed`, the plan-time read result.
+## Definition
 
-Use `runtime.Changed(prior.Inputs.Field, current.Field)` to compare decoded values.
+Every resource definition sets a positive `SchemaVersion`. It can also declare:
 
-## Replace fields
+- `Migrate` for older state entries.
+- `Validate` for checks that require decoded inputs or live configuration.
+- `Equality` for field-specific semantic equality.
+- `Replace` for input, configuration, and drift replacement rules.
+- `StableID` for an immutable provider object identifier.
 
-`ReplaceFields` names input fields that require replacement when changed. Other changes call `Update`.
-
-## Apply-time input validation
-
-For checks that need the decoded library config or an external lookup, implement
-`runtime.InputValidator[Config]` on the resource receiver:
+`Validate` runs before create, update, or replacement mutations. For a
+replacement it runs before the old target is deleted.
 
 ```go
-func (f *File) ValidateInputs(ctx context.Context, cfg runtime.NoConfig) error {
-    if f.Path == "" {
+Validate: func(
+    ctx context.Context,
+    input File,
+    config runtime.NoConfig,
+) error {
+    if input.Path == "" {
         return errors.New("path is required")
     }
     return nil
-}
+},
 ```
 
-The runtime calls `ValidateInputs` after decoding the desired inputs and before `Create`,
-`Update`, or the create side of a replacement. For a replacement, validation runs before the
-prior object is deleted. It is not called for no-op or destroy steps.
+Prefer schemas, defaults, and constraints for checks known from source.
 
-Prefer schemas, defaults, and constraints for checks that are known from source. Use
-`ValidateInputs` for runtime checks that cannot be expressed in the compile-time input schema.
+## Semantic equality
 
-## Equivalent inputs
-
-Implement `runtime.InputEquivalencer[In]` when two different input values represent the same
-value for a resource field. For example, an AWS Lambda function where both its name and ARN
-are equivalent:
+Use `runtime.EqualBy` when different input values mean the same thing to the
+provider:
 
 ```go
-func (r *Alias) EquivalentInput(field string, prior, current Alias) bool {
-	if field != "function-name" {
-		return false
-	}
-	return equivalentFunctionNameOrARN(prior.FunctionName, current.FunctionName)
-}
+functionName := runtime.InputField(func(input *Alias) *string {
+    return &input.FunctionName
+})
 
-func equivalentFunctionNameOrARN(prior, current string) bool {
-	if prior == current {
-		return true
-	}
-	if name, ok := lambdaFunctionNameFromIdentifier(prior); ok && name == current {
-		return true
-	}
-	if name, ok := lambdaFunctionNameFromIdentifier(current); ok && name == prior {
-		return true
-	}
-	return false
-}
+Equality: []runtime.InputEqualityRule[Alias]{
+    runtime.EqualBy(functionName, equivalentFunctionNameOrARN),
+},
 ```
 
-`field` is the Unobin field name from the resource body. If the method returns true, the
-field does not count as an input change for update planning, replacement triggers, or the
-apply-time plan premise check. Return true only when the resource implementation treats
-the two values the same.
+Equivalent desired values do not request update or replacement. A successful
+no-op stores the accepted value.
 
-## Resource plan modifiers
+## Replacement
 
-Implement `runtime.ResourcePlanModifier[In, Out, Config]` when a resource can tell the planner
-that an output will be recomputed at apply:
+`Replacement.Fields` lists input fields whose semantic changes always require
+replacement. `Replacement.Rules` applies a predicate after a selected input
+field changes.
 
 ```go
-func (f *File) ModifyResourcePlan(
-    req runtime.ResourcePlanRequest[File, *FileOutput, runtime.NoConfig],
-    resp *runtime.ResourcePlanResponse,
-) error {
-    if req.HasPriorState && runtime.Changed(req.PriorInputs.Content, req.CurrentInputs.Content) {
-        resp.MarkOutputUnknown("size")
-    }
-    return nil
-}
+capacity := runtime.InputField(func(input *Volume) *int64 {
+    return &input.Capacity
+})
+
+Replace: runtime.Replacement[Volume, *VolumeOutput, *Config]{
+    Rules: []runtime.ReplacementRule[Volume]{
+        runtime.ReplaceWhen(capacity, func(prior, desired int64) bool {
+            return desired < prior
+        }),
+    },
+},
 ```
 
-The request contains the decoded config, prior inputs, current inputs, prior outputs, and whether
-prior state exists. The runtime calls the method during planning for a resource with prior state,
-after current inputs decode.
+`ConfigurationFields` selects configuration changes that require replacement
+for this resource. Credential changes otherwise produce a no-op when inputs and
+remote state are unchanged.
 
-`MarkOutputUnknown` names output fields that apply will recompute. A later node that reads one
-of those fields waits for apply instead of using the prior value in the plan. Marking an output
-unknown also makes the resource a possible update unless replacement already applies.
+`Drift` selects output changes that require replacement. A resource with drift
+replacement rules must declare `StableID`:
+
+```go
+generation := runtime.OutputField(func(output *BucketOutput) *int64 {
+    return &output.Generation
+})
+
+Replace: runtime.Replacement[Bucket, *BucketOutput, *Config]{
+    Drift: []runtime.DriftRule[*BucketOutput]{
+        runtime.ReplaceOnDrift(generation, func(recorded, observed int64) bool {
+            return recorded != observed
+        }),
+    },
+},
+StableID: func(_ Bucket, output *BucketOutput) (string, error) {
+    return output.ProviderID, nil
+},
+```
+
+A stable ID must be non-empty, immutable for one provider object, and different
+for a later object that reuses the same name. The runtime checks it during
+planning and immediately before deletion.
+
+Selectors are typed field references. Registration rejects invalid, duplicate,
+or overlapping selectors and nil callbacks.

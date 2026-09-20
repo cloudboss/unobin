@@ -521,36 +521,58 @@ type stateMoveUpdateFailureResource struct {
 	Size int64
 }
 
-func (r *stateMoveUpdateFailureResource) Create(_ context.Context, _ any) (any, error) {
-	return map[string]any{"id": r.Name, "size": r.Size}, nil
+type stateMoveUpdateFailureOutput struct {
+	ID   string
+	Size int64
 }
 
-func (r *stateMoveUpdateFailureResource) Read(_ context.Context, _ any, prior any) (any, error) {
-	return prior, nil
+func (r *stateMoveUpdateFailureResource) Create(
+	_ context.Context,
+	_ any,
+) (*stateMoveUpdateFailureOutput, error) {
+	return &stateMoveUpdateFailureOutput{ID: r.Name, Size: r.Size}, nil
+}
+
+func (r *stateMoveUpdateFailureResource) Read(
+	_ context.Context,
+	_ any,
+	prior Prior[stateMoveUpdateFailureResource, *stateMoveUpdateFailureOutput, any],
+) (*stateMoveUpdateFailureOutput, error) {
+	return prior.Outputs, nil
 }
 
 func (r *stateMoveUpdateFailureResource) Update(
 	_ context.Context,
 	_ any,
-	_ Prior[stateMoveUpdateFailureResource, any],
-) (any, error) {
+	_ Prior[stateMoveUpdateFailureResource, *stateMoveUpdateFailureOutput, any],
+) (*stateMoveUpdateFailureOutput, error) {
 	return nil, errors.New("intentional update failure")
 }
 
-func (r *stateMoveUpdateFailureResource) Delete(_ context.Context, _ any, _ any) error {
+func (r *stateMoveUpdateFailureResource) Delete(
+	_ context.Context,
+	_ any,
+	_ Prior[stateMoveUpdateFailureResource, *stateMoveUpdateFailureOutput, any],
+) error {
 	return nil
 }
-
-func (r *stateMoveUpdateFailureResource) ReplaceFields() []string { return nil }
-
-func (r *stateMoveUpdateFailureResource) SchemaVersion() int { return 1 }
 
 func stateMoveUpdateFailureLibs() map[string]*Library {
 	libs := resourceModules(&resourceCounters{})
 	libs["bad"] = &Library{
 		Name: "bad",
 		Resources: map[string]ResourceRegistration{
-			"thing": MakeResource[stateMoveUpdateFailureResource, any, any](),
+			"thing": MakeResource[
+				stateMoveUpdateFailureResource,
+				*stateMoveUpdateFailureOutput,
+				any,
+			](
+				testResourceDefinition[
+					stateMoveUpdateFailureResource,
+					*stateMoveUpdateFailureOutput,
+					any,
+				](),
+			),
 		},
 	}
 	return libs

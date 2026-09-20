@@ -11,8 +11,12 @@ func Library() *runtime.Library {
 	return &runtime.Library{
 		Name: "tls",
 		Resources: map[string]runtime.ResourceRegistration{
-			"cert":   runtime.MakeResource[Cert, *CertOutput, any](),
-			"policy": runtime.MakeResource[Policy, *PolicyOutput, any](),
+			"cert": runtime.MakeResource[Cert, *CertOutput, any](
+				runtime.ResourceDefinition[Cert, *CertOutput, any]{SchemaVersion: 1},
+			),
+			"policy": runtime.MakeResource[Policy, *PolicyOutput, any](
+				runtime.ResourceDefinition[Policy, *PolicyOutput, any]{SchemaVersion: 1},
+			),
 		},
 	}
 }
@@ -43,21 +47,25 @@ type CertOutput struct {
 	ARN string
 }
 
-func (c *Cert) SchemaVersion() int { return 1 }
-
 func (c *Cert) Create(_ context.Context, _ any) (*CertOutput, error) { return nil, nil }
 
-func (c *Cert) Read(_ context.Context, _ any, _ *CertOutput) (*CertOutput, error) {
-	return nil, nil
-}
-
-func (c *Cert) Update(
-	_ context.Context, _ any, _ runtime.Prior[Cert, *CertOutput],
+func (c *Cert) Read(
+	_ context.Context, _ any, _ runtime.Prior[Cert, *CertOutput, any],
 ) (*CertOutput, error) {
 	return nil, nil
 }
 
-func (c *Cert) Delete(_ context.Context, _ any, _ *CertOutput) error { return nil }
+func (c *Cert) Update(
+	_ context.Context, _ any, _ runtime.Prior[Cert, *CertOutput, any],
+) (*CertOutput, error) {
+	return nil, nil
+}
+
+func (c *Cert) Delete(
+	_ context.Context, _ any, _ runtime.Prior[Cert, *CertOutput, any],
+) error {
+	return nil
+}
 
 type Policy struct {
 	Tier    string `ub:"tier"`
@@ -84,18 +92,22 @@ type PolicyOutput struct {
 	ARN string
 }
 
-func (p *Policy) SchemaVersion() int { return 1 }
-
 func (p *Policy) Create(_ context.Context, _ any) (*PolicyOutput, error) { return nil, nil }
 
-func (p *Policy) Read(_ context.Context, _ any, _ *PolicyOutput) (*PolicyOutput, error) {
-	return nil, nil
-}
-
-func (p *Policy) Update(
-	_ context.Context, _ any, _ runtime.Prior[Policy, *PolicyOutput],
+func (p *Policy) Read(
+	_ context.Context, _ any, _ runtime.Prior[Policy, *PolicyOutput, any],
 ) (*PolicyOutput, error) {
 	return nil, nil
 }
 
-func (p *Policy) Delete(_ context.Context, _ any, _ *PolicyOutput) error { return nil }
+func (p *Policy) Update(
+	_ context.Context, _ any, _ runtime.Prior[Policy, *PolicyOutput, any],
+) (*PolicyOutput, error) {
+	return nil, nil
+}
+
+func (p *Policy) Delete(
+	_ context.Context, _ any, _ runtime.Prior[Policy, *PolicyOutput, any],
+) error {
+	return nil
+}
