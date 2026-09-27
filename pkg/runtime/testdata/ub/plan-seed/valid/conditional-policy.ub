@@ -1,0 +1,8 @@
+inputs: { tag: { type: string } }
+resources: {
+  queue: core.queue { tag: input.tag, ref: 'queue-1' }
+  policy: core.policy {
+    queue-url: resource.queue.id
+    policy: $'allow {{ resource.queue.id }}'
+  }
+}
