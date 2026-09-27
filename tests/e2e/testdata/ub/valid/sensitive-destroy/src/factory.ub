@@ -1,0 +1,21 @@
+factory: {
+  imports: { e2e: 'example.com/unobin/e2elib' }
+
+  inputs: {
+    e2e-config: {
+      type: library-config('example.com/unobin/e2elib')
+      default: { base-dir: '.', event-log-path: 'events.ndjson' }
+    }
+    values: { type: map(string) }
+  }
+
+  library-configs: { e2e: input.e2e-config }
+
+  resources: {
+    secret: e2e.secret {
+      @for-each: input.values
+      label: @each.key
+      value: @each.value
+    }
+  }
+}

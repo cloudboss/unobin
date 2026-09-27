@@ -1,0 +1,9 @@
+  (create)  resource.secret  (for-each, 2 instances)
+    (create)  ['keep']
+        label: 'keep'
+        value: <sensitive>
+    (create)  ['remove']
+        label: 'remove'
+        value: <sensitive>
+
+Plan: 2 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.

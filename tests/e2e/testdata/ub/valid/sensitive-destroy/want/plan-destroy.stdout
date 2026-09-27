@@ -1,0 +1,6 @@
+  (destroy) resource.secret  (for-each, 1 instance)
+    (destroy) ['keep']
+        label: 'keep'
+        value: <sensitive>
+
+Plan: 0 to create, 0 to update, 0 to replace, 1 to destroy, 0 to rerun.
