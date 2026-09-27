@@ -1,5 +1,11 @@
 # Installation
 
+Download a CLI archive for Linux or macOS from
+[GitHub Releases](https://github.com/cloudboss/unobin/releases), together with its
+`.sha256` file. Verify it with `sha256sum -c <archive>.sha256` on Linux or
+`shasum -a 256 -c <archive>.sha256` on macOS, extract the archive, and place
+`unobin` on your `PATH`.
+
 Install the Unobin CLI with Go:
 
 ```

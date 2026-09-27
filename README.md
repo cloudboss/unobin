@@ -4,6 +4,10 @@ Unobin means _one binary_. It's a tool for infrastructure automation inspired by
 
 Read the [full docs](https://cloudboss.co/docs/unobin).
 
+Download CLI archives from [GitHub Releases](https://github.com/cloudboss/unobin/releases).
+See the [changelog](CHANGELOG.md) for release notes and
+[release instructions](RELEASING.md) for the maintainer process.
+
 ![Apply UI showing an apply run](docs/assets/apply-ui.webp)
 
 ## Quickstart

@@ -1,5 +1,11 @@
 version: "2"
 linters:
+  exclusions:
+    rules:
+      # These generic methods are called through the Any*Field interfaces.
+      - linters: [unused]
+        path: ^pkg/runtime/replacement_field\.go$
+        text: 'func .*Descriptor\[.*\]\.(inputField|configurationField|outputField) is unused'
   settings:
     errcheck:
       exclude-functions:

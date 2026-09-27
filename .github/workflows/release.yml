@@ -1,0 +1,52 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check-release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - run: make check-release
+        env:
+          VERSION: ${{ github.ref_name }}
+
+  test-build:
+    needs: check-release
+    uses: ./.github/workflows/common.yml
+    with:
+      version: ${{ github.ref_name }}
+
+  release:
+    runs-on: ubuntu-24.04
+    needs: test-build
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: unobin-*
+          path: artifacts
+          merge-multiple: true
+      - run: make check-release-assets DIR_RELEASE=artifacts
+        env:
+          VERSION: ${{ github.ref_name }}
+      - uses: docker://antonyurchenko/git-release:v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ALLOW_EMPTY_CHANGELOG: "false"
+        with:
+          args: |
+            artifacts/unobin-${{ github.ref_name }}-*.tar.gz
+            artifacts/unobin-${{ github.ref_name }}-*.tar.gz.sha256
