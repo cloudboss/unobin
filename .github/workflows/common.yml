@@ -1,0 +1,54 @@
+name: common
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      upload_artifacts:
+        type: boolean
+        required: false
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - run: make test
+
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - run: make lint
+
+  build-unobin:
+    runs-on: ubuntu-24.04
+    needs:
+      - test
+      - lint
+    strategy:
+      matrix:
+        os: [linux, darwin]
+        arch: [amd64, arm64]
+    env:
+      VERSION: ${{ inputs.version }}
+      OS: ${{ matrix.os }}
+      ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v5
+      - run: make release-one
+      - run: make check-archive
+      - run: make check-cli-version
+        if: matrix.os == 'linux' && matrix.arch == 'amd64'
+      - if: inputs.upload_artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: unobin-${{ matrix.os }}-${{ matrix.arch }}
+          path: _output/release/unobin-${{ inputs.version }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz*
+          if-no-files-found: error
