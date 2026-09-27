@@ -1,0 +1,19 @@
+ARG FROM
+FROM ${FROM}
+
+ARG USER_ID
+ARG GROUP_ID
+
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y \
+        git nodejs npm python3 && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN if ! getent group "${GROUP_ID}" >/dev/null; then \
+        groupadd -g "${GROUP_ID}" builder; \
+    fi \
+    && if ! getent passwd "${USER_ID}" >/dev/null; then \
+        useradd -u "${USER_ID}" -g "${GROUP_ID}" builder; \
+    fi
+
+USER ${USER_ID}:${GROUP_ID}
