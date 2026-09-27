@@ -581,6 +581,8 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 				PriorOutputs:       prior.Outputs,
 				PriorConfiguration: prior.Configuration,
 				DependsOn:          prior.DependsOn,
+				SensitiveInputs:    prior.SensitiveInputs,
+				SensitiveOutputs:   prior.SensitiveOutputs,
 			})
 		}
 	}

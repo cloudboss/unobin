@@ -1,0 +1,82 @@
+{
+  "name": "sensitive-destroy",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/sensitive-destroy",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan-create",
+      "args": [
+        "plan",
+        "--ascii",
+        "-c",
+        "stacks/create/dev.ub",
+        "-o",
+        "create.ubp"
+      ],
+      "stdout": "want/plan-create.stdout",
+      "stderr": "want/plan-create.stderr"
+    },
+    {
+      "name": "apply-create",
+      "args": [
+        "apply",
+        "--format",
+        "json",
+        "create.ubp"
+      ],
+      "stdout": "want/apply-create.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-orphan",
+      "args": [
+        "plan",
+        "--ascii",
+        "-c",
+        "stacks/update/dev.ub",
+        "-o",
+        "orphan.ubp"
+      ],
+      "stdout": "want/plan-orphan.stdout",
+      "stderr": "want/plan-orphan.stderr"
+    },
+    {
+      "name": "apply-orphan",
+      "args": [
+        "apply",
+        "--format",
+        "json",
+        "orphan.ubp"
+      ],
+      "stdout": "want/apply-orphan.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-destroy",
+      "args": [
+        "plan",
+        "--ascii",
+        "--destroy",
+        "-c",
+        "stacks/update/dev.ub",
+        "-o",
+        "destroy.ubp"
+      ],
+      "stdout": "want/plan-destroy.stdout",
+      "stderr": "want/plan-destroy.stderr"
+    },
+    {
+      "name": "apply-destroy",
+      "args": [
+        "apply",
+        "--format",
+        "json",
+        "destroy.ubp"
+      ],
+      "stdout": "want/apply-destroy.stdout",
+      "normalize": "json"
+    }
+  ],
+  "stateSummary": "want/state-summary.json"
+}
