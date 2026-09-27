@@ -1,0 +1,8 @@
+stack: {
+  parallelism: 1
+  state: local { path: '.unobin/state' }
+  encryption: noop {}
+  factory: {
+    inputs: { values: { keep: 'kept-secret-value', remove: 'removed-secret-value' } }
+  }
+}
