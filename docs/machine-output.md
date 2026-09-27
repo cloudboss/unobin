@@ -358,11 +358,22 @@ The summary has required integer fields `create`, `read`, `update`, `replace`,
 `destroy`, `rerun`, `skip`, `no-op`, and `eval`. These are also all decision enum
 values.
 
+When a resource has multiple permitted outcomes, `summary.conditional` counts it
+instead of the individual decision counts. This field is omitted when zero.
+
 Each step has required `address`, `category`, `decision`, `composite`, `drift`,
 `gone`, `replacement-reasons`, and `deferred-config`. `deferred-config` is string or
 null. Step category uses the graph category enum. A summary contains no input,
 output, prior, or observed values and no sensitivity lists. Without `-o`, both
 `plan-digest` and `file` are null.
+
+A step with unresolved lifecycle comparisons also has `allowed-decisions`.
+Its `decision` is the conservative operation used for dependency planning;
+apply selects one of the permitted decisions after dependencies finish.
+`replacement-reasons` contains confirmed reasons. Optional
+`pending-replacement-reasons` lists checks awaiting resolved inputs,
+configuration, or an observation deferred by pending configuration. Apply events
+report the resolved operation. These fields use the existing version 2 format.
 
 #### Refresh and output
 

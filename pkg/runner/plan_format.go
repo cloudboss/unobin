@@ -11,15 +11,16 @@ import (
 )
 
 type planDecisionSummary struct {
-	Create  int `json:"create"  ub:"create"`
-	Read    int `json:"read"    ub:"read"`
-	Update  int `json:"update"  ub:"update"`
-	Replace int `json:"replace" ub:"replace"`
-	Destroy int `json:"destroy" ub:"destroy"`
-	Rerun   int `json:"rerun"   ub:"rerun"`
-	Skip    int `json:"skip"    ub:"skip"`
-	NoOp    int `json:"no-op"   ub:"no-op"`
-	Eval    int `json:"eval"    ub:"eval"`
+	Create      int `json:"create"  ub:"create"`
+	Read        int `json:"read"    ub:"read"`
+	Update      int `json:"update"  ub:"update"`
+	Replace     int `json:"replace" ub:"replace"`
+	Destroy     int `json:"destroy" ub:"destroy"`
+	Rerun       int `json:"rerun"   ub:"rerun"`
+	Skip        int `json:"skip"    ub:"skip"`
+	NoOp        int `json:"no-op"   ub:"no-op"`
+	Eval        int `json:"eval"    ub:"eval"`
+	Conditional int `json:"conditional,omitempty" ub:"conditional,omitempty"`
 }
 
 type planStateMove struct {
@@ -36,6 +37,10 @@ type planSummaryStep struct {
 	Gone               bool     `json:"gone"             ub:"gone"`
 	ReplacementReasons []string `json:"replacement-reasons" ub:"replacement-reasons"`
 	DeferredConfig     *string  `json:"deferred-config"  ub:"deferred-config"`
+
+	AllowedDecisions []runtime.Decision `json:"allowed-decisions,omitempty" ub:",omitempty"`
+
+	PendingReplacementReasons []string `json:"pending-replacement-reasons,omitempty" ub:",omitempty"`
 }
 
 type planSummaryResult struct {
@@ -111,7 +116,9 @@ func buildPlanSummary(
 		if step == nil {
 			return planSummaryResult{}, fmt.Errorf("plan summary: nil step")
 		}
-		if err := incrementPlanDecision(&result.Summary, step.Decision); err != nil {
+		if len(step.AllowedDecisions) > 1 {
+			result.Summary.Conditional++
+		} else if err := incrementPlanDecision(&result.Summary, step.Decision); err != nil {
 			return planSummaryResult{}, err
 		}
 		reasons := slices.Clone(step.ReplacementReasons)
@@ -125,14 +132,16 @@ func buildPlanSummary(
 			deferred = &value
 		}
 		result.Steps = append(result.Steps, planSummaryStep{
-			Address:            step.Address,
-			Category:           string(step.Kind),
-			Decision:           string(step.Decision),
-			Composite:          step.Composite,
-			Drift:              step.Drift(),
-			Gone:               step.Gone() || step.AlreadyGone,
-			ReplacementReasons: reasons,
-			DeferredConfig:     deferred,
+			Address:                   step.Address,
+			Category:                  string(step.Kind),
+			Decision:                  string(step.Decision),
+			Composite:                 step.Composite,
+			Drift:                     step.Drift(),
+			Gone:                      step.Gone() || step.AlreadyGone,
+			ReplacementReasons:        reasons,
+			DeferredConfig:            deferred,
+			AllowedDecisions:          slices.Clone(step.AllowedDecisions),
+			PendingReplacementReasons: slices.Clone(step.PendingReplacementReasons),
 		})
 	}
 	slices.SortFunc(result.Steps, func(a, b planSummaryStep) int {

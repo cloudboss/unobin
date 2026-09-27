@@ -71,7 +71,11 @@ type ResourceRegistration interface {
 	ValidateInputs(ctx context.Context, receiver, cfg any) error
 	Delete(ctx context.Context, receiver, cfg any, prior resourcePrior) error
 	InputsEqual(receiver any, priorInputs map[string]any) (bool, error)
+	KnownInputsEqual(receiver any, priorInputs map[string]any, pending map[string][]string) (bool, error)
 	ReplacementReasons(receiver, cfg any, prior resourcePrior) ([]string, error)
+	KnownReplacementReasons(
+		receiver, cfg any, prior resourcePrior, pending map[string][]string, configPending bool,
+	) ([]string, error)
 	PendingReplacementReasons(unresolved map[string][]string, configPending bool) []string
 	StableID(inputs, outputs map[string]any) (*string, error)
 	HasStableID() bool
@@ -300,15 +304,27 @@ func (typedResourceReg[T, Out, Config, PT]) Delete(
 func (r typedResourceReg[T, Out, Config, PT]) InputsEqual(
 	receiver any, priorInputs map[string]any,
 ) (bool, error) {
+	return r.KnownInputsEqual(receiver, priorInputs, nil)
+}
+
+func (r typedResourceReg[T, Out, Config, PT]) KnownInputsEqual(
+	receiver any, priorInputs map[string]any, pending map[string][]string,
+) (bool, error) {
 	prior, err := coerceResourceInputs[T](priorInputs)
 	if err != nil {
 		return false, err
 	}
-	return r.definition.inputsEqual(prior, *receiver.(*T))
+	return r.definition.knownInputsEqual(prior, *receiver.(*T), pending)
 }
 
 func (r typedResourceReg[T, Out, Config, PT]) ReplacementReasons(
 	receiver, cfg any, rawPrior resourcePrior,
+) ([]string, error) {
+	return r.KnownReplacementReasons(receiver, cfg, rawPrior, nil, false)
+}
+
+func (r typedResourceReg[T, Out, Config, PT]) KnownReplacementReasons(
+	receiver, cfg any, rawPrior resourcePrior, pending map[string][]string, configPending bool,
 ) ([]string, error) {
 	prior, err := makeTypedPrior[T, Out, Config](rawPrior)
 	if err != nil {
@@ -318,13 +334,15 @@ func (r typedResourceReg[T, Out, Config, PT]) ReplacementReasons(
 	if err != nil {
 		return nil, err
 	}
-	return r.definition.replacementReasons(
+	return r.definition.knownReplacementReasons(
 		prior.Inputs,
 		*receiver.(*T),
 		prior.Configuration,
 		config,
 		prior.Outputs,
 		prior.Observed,
+		pending,
+		configPending,
 	)
 }
 
@@ -346,6 +364,9 @@ func (r typedResourceReg[T, Out, Config, PT]) PendingReplacementReasons(
 	if configPending {
 		for _, field := range r.definition.configurationFields {
 			reasons = append(reasons, field.path)
+		}
+		for _, rule := range r.definition.driftRules {
+			reasons = append(reasons, rule.field.path)
 		}
 	}
 	slices.Sort(reasons)

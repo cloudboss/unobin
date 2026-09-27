@@ -152,7 +152,12 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (result *ExecRes
 	}, nil
 }
 
-func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) error {
+func (e *Executor) applyStep(
+	ctx context.Context, rs *runState, step *PlanStep, start func(),
+) error {
+	if step.Kind != NodeResource || step.Composite || step.Decision == DecisionDestroy {
+		start()
+	}
 	// A node's @timeout bounds how long its step may run. The deadline is
 	// read from the DAG node, so an orphan destroy (whose source node is
 	// gone) is never bounded. On expiry the operation sees a cancelled
@@ -183,7 +188,7 @@ func (e *Executor) applyStep(ctx context.Context, rs *runState, step *PlanStep) 
 	case NodeAction:
 		return e.applyAction(ctx, rs, step)
 	case NodeResource:
-		return e.applyResource(ctx, rs, step)
+		return e.applyResource(ctx, rs, step, start)
 	case NodeDataSource:
 		return e.applyData(ctx, rs, step)
 	case NodeOutput:
@@ -282,7 +287,9 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 	return nil
 }
 
-func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanStep) error {
+func (e *Executor) applyResource(
+	ctx context.Context, rs *runState, step *PlanStep, start func(),
+) error {
 	prep, err := e.prepareStep(rs, step.Address)
 	if err != nil {
 		return err
@@ -316,22 +323,56 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		)
 	}
 	if step.Decision != DecisionCreate {
-		decision, reasons, err := e.reclassifyResourceApply(
-			rt,
-			receiver,
-			step,
-			cfg,
-		)
-		if err != nil {
-			return err
+		missing := false
+		if step.DeferredConfig != "" {
+			readRT, readAlias, readCfg := rt, prep.node.Alias, cfg
+			if step.PriorBinding != nil && !sameBinding(step.PriorBinding, step.Binding) {
+				readRT, readAlias, err = e.resourceRegistrationForBinding(step.Address, step.PriorBinding)
+				if err != nil {
+					return err
+				}
+				readCfg, err = e.configForStateAddress(step.Address, readAlias)
+				if err != nil {
+					return err
+				}
+			}
+			observed, err := e.readObserved(ctx, readRT, readAlias, readCfg, resourcePrior{
+				Inputs: step.PriorInputs, Outputs: step.PriorOutputs,
+				Configuration: step.PriorConfiguration,
+			})
+			if err != nil && !errors.Is(err, ErrNotFound) {
+				return diagnostic.Context("deferred read", err)
+			}
+			missing = errors.Is(err, ErrNotFound)
+			if !missing {
+				expected, err := stableIDForObservation(
+					readRT, step.PriorInputs, step.PriorOutputs, observed,
+				)
+				if err != nil {
+					return diagnostic.Context("deferred read", err)
+				}
+				step.ExpectedStableID = expected
+				step.ObservedOutputs = observed
+			}
 		}
-		if decision != step.Decision || !slices.Equal(reasons, step.ReplacementReasons) {
+		decision := DecisionCreate
+		var reasons []string
+		if !missing {
+			decision, reasons, err = e.reclassifyResourceApply(rt, receiver, step, cfg)
+			if err != nil {
+				return err
+			}
+		}
+		if !resourceDecisionAllowed(step, decision, reasons) {
 			return fmt.Errorf(
 				"resource %s decision changed since the plan was computed; plan again",
 				step.Address,
 			)
 		}
+		step.Decision = decision
+		step.ReplacementReasons = reasons
 	}
+	start()
 	switch step.Decision {
 	case DecisionCreate, DecisionUpdate, DecisionReplace:
 		if err := rt.ValidateInputs(ctx, receiver, cfg); err != nil {
@@ -488,6 +529,30 @@ func (e *Executor) applyResource(ctx context.Context, rs *runState, step *PlanSt
 		return err
 	}
 	return nil
+}
+
+func resourceDecisionAllowed(step *PlanStep, decision Decision, reasons []string) bool {
+	if len(step.AllowedDecisions) == 0 {
+		return decision == step.Decision && slices.Equal(reasons, step.ReplacementReasons)
+	}
+	if !slices.Contains(step.AllowedDecisions, decision) {
+		return false
+	}
+	if decision == DecisionCreate && step.DeferredConfig != "" {
+		return true
+	}
+	for _, reason := range step.ReplacementReasons {
+		if !slices.Contains(reasons, reason) {
+			return false
+		}
+	}
+	for _, reason := range reasons {
+		if !slices.Contains(step.ReplacementReasons, reason) &&
+			!slices.Contains(step.PendingReplacementReasons, reason) {
+			return false
+		}
+	}
+	return true
 }
 
 func (e *Executor) reclassifyResourceApply(

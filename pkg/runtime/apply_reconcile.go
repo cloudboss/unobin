@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/cloudboss/unobin/pkg/sdk/state"
@@ -23,7 +24,15 @@ import (
 // next plan to read again, and never fails an apply whose own work has
 // already succeeded.
 func (e *Executor) reconcileChangedOutputs(ctx context.Context, rs *runState, pf *PlanFile) {
-	addrs := reconcileTargets(pf, rs.dependsOn)
+	applied := *pf
+	applied.Steps = slices.Clone(pf.Steps)
+	for i := range applied.Steps {
+		step := &applied.Steps[i]
+		if decision, ok := rs.appliedDecisions[step.Address]; ok {
+			step.Decision = decision
+		}
+	}
+	addrs := reconcileTargets(&applied, rs.dependsOn)
 	entries := make([]*state.Entry, 0, len(addrs))
 	for _, addr := range addrs {
 		if ent := rs.next.Find(addr); ent != nil {

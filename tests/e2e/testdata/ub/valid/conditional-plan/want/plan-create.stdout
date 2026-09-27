@@ -1,0 +1,19 @@
+  (create)  resource.replaced
+      body: {value: 'constant'}
+      name: <resource.source.sha256>
+  (create)  resource.source
+      body: {value: 'one'}
+      name: 'source'
+  (create)  resource.tail
+      content: <resource.unchanged.id, resource.updated.id>
+      create-parents: true
+      mode: 420
+      path: 'tail.txt'
+  (create)  resource.unchanged
+      body: {value: 'constant'}
+      name: <resource.source.id>
+  (create)  resource.updated
+      body: {value: 'one'}
+      name: <resource.source.id>
+
+Plan: 5 to create, 0 to update, 0 to replace, 0 to destroy, 0 to rerun.

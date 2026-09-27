@@ -1,0 +1,10 @@
+{
+  "format-version": 2,
+  "factory": {
+    "name": "conditional-plan",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "entries": []
+}

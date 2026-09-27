@@ -356,8 +356,24 @@ func (definition resolvedResourceDefinition[In, Out, Config]) replacementReasons
 	priorConfig, desiredConfig Config,
 	recordedOutputs, observedOutputs Out,
 ) ([]string, error) {
+	return definition.knownReplacementReasons(
+		priorInputs, desiredInputs, priorConfig, desiredConfig,
+		recordedOutputs, observedOutputs, nil, false,
+	)
+}
+
+func (definition resolvedResourceDefinition[In, Out, Config]) knownReplacementReasons(
+	priorInputs, desiredInputs In,
+	priorConfig, desiredConfig Config,
+	recordedOutputs, observedOutputs Out,
+	pending map[string][]string,
+	configPending bool,
+) ([]string, error) {
 	reasons := map[string]bool{}
 	for _, field := range definition.replacementFields {
+		if _, unknown := pending[topLevelPath(field.path)]; unknown {
+			continue
+		}
 		equal, err := definition.inputFieldEqual(field, priorInputs, desiredInputs)
 		if err != nil {
 			return nil, err
@@ -367,6 +383,9 @@ func (definition resolvedResourceDefinition[In, Out, Config]) replacementReasons
 		}
 	}
 	for _, rule := range definition.replacementRules {
+		if _, unknown := pending[topLevelPath(rule.field.path)]; unknown {
+			continue
+		}
 		equal, err := definition.inputFieldEqual(rule.field, priorInputs, desiredInputs)
 		if err != nil {
 			return nil, err
@@ -389,11 +408,17 @@ func (definition resolvedResourceDefinition[In, Out, Config]) replacementReasons
 		}
 	}
 	for _, field := range definition.configurationFields {
+		if configPending {
+			continue
+		}
 		if !selectedFieldsEqual(priorConfig, desiredConfig, field.index) {
 			reasons[field.path] = true
 		}
 	}
 	for _, rule := range definition.driftRules {
+		if configPending {
+			continue
+		}
 		if selectedFieldsEqual(recordedOutputs, observedOutputs, rule.field.index) {
 			continue
 		}
@@ -478,12 +503,19 @@ func selectedReflectValue(value reflect.Value, index []int) (reflect.Value, bool
 func (definition resolvedResourceDefinition[In, Out, Config]) inputsEqual(
 	prior, desired In,
 ) (bool, error) {
+	return definition.knownInputsEqual(prior, desired, nil)
+}
+
+func (definition resolvedResourceDefinition[In, Out, Config]) knownInputsEqual(
+	prior, desired In, pending map[string][]string,
+) (bool, error) {
 	return definition.inputValuesEqual(
 		prior,
 		desired,
 		reflect.ValueOf(prior),
 		reflect.ValueOf(desired),
 		nil,
+		pending,
 	)
 }
 
@@ -491,6 +523,7 @@ func (definition resolvedResourceDefinition[In, Out, Config]) inputValuesEqual(
 	priorRoot, desiredRoot In,
 	priorValue, desiredValue reflect.Value,
 	index []int,
+	pending map[string][]string,
 ) (bool, error) {
 	for _, rule := range definition.equality {
 		if slices.Equal(index, rule.field.index) {
@@ -521,12 +554,18 @@ func (definition resolvedResourceDefinition[In, Out, Config]) inputValuesEqual(
 		if !field.IsExported() || tag.Skip {
 			continue
 		}
+		if len(index) == 0 {
+			if _, unknown := pending[tag.FieldName(field.Name)]; unknown {
+				continue
+			}
+		}
 		equal, err := definition.inputValuesEqual(
 			priorRoot,
 			desiredRoot,
 			priorValue.Field(i),
 			desiredValue.Field(i),
 			appendFieldIndex(index, i),
+			pending,
 		)
 		if err != nil || !equal {
 			return equal, err

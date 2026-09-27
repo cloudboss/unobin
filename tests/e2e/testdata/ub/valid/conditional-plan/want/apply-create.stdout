@@ -1,0 +1,16 @@
+{"kind":"command-diagnostic","format-version":1,"sequence":1,"timestamp":"<timestamp>","diagnostic":{"code":"unobin.factory.replaced-toolchain","severity":"info","message":"github.com/cloudboss/unobin is replaced; this factory runs <repo>, not v0.0.0-unobin-replaced"}}
+{"kind":"apply-event","format-version":1,"sequence":2,"timestamp":"<timestamp>","stage":"start","decision":"eval","address":"library-config.e2e"}
+{"kind":"apply-event","format-version":1,"sequence":3,"timestamp":"<timestamp>","stage":"done","decision":"eval","address":"library-config.e2e","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":4,"timestamp":"<timestamp>","stage":"start","decision":"create","address":"resource.source"}
+{"kind":"apply-event","format-version":1,"sequence":5,"timestamp":"<timestamp>","stage":"done","decision":"create","address":"resource.source","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":6,"timestamp":"<timestamp>","stage":"start","decision":"create","address":"resource.replaced"}
+{"kind":"apply-event","format-version":1,"sequence":7,"timestamp":"<timestamp>","stage":"done","decision":"create","address":"resource.replaced","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":8,"timestamp":"<timestamp>","stage":"start","decision":"create","address":"resource.unchanged"}
+{"kind":"apply-event","format-version":1,"sequence":9,"timestamp":"<timestamp>","stage":"done","decision":"create","address":"resource.unchanged","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":10,"timestamp":"<timestamp>","stage":"start","decision":"create","address":"resource.updated"}
+{"kind":"apply-event","format-version":1,"sequence":11,"timestamp":"<timestamp>","stage":"done","decision":"create","address":"resource.updated","elapsed":"<elapsed>"}
+{"kind":"apply-event","format-version":1,"sequence":12,"timestamp":"<timestamp>","stage":"start","decision":"create","address":"resource.tail"}
+{"kind":"apply-event","format-version":1,"sequence":13,"timestamp":"<timestamp>","stage":"done","decision":"create","address":"resource.tail","elapsed":"<elapsed>"}
+{"kind":"apply-output","format-version":1,"sequence":14,"timestamp":"<timestamp>","name":"tail","value":"source-unchanged source-updated","sensitive":false}
+{"kind":"apply-output","format-version":1,"sequence":15,"timestamp":"<timestamp>","name":"value","value":"one","sensitive":false}
+{"kind":"apply-result","format-version":1,"sequence":16,"timestamp":"<timestamp>","started-at":"<timestamp>","finished-at":"<timestamp>","elapsed":"<elapsed>","state-rev":"<revision>","output-count":2}
