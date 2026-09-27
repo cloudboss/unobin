@@ -6,7 +6,7 @@ import "time"
 type ApplyStage string
 
 const (
-	// StageStart fires when the scheduler hands the step to a worker.
+	// StageStart fires after a worker resolves the operation it will execute.
 	StageStart ApplyStage = "start"
 	// StageDone fires when the worker reports a successful result.
 	StageDone ApplyStage = "done"

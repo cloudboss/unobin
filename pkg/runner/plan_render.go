@@ -52,8 +52,12 @@ func printPlan(out io.Writer, plan *runtime.Plan, ascii bool) {
 	c := summarize(leaves)
 	fmt.Fprintln(out)
 	fmt.Fprintf(out,
-		"Plan: %d to create, %d to update, %d to replace, %d to destroy, %d to rerun.\n",
+		"Plan: %d to create, %d to update, %d to replace, %d to destroy, %d to rerun",
 		c.create, c.update, c.replace, c.destroy, c.rerun)
+	if c.conditional > 0 {
+		fmt.Fprintf(out, ", %d conditional", c.conditional)
+	}
+	fmt.Fprintln(out, ".")
 }
 
 func printStateMoves(out io.Writer, moves []runtime.PlannedEntryMove) bool {
@@ -163,8 +167,8 @@ func renderPlanTree(out io.Writer, t *planTree, parent string, depth int, ascii 
 			continue
 		}
 		fmt.Fprintf(out, "%s%s %s%s\n",
-			symPad, decisionSymbol(child.Decision, ascii), relTo(child.Address, parent),
-			destroyNote(child))
+			symPad, stepDecisionSymbol(child, ascii), relTo(child.Address, parent),
+			destroyNote(child)+conditionalNote(child))
 		renderStepInputs(out, fieldPad, child)
 		i++
 	}
@@ -219,7 +223,36 @@ func replaceNote(step *runtime.PlanStep, field string) string {
 	if slices.Contains(step.ReplacementReasons, field) {
 		return "  (forces replacement)"
 	}
+	for _, reason := range step.PendingReplacementReasons {
+		if reason == field || strings.HasPrefix(reason, field+".") {
+			return "  (replacement depends on resolved value)"
+		}
+	}
 	return ""
+}
+
+func stepDecisionSymbol(step *runtime.PlanStep, ascii bool) string {
+	if len(step.AllowedDecisions) > 1 {
+		if ascii {
+			return "[?]"
+		}
+		return "?"
+	}
+	return decisionSymbol(step.Decision, ascii)
+}
+
+func conditionalNote(step *runtime.PlanStep) string {
+	if len(step.AllowedDecisions) <= 1 {
+		return ""
+	}
+	labels := make([]string, len(step.AllowedDecisions))
+	for i, decision := range step.AllowedDecisions {
+		labels[i] = string(decision)
+		if decision == runtime.DecisionNoOp {
+			labels[i] = "no change"
+		}
+	}
+	return "  (" + strings.Join(labels, " or ") + ")"
 }
 
 // renderForEachGroup renders all per-instance steps that share the
@@ -269,7 +302,7 @@ func renderForEachGroup(
 	for _, inst := range changing {
 		_, k := runtime.SplitInstanceAddress(inst.Address)
 		fmt.Fprintf(out, "%s%s ['%s']%s\n",
-			instSymPad, decisionSymbol(inst.Decision, ascii), k, destroyNote(inst))
+			instSymPad, stepDecisionSymbol(inst, ascii), k, destroyNote(inst)+conditionalNote(inst))
 		renderStepInputs(out, instFieldPad, inst)
 	}
 	return end - start
@@ -420,11 +453,16 @@ func sameJSONValue(a, b any) bool {
 
 type planCounts struct {
 	create, update, replace, destroy, rerun int
+	conditional                             int
 }
 
 func summarize(steps []*runtime.PlanStep) planCounts {
 	var c planCounts
 	for _, s := range steps {
+		if len(s.AllowedDecisions) > 1 {
+			c.conditional++
+			continue
+		}
 		switch s.Decision {
 		case runtime.DecisionCreate:
 			c.create++

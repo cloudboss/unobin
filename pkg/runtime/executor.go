@@ -371,7 +371,8 @@ type runState struct {
 	// computes it once before dispatch and each apply method copies the
 	// relevant slice onto the state entry it writes. Destroy ordering
 	// reverses these edges.
-	dependsOn map[string][]string
+	dependsOn        map[string][]string
+	appliedDecisions map[string]Decision
 
 	// mu serializes mutation of eval, composites, next, and outputs,
 	// plus calls to Store.Write / Store.SetCurrent. Apply takes the
@@ -850,13 +851,13 @@ func sameInputs(a, b map[string]any) bool {
 }
 
 func (e *Executor) sameResourceInputs(
-	rt ResourceRegistration, receiver any, prior map[string]any,
+	rt ResourceRegistration, receiver any, prior map[string]any, pending map[string][]string,
 ) (bool, error) {
 	resolvedPrior, err := e.resolveAssetMap(prior)
 	if err != nil {
 		return false, diagnostic.Context("prior inputs", err)
 	}
-	return rt.InputsEqual(receiver, resolvedPrior)
+	return rt.KnownInputsEqual(receiver, resolvedPrior, pending)
 }
 
 func (e *Executor) resolveResourcePrior(prior resourcePrior) (resourcePrior, error) {

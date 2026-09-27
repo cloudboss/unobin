@@ -1,0 +1,19 @@
+  (destroy) resource.replaced
+      body: {value: 'constant'}
+      name: '52dfa1e0acfe810804741f896301cf7f08e376cb9bb9d0d244a6683478b07905-replaced'
+  (destroy) resource.source
+      body: {value: 'two'}
+      name: 'source'
+  (destroy) resource.tail
+      content: 'source-unchanged source-updated'
+      create-parents: true
+      mode: 420
+      path: 'tail.txt'
+  (destroy) resource.unchanged
+      body: {value: 'constant'}
+      name: 'source-unchanged'
+  (destroy) resource.updated
+      body: {value: 'two'}
+      name: 'source-updated'
+
+Plan: 0 to create, 0 to update, 0 to replace, 5 to destroy, 0 to rerun.

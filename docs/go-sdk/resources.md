@@ -192,3 +192,15 @@ planning and immediately before deletion.
 
 Selectors are typed field references. Registration rejects invalid, duplicate,
 or overlapping selectors and nil callbacks.
+
+When an input depends on an upstream output that may change, its comparisons
+wait until that output resolves. Equality and replacement callbacks receive
+concrete values. An unknown member makes its atomic collection pending; an
+explicit null is a concrete value.
+
+The saved plan records the permitted operations and pending replacement checks.
+Apply resolves these after dependencies finish and executes the selected
+operation within the same apply. An unchanged upstream ID can therefore leave
+its dependent unchanged, or let a separate mutable change update it. A changed
+replacement field still replaces it. Confirmed inputs, replacement reasons,
+validation, and prior-target identity checks remain enforced.

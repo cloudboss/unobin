@@ -15,12 +15,11 @@ import (
 // the drain, so re-plan plus apply will pick up the remainder.
 var ErrInterrupted = errors.New("apply: interrupted")
 
-// stepResult is what a worker hands back to the scheduler when it
-// finishes a step. A nil err means the step completed successfully and
-// its dependents may be promoted.
+// Workers report the resolved operation before execution and the result afterward.
 type stepResult struct {
-	step *PlanStep
-	err  error
+	step    *PlanStep
+	err     error
+	started bool
 }
 
 type applyReadyItem struct {
@@ -60,6 +59,7 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 	}
 	graph := buildStepGraph(pf, e.DAG)
 	rs.dependsOn = persistedDependsOn(graph, pf.Steps)
+	rs.appliedDecisions = make(map[string]Decision, len(pf.Steps))
 	parallelism := min(e.effectiveParallelism(), len(pf.Steps))
 
 	steps := make([]*PlanStep, len(pf.Steps))
@@ -88,14 +88,20 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 	var wg sync.WaitGroup
 	for range parallelism {
 		wg.Go(func() {
-			for step := range ready {
+			for planned := range ready {
+				step := *planned
+				start := sync.OnceFunc(func() {
+					started := step
+					results <- stepResult{step: &started, started: true}
+				})
 				// Library calls recover their own panics; this guard is the
 				// backstop for a panic in the runtime's own step handling,
 				// so a defect there fails the step instead of the process.
 				err := guardErr("applying this step", true, func() error {
-					return e.applyStep(ctx, rs, step)
+					return e.applyStep(ctx, rs, &step, start)
 				})
-				results <- stepResult{step: step, err: err}
+				start()
+				results <- stepResult{step: &step, err: err}
 			}
 		})
 	}
@@ -164,6 +170,13 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 	}
 
 	handleResult := func(r stepResult) {
+		if r.started {
+			emit(ApplyEvent{
+				Address: r.step.Address, Kind: r.step.Kind, Composite: r.step.Composite,
+				Decision: r.step.Decision, Stage: StageStart,
+			})
+			return
+		}
 		inFlight--
 		if lock := graph.locks[r.step.Address]; lock != "" {
 			releaseLock(lock)
@@ -200,6 +213,7 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 			halted = true
 			return
 		}
+		rs.appliedDecisions[r.step.Address] = r.step.Decision
 		emit(ApplyEvent{
 			Address: r.step.Address, Kind: r.step.Kind, Composite: r.step.Composite,
 			Decision: r.step.Decision,
@@ -236,11 +250,6 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 					heldLocks[lock] = true
 				}
 				startedAt[next.step.Address] = time.Now()
-				emit(ApplyEvent{
-					Address: next.step.Address, Kind: next.step.Kind,
-					Composite: next.step.Composite, Decision: next.step.Decision,
-					Stage: StageStart,
-				})
 			case r := <-results:
 				heap.Push(&readySteps, next)
 				handleResult(r)

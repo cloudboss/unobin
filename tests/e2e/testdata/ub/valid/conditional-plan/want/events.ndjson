@@ -1,0 +1,14 @@
+{"operation":"create","kind":"object","name":"source","path":"objects/source.json","sha256":"ead4dddbdfddaf9b1b2fd8d9fd17a2d1ad8d965c011cc5b01029e5ae393f842e"}
+{"operation":"create","kind":"object","name":"ead4dddbdfddaf9b1b2fd8d9fd17a2d1ad8d965c011cc5b01029e5ae393f842e-replaced","path":"objects/ead4dddbdfddaf9b1b2fd8d9fd17a2d1ad8d965c011cc5b01029e5ae393f842e-replaced.json","sha256":"f37fd4a64a330fad60fad468ce3482a0f4494bcf67ed9d1d9dea64ca59965669"}
+{"operation":"create","kind":"object","name":"source-unchanged","path":"objects/source-unchanged.json","sha256":"f37fd4a64a330fad60fad468ce3482a0f4494bcf67ed9d1d9dea64ca59965669"}
+{"operation":"create","kind":"object","name":"source-updated","path":"objects/source-updated.json","sha256":"ead4dddbdfddaf9b1b2fd8d9fd17a2d1ad8d965c011cc5b01029e5ae393f842e"}
+{"operation":"create","kind":"file","path":"tail.txt","sha256":"169c42ee645f460aabdb64cf6b9a59953ac5b6aed3c6ada93c77061ec52894cd"}
+{"operation":"update","kind":"object","name":"source","path":"objects/source.json","sha256":"52dfa1e0acfe810804741f896301cf7f08e376cb9bb9d0d244a6683478b07905"}
+{"operation":"delete","kind":"object","path":"objects/ead4dddbdfddaf9b1b2fd8d9fd17a2d1ad8d965c011cc5b01029e5ae393f842e-replaced.json"}
+{"operation":"create","kind":"object","name":"52dfa1e0acfe810804741f896301cf7f08e376cb9bb9d0d244a6683478b07905-replaced","path":"objects/52dfa1e0acfe810804741f896301cf7f08e376cb9bb9d0d244a6683478b07905-replaced.json","sha256":"f37fd4a64a330fad60fad468ce3482a0f4494bcf67ed9d1d9dea64ca59965669"}
+{"operation":"update","kind":"object","name":"source-updated","path":"objects/source-updated.json","sha256":"52dfa1e0acfe810804741f896301cf7f08e376cb9bb9d0d244a6683478b07905"}
+{"operation":"delete","kind":"object","path":"objects/52dfa1e0acfe810804741f896301cf7f08e376cb9bb9d0d244a6683478b07905-replaced.json"}
+{"operation":"delete","kind":"file","path":"tail.txt"}
+{"operation":"delete","kind":"object","path":"objects/source-unchanged.json"}
+{"operation":"delete","kind":"object","path":"objects/source-updated.json"}
+{"operation":"delete","kind":"object","path":"objects/source.json"}

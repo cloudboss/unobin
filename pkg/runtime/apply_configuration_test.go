@@ -583,7 +583,10 @@ func TestDriftReadSkippedWhileLibraryConfigPending(t *testing.T) {
 	require.Empty(t, seen)
 	step := findStep(t, plan, "resource.app")
 	require.Equal(t, "library-config.fix", step.DeferredConfig)
-	require.Equal(t, DecisionNoOp, step.Decision)
+	require.Equal(t, []Decision{DecisionCreate, DecisionNoOp, DecisionUpdate}, step.AllowedDecisions)
+	_, err = planAndApplyExisting(fresh, plan)
+	require.NoError(t, err)
+	require.Equal(t, []string{"id-https://b"}, seen)
 }
 
 func TestDestroyUsesLibraryConfigFromState(t *testing.T) {

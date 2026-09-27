@@ -13,3 +13,10 @@ func TestCompiledCases(t *testing.T) {
 		e2etest.WithGoModule("example.com/unobin/e2elib", "testdata/modules/e2elib"),
 	)
 }
+
+func TestConditionalCompiledPlan(t *testing.T) {
+	e2etest.RunCompiledCases(t, "testdata/ub/valid/conditional-plan",
+		e2etest.WithUnobinDir(filepath.Join("..", "..")),
+		e2etest.WithGoModule("example.com/unobin/e2elib", "testdata/modules/e2elib"),
+	)
+}

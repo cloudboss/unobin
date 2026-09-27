@@ -1,0 +1,18 @@
+inputs: {
+  tag: { type: string }
+  ref: { type: string }
+  name: { type: string }
+  size: { type: integer }
+}
+resources: {
+  source: core.source { tag: input.tag, ref: input.ref }
+  consumer: core.consumer {
+    ref: resource.source.id
+    name: input.name
+    size: input.size
+  }
+  tail: core.tail { ref: resource.consumer.id }
+}
+outputs: {
+  id: { value: resource.tail.ref }
+}

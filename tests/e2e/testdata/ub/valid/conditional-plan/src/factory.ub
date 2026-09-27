@@ -1,0 +1,38 @@
+factory: {
+  inputs: {
+    value: { type: string }
+    e2e-config: {
+      type: library-config('example.com/unobin/e2elib')
+      default: {
+        base-dir: '.'
+        event-log-path: 'events.ndjson'
+        nested: { label: 'nested' }
+      }
+    }
+  }
+  imports: { e2e: 'example.com/unobin/e2elib' }
+  library-configs: { e2e: input.e2e-config }
+  resources: {
+    source: e2e.object { name: 'source', body: { value: input.value } }
+    unchanged: e2e.object {
+      name: $'{{ resource.source.id }}-unchanged'
+      body: { value: 'constant' }
+    }
+    updated: e2e.object {
+      name: $'{{ resource.source.id }}-updated'
+      body: { value: input.value }
+    }
+    replaced: e2e.object {
+      name: $'{{ resource.source.sha256 }}-replaced'
+      body: { value: 'constant' }
+    }
+    tail: e2e.file {
+      path: 'tail.txt'
+      content: $'{{ resource.unchanged.id }} {{ resource.updated.id }}'
+    }
+  }
+  outputs: {
+    value: { value: resource.updated.body.value }
+    tail: { value: resource.tail.content }
+  }
+}

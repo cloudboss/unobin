@@ -1,0 +1,19 @@
+  [?] resource.replaced  (no change or update or replace)
+      body: {value: 'constant'}
+      name: 'ead4dddbdfddaf9b1b2fd8d9fd17a2d1ad8d965c011cc5b01029e5ae393f842e-replaced' -> <resource.source.sha256>  (replacement depends on resolved value)
+  (update)  resource.source
+      body: {value: 'one'} -> {value: 'two'}
+      name: 'source'
+  [?] resource.tail  (no change or update)
+      content: 'source-unchanged source-updated' -> <resource.unchanged.id, resource.updated.id>
+      create-parents: true
+      mode: 420
+      path: 'tail.txt'
+  [?] resource.unchanged  (no change or update or replace)
+      body: {value: 'constant'}
+      name: 'source-unchanged' -> <resource.source.id>  (replacement depends on resolved value)
+  [?] resource.updated  (update or replace)
+      body: {value: 'one'} -> {value: 'two'}
+      name: 'source-updated' -> <resource.source.id>  (replacement depends on resolved value)
+
+Plan: 0 to create, 1 to update, 0 to replace, 0 to destroy, 0 to rerun, 4 conditional.

@@ -328,10 +328,8 @@ const (
 // when the resource has drifted out of band. For actions, TriggerHash
 // is the hash that determines whether to rerun or skip.
 //
-// UnresolvedInputs names the input fields whose plan-time evaluation
-// hit a forward reference (an upstream node with no prior state). Each
-// entry maps the field name to the source-side dot paths the body
-// reads from. Apply re-evaluates these against the live scope.
+// UnresolvedInputs names fields that depend on outputs unavailable until apply.
+// Each entry maps the field name to the source-side paths the body reads.
 type PlanStep struct {
 	Address string         `json:"address"`
 	Kind    NodeKind       `json:"node-kind"`
@@ -351,8 +349,8 @@ type PlanStep struct {
 	UnresolvedInputs map[string][]string `json:"unresolved-inputs,omitempty"`
 
 	// DeferredConfig names the library-config node whose pending evaluation
-	// kept this node's read from running at plan. The stored state is taken as
-	// current for the decision; apply and the next plan see real values.
+	// kept this node's read from running at plan. Apply reads the target when
+	// configuration resolves, before selecting a permitted operation.
 	DeferredConfig string `json:"deferred-config,omitempty"`
 
 	// PriorInputs is the body the last apply evaluated, recorded so the plan
@@ -369,6 +367,10 @@ type PlanStep struct {
 
 	// ReplacementReasons names the canonical fields that require recreation.
 	ReplacementReasons []string `json:"replacement-reasons,omitempty"`
+
+	// AllowedDecisions records the operations permitted after pending values resolve.
+	AllowedDecisions          []Decision `json:"allowed-decisions,omitempty"`
+	PendingReplacementReasons []string   `json:"pending-replacement-reasons,omitempty"`
 
 	// ExpectedStableID identifies the provider object observed during planning.
 	ExpectedStableID *string `json:"expected-stable-id,omitempty"`
@@ -395,15 +397,8 @@ type PlanStep struct {
 	// propagation through its body.
 	SensitiveOutputs []string `json:"sensitive-outputs,omitempty"`
 
-	// regeneratesOutputs marks a step whose planned action produces a
-	// new object (a resource replace, an action rerun), so every prior
-	// output dies with the old one. The plan walk must not seed them: a
-	// downstream reader sees those fields as unknown-until-apply
-	// instead of values the apply is about to invalidate. An update is
-	// not marked: it preserves the object, so its prior outputs stay
-	// readable, and one that changes an output anyway is caught by the
-	// apply-time premise check. Plan-walk state only; not part of the
-	// plan file.
+	// regeneratesOutputs marks steps that may create a new object. Updates
+	// instead use mayChangeOutputs to keep computed outputs pending.
 	regeneratesOutputs bool
 
 	// mayChangeOutputs marks a step whose planned action could leave
@@ -1388,14 +1383,14 @@ func (e *Executor) planOneResource(
 	if implementationChanged {
 		step.ReplacementReasons = []string{"binding"}
 	} else {
-		inputsSame, err = e.sameResourceInputs(rt, probe, priorInputs)
+		inputsSame, err = e.sameResourceInputs(rt, probe, priorInputs, unresolved)
 		if err != nil {
 			return nil, err
 		}
 	}
 	configAddr, configPending := e.pendingInternalConfig(n)
 	if !implementationChanged {
-		step.ReplacementReasons = rt.PendingReplacementReasons(unresolved, configPending)
+		step.PendingReplacementReasons = rt.PendingReplacementReasons(unresolved, configPending)
 	}
 	if configPending && !implementationChanged {
 		resolvedPrior, err := e.resolveResourcePrior(resourcePrior{
@@ -1407,10 +1402,12 @@ func (e *Executor) planOneResource(
 		if err != nil {
 			return nil, err
 		}
-		reasons, err := rt.ReplacementReasons(
+		reasons, err := rt.KnownReplacementReasons(
 			probe,
 			e.configFor(n),
 			resolvedPrior,
+			unresolved,
+			true,
 		)
 		if err != nil {
 			return nil, err
@@ -1419,22 +1416,13 @@ func (e *Executor) planOneResource(
 	}
 	slices.Sort(step.ReplacementReasons)
 	step.ReplacementReasons = slices.Compact(step.ReplacementReasons)
-	step.mayChangeOutputs = implementationChanged || !inputsSame
-	step.regeneratesOutputs = len(step.ReplacementReasons) > 0
-	// A pending internal configuration means the read cannot run: there
-	// is nothing valid to hand the API client. The stored state stands
-	// in for the observed world, so drift goes unchecked this plan and
-	// the decision comes from the input diff alone.
+	step.mayChangeOutputs = implementationChanged || !inputsSame || len(unresolved) > 0
+	step.regeneratesOutputs = len(step.ReplacementReasons) > 0 ||
+		len(step.PendingReplacementReasons) > 0
+	// A pending configuration defers observation and its possible decisions to apply.
 	if configPending {
 		step.DeferredConfig = configAddr
-		switch {
-		case step.regeneratesOutputs:
-			step.Decision = DecisionReplace
-		case step.mayChangeOutputs:
-			step.Decision = DecisionUpdate
-		default:
-			step.Decision = DecisionNoOp
-		}
+		setResourceDecision(step, inputsSame)
 		return step, nil
 	}
 	readConfig := e.configFor(n)
@@ -1631,6 +1619,8 @@ func (e *Executor) finalizeResourceRead(pr *pendingRead) error {
 	if errors.Is(pr.err, ErrNotFound) {
 		pr.step.Decision = DecisionCreate
 		pr.step.ReplacementReasons = nil
+		pr.step.PendingReplacementReasons = nil
+		pr.step.AllowedDecisions = nil
 		pr.step.regeneratesOutputs = true
 		pr.step.mayChangeOutputs = true
 		return nil
@@ -1658,10 +1648,12 @@ func (e *Executor) finalizeResourceRead(pr *pendingRead) error {
 		if err != nil {
 			return err
 		}
-		reasons, err := pr.classifyRT.ReplacementReasons(
+		reasons, err := pr.classifyRT.KnownReplacementReasons(
 			pr.receiver,
 			pr.desiredCfg,
 			resolvedPrior,
+			pr.step.UnresolvedInputs,
+			false,
 		)
 		if err != nil {
 			return err
@@ -1670,20 +1662,43 @@ func (e *Executor) finalizeResourceRead(pr *pendingRead) error {
 		slices.Sort(pr.step.ReplacementReasons)
 		pr.step.ReplacementReasons = slices.Compact(pr.step.ReplacementReasons)
 	}
-	if len(pr.step.ReplacementReasons) > 0 {
-		pr.step.Decision = DecisionReplace
+	setResourceDecision(pr.step, pr.inputsSame)
+	if pr.step.Decision == DecisionReplace {
 		pr.step.ExpectedStableID = expected
-		pr.step.regeneratesOutputs = true
-		pr.step.mayChangeOutputs = true
-		return nil
 	}
-	if !pr.inputsSame || pr.step.Drift() {
-		pr.step.Decision = DecisionUpdate
-		pr.step.mayChangeOutputs = true
-		return nil
-	}
-	pr.step.Decision = DecisionNoOp
 	return nil
+}
+
+func setResourceDecision(step *PlanStep, inputsSame bool) {
+	changed := !inputsSame || step.Drift()
+	step.Decision = DecisionNoOp
+	if changed {
+		step.Decision = DecisionUpdate
+	}
+	if len(step.ReplacementReasons) > 0 {
+		step.Decision = DecisionReplace
+	}
+	if len(step.UnresolvedInputs) > 0 || step.DeferredConfig != "" {
+		var allowed []Decision
+		if step.DeferredConfig != "" {
+			allowed = append(allowed, DecisionCreate)
+		}
+		if len(step.ReplacementReasons) == 0 {
+			if !changed {
+				allowed = append(allowed, DecisionNoOp)
+			}
+			allowed = append(allowed, DecisionUpdate)
+			step.Decision = DecisionUpdate
+		}
+		if len(step.ReplacementReasons) > 0 || len(step.PendingReplacementReasons) > 0 {
+			allowed = append(allowed, DecisionReplace)
+			step.Decision = DecisionReplace
+		}
+		step.AllowedDecisions = allowed
+	}
+	step.mayChangeOutputs = step.Decision != DecisionNoOp
+	step.regeneratesOutputs = step.Decision == DecisionReplace ||
+		slices.Contains(step.AllowedDecisions, DecisionCreate)
 }
 
 // upgradeActionRerun walks plan steps in order and turns a Skip action

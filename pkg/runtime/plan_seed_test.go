@@ -141,8 +141,7 @@ func pinnedResourceDefinition() ResourceDefinition[pinnedResource, *subnetLikeOu
 	}
 }
 
-// An update keeps its outputs pending until apply. A downstream
-// replacement field therefore selects replacement conservatively.
+// Pending replacement inputs can resolve unchanged within the same apply.
 func TestUpdateKeepsDependentReplacementInputPending(t *testing.T) {
 	libs := map[string]*Library{
 		"core": {
@@ -175,19 +174,12 @@ func TestUpdateKeepsDependentReplacementInputPending(t *testing.T) {
 	inst := findStep(t, plan, "resource.it")
 	require.Equal(t, DecisionReplace, inst.Decision)
 	require.Contains(t, inst.UnresolvedInputs, "ref")
-	require.Equal(t, []string{"ref"}, inst.ReplacementReasons)
+	require.Empty(t, inst.ReplacementReasons)
+	require.Equal(t, []string{"ref"}, inst.PendingReplacementReasons)
+	require.Equal(t, []Decision{DecisionNoOp, DecisionUpdate, DecisionReplace}, inst.AllowedDecisions)
 
 	_, err = planAndApplyExisting(second, plan)
-	require.ErrorContains(t, err, "decision changed since the plan was computed")
-
-	third := &Executor{
-		DAG: g, SyntaxSource: syntaxSource, Libraries: libs, Store: store, Factory: stack,
-		Inputs: map[string]any{"t": "2"},
-	}
-	plan, err = third.Plan(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.a").Decision)
-	require.Equal(t, DecisionNoOp, findStep(t, plan, "resource.it").Decision)
 }
 
 // A replace regenerates the object, so its prior outputs are not
