@@ -89,7 +89,7 @@ func newLocalBackend(
 
 // S3BackendConfig is the operator-facing body under `state: s3 { ... }`.
 // The aws object holds the shared AWS connection settings from
-// pkg/awscfg; bucket, prefix, kms-key-id, and use-path-style are the
+// pkg/awscfg; bucket, prefix, kms-key-id, use-path-style, and bootstrap are the
 // backend's own.
 type S3BackendConfig struct {
 	Bucket       string
@@ -97,6 +97,14 @@ type S3BackendConfig struct {
 	KMSKeyID     *string
 	UsePathStyle *bool
 	AWS          *awscfg.Configuration
+	Bootstrap    *S3BootstrapConfig
+}
+
+func (c *S3BackendConfig) Validate() error {
+	if c.Bucket == "" {
+		return errors.New("s3 backend: bucket is required")
+	}
+	return c.Bootstrap.validate()
 }
 
 func newS3Backend(
@@ -108,8 +116,8 @@ func newS3Backend(
 	if !ok {
 		return nil, fmt.Errorf("s3 backend: missing or wrong configuration (got %T)", config)
 	}
-	if c.Bucket == "" {
-		return nil, errors.New("s3 backend: bucket is required")
+	if err := c.Validate(); err != nil {
+		return nil, err
 	}
 	awsCfg, err := awscfg.Load(context.Background(), c.AWS)
 	if err != nil {
@@ -125,8 +133,17 @@ func newS3Backend(
 			o.UsePathStyle = *c.UsePathStyle
 		}
 	})
-	return s3store.NewStore(client, c.Bucket, optString(c.Prefix),
+	store, err := s3store.NewStore(client, c.Bucket, optString(c.Prefix),
 		optString(c.KMSKeyID), factory, stack, enc)
+	if err != nil {
+		return nil, err
+	}
+	if err := bootstrapS3Bucket(
+		context.Background(), client, c.Bucket, c.Bootstrap, s3VersioningPropagationDelay,
+	); err != nil {
+		return nil, err
+	}
+	return store, nil
 }
 
 // GCSBackendConfig is the operator-facing body under `state: gcs { ... }`.
@@ -135,6 +152,7 @@ type GCSBackendConfig struct {
 	Prefix     *string
 	KMSKeyName *string
 	GCP        *gcpcfg.Configuration
+	Bootstrap  *GCSBootstrapConfig
 }
 
 func (c *GCSBackendConfig) Validate() error {
@@ -146,7 +164,7 @@ func (c *GCSBackendConfig) Validate() error {
 			return fmt.Errorf("gcs backend: %w", err)
 		}
 	}
-	return nil
+	return c.Bootstrap.validate()
 }
 
 func newGCSBackend(
@@ -170,8 +188,21 @@ func newGCSBackend(
 		return nil, fmt.Errorf("gcs backend: %w", err)
 	}
 	client := gcsstore.NewClient(service, c.Bucket)
-	return gcsstore.NewStore(client, c.Bucket, optString(c.Prefix),
+	store, err := gcsstore.NewStore(client, c.Bucket, optString(c.Prefix),
 		optString(c.KMSKeyName), factory, stack, enc)
+	if err != nil {
+		return nil, err
+	}
+	var project string
+	if c.GCP != nil {
+		project = optString(c.GCP.Project)
+	}
+	if err := bootstrapGCSBucket(
+		context.Background(), service, c.Bucket, project, c.Bootstrap,
+	); err != nil {
+		return nil, err
+	}
+	return store, nil
 }
 
 func optString(p *string) string {

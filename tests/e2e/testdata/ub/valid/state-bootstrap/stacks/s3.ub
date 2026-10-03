@@ -1,0 +1,9 @@
+stack: {
+  state: s3 {
+    bucket: 'acme-state'
+    use-path-style: true
+    aws: { region: 'us-east-1' }
+    bootstrap: { tags: { purpose: 'state' } }
+  }
+  encryption: noop {}
+}

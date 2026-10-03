@@ -1,0 +1,8 @@
+stack: {
+  state: gcs {
+    bucket: 'replace-with-your-unique-bucket-name'
+    gcp: { project: 'replace-with-your-project-id' }
+    bootstrap: { location: 'US' }
+  }
+  encryption: noop {}
+}

@@ -1,0 +1,13 @@
+factory: {
+  imports: { local: 'github.com/cloudboss/unobin//examples/state-bootstrap/local' }
+  resources: {
+    greeting: local.file {
+      path: '_output/state-bootstrap-example/greeting.txt'
+      content: 'State backend works!'
+    }
+  }
+  outputs: {
+    file: { value: resource.greeting.path }
+    message: { value: resource.greeting.content }
+  }
+}

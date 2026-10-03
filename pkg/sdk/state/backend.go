@@ -9,7 +9,8 @@ import (
 // and writes snapshots through it; concrete implementations decide
 // where the bytes live. Apply and refresh acquire the stack's
 // lock through Lock and release it through the returned Lock value.
-// Plan is read-only and never locks. ForceUnlock is the escape hatch
+// Plan never locks or writes state, but backend initialization may create
+// a bucket when bootstrap is configured. ForceUnlock is the escape hatch
 // for a leaked lock.
 type Backend interface {
 	Stack() string

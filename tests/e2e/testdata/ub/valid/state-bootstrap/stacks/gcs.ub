@@ -1,0 +1,16 @@
+stack: {
+  state: gcs {
+    bucket: 'acme-state'
+    gcp: { project: 'acme-prod', region: 'us-central1' }
+    bootstrap: {
+      location: 'US'
+      versioning: { enabled: false }
+      iam-configuration: {
+        public-access-prevention: 'enforced'
+        uniform-bucket-level-access: { enabled: true }
+      }
+      labels: { purpose: 'state' }
+    }
+  }
+  encryption: noop {}
+}

@@ -1,0 +1,49 @@
+{
+  "name": "state-bootstrap",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/state-bootstrap",
+  "build": true,
+  "commands": [
+    {
+      "name": "validate-s3-options",
+      "args": ["validate", "--allow-version-mismatch", "-c", "stacks/s3-options.ub"],
+      "skipPin": true,
+      "stdout": "want/validate.stdout",
+      "stderr": "want/validate-s3.stderr"
+    },
+    {
+      "name": "validate-gcs-options",
+      "args": ["validate", "--allow-version-mismatch", "-c", "stacks/gcs.ub"],
+      "skipPin": true,
+      "stdout": "want/validate.stdout",
+      "stderr": "want/validate-gcs.stderr"
+    },
+    {
+      "name": "plan-create",
+      "args": ["plan", "--ascii", "-c", "stacks/s3.ub", "-o", "plan.ubp"],
+      "stdout": "want/plan-create.stdout",
+      "stderr": "want/plan-create.stderr"
+    },
+    {
+      "name": "apply-create",
+      "args": ["apply", "--format", "json", "plan.ubp"],
+      "stdout": "want/apply-create.stdout",
+      "stderr": "want/apply-create.stderr",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-noop",
+      "args": ["plan", "--ascii", "-c", "stacks/s3.ub"],
+      "stdout": "want/plan-noop.stdout",
+      "stderr": "want/plan-noop.stderr"
+    },
+    {
+      "name": "output",
+      "args": ["output", "--format", "json", "-c", "stacks/s3.ub"],
+      "stdout": "want/output.stdout",
+      "stderr": "want/output.stderr",
+      "normalize": "json"
+    }
+  ],
+  "files": [{ "path": "message.txt", "want": "want/message.txt" }]
+}

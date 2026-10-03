@@ -57,6 +57,7 @@ var exampleCompileCases = map[string]exampleCompileConfig{
 	"splat": {
 		skip: "uses github.com/cloudboss/unobin-library-std without a local replacement",
 	},
+	"state-bootstrap": {},
 }
 
 func TestExampleSourceRoots(t *testing.T) {

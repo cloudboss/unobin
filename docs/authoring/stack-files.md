@@ -115,6 +115,116 @@ state: gcs {
 `kms-key-name` is the GCS CMEK setting for stored objects. It is separate from
 an envelope encrypter's `key-id`.
 
+### Bucket bootstrap
+
+S3 and GCS support an optional `bootstrap` object. A nonempty object enables
+creation of a missing bucket. Omit it, use `null`, or use `{}` to require an
+existing bucket. `bootstrap` does not accept a boolean and is not available
+for the local backend. Explicit `false` values inside the object still enable
+bootstrap.
+
+An existing bucket is used as-is. Unobin does not compare or change its
+configuration. When S3 reports that the bucket is already owned by the
+account, or GCS reports a creation conflict, Unobin checks access and skips
+the creation options. Other S3 name collisions return an error. Access errors
+stop initialization; they do not trigger creation.
+
+Bootstrap runs when a command opens the state backend. This includes `plan`
+and state inspection commands, so those commands can create a bucket when
+bootstrap is enabled. `validate` checks configuration without cloud requests.
+The bucket is separate from factory resources: Unobin does not track its
+configuration in state or delete it during `destroy`.
+
+For S3, use the same nested option names as the AWS library's S3 bucket:
+
+```
+state: s3 {
+  bucket: 'acme-unobin-state'
+  aws: { region: 'us-east-1' }
+  bootstrap: {
+    versioning: { status: 'Enabled' }
+    public-access-block: {
+      block-public-acls: true
+      block-public-policy: true
+      ignore-public-acls: true
+      restrict-public-buckets: true
+    }
+    ownership-controls: { object-ownership: 'BucketOwnerEnforced' }
+    tags: { purpose: 'state' }
+  }
+}
+```
+
+Supported S3 creation options:
+
+| Option | Values |
+| --- | --- |
+| `bucket-namespace` | `'global'` or `'account-regional'`; omitted uses the global namespace |
+| `versioning.status` | `'Enabled'` or `'Suspended'` |
+| `public-access-block` | The four booleans above; omitted members of a supplied block are `false` |
+| `ownership-controls.object-ownership` | `'BucketOwnerEnforced'`, `'BucketOwnerPreferred'`, or `'ObjectWriter'` |
+| `tags` | An object with string values |
+
+The bucket region comes from the resolved `aws` configuration. For the
+account-regional namespace, `bucket` must contain the full name, including
+the `-<account-id>-<region>-an` suffix. Unobin does not generate the name.
+Options that are omitted keep the S3 defaults.
+
+In the global namespace in `us-east-1`, the S3 create API can return success
+for an owned bucket and reset its ACL. An existence check reduces this risk,
+but cannot exclude a concurrent creation between the check and the request.
+The account-regional namespace returns a conflict for an existing bucket.
+
+S3 settings require separate API requests after creation. The credentials
+need permission to check and create the bucket and to apply the supplied
+settings. If a setting fails, initialization returns an error and retains
+the bucket. Complete the settings manually before using it; later commands
+reuse the bucket without retrying its configuration.
+
+After first enabling S3 versioning, bootstrap waits 15 minutes before it
+returns, as [recommended by S3](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketVersioning.html)
+before object writes. Existing buckets do not cause this wait.
+
+For GCS, `location` is a bucket creation option under `bootstrap`, separate
+from the connection settings under `gcp`:
+
+```
+state: gcs {
+  bucket: 'acme-unobin-state'
+  gcp: { project: 'acme-prod' }
+  bootstrap: {
+    location: 'US'
+    versioning: { enabled: true }
+    iam-configuration: {
+      public-access-prevention: 'enforced'
+      uniform-bucket-level-access: { enabled: true }
+    }
+    labels: { purpose: 'state' }
+  }
+}
+```
+
+Supported GCS creation options:
+
+| Option | Values |
+| --- | --- |
+| `location` | A supported GCS region, dual-region, or multi-region |
+| `versioning.enabled` | A boolean |
+| `iam-configuration.public-access-prevention` | `'enforced'` or `'inherited'` |
+| `iam-configuration.uniform-bucket-level-access.enabled` | A boolean |
+| `labels` | An object with string values |
+
+A missing GCS bucket requires both `gcp.project` and `bootstrap.location`.
+They are not required by bootstrap when the bucket exists. Unobin does not
+derive the bucket location from `gcp.region`: a bucket can use a region,
+dual-region, or multi-region independently of other services. GCS applies
+these settings in the bucket creation request. Credentials need permission
+to read bucket metadata and create the bucket in the selected project.
+Options that are omitted keep the GCS defaults.
+
+Versioning retains old object versions in either backend. Configure a
+bucket lifecycle policy separately if old versions need automatic removal.
+
 ## Encryption
 
 The `env-key` encrypter reads a base64 AES-256 key from an environment variable:

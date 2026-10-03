@@ -1,0 +1,19 @@
+stack: {
+  state: s3 {
+    bucket: 'acme-state-123456789012-us-east-1-an'
+    aws: { region: 'us-east-1' }
+    bootstrap: {
+      bucket-namespace: 'account-regional'
+      versioning: { status: 'Enabled' }
+      public-access-block: {
+        block-public-acls: true
+        block-public-policy: true
+        ignore-public-acls: true
+        restrict-public-buckets: true
+      }
+      ownership-controls: { object-ownership: 'BucketOwnerEnforced' }
+      tags: { purpose: 'state' }
+    }
+  }
+  encryption: noop {}
+}

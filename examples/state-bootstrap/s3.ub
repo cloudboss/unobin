@@ -1,0 +1,8 @@
+stack: {
+  state: s3 {
+    bucket: 'replace-with-your-unique-bucket-name'
+    aws: { region: 'us-east-1' }
+    bootstrap: { tags: { purpose: 'unobin-test' } }
+  }
+  encryption: noop {}
+}

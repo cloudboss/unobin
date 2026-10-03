@@ -7,6 +7,7 @@ This changelog starts with v0.11.1. Earlier releases are listed in the
 
 ### Added
 
+- Enable bootstrap of S3 and GCS state buckets.
 - Add a release workflow that tests and builds the CLI before publishing Linux
   and macOS archives for amd64 and arm64, with SHA-256 checksums.
 - Add shared CI checks, release commands, and a maintained changelog.

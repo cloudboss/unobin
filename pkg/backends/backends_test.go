@@ -36,7 +36,7 @@ func TestBackendsRegistersGCS(t *testing.T) {
 // override, so every exported field must kebab to exactly the
 // operator-facing name.
 func TestS3BackendConfigKebabNames(t *testing.T) {
-	expected := []string{"bucket", "prefix", "kms-key-id", "use-path-style", "aws"}
+	expected := []string{"bucket", "prefix", "kms-key-id", "use-path-style", "aws", "bootstrap"}
 	var got []string
 	for f := range reflect.TypeFor[S3BackendConfig]().Fields() {
 		got = append(got, lang.PascalToKebab(f.Name))
@@ -45,7 +45,7 @@ func TestS3BackendConfigKebabNames(t *testing.T) {
 }
 
 func TestGCSBackendConfigKebabNames(t *testing.T) {
-	expected := []string{"bucket", "prefix", "kms-key-name", "gcp"}
+	expected := []string{"bucket", "prefix", "kms-key-name", "gcp", "bootstrap"}
 	var got []string
 	for f := range reflect.TypeFor[GCSBackendConfig]().Fields() {
 		got = append(got, lang.PascalToKebab(f.Name))
