@@ -12,6 +12,7 @@ func join(sep string, values ...string) (string, error) {
 func Library() *runtime.Library {
     return &runtime.Library{
         Name: "text",
+        Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
         Functions: map[string]runtime.FunctionType{
             "join": runtime.MakeFunc("join", "Join strings.", join),
         },

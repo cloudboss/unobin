@@ -1,6 +1,7 @@
 package root
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -264,48 +265,71 @@ func TestGetStopsOnAuthoringAndOperationalFailures(t *testing.T) {
 }
 
 func TestGetValidatesTheSelectedReleaseInsteadOfTheRequestedFloor(t *testing.T) {
-	root := t.TempDir()
-	factory := ubtest.ReadValidFixture(t, "testdata/ub/dependency-candidates", "factory")
-	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(factory), 0o644))
-	app, library := deps.Dependency{URL: "example.com/app"}, deps.Dependency{URL: "example.com/lib"}
-	project := &deps.Project{Requires: map[deps.Dependency]deps.Requirement{
-		app: {Version: "v0.1.0"}, library: {Version: "v0.9.0"},
-	}}
-	_, err := deps.WriteProjectChange(filepath.Join(root, deps.ProjectFileName), project)
-	require.NoError(t, err)
-	appDir := t.TempDir()
-	body := ubtest.ReadValidFixture(t, "testdata/ub/dependency-candidates", "library")
-	require.NoError(t, os.WriteFile(filepath.Join(appDir, "library.ub"), []byte(body), 0o644))
-	_, err = deps.WriteProjectChange(filepath.Join(appDir, deps.ProjectFileName), &deps.Project{
-		Requires: map[deps.Dependency]deps.Requirement{library: {Version: "v0.2.0"}},
-	})
-	require.NoError(t, err)
-	calls := stubRecordingDependencyResolver(t, map[string]*resolve.Source{
-		remoteSourceKey(app.URL, "", "v0.1.0"): {
-			FS: os.DirFS(appDir), Path: appDir, Commit: "app-commit",
-		},
-		remoteSourceKey(library.URL, "", "v0.2.0"): candidateLibrarySource(t, library.URL, "1.0"),
-	}, nil)
-	t.Cleanup(SetDepsListTagsForTest(func(string) ([]string, error) {
-		return []string{"v0.1.0", "v0.2.0"}, nil
-	}))
-	announcements := []string{}
-	operation, err := getDependency(&depsSyncConfig{stackPath: root},
-		library.String()+"@v0.1.0", io.Discard, func(dep deps.Dependency, version string) {
-			announcements = append(announcements, dep.String()+"@"+version)
+	for _, test := range []struct {
+		name, query, floor string
+	}{
+		{name: "exact", query: "v0.1.0", floor: "v0.9.0"},
+		{name: "automatic", floor: "v0.1.0"},
+		{name: "latest", query: "latest", floor: "v0.1.0"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			factory := ubtest.ReadValidFixture(t, "testdata/ub/dependency-candidates", "factory")
+			require.NoError(t, os.WriteFile(
+				filepath.Join(root, "factory.ub"), []byte(factory), 0o644))
+			app, library := deps.Dependency{URL: "example.com/app"},
+				deps.Dependency{URL: "example.com/lib"}
+			project := &deps.Project{Requires: map[deps.Dependency]deps.Requirement{
+				app: {Version: "v0.1.0"}, library: {Version: test.floor},
+			}}
+			_, err := deps.WriteProjectChange(filepath.Join(root, deps.ProjectFileName), project)
+			require.NoError(t, err)
+			appDir := t.TempDir()
+			body := ubtest.ReadValidFixture(t, "testdata/ub/dependency-candidates", "library")
+			require.NoError(t, os.WriteFile(
+				filepath.Join(appDir, "library.ub"), []byte(body), 0o644))
+			_, err = deps.WriteProjectChange(
+				filepath.Join(appDir, deps.ProjectFileName), &deps.Project{
+					Requires: map[deps.Dependency]deps.Requirement{library: {Version: "v0.2.0"}},
+				})
+			require.NoError(t, err)
+			calls := stubRecordingDependencyResolver(t, map[string]*resolve.Source{
+				remoteSourceKey(app.URL, "", "v0.1.0"): {
+					FS: os.DirFS(appDir), Path: appDir, Commit: "app-commit",
+				},
+				remoteSourceKey(library.URL, "", "v0.1.0"): candidateLibrarySource(
+					t, library.URL, "2.0"),
+				remoteSourceKey(library.URL, "", "v0.2.0"): candidateLibrarySource(
+					t, library.URL, "1.0"),
+			}, nil)
+			t.Cleanup(SetDepsListTagsForTest(func(string) ([]string, error) {
+				return []string{"v0.1.0"}, nil
+			}))
+			announcements := []string{}
+			arg := library.String()
+			if test.query != "" {
+				arg += "@" + test.query
+			}
+			var output bytes.Buffer
+			operation, err := getDependency(&depsSyncConfig{stackPath: root},
+				arg, &output, func(dep deps.Dependency, version string) {
+					announcements = append(announcements, dep.String()+"@"+version)
+				})
+			require.NoError(t, err)
+			assert.Equal(t, "v0.1.0", operation.Version)
+			assert.Equal(t, "v0.2.0", operation.SelectedVersion)
+			assert.Contains(t, output.String(), "Requested example.com/lib floor v0.1.0\n")
+			assert.Equal(t, []string{"example.com/app@v0.1.0", "example.com/lib@v0.2.0"}, *calls)
+			assert.Equal(t, []string{"example.com/lib@v0.2.0"}, announcements)
+			project, err = deps.ReadProject(os.DirFS(root))
+			require.NoError(t, err)
+			assert.Equal(t, deps.Requirement{Version: "v0.1.0"}, project.Requires[library])
+			assert.Equal(t, deps.Requirement{Version: "v0.1.0"}, project.Requires[app])
+			lock, err := deps.ReadProjectLock(os.DirFS(root))
+			require.NoError(t, err)
+			assert.Equal(t, "v0.2.0", lock.Deps[library.String()].Version)
 		})
-	require.NoError(t, err)
-	assert.Equal(t, "v0.1.0", operation.Version)
-	assert.Equal(t, "v0.2.0", operation.SelectedVersion)
-	assert.Equal(t, []string{"example.com/app@v0.1.0", "example.com/lib@v0.2.0"}, *calls)
-	assert.Equal(t, []string{"example.com/lib@v0.2.0"}, announcements)
-	project, err = deps.ReadProject(os.DirFS(root))
-	require.NoError(t, err)
-	assert.Equal(t, deps.Requirement{Version: "v0.1.0"}, project.Requires[library])
-	assert.Equal(t, deps.Requirement{Version: "v0.1.0"}, project.Requires[app])
-	lock, err := deps.ReadProjectLock(os.DirFS(root))
-	require.NoError(t, err)
-	assert.Equal(t, "v0.2.0", lock.Deps[library.String()].Version)
+	}
 }
 
 func TestGetStartsEachTransitiveTrialFresh(t *testing.T) {
@@ -545,4 +569,87 @@ func TestGetChecksCurrentLocalReplacementMetadata(t *testing.T) {
 	after, err = os.ReadFile(lockPath)
 	require.NoError(t, err)
 	assert.Equal(t, beforeLock, after)
+}
+
+func TestRejectedExactQueriesKeepExistingDependencyFiles(t *testing.T) {
+	for _, test := range []struct {
+		name, query, transitive string
+	}{
+		{name: "exact incompatible release", query: "v0.2.0", transitive: "v0.1.0"},
+		{name: "incompatible transitive floor", query: "v0.1.0", transitive: "v0.2.0"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			factory := ubtest.ReadValidFixture(t, "testdata/ub/dependency-candidates", "factory")
+			require.NoError(t, os.WriteFile(
+				filepath.Join(root, "factory.ub"), []byte(factory), 0o644))
+			app, library := deps.Dependency{URL: "example.com/app"},
+				deps.Dependency{URL: "example.com/lib"}
+			projectPath, lockPath := filepath.Join(root, deps.ProjectFileName),
+				filepath.Join(root, deps.ProjectLockFileName)
+			project := &deps.Project{Requires: map[deps.Dependency]deps.Requirement{
+				app: {Version: "v0.1.0"}, library: {Version: "v0.1.0"},
+			}}
+			_, err := deps.WriteProjectChange(projectPath, project)
+			require.NoError(t, err)
+			lock := deps.NewProjectLock()
+			lock.ToolchainVersion = cliVersion()
+			lock.Deps[library.String()] = &deps.ProjectLockDep{
+				Kind: deps.ProjectLockKindGo, Version: "v0.1.0", Commit: "previous-commit",
+			}
+			_, err = deps.WriteProjectLockChange(lockPath, lock)
+			require.NoError(t, err)
+			beforeProject, err := os.ReadFile(projectPath)
+			require.NoError(t, err)
+			beforeLock, err := os.ReadFile(lockPath)
+			require.NoError(t, err)
+			appDir := t.TempDir()
+			body := ubtest.ReadValidFixture(t, "testdata/ub/dependency-candidates", "library")
+			require.NoError(t, os.WriteFile(
+				filepath.Join(appDir, "library.ub"), []byte(body), 0o644))
+			_, err = deps.WriteProjectChange(
+				filepath.Join(appDir, deps.ProjectFileName), &deps.Project{
+					Requires: map[deps.Dependency]deps.Requirement{
+						library: {Version: test.transitive},
+					},
+				})
+			require.NoError(t, err)
+			stubRecordingDependencyResolver(t, map[string]*resolve.Source{
+				remoteSourceKey(app.URL, "", "v0.1.0"): {
+					FS: os.DirFS(appDir), Path: appDir, Commit: "app-commit",
+				},
+				remoteSourceKey(library.URL, "", "v0.1.0"): candidateLibrarySource(
+					t, library.URL, "1.0"),
+				remoteSourceKey(library.URL, "", "v0.2.0"): candidateLibrarySource(
+					t, library.URL, "2.0"),
+			}, nil)
+			t.Cleanup(SetDepsListTagsForTest(func(string) ([]string, error) {
+				return []string{"v0.1.0", "v0.2.0"}, nil
+			}))
+			operation, err := getDependency(&depsSyncConfig{stackPath: root},
+				library.String()+"@"+test.query, io.Discard, nil)
+			var unsupported *libraryapi.UnsupportedMajorError
+			require.ErrorAs(t, err, &unsupported)
+			assert.Nil(t, operation)
+			diagnostics := diagnostic.FromError(err, diagnostic.ConvertOptions{})
+			require.Len(t, diagnostics, 1)
+			assert.Equal(t, "unobin.library-api.unsupported-major", diagnostics[0].Code)
+			assert.Equal(t, "v0.2.0", diagnostics[0].LibraryCompatibility.Version)
+			assert.Equal(t, test.query, diagnostics[0].LibraryCompatibility.CandidateVersion)
+			if test.transitive == "v0.2.0" {
+				assert.Equal(t, []diagnostic.LibraryRequirementStep{
+					{Dependency: deps.ProjectFileName, Requires: app.String(),
+						MinimumVersion: "v0.1.0"},
+					{Dependency: app.String(), Version: "v0.1.0", Requires: library.String(),
+						MinimumVersion: "v0.2.0"},
+				}, diagnostics[0].LibraryCompatibility.RequirementChain)
+			}
+			after, err := os.ReadFile(projectPath)
+			require.NoError(t, err)
+			assert.Equal(t, beforeProject, after)
+			after, err = os.ReadFile(lockPath)
+			require.NoError(t, err)
+			assert.Equal(t, beforeLock, after)
+		})
+	}
 }

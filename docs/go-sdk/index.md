@@ -9,11 +9,16 @@ func Library() *runtime.Library {
     return &runtime.Library{
         Name:        "cloud",
         Description: "Cloud resources.",
+        Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
     }
 }
 ```
 
 The library can register resources, data sources, actions, functions, and optional configuration. The compiler reads the library's Go source for schemas, constraints, defaults, output fields, and function signatures. The compiled factory uses the registrations at runtime.
+
+Add at least one usable registration to the returned record. Declare the minimum
+implementation API with literal strings; see [Libraries](libraries.md) for the
+registration contract and migration guidance.
 
 Common packages:
 

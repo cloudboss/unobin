@@ -61,3 +61,31 @@ resources: {
   config: files.file { path: input.path, content: input.content }
 }
 ```
+
+## Maintaining compatibility
+
+API `1.0` is the baseline for typed resource definitions and lifecycle methods.
+Ordinary fixes retain the API identifier. A library that uses a new contract
+addition declares the minor that introduced it. Later Unobin implementations
+of that major preserve the earlier contracts, so a compatible tool can use the
+same tagged library without an edited declaration.
+
+The compiler checks selected library packages and packages reached through
+configuration forwarding. Nested Go modules have their own selected source.
+Unused packages do not impose API requirements on an imported subset.
+Configuration-only packages receive the same declaration checks; their core Go
+module floor applies when the generated factory links them. A local replacement
+uses its current source, including edits made during an editor session.
+
+For an older library without metadata, migrate its resource definitions and
+lifecycle methods to the typed contract, then add a literal `RequiredAPI: "1.0"`
+to each exported library record, including configuration entry points. Run
+[compiled consumer tests](testing.md#consumer-fixtures) before publishing a new
+tag. Keep historical tags unchanged. New CLIs cannot infer an API from those
+libraries' release numbers, and old CLIs retain their existing selection policy.
+
+Keep the required Unobin Go module version and the module's minimum Go version
+accurate as separate requirements. Dependency-local Go `replace` and `toolchain`
+directives do not select the factory's runtime. If you set
+`SuggestedUnobinVersion`, validate that release in CI. It records a tested
+combination and remains an upgrade hint for users.

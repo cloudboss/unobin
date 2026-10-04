@@ -12,12 +12,18 @@ This changelog starts with v0.11.1. Earlier releases are listed in the
   and macOS archives for amd64 and arm64, with SHA-256 checksums.
 - Add shared CI checks, release commands, and a maintained changelog.
 - Add the public `pkg/e2etest` framework for compiled external library tests.
+- Declare independent library implementation APIs and check selected source
+  before schema extraction and factory builds. Automatic dependency queries
+  select the highest release whose final graph is compatible with the CLI.
 
 ### Changed
 
 - Resource libraries now register typed resource definitions and receive prior
   target data through `runtime.Prior`. Library implementations must migrate to
   these APIs.
+- Go library and configuration packages must declare their minimum implementation
+  API in `Library().Compatibility`. Migrate historical libraries without this
+  declaration and publish new tags; their existing tags remain unknown.
 - Define replacement rules with typed field selectors and check recorded
   replacement decisions before mutations.
 

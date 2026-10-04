@@ -49,6 +49,41 @@ or changelog entry. They do not publish anything. Output directories include
 the version so successive builds cannot reuse a binary stamped with another
 version.
 
+## Library API compatibility
+
+The library implementation API has its own `major.minor` identifier. API `1.0`
+is the baseline for the typed resource definitions and lifecycle contracts.
+CLI releases, library releases, and the minimum Go version retain their own
+version numbers. A release number does not determine an API identifier.
+
+Keep `pkg/libraryapi/descriptor.json` unchanged for fixes that restore an
+existing contract. An additive contract change can increase its minor. Preserve
+the earlier contracts within that major, including Go signatures, registration
+records, source inspection, configuration, and lifecycle behavior. A deliberate
+breaking change requires a new API major. Advertise only contracts that the
+runtime implements, and set `generator-api` to one of those advertised entries.
+
+Run the unchanged library in `tests/e2e/testdata/modules/e2elib` through
+`TestCompiledCases/lifecycle` for every runtime release implementing API `1.x`.
+Its declaration remains `1.0`. The case compiles a factory and checks create,
+update, replacement, no-op, and delete behavior. The
+`TestLifecycleLibraryAPIBaseline` test also checks that injected descriptors
+`1.0` and `1.1` accept this same declaration. When a real
+release first advertises a newer minor, its compiled lifecycle run must still
+use this fixture unchanged.
+
+The full suite includes dependency candidates rejected for newer APIs, exact
+and transitive floors, configuration-only dependencies, locked commits, local
+replacements, and historical source with no declaration. Run `make test` before
+publishing. The tested CLI/library combinations provide evidence for the API
+promise; libraries can also use later compatible releases without a new record.
+
+Library publishers migrate implementations to the typed baseline, declare the
+minimum API in each library and configuration package, run compiled consumer
+tests, and publish new tags. Preserve existing tags and commits. Historical
+libraries without a declaration remain unknown to the compatibility checks.
+See [library author guidance](docs/go-sdk/libraries.md#maintaining-compatibility).
+
 ## Publish a release
 
 1. Choose an unused release version. Review changes since the previous release
