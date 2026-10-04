@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
 func TestReadWithIndexReturnsSchemaEqualToRead(t *testing.T) {
@@ -75,14 +77,64 @@ func TestSourceIndexCacheInvalidatesChangedSource(t *testing.T) {
 
 	_, cached, _, err := cache.Read(dir)
 	require.NoError(t, err)
-	require.Contains(t, cached.OutputFields["resource"]["server"], "id")
-	require.NotContains(t, cached.OutputFields["resource"]["server"], "identifier")
+	require.NotContains(t, cached.OutputFields["resource"]["server"], "id")
+	require.Contains(t, cached.OutputFields["resource"]["server"], "identifier")
 
 	cache.Invalidate(dir)
 	_, fresh, _, err := cache.Read(dir)
 	require.NoError(t, err)
 	require.NotContains(t, fresh.OutputFields["resource"]["server"], "id")
 	require.Contains(t, fresh.OutputFields["resource"]["server"], "identifier")
+}
+
+func TestSourceIndexCacheInvalidatesImportedTypes(t *testing.T) {
+	dir := copyDefinitionFixture(t)
+	cache := NewSourceIndexCache()
+	_, first, _, err := cache.Read(dir)
+	require.NoError(t, err)
+	require.Contains(t, first.OutputFields["resource"]["server"], "endpoint.url")
+	path := filepath.Join(dir, "shared", "shared.go")
+	body, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Contains(t, string(body), "URL  string `ub:\"url\"`")
+	require.NoError(t, os.WriteFile(path, []byte(strings.ReplaceAll(
+		string(body), "URL  string `ub:\"url\"`", "Link string")), 0o644))
+	_, fresh, _, err := cache.Read(dir)
+	require.NoError(t, err)
+	require.NotContains(t, fresh.OutputFields["resource"]["server"], "endpoint.url")
+	require.Contains(t, fresh.OutputFields["resource"]["server"], "endpoint.link")
+}
+
+func TestSourceIndexCacheKeepsConfigurationCurrentWithoutEligibilityChecks(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"go.mod", "library.go"} {
+		body, err := os.ReadFile(filepath.Join("testdata", "configschema", name))
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), body, 0o644))
+	}
+	cache := NewSourceIndexCache()
+	for _, read := range []func(string) (*runtime.LibrarySchema, *SourceIndex, []string, error){
+		cache.Read, cache.ReadLibraryConfiguration,
+	} {
+		_, index, _, err := read(dir)
+		require.NoError(t, err)
+		require.Contains(t, index.ConfigFields, "region")
+	}
+	path := filepath.Join(dir, "library.go")
+	body, err := os.ReadFile(path)
+	require.NoError(t, err)
+	updated := strings.ReplaceAll(string(body), "Region      string", "Zone        string")
+	updated = strings.ReplaceAll(updated, "c.Region", "c.Zone")
+	updated = strings.ReplaceAll(updated, `RequiredAPI: "1.0"`, `RequiredAPI: "1.1"`)
+	require.NoError(t, os.WriteFile(path, []byte(updated), 0o644))
+	for _, read := range []func(string) (*runtime.LibrarySchema, *SourceIndex, []string, error){
+		cache.Read, cache.ReadLibraryConfiguration,
+	} {
+		_, index, _, err := read(dir)
+		require.NoError(t, err)
+		require.NotContains(t, index.ConfigFields, "region")
+		require.Contains(t, index.ConfigFields, "zone")
+	}
 }
 
 func requireLocationPrefix(t *testing.T, loc GoLocation, fileBase string, prefix string) {

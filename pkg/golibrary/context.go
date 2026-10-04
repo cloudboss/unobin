@@ -83,6 +83,9 @@ func NewCompatibilityContext(options CompatibilityOptions) (*CompatibilityContex
 
 // CheckPackage reads current source metadata without deriving schemas or executing Go.
 func (c *CompatibilityContext) CheckPackage(source PackageSource) error {
+	if err := c.checkCoreReplacement(); err != nil {
+		return err
+	}
 	w := &configurationWalker{
 		context: c, checked: map[string]bool{}, active: map[string]bool{},
 		completed: map[string]bool{}, packages: map[string]*parsedPackage{},

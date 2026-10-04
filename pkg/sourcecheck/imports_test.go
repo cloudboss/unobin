@@ -308,12 +308,10 @@ func BenchmarkImportAnalysisNestedUBLibraries(b *testing.B) {
 	factoryDir := filepath.Join(root, "factory")
 	innerDir := filepath.Join(root, "inner")
 	outerDir := filepath.Join(root, "outer")
-	goDir := filepath.Join(root, "go")
+	goDir := writeImportAnalysisGoLibrary(b)
 	for _, dir := range []string{factoryDir, innerDir, outerDir, goDir} {
 		require.NoError(b, os.MkdirAll(dir, 0o755))
 	}
-	require.NoError(b, os.WriteFile(filepath.Join(goDir, "library.go"),
-		[]byte("package schema\n"), 0o644))
 	copyImportAnalysisFixture(b,
 		"valid/benchmark-import-analysis/factory/factory.ub",
 		filepath.Join(factoryDir, "factory.ub"))
@@ -380,8 +378,11 @@ func parseFactoryAtPath(t testing.TB, path string) syntax.FactoryBody {
 func writeImportAnalysisGoLibrary(t testing.TB) string {
 	t.Helper()
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "library.go"),
-		[]byte("package schema\n"), 0o644))
+	for _, name := range []string{"go.mod", "library.go"} {
+		body, err := os.ReadFile(filepath.Join("testdata", "golibrary", "schema", name))
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), body, 0o644))
+	}
 	return dir
 }
 

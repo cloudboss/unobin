@@ -157,6 +157,7 @@ func diagnosticSchemaCache(project *Project) *sourcecheck.SchemaCache {
 			schema, _, warnings, err := project.GoIndex.ReadLibraryConfiguration(sourcePath)
 			return schema, warnings, err
 		},
+		project.GoModuleRoots...,
 	)
 }
 

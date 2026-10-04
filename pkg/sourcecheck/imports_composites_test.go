@@ -15,7 +15,7 @@ import (
 )
 
 func TestImportVisitorBuildsCompositeArtifactsTogether(t *testing.T) {
-	goSourcePath := t.TempDir()
+	goSourcePath := writeImportAnalysisGoLibrary(t)
 	schemas := NewSchemaCacheWithReader(
 		func(sourcePath string) (*runtime.LibrarySchema, []string, error) {
 			require.Equal(t, goSourcePath, sourcePath)

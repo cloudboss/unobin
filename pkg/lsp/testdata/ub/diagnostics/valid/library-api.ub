@@ -1,0 +1,32 @@
+factory: {
+  inputs: {
+    definition-config: {
+      type: library-config('example.com/definition')
+      default: {
+        region: 'us-east-1'
+        retry: { count: 3 }
+      }
+    }
+  }
+  imports: {
+    def: 'example.com/definition'
+  }
+  library-configs: {
+    def: input.definition-config
+  }
+  resources: {
+    server: def.server {
+      id: 'input-id'
+      server-name: 'web'
+      settings: {
+        endpoint: {
+          url: 'https://example.com'
+          port: 443
+        }
+      }
+    }
+  }
+  outputs: {
+    server-url: { value: resource.server.endpoint.url }
+  }
+}

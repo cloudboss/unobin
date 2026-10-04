@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/golibrary"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
@@ -84,12 +85,33 @@ type SourceIndexCache struct {
 }
 
 type sourceIndexCacheEntry struct {
+	snapshot              [32]byte
 	schema                *runtime.LibrarySchema
 	index                 *SourceIndex
 	warnings              []string
 	configurationSchema   *runtime.LibrarySchema
 	configurationIndex    *SourceIndex
 	configurationWarnings []string
+}
+
+func (c *SourceIndexCache) prepareSource(dir string) (string, error) {
+	key, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	roots := make([]golibrary.ModuleSource, 0, len(c.extra))
+	for _, root := range c.extra {
+		roots = append(roots, golibrary.ModuleSource{Path: root.Path, Dir: root.Dir})
+	}
+	snapshot, err := golibrary.SourceSnapshot(key, roots)
+	if err != nil {
+		delete(c.entries, key)
+		return "", err
+	}
+	if entry := c.entries[key]; entry.snapshot != snapshot {
+		c.entries[key] = sourceIndexCacheEntry{snapshot: snapshot}
+	}
+	return key, nil
 }
 
 // NewSourceIndexCache returns an empty source index cache.
@@ -110,7 +132,10 @@ func (c *SourceIndexCache) Read(dir string) (
 	if c == nil {
 		return ReadWithIndex(dir)
 	}
-	key := filepath.Clean(dir)
+	key, err := c.prepareSource(dir)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	if entry, ok := c.entries[key]; ok && entry.schema != nil {
 		return entry.schema, entry.index, entry.warnings, nil
 	}
@@ -136,7 +161,10 @@ func (c *SourceIndexCache) ReadLibraryConfiguration(dir string) (
 	if c == nil {
 		return ReadLibraryConfigurationWithIndex(dir)
 	}
-	key := filepath.Clean(dir)
+	key, err := c.prepareSource(dir)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	if entry, ok := c.entries[key]; ok && entry.configurationSchema != nil {
 		return entry.configurationSchema, entry.configurationIndex,
 			entry.configurationWarnings, nil
@@ -158,7 +186,11 @@ func (c *SourceIndexCache) Invalidate(dir string) {
 	if c == nil {
 		return
 	}
-	delete(c.entries, filepath.Clean(dir))
+	key, err := filepath.Abs(dir)
+	if err != nil {
+		return
+	}
+	delete(c.entries, key)
 }
 
 func (i *sourceIndexer) build(libraryFunc *ast.FuncDecl) (*SourceIndex, error) {

@@ -69,6 +69,33 @@ func TestDiagnosticsNoFetchStillIgnoresUncachedRemote(t *testing.T) {
 	require.Empty(t, diags)
 }
 
+func TestDiagnosticsRecheckCachedLibraryMetadataAndSchema(t *testing.T) {
+	root, path, _, cacheRoot := cachedGoDefinitionProject(t)
+	source := readDiagnosticFixture(t, "valid/library-api")
+	require.NoError(t, os.WriteFile(path, []byte(source), 0o644))
+	projects := newProjectCacheWithRemote(root, func() (cachedRemoteSource, error) {
+		return &resolve.RemoteResolver{CacheRoot: cacheRoot}, nil
+	})
+	require.Empty(t, DiagnosticsForTextWithProjects(path, source, projects))
+	libraryPath := filepath.Join(
+		cacheRoot, "imports", "example.com/definition", "abc123", "library.go")
+	body, err := os.ReadFile(libraryPath)
+	require.NoError(t, err)
+	newer := strings.ReplaceAll(string(body), `RequiredAPI: "1.0"`, `RequiredAPI: "1.1"`)
+	require.NoError(t, os.WriteFile(libraryPath, []byte(newer), 0o644))
+	diags := DiagnosticsForTextWithProjects(path, source, projects)
+	require.Contains(t, strings.Join(diagnosticMessages(diags), "\n"), "required library API 1.1")
+
+	require.NoError(t, os.WriteFile(libraryPath, body, 0o644))
+	require.Empty(t, DiagnosticsForTextWithProjects(path, source, projects))
+	updated := strings.ReplaceAll(string(body), "Endpoint shared.Endpoint", "Address shared.Endpoint")
+	require.NotEqual(t, string(body), updated)
+	require.NoError(t, os.WriteFile(libraryPath, []byte(updated), 0o644))
+	diags = DiagnosticsForTextWithProjects(path, source, projects)
+	require.Equal(t, []string{`resolve: unknown field "endpoint" on def.server`},
+		diagnosticMessages(diags))
+}
+
 func TestDiagnosticsUseSchemaRootsForLibraryConfigTypes(t *testing.T) {
 	source := readDiagnosticFixture(t, "invalid/go-config-field-type")
 
@@ -346,6 +373,8 @@ func diagnosticsForFixture(t *testing.T, name string, source string) []protocol.
 		return diagnosticsForConfigFieldTypeFixture(t, source)
 	case "valid/schema-config-split":
 		return diagnosticsForConfigSchemaDependencyFixture(t, source)
+	case "valid/library-api":
+		return diagnosticsForDefinitionFixture(t, source)
 	case "invalid/literal-constraint":
 		return diagnosticsForLiteralConstraintFixture(t, source)
 	case "invalid/nested-for-each":

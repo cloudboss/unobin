@@ -23,7 +23,6 @@ import (
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/filechange"
-	"github.com/cloudboss/unobin/pkg/golibrary"
 	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
@@ -1387,17 +1386,7 @@ func typeHasSensitivity(ts *ubruntime.TypeSchema) bool {
 func ReadGoSchema(
 	sourcePath string, extra ...goschema.ModuleRoot,
 ) (*ubruntime.LibrarySchema, []string, error) {
-	if sourcePath == "" {
-		return nil, nil, nil
-	}
-	moduleRoot, err := golibrary.FindModuleRoot(sourcePath)
-	if err != nil {
-		return nil, nil, err
-	}
-	if _, err := golibrary.ValidatePackage(moduleRoot, sourcePath); err != nil {
-		return nil, nil, err
-	}
-	return goschema.Read(sourcePath, extra...)
+	return ReadGoSchemaWithCompatibility(sourcePath, nil, extra...)
 }
 
 // GoMajorMinor returns the running Go toolchain's `<major>.<minor>` so
