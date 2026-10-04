@@ -226,7 +226,11 @@ func TestProjectLockRecordsSelectedConfigurationForwardingModule(t *testing.T) {
 			"\t\tNew: func() *Configuration { return &Configuration{} },\n\t}",
 		"return settings.LibraryConfiguration()"))
 	require.NoError(t, os.WriteFile(path, code, 0o644))
+	configFile := filepath.Join(entry, "library.go")
+	configSource, err := os.ReadFile(configFile)
+	require.NoError(t, err)
 	for _, replaced := range []bool{false, true} {
+		require.NoError(t, os.WriteFile(configFile, configSource, 0o644))
 		r := &fakeResolver{sources: map[string]*resolve.Source{
 			srcKey("example.com/aws", "config", "v0.1.0"): service,
 			srcKey("example.com/configs", "", "v1.2.0"):   config,
@@ -259,5 +263,12 @@ func TestProjectLockRecordsSelectedConfigurationForwardingModule(t *testing.T) {
 		if replaced {
 			assert.Equal(t, config.Path, manifest[1].Source.Module.Replacement)
 		}
+		missing := strings.ReplaceAll(string(configSource),
+			"Configuration: LibraryConfiguration(),", "")
+		require.NoError(t, os.WriteFile(configFile, []byte(missing), 0o644))
+		_, err = PrepareProjectLock(mapFS(map[string]string{
+			"factory.ub": projectLockWalkFixture(t, "library-api-forwarded-configuration"),
+		}), selection, r, replace, ProjectLockOptions{})
+		require.ErrorContains(t, err, "Library().Configuration")
 	}
 }

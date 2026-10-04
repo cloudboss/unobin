@@ -153,12 +153,20 @@ func (w *projectLockWalker) validateSelectedPackages() error {
 				failures = append(failures, diagnostic.Context(entry.context, err))
 			}
 		}
-		if entry.configuration {
-			if err := validateGoLibraryConfigurationSource(
-				entry.source, context, w.schemaRoots...,
-			); err != nil {
-				failures = append(failures, diagnostic.Context(entry.context, err))
-			}
+	}
+	for _, metadata := range context.Manifest() {
+		entry := w.packages[metadata.Source.Dir]
+		if !metadata.HasConfigurationEntryPoint && (entry == nil || !entry.configuration) {
+			continue
+		}
+		label := fmt.Sprintf("configuration package %q", metadata.Package)
+		if entry != nil {
+			label = entry.context
+		}
+		if err := validateGoLibraryConfigurationSource(
+			&resolve.Source{Path: metadata.Source.Dir}, context, w.schemaRoots...,
+		); err != nil {
+			failures = append(failures, diagnostic.Context(label, err))
 		}
 	}
 	return errors.Join(failures...)

@@ -35,11 +35,12 @@ type PackageSource struct {
 
 // PackageMetadata records the declaration and module requirements used by a check.
 type PackageMetadata struct {
-	Source              PackageSource
-	Package             string
-	Declaration         CompatibilityDeclaration
-	RequiredCoreVersion string
-	MinimumGoVersion    string
+	Source                     PackageSource
+	Package                    string
+	Declaration                CompatibilityDeclaration
+	RequiredCoreVersion        string
+	MinimumGoVersion           string
+	HasConfigurationEntryPoint bool
 }
 
 // CompatibilityOptions supplies one operation's toolchain and selected sources.
@@ -192,6 +193,7 @@ func (c *CompatibilityContext) inspectPackage(source PackageSource) (*packageIns
 	if err != nil {
 		return nil, err
 	}
+	metadata.HasConfigurationEntryPoint = packageFunction(pkg, "LibraryConfiguration") != nil
 	inspection := &packageInspection{
 		pkg: pkg, metadata: metadata, details: details, coreRequirement: coreRequirement,
 	}

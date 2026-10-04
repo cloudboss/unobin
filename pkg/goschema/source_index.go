@@ -71,6 +71,9 @@ func ReadLibraryConfigurationWithIndex(dir string, extra ...ModuleRoot) (
 	if err != nil {
 		return schema, nil, ctx.warnings, err
 	}
+	if err := ctx.checkForwardedConfigurations(); err != nil {
+		return nil, nil, ctx.warnings, err
+	}
 	index, err = ctx.buildLibraryConfigurationSourceIndex(fn)
 	if err != nil {
 		return schema, nil, ctx.warnings, err

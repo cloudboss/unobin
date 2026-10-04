@@ -134,3 +134,99 @@ func LibraryConfiguration() *cfg.ConfigurationType[*Configuration] {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "library.go"), []byte(source), 0o644))
 	return dir
 }
+
+func TestForwardedConfigurationReadersRequireMatchingRegistration(t *testing.T) {
+	for _, test := range []struct {
+		name, library, message string
+	}{
+		{
+			name: "missing registration", message: "Library().Configuration",
+			library: `func Library() *runtime.Library {
+	return &runtime.Library{Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"}}
+}`,
+		},
+		{
+			name: "different identity", message: "disagrees",
+			library: `func Library() *runtime.Library {
+	return &runtime.Library{Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+		Configuration: &cfg.ConfigurationType[*OtherConfiguration]{
+			New: func() *OtherConfiguration { return &OtherConfiguration{} },
+		}}
+}`,
+		},
+		{
+			name: "different digest", message: "disagrees",
+			library: `func Library() *runtime.Library {
+	return &runtime.Library{Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+		Configuration: &cfg.ConfigurationType[*Configuration]{
+			New: func() *Configuration {
+				return &Configuration{Region: &cfg.String{Default: "other"}}
+			},
+		}}
+}`,
+		},
+		{name: "matching", library: `func Library() *runtime.Library {
+	return &runtime.Library{Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+		Configuration: LibraryConfiguration()}
+}`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config := writeConfigurationRegistration(t, test.library)
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"),
+				[]byte("module example.com/service\n\ngo 1.26\n"), 0o644))
+			source := `package service
+import (
+	settings "example.com/configtest"
+	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
+)
+func Library() *runtime.Library {
+	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+		Configuration: LibraryConfiguration(),
+	}
+}
+func LibraryConfiguration() *cfg.ConfigurationType[*settings.Configuration] {
+	return settings.LibraryConfiguration()
+}
+`
+			require.NoError(t, os.WriteFile(
+				filepath.Join(dir, "library.go"), []byte(source), 0o644))
+			roots := []ModuleRoot{{Path: "example.com/configtest", Dir: config}}
+			for _, reader := range []struct {
+				name string
+				read func() (*runtime.LibrarySchema, error)
+			}{
+				{"library", func() (*runtime.LibrarySchema, error) {
+					schema, _, err := Read(dir, roots...)
+					return schema, err
+				}},
+				{"configuration", func() (*runtime.LibrarySchema, error) {
+					schema, _, err := ReadLibraryConfiguration(dir, roots...)
+					return schema, err
+				}},
+				{"indexed library", func() (*runtime.LibrarySchema, error) {
+					schema, _, _, err := ReadWithIndex(dir, roots...)
+					return schema, err
+				}},
+				{"indexed configuration", func() (*runtime.LibrarySchema, error) {
+					schema, _, _, err := ReadLibraryConfigurationWithIndex(dir, roots...)
+					return schema, err
+				}},
+			} {
+				t.Run(reader.name, func(t *testing.T) {
+					schema, err := reader.read()
+					if test.message != "" {
+						require.ErrorContains(t, err, test.message)
+						require.ErrorContains(t, err, "example.com/configtest")
+					} else {
+						require.NoError(t, err)
+						assert.Equal(t, "example.com/configtest.Configuration",
+							schema.ConfigurationIdentity)
+					}
+				})
+			}
+		})
+	}
+}

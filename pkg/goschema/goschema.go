@@ -78,16 +78,20 @@ func ReadLibraryConfiguration(
 	if err != nil {
 		return schema, slices.Clone(ctx.warnings), err
 	}
+	if err := ctx.checkForwardedConfigurations(); err != nil {
+		return nil, slices.Clone(ctx.warnings), err
+	}
 	return schema, slices.Clone(ctx.warnings), nil
 }
 
 type analysisContext struct {
-	dir      string
-	roots    []ModuleRoot
-	root     *indexedPackage
-	packages map[string]*indexedPackage
-	warnings []string
-	errs     []error
+	dir                   string
+	roots                 []ModuleRoot
+	root                  *indexedPackage
+	packages              map[string]*indexedPackage
+	configurationPackages map[string]*indexedPackage
+	warnings              []string
+	errs                  []error
 }
 
 func newAnalysisContext(dir string, extra ...ModuleRoot) (*analysisContext, error) {
@@ -107,7 +111,7 @@ func newAnalysisContext(dir string, extra ...ModuleRoot) (*analysisContext, erro
 		dir:      dir,
 		roots:    roots,
 		root:     rootPkg,
-		packages: packages,
+		packages: packages, configurationPackages: map[string]*indexedPackage{},
 	}, nil
 }
 
@@ -118,6 +122,9 @@ func (c *analysisContext) run() (*Analysis, error) {
 	}
 	schema, err := c.readSchema(libraryFunc)
 	if err != nil {
+		return &Analysis{Warnings: slices.Clone(c.warnings)}, err
+	}
+	if err := c.checkForwardedConfigurations(); err != nil {
 		return &Analysis{Warnings: slices.Clone(c.warnings)}, err
 	}
 	index, err := c.buildSourceIndex(libraryFunc)
@@ -178,7 +185,7 @@ func (c *analysisContext) readSchema(
 	if ref, init, found, ok := extractConfigurationRef(
 		libraryFunc,
 		c.root,
-		c.loadImportedPackage,
+		c.loadConfigurationPackage,
 	); found {
 		schema.HasConfiguration = true
 		if !ok {
@@ -205,7 +212,7 @@ func (c *analysisContext) readRegisteredConfigurationSchema() (*runtime.LibraryS
 	if fn == nil {
 		return nil, fmt.Errorf("no Library() function in %s", c.dir)
 	}
-	ref, init, found, ok := extractConfigurationRef(fn, c.root, c.loadImportedPackage)
+	ref, init, found, ok := extractConfigurationRef(fn, c.root, c.loadConfigurationPackage)
 	if !found || !ok {
 		return nil, fmt.Errorf("Library().Configuration is missing or unreadable")
 	}
@@ -232,7 +239,7 @@ func (c *analysisContext) readLibraryConfigurationSchema(
 	ref, init, found, ok := extractLibraryConfigurationRef(
 		fn,
 		c.root,
-		c.loadImportedPackage,
+		c.loadConfigurationPackage,
 	)
 	if !found || !ok {
 		return schema, fmt.Errorf(
@@ -270,7 +277,7 @@ func (c *analysisContext) checkLibraryConfigurationMatch(
 	ref, init, found, ok := extractLibraryConfigurationRef(
 		fn,
 		c.root,
-		c.loadImportedPackage,
+		c.loadConfigurationPackage,
 	)
 	if !found || !ok {
 		return fmt.Errorf(
