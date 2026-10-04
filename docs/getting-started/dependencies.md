@@ -87,6 +87,10 @@ Validation failures leave existing files unchanged and absent files absent.
 A filesystem error during writing can leave `project.ub` updated before the
 lock is written; the command reports those completed file changes.
 
+Within a get or sync operation, project and package reads for one release use
+the first resolved commit. A tag that changes during those reads cannot change
+the inspected package source. A later operation resolves the tag again.
+
 To reconcile imports with `project.ub` and `project-lock.ub`:
 
 ```

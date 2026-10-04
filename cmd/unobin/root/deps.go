@@ -331,10 +331,15 @@ func syncDependencies(
 	if err != nil {
 		return nil, err
 	}
+	resolver = deps.NewTrialResolver(resolver)
 	if err := reconcileProject(projectName, project, imported, projectLock, resolver); err != nil {
 		return nil, err
 	}
-	return resolveAndWrite(root, project, cfg.replaceUnobin, toolOutput)
+	prepared, err := prepareDependencies(root, project, cfg.replaceUnobin, toolOutput, resolver)
+	if err != nil {
+		return nil, err
+	}
+	return writeDependencyFiles(root, prepared.Project, prepared.Lock)
 }
 
 // runDepsGet resolves a version for one dependency, sets its floor in the
@@ -438,6 +443,7 @@ func getDependency(
 	if err != nil {
 		return nil, err
 	}
+	resolver = deps.NewTrialResolver(resolver)
 	if err := deps.RequireProject(dep, version, resolver); err != nil {
 		return nil, err
 	}
@@ -755,21 +761,6 @@ func parseGetArg(arg string) (deps.Dependency, string, error) {
 	}
 	dep, err := deps.ParseDependency(repoPart)
 	return dep, query, err
-}
-
-// resolveAndWrite selects versions across project's dependency graph,
-// walks the imports to build project-lock, and writes both files at root.
-func resolveAndWrite(
-	root string,
-	project *deps.Project,
-	replaceUnobin string,
-	toolOutput io.Writer,
-) (*dependencyWriteResult, error) {
-	prepared, err := prepareDependencies(root, project, replaceUnobin, toolOutput, nil)
-	if err != nil {
-		return nil, err
-	}
-	return writeDependencyFiles(root, prepared.Project, prepared.Lock)
 }
 
 func writeDependencyFiles(

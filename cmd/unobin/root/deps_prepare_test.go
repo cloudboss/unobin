@@ -16,6 +16,20 @@ import (
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
+type changingTrialResolver struct {
+	first  *resolve.Source
+	second *resolve.Source
+	calls  int
+}
+
+func (r *changingTrialResolver) Resolve(resolve.ImportRef) (*resolve.Source, error) {
+	r.calls++
+	if r.calls == 1 {
+		return r.first, nil
+	}
+	return r.second, nil
+}
+
 func TestPrepareDependenciesLeavesFilesUntouched(t *testing.T) {
 	for _, existing := range []bool{false, true} {
 		t.Run(map[bool]string{false: "absent", true: "existing"}[existing], func(t *testing.T) {
@@ -121,4 +135,40 @@ func TestGetDoesNotAnnounceRejectedSelection(t *testing.T) {
 	assert.Empty(t, announcements)
 	require.NoFileExists(t, filepath.Join(root, deps.ProjectFileName))
 	require.NoFileExists(t, filepath.Join(root, deps.ProjectLockFileName))
+}
+
+func TestGetKeepsTheFirstProjectCommitThroughPreparation(t *testing.T) {
+	root := t.TempDir()
+	factory := ubtest.ReadValidFixture(t, "testdata/ub/library-compatibility", "factory")
+	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(factory), 0o644))
+	first, second := t.TempDir(), t.TempDir()
+	for _, dir := range []string{first, second} {
+		require.NoError(t, os.CopyFS(dir,
+			os.DirFS("../../../pkg/deps/testdata/go/compatibility")))
+	}
+	path := filepath.Join(second, "library.go")
+	code, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, []byte(strings.ReplaceAll(string(code),
+		`RequiredAPI: "1.0"`, `RequiredAPI: "2.0"`)), 0o644))
+	backend := &changingTrialResolver{
+		first:  &resolve.Source{FS: os.DirFS(first), Path: first, Commit: "first-commit"},
+		second: &resolve.Source{FS: os.DirFS(second), Path: second, Commit: "second-commit"},
+	}
+	previous := newCompileResolver
+	newCompileResolver = func(string) (resolve.Resolver, error) { return backend, nil }
+	t.Cleanup(func() { newCompileResolver = previous })
+	t.Cleanup(SetDepsListTagsForTest(func(string) ([]string, error) {
+		return []string{"v0.1.0"}, nil
+	}))
+	operation, err := getDependency(&depsSyncConfig{stackPath: root},
+		"example.com/lib@v0.1.0", io.Discard, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "v0.1.0", operation.Version)
+	assert.Equal(t, 1, backend.calls)
+	lock, err := deps.ReadProjectLock(os.DirFS(root))
+	require.NoError(t, err)
+	assert.Equal(t, &deps.ProjectLockDep{
+		Kind: deps.ProjectLockKindGo, Version: "v0.1.0", Commit: "first-commit",
+	}, lock.Deps["example.com/lib"])
 }

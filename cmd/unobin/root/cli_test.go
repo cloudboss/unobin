@@ -322,6 +322,7 @@ func writeSchemaDependencyFactory(t testing.TB, dir string) {
 
 func schemaDependencyRemotes(t testing.TB) map[string]*resolve.Source {
 	t.Helper()
+	config := commandMapSource("root", map[string]string{"config.go": "package config\n"})
 	return map[string]*resolve.Source{
 		remoteSourceKey("example.com/aws", "", "v0.1.0"): commandMapSource(
 			"root",
@@ -329,10 +330,8 @@ func schemaDependencyRemotes(t testing.TB) map[string]*resolve.Source {
 				deps.ProjectFileName: cliFixture(t, "schema-dependency-remote-project"),
 			},
 		),
-		remoteSourceKey("example.com/aws", "config", "v0.1.0"): commandMapSource(
-			"config",
-			map[string]string{"config.go": "package config\n"},
-		),
+		remoteSourceKey("example.com/aws", "config", "v0.1.0"): config,
+		remoteSourceKey("example.com/aws", "config", "root"):   config,
 	}
 }
 

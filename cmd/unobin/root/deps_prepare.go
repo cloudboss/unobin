@@ -51,6 +51,7 @@ func prepareDependencies(
 		if err != nil {
 			return nil, err
 		}
+		resolver = deps.NewTrialResolver(resolver)
 	}
 	selection, err := deps.Resolve(project, deps.NewFetcher(resolver))
 	if err != nil {
