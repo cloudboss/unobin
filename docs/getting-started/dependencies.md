@@ -45,6 +45,15 @@ replacement runs. A missing or different descriptor fails before schema-source
 fallback. Explicit core replacement options take precedence over the project's
 core replacement, while more specific library replacements still apply.
 
+With `compile --build`, Unobin checks Go's selected modules after `go mod tidy`
+and before building. Each linked library and configuration package must use the
+inspected version or local replacement directory. A higher selected library
+version requires updating its project floor and running `unobin deps sync`.
+Different compatibility metadata at the same tag requires a new immutable
+library tag. Modules used only for schema inspection do not need to appear in
+the Go build. These checks can fail after generated files or `go.sum` are written;
+compile reports those file changes with the error.
+
 A directory containing a `factory.ub` cannot be imported except from within the directory itself. The convention is to import `.` as `self`, though the alias can be any name:
 
 ```

@@ -31,6 +31,7 @@ type ImportAnalysis struct {
 	Assets               *asset.Collection
 	RootAssetSetID       string
 	Compatibility        *golibrary.CompatibilityContext
+	LibraryMetadata      []golibrary.PackageMetadata
 }
 
 // ImportAnalysisOptions configures AnalyzeImports.
@@ -77,6 +78,7 @@ func AnalyzeImports(
 	if err != nil {
 		return nil, err
 	}
+	metadata := compatibility.Manifest()
 	schemas.compatibility = compatibility
 	schemas.compatibilityErr = nil
 	resolver = preflight
@@ -117,6 +119,7 @@ func AnalyzeImports(
 		UBPackages:           visitor.packages,
 		Assets:               visitor.assets,
 		Compatibility:        compatibility,
+		LibraryMetadata:      metadata,
 	}
 	if rootSet != nil {
 		analysis.RootAssetSetID = rootSet.ID

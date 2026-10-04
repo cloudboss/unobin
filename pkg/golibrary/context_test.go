@@ -215,6 +215,31 @@ func TestCompatibilityContextToolchainPin(t *testing.T) {
 	assert.NotErrorAs(t, err, &pin)
 }
 
+func TestCompatibilityContextDiagnosticDetails(t *testing.T) {
+	dir := writeContextPackage(t, "1.0", "v0.11.0")
+	descriptor := libraryapi.Descriptor{
+		FormatVersion: 1, ImplementedAPIs: []string{"1.1"}, GeneratorAPI: "1.1",
+	}
+	context, err := NewCompatibilityContext(CompatibilityOptions{
+		Descriptor: &descriptor, UnobinVersion: "v0.12.0",
+	})
+	require.NoError(t, err)
+	require.NoError(t, context.CheckPackage(PackageSource{
+		Dir: dir, Linked: true, Module: ModuleSource{
+			Dir: dir, Dependency: "example.com/lib", Version: "v0.4.0", Commit: "selected",
+		},
+	}))
+	metadata := context.Manifest()[0]
+	details := context.DiagnosticDetails(metadata)
+	assert.Equal(t, &diagnostic.LibraryCompatibilityDetails{
+		Dependency: "example.com/lib", Package: "example.com/lib", ModulePath: "example.com/lib",
+		Version: "v0.4.0", Commit: "selected", RequiredAPI: "1.0", ImplementedAPIs: []string{"1.1"},
+		UnobinVersion: "v0.12.0", RequiredCoreVersion: "v0.11.0", MinimumGoVersion: "1.99.0",
+	}, details)
+	details.ImplementedAPIs[0] = "2.0"
+	assert.Equal(t, []string{"1.1"}, context.DiagnosticDetails(metadata).ImplementedAPIs)
+}
+
 func writeContextPackage(t *testing.T, api, floor string) string {
 	t.Helper()
 	dir := t.TempDir()

@@ -214,3 +214,38 @@ func TestImportAnalysisIncludesOnlyLinkedForwardingModules(t *testing.T) {
 		})
 	}
 }
+
+func TestImportAnalysisKeepsPreflightMetadata(t *testing.T) {
+	dir := writeImportAnalysisGoLibrary(t)
+	descriptor := libraryapi.Descriptor{
+		FormatVersion: 1, ImplementedAPIs: []string{"1.1"}, GeneratorAPI: "1.1",
+	}
+	context, err := golibrary.NewCompatibilityContext(golibrary.CompatibilityOptions{
+		Descriptor: &descriptor,
+	})
+	require.NoError(t, err)
+	path := fixturePath("valid/schema-dependencies/import-and-schema/factory")
+	body := parseFactoryAt(t, path)
+	refs, errs := resolve.ExtractSyntaxBodyImports(body)
+	require.Empty(t, errs)
+	resolver := newTestResolver(t, filepath.Dir(path))
+	resolver.remotes["example.com/schema"] = &resolve.Source{
+		FS: os.DirFS(dir), Path: dir, ModulePath: "example.com/schema",
+		GoImportPath: "example.com/schema", Commit: "selected",
+	}
+	analysis, err := AnalyzeImports(refs, ImportAnalysisOptions{
+		Resolver: resolver, Versions: map[string]string{"example.com/schema": "v1.0.0"},
+		Compatibility: context, Body: &body,
+	})
+	require.NoError(t, err)
+	require.Len(t, analysis.LibraryMetadata, 1)
+	assert.Equal(t, "1.0", analysis.LibraryMetadata[0].Declaration.RequiredAPI)
+	file := filepath.Join(dir, "library.go")
+	source, err := os.ReadFile(file)
+	require.NoError(t, err)
+	source = []byte(strings.ReplaceAll(string(source), `RequiredAPI: "1.0"`, `RequiredAPI: "1.1"`))
+	require.NoError(t, os.WriteFile(file, source, 0o644))
+	require.NoError(t, analysis.Compatibility.CheckDirectory(dir, true))
+	assert.Equal(t, "1.1", analysis.Compatibility.Manifest()[0].Declaration.RequiredAPI)
+	assert.Equal(t, "1.0", analysis.LibraryMetadata[0].Declaration.RequiredAPI)
+}

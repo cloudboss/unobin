@@ -67,6 +67,22 @@ type packageInspection struct {
 	declarationErr  error
 }
 
+func (c *CompatibilityContext) DiagnosticDetails(
+	metadata PackageMetadata,
+) *diagnostic.LibraryCompatibilityDetails {
+	module := metadata.Source.Module
+	return &diagnostic.LibraryCompatibilityDetails{
+		Dependency: module.Dependency, Package: metadata.Package, ModulePath: module.Path,
+		Version: module.Version, Commit: module.Commit, Replacement: module.Replacement,
+		RequiredAPI:            metadata.Declaration.RequiredAPI,
+		SuggestedUnobinVersion: metadata.Declaration.SuggestedUnobinVersion,
+		ImplementedAPIs:        slices.Clone(c.descriptor.ImplementedAPIs),
+		UnobinVersion:          c.options.UnobinVersion,
+		RequiredCoreVersion:    metadata.RequiredCoreVersion,
+		MinimumGoVersion:       metadata.MinimumGoVersion,
+	}
+}
+
 func (c *CompatibilityContext) WithModules(modules []ModuleSource) (*CompatibilityContext, error) {
 	options := c.options
 	options.Descriptor = &c.descriptor

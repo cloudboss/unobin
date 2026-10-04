@@ -554,6 +554,7 @@ func run(opts Options, resultOut **Result) error {
 		buildResult, err := runGoBuild(
 			opts.stdout(), opts.stderr(), opts.reporter(),
 			opts.OutDir, name, opts.Version, unobinVersion,
+			analysis.Compatibility, analysis.LibraryMetadata,
 		)
 		result.Files = append(result.Files, buildResult.Files...)
 		result.ContentRevision = buildResult.ContentRevision
@@ -638,6 +639,8 @@ func runGoBuild(
 	binaryName string,
 	version string,
 	expectedUnobin string,
+	compatibility *golibrary.CompatibilityContext,
+	manifest []golibrary.PackageMetadata,
 ) (goBuildResult, error) {
 	result := goBuildResult{Files: []filechange.Change{}}
 	goBin, err := toolchain.Ensure(stderr)
@@ -659,6 +662,9 @@ func runGoBuild(
 	}
 
 	if err := verifySelectedUnobin(reporter, goBin, dir, expectedUnobin); err != nil {
+		return result, err
+	}
+	if err := verifySelectedLibraries(goBin, dir, compatibility, manifest); err != nil {
 		return result, err
 	}
 
