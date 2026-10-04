@@ -1,6 +1,7 @@
 package golibrary
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/token"
@@ -19,6 +20,45 @@ type configurationWalker struct {
 	active    map[string]bool
 	completed map[string]bool
 	packages  map[string]*parsedPackage
+	metadata  map[string]PackageMetadata
+}
+
+func (w *configurationWalker) checkConfigurations(source PackageSource, pkg *parsedPackage) error {
+	var failures []error
+	fn := packageFunction(pkg, "Library")
+	if fn != nil && fn.Body != nil {
+		ret := onlyReturn(fn.Body)
+		if ret != nil && len(ret.Results) == 1 {
+			expression := ret.Results[0]
+			if pointer, ok := expression.(*ast.UnaryExpr); ok && pointer.Op == token.AND {
+				expression = pointer.X
+			}
+			if literal, ok := expression.(*ast.CompositeLit); ok {
+				for _, element := range literal.Elts {
+					field, ok := element.(*ast.KeyValueExpr)
+					if !ok {
+						continue
+					}
+					key, ok := field.Key.(*ast.Ident)
+					if !ok || key.Name != "Configuration" {
+						continue
+					}
+					if name, ok := field.Value.(*ast.Ident); ok && name.Name == "nil" {
+						continue
+					}
+					if err := w.checkValue(source, pkg, field.Value); err != nil {
+						failures = append(failures, err)
+					}
+				}
+			}
+		}
+	}
+	if packageFunction(pkg, "LibraryConfiguration") != nil {
+		if err := w.checkEntryPoint(source, pkg); err != nil {
+			failures = append(failures, err)
+		}
+	}
+	return errors.Join(failures...)
 }
 
 // ConfigurationSourceError identifies unavailable or unreadable configuration source.
@@ -42,31 +82,15 @@ func (w *configurationWalker) checkPackage(source PackageSource) error {
 	if w.checked[abs] {
 		return nil
 	}
-	pkg, err := w.context.checkPackageDeclaration(source)
-	if err != nil {
+	inspection, err := w.context.checkPackageDeclaration(source)
+	if inspection == nil {
 		return err
 	}
-	source = w.context.entries[abs].Source
+	source = inspection.metadata.Source
 	w.checked[abs] = true
-	w.packages[abs] = pkg
-	fn := packageFunction(pkg, "Library")
-	expression := onlyReturn(fn.Body).Results[0].(*ast.UnaryExpr)
-	literal := expression.X.(*ast.CompositeLit)
-	for _, element := range literal.Elts {
-		field := element.(*ast.KeyValueExpr)
-		if field.Key.(*ast.Ident).Name == "Configuration" {
-			if name, ok := field.Value.(*ast.Ident); ok && name.Name == "nil" {
-				continue
-			}
-			if err := w.checkValue(source, pkg, field.Value); err != nil {
-				return err
-			}
-		}
-	}
-	if packageFunction(pkg, "LibraryConfiguration") != nil {
-		return w.checkEntryPoint(source, pkg)
-	}
-	return nil
+	w.packages[abs] = inspection.pkg
+	w.metadata[abs] = inspection.metadata
+	return errors.Join(err, w.checkConfigurations(source, inspection.pkg))
 }
 
 func (w *configurationWalker) checkValue(
@@ -93,10 +117,12 @@ func (w *configurationWalker) checkValue(
 	if err != nil {
 		return err
 	}
-	if err := w.checkPackage(target); err != nil {
-		return err
+	packageErr := w.checkPackage(target)
+	if w.packages[target.Dir] == nil {
+		return packageErr
 	}
-	return w.checkEntryPoint(w.context.entries[target.Dir].Source, w.packages[target.Dir])
+	return errors.Join(packageErr,
+		w.checkEntryPoint(w.metadata[target.Dir].Source, w.packages[target.Dir]))
 }
 
 func (w *configurationWalker) checkEntryPoint(source PackageSource, pkg *parsedPackage) error {
@@ -238,7 +264,7 @@ func (w *configurationWalker) failure(
 	source PackageSource, pkg *parsedPackage, node ast.Node, message string, cause error,
 ) error {
 	err := &ConfigurationSourceError{Message: message, Cause: cause}
-	metadata := w.context.entries[source.Dir]
+	metadata := w.metadata[source.Dir]
 	return diagnostic.WithDiagnostics(err, diagnostic.Diagnostic{
 		Code: "unobin.library-api.configuration-source", Severity: diagnostic.SeverityError,
 		Message: message, Path: pkg.FSet.PositionFor(node.Pos(), false).Filename,

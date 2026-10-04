@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -52,6 +53,34 @@ func TestCompatibilityContextChecksCurrentDeclaration(t *testing.T) {
 	assert.Equal(t, filepath.Join(dir, "library.go"), ds[0].Path)
 	require.NotNil(t, ds[0].Span)
 	assert.Empty(t, c.Manifest())
+}
+
+func TestCompatibilityContextChecksEverySelectedPackageBeforeRegistration(t *testing.T) {
+	newer := writeContextPackage(t, "1.1", "")
+	unsupported := writeContextPackage(t, "2.0", "")
+	compatible := writeContextPackage(t, "1.0", "")
+	path := filepath.Join(compatible, "library.go")
+	body, err := os.ReadFile(path)
+	require.NoError(t, err)
+	body = []byte(strings.ReplaceAll(string(body),
+		`Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},`,
+		`Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+		Resources: unreadableRegistration(),`))
+	require.NoError(t, os.WriteFile(path, body, 0o644))
+	c, err := NewCompatibilityContext(CompatibilityOptions{})
+	require.NoError(t, err)
+	err = c.CheckPackages([]PackageSource{{Dir: newer}, {Dir: compatible}, {Dir: unsupported}})
+	var major *libraryapi.UnsupportedMajorError
+	require.ErrorAs(t, err, &major)
+	var minor *libraryapi.NewerMinorError
+	require.ErrorAs(t, err, &minor)
+	manifest := c.Manifest()
+	require.Len(t, manifest, 1)
+	assert.Equal(t, compatible, manifest[0].Source.Dir)
+
+	c, err = NewCompatibilityContext(CompatibilityOptions{})
+	require.NoError(t, err)
+	require.NoError(t, c.CheckPackages([]PackageSource{{Dir: compatible}}))
 }
 
 func TestCompatibilityContextPreservesDeclarationFailures(t *testing.T) {

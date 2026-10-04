@@ -57,45 +57,15 @@ type CompatibilityContext struct {
 	entries    map[string]PackageMetadata
 }
 
-// NewCompatibilityContext validates the descriptor and effective core replacement.
-func NewCompatibilityContext(options CompatibilityOptions) (*CompatibilityContext, error) {
-	descriptor := libraryapi.Current()
-	if options.Descriptor != nil {
-		descriptor = *options.Descriptor
-		descriptor.ImplementedAPIs = slices.Clone(descriptor.ImplementedAPIs)
-	}
-	if err := descriptor.Validate(); err != nil {
-		return nil, diagnostic.WithDiagnostics(err, diagnostic.Diagnostic{
-			Code: "unobin.library-api.core-descriptor", Severity: diagnostic.SeverityError,
-			Message: "invalid toolchain library API descriptor: " + err.Error(),
-		})
-	}
-	options.Descriptor = nil
-	options.Modules = slices.Clone(options.Modules)
-	c := &CompatibilityContext{
-		descriptor: descriptor, options: options, entries: map[string]PackageMetadata{},
-	}
-	if err := c.checkCoreReplacement(); err != nil {
-		return nil, err
-	}
-	return c, nil
+type packageInspection struct {
+	pkg             *parsedPackage
+	metadata        PackageMetadata
+	details         *diagnostic.LibraryCompatibilityDetails
+	coreRequirement *modfile.Require
+	declarationErr  error
 }
 
-// CheckPackage reads current source metadata without deriving schemas or executing Go.
-func (c *CompatibilityContext) CheckPackage(source PackageSource) error {
-	if err := c.checkCoreReplacement(); err != nil {
-		return err
-	}
-	w := &configurationWalker{
-		context: c, checked: map[string]bool{}, active: map[string]bool{},
-		completed: map[string]bool{}, packages: map[string]*parsedPackage{},
-	}
-	return w.checkPackage(source)
-}
-
-func (c *CompatibilityContext) checkPackageDeclaration(
-	source PackageSource,
-) (*parsedPackage, error) {
+func (c *CompatibilityContext) inspectPackage(source PackageSource) (*packageInspection, error) {
 	if source.Dir == "" {
 		return nil, nil
 	}
@@ -154,11 +124,15 @@ func (c *CompatibilityContext) checkPackageDeclaration(
 	if err != nil {
 		return nil, err
 	}
+	inspection := &packageInspection{
+		pkg: pkg, metadata: metadata, details: details, coreRequirement: coreRequirement,
+	}
 	declaration, err := readCompatibilityPackage(pkg)
 	if err != nil {
 		var invalid *CompatibilityError
 		if !errors.As(err, &invalid) {
-			return nil, err
+			inspection.declarationErr = err
+			return inspection, nil
 		}
 		ds := invalid.Diagnostics()
 		for i := range ds {
@@ -168,11 +142,82 @@ func (c *CompatibilityContext) checkPackageDeclaration(
 			}
 			ds[i].LibraryCompatibility = details
 		}
-		return nil, diagnostic.WithDiagnostics(err, ds...)
+		inspection.declarationErr = diagnostic.WithDiagnostics(err, ds...)
+		return inspection, nil
 	}
-	metadata.Declaration = *declaration
+	inspection.metadata.Declaration = *declaration
 	details.RequiredAPI = declaration.RequiredAPI
 	details.SuggestedUnobinVersion = declaration.SuggestedUnobinVersion
+	return inspection, nil
+}
+
+// CheckPackages inspects every selected package before deriving schemas or executing Go.
+func (c *CompatibilityContext) CheckPackages(sources []PackageSource) error {
+	if err := c.checkCoreReplacement(); err != nil {
+		return err
+	}
+	sources = slices.Clone(sources)
+	slices.SortFunc(sources, func(a, b PackageSource) int { return cmp.Compare(a.Dir, b.Dir) })
+	var failures []error
+	for _, source := range sources {
+		if err := c.CheckPackage(source); err != nil {
+			failures = append(failures, err)
+		}
+	}
+	return errors.Join(failures...)
+}
+
+// NewCompatibilityContext validates the descriptor and effective core replacement.
+func NewCompatibilityContext(options CompatibilityOptions) (*CompatibilityContext, error) {
+	descriptor := libraryapi.Current()
+	if options.Descriptor != nil {
+		descriptor = *options.Descriptor
+		descriptor.ImplementedAPIs = slices.Clone(descriptor.ImplementedAPIs)
+	}
+	if err := descriptor.Validate(); err != nil {
+		return nil, diagnostic.WithDiagnostics(err, diagnostic.Diagnostic{
+			Code: "unobin.library-api.core-descriptor", Severity: diagnostic.SeverityError,
+			Message: "invalid toolchain library API descriptor: " + err.Error(),
+		})
+	}
+	options.Descriptor = nil
+	options.Modules = slices.Clone(options.Modules)
+	c := &CompatibilityContext{
+		descriptor: descriptor, options: options, entries: map[string]PackageMetadata{},
+	}
+	if err := c.checkCoreReplacement(); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// CheckPackage reads current source metadata without deriving schemas or executing Go.
+func (c *CompatibilityContext) CheckPackage(source PackageSource) error {
+	if err := c.checkCoreReplacement(); err != nil {
+		return err
+	}
+	w := &configurationWalker{
+		context: c, checked: map[string]bool{}, active: map[string]bool{},
+		completed: map[string]bool{}, packages: map[string]*parsedPackage{},
+		metadata: map[string]PackageMetadata{},
+	}
+	return w.checkPackage(source)
+}
+
+func (c *CompatibilityContext) checkPackageDeclaration(
+	source PackageSource,
+) (*packageInspection, error) {
+	inspection, err := c.inspectPackage(source)
+	if err != nil || inspection == nil {
+		return inspection, err
+	}
+	if inspection.declarationErr != nil {
+		return inspection, inspection.declarationErr
+	}
+	metadata, details := inspection.metadata, inspection.details
+	source = metadata.Source
+	declaration, packagePath := metadata.Declaration, metadata.Package
+	var failures []error
 	if err := libraryapi.Check(declaration.RequiredAPI, c.descriptor); err != nil {
 		code := "unobin.library-api.unsupported-major"
 		var newer *libraryapi.NewerMinorError
@@ -184,21 +229,22 @@ func (c *CompatibilityContext) checkPackageDeclaration(
 		if declaration.SuggestedUnobinVersion != "" {
 			hint = "The library recommends Unobin " + declaration.SuggestedUnobinVersion + ". " + hint
 		}
-		return nil, diagnostic.WithDiagnostics(err, diagnostic.Diagnostic{
+		failures = append(failures, diagnostic.WithDiagnostics(err, diagnostic.Diagnostic{
 			Code: code, Severity: diagnostic.SeverityError,
 			Message: fmt.Sprintf("library %s requires API %s; Unobin %s implements %s",
 				packagePath, declaration.RequiredAPI, c.options.UnobinVersion,
 				strings.Join(c.descriptor.ImplementedAPIs, ", ")),
 			Path: declaration.Path, Span: declaration.RequiredAPISpan, Hint: hint,
 			LibraryCompatibility: details,
-		})
+		}))
 	}
 	version := semver.Canonical(strings.TrimSuffix(c.options.UnobinVersion, "+dirty"))
+	coreRequirement := inspection.coreRequirement
 	if source.Linked && c.options.CoreReplacement == "" && coreRequirement != nil &&
 		version != "" && semver.Compare(coreRequirement.Mod.Version, version) > 0 {
 		err := &CoreFloorError{RequiredVersion: coreRequirement.Mod.Version, UnobinVersion: version}
 		position := coreRequirement.Syntax.Start
-		return nil, diagnostic.WithDiagnostics(err, diagnostic.Diagnostic{
+		failures = append(failures, diagnostic.WithDiagnostics(err, diagnostic.Diagnostic{
 			Code: "unobin.library-api.core-floor", Severity: diagnostic.SeverityError,
 			Message: err.Error(), Path: filepath.Join(source.Module.Dir, "go.mod"),
 			Span: &diagnostic.Span{Start: diagnostic.Position{
@@ -207,10 +253,13 @@ func (c *CompatibilityContext) checkPackageDeclaration(
 			Hint: "Use a compatible Unobin release or explicitly select a " +
 				"compatible library release.",
 			LibraryCompatibility: details,
-		})
+		}))
+	}
+	if err := errors.Join(failures...); err != nil {
+		return inspection, err
 	}
 	c.entries[source.Dir] = metadata
-	return pkg, nil
+	return inspection, nil
 }
 
 // Manifest returns independent metadata records in deterministic package order.

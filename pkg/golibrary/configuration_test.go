@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -66,6 +67,68 @@ func TestCompatibilityContextRejectsForwardedRequirement(t *testing.T) {
 	c, err = NewCompatibilityContext(CompatibilityOptions{Descriptor: &descriptor})
 	require.NoError(t, err)
 	require.NoError(t, c.CheckPackage(PackageSource{Module: ModuleSource{Dir: root}, Dir: service}))
+}
+
+func TestCompatibilityContextChecksForwardingAfterRejectedDeclaration(t *testing.T) {
+	root := writeContextPackage(t, "1.0", "")
+	service := writeForwardingPackage(t, root, "service", "2.0",
+		"settings.LibraryConfiguration()", "", `import settings "example.com/lib/config"`)
+	config := writeForwardingPackage(t, root, "config", "invalid", "LibraryConfiguration()",
+		inlineConfiguration, "")
+	c, err := NewCompatibilityContext(CompatibilityOptions{})
+	require.NoError(t, err)
+	err = c.CheckPackage(PackageSource{Module: ModuleSource{Dir: root}, Dir: service, Linked: true})
+	var unsupported *libraryapi.UnsupportedMajorError
+	require.ErrorAs(t, err, &unsupported)
+	var invalid *CompatibilityError
+	require.ErrorAs(t, err, &invalid)
+	assert.Equal(t, InvalidDeclaration, invalid.Kind)
+	ds := diagnostic.FromError(err, diagnostic.ConvertOptions{})
+	byCode := map[string]string{}
+	for _, d := range ds {
+		byCode[d.Code] = d.Path
+	}
+	assert.Equal(t, map[string]string{
+		"unobin.library-api.unsupported-major":   filepath.Join(service, "library.go"),
+		"unobin.library-api.invalid-declaration": filepath.Join(config, "library.go"),
+	}, byCode)
+}
+
+func TestCompatibilityContextReportsMissingConfigurationEntryAlongsideAPIError(t *testing.T) {
+	root := writeContextPackage(t, "1.0", "")
+	service := writeForwardingPackage(t, root, "service", "1.0",
+		"settings.LibraryConfiguration()", "", `import settings "example.com/lib/config"`)
+	writeForwardingPackage(t, root, "config", "2.0", inlineConfiguration, "", "")
+	c, err := NewCompatibilityContext(CompatibilityOptions{})
+	require.NoError(t, err)
+	err = c.CheckPackage(PackageSource{Module: ModuleSource{Dir: root}, Dir: service})
+	var unsupported *libraryapi.UnsupportedMajorError
+	require.ErrorAs(t, err, &unsupported)
+	var missing *ConfigurationSourceError
+	require.ErrorAs(t, err, &missing)
+	assert.Contains(t, missing.Message, "LibraryConfiguration")
+}
+
+func TestCompatibilityContextChecksConfigurationWithoutLibraryRecord(t *testing.T) {
+	root := writeContextPackage(t, "1.0", "")
+	service := writeForwardingPackage(t, root, "service", "1.0",
+		"LibraryConfiguration()", "settings.LibraryConfiguration()",
+		`import settings "example.com/lib/config"`)
+	writeForwardingPackage(t, root, "config", "2.0", "LibraryConfiguration()",
+		inlineConfiguration, "")
+	path := filepath.Join(service, "library.go")
+	body, err := os.ReadFile(path)
+	require.NoError(t, err)
+	body = []byte(strings.ReplaceAll(string(body), "func Library()", "func Other()"))
+	require.NoError(t, os.WriteFile(path, body, 0o644))
+	c, err := NewCompatibilityContext(CompatibilityOptions{})
+	require.NoError(t, err)
+	err = c.CheckPackage(PackageSource{Module: ModuleSource{Dir: root}, Dir: service})
+	var missing *CompatibilityError
+	require.ErrorAs(t, err, &missing)
+	assert.Equal(t, MissingDeclaration, missing.Kind)
+	var unsupported *libraryapi.UnsupportedMajorError
+	require.ErrorAs(t, err, &unsupported)
 }
 
 func TestCompatibilityContextRequiresSelectedConfigurationRoot(t *testing.T) {
