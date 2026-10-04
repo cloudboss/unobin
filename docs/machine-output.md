@@ -112,7 +112,7 @@ these rules:
 
 - dependencies and verification mismatches by id;
 - composed file changes by path, then action;
-- diagnostics by path, position, severity, code, message, and hint;
+- diagnostics by path, position, severity, code, message, hint, and compatibility details;
 - graph nodes by address and edges by `from`, then `to`;
 - schema inputs and outputs in declaration order;
 - plan steps by address and state moves in semantic execution order;
@@ -182,6 +182,7 @@ verbatim.
 | `hint` | string | Omitted when absent. |
 | `path` | string | Omitted when absent. |
 | `span` | span | Omitted when absent. |
+| `library-compatibility` | library compatibility details | Omitted when absent. |
 
 A span has required `start` and optional, exclusive `end` positions. Each position
 has required integer `line`, `column`, and `offset` fields. Line and column are
@@ -190,6 +191,26 @@ one-based; column counts bytes. Offset is zero-based bytes from the input start.
 Source error codes initially map to `unobin.parse`, `unobin.lex`,
 `unobin.schema`, `unobin.type`, `unobin.resolve`, and the fallback
 `unobin.error`.
+
+Library compatibility details contain optional fields. Fields are omitted when
+unavailable. API entries and requirement steps retain their deterministic order.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `dependency`, `package`, `module-path` | string | Owning project ID, Go package import path, and Go module path. |
+| `version`, `commit` | string | Inspected release and source commit. Local source has no commit. |
+| `actual-version`, `actual-required-api` | string | Conflicting module version or declaration found during build verification. |
+| `candidate-version`, `query`, `floor` | string | Trial floor, original query, and existing root requirement. |
+| `required-api`, `implemented-apis` | string, string array | Authored requirement and toolchain API entries. |
+| `unobin-version`, `suggested-unobin-version` | string | Running CLI version and optional publisher upgrade hint. |
+| `required-core-version`, `minimum-go-version` | string | Direct core module floor and minimum Go version. |
+| `replacement`, `actual-replacement` | string | Effective and conflicting local source directories, with normal path normalization. |
+| `requirement-chain` | requirement step array | Ordered requirements from the root to the conflict. |
+
+A requirement step has string fields `dependency`, `requires`, and
+`minimum-version`, and an optional `version`. The root requirement uses
+`dependency: "project.ub"`; later steps identify the project and version that
+declared each requirement.
 
 ### File change
 

@@ -13,6 +13,10 @@
       "hint,omitempty",
       "hint,omitempty"
     ],
+    "Diagnostic.LibraryCompatibility": [
+      "library-compatibility,omitempty",
+      "library-compatibility,omitempty"
+    ],
     "Diagnostic.Message": [
       "message",
       "message"

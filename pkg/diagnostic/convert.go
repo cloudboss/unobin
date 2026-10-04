@@ -36,6 +36,30 @@ func Context(message string, err error) error {
 	return &contextError{message: message, cause: err}
 }
 
+func WithDiagnostics(err error, diagnostics ...Diagnostic) error {
+	if err == nil || len(diagnostics) == 0 {
+		return err
+	}
+	return &diagnosticsError{cause: err, diagnostics: Normalize(diagnostics)}
+}
+
+type diagnosticsError struct {
+	cause       error
+	diagnostics []Diagnostic
+}
+
+func (e *diagnosticsError) Error() string {
+	return e.cause.Error()
+}
+
+func (e *diagnosticsError) Unwrap() error {
+	return e.cause
+}
+
+func (e *diagnosticsError) Diagnostics() []Diagnostic {
+	return Normalize(e.diagnostics)
+}
+
 type contextError struct {
 	message string
 	cause   error
@@ -96,6 +120,37 @@ func (w *errorWalker) walk(err error, context string) bool {
 		if !produced {
 			w.diagnostics = append(w.diagnostics, w.generic(err, context))
 			produced = true
+		}
+	case interface{ Diagnostics() []Diagnostic }:
+		diagnostics := e.Diagnostics()
+		var hasError bool
+		for _, d := range diagnostics {
+			d = cloneDiagnostic(d)
+			d.Message = joinContext(context, d.Message)
+			if w.opts.Path != nil {
+				if d.Path != "" {
+					d.Path = w.opts.Path(d.Path)
+				}
+				if details := d.LibraryCompatibility; details != nil {
+					if details.Replacement != "" {
+						details.Replacement = w.opts.Path(details.Replacement)
+					}
+					if details.ActualReplacement != "" {
+						details.ActualReplacement = w.opts.Path(details.ActualReplacement)
+					}
+				}
+			}
+			w.diagnostics = append(w.diagnostics, d)
+			hasError = hasError || d.Severity == SeverityError
+			produced = true
+		}
+		if !hasError {
+			if w.walkChildren(err, context) {
+				produced = true
+			} else {
+				w.diagnostics = append(w.diagnostics, w.generic(err, context))
+				produced = true
+			}
 		}
 	default:
 		produced = w.walkChildren(err, context)

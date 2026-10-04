@@ -1,0 +1,54 @@
+{
+  code: 'unobin.library-api.newer-minor'
+  severity: 'error'
+  message: 'library requires a newer API'
+  hint: 'upgrade Unobin'
+  path: 'library.go'
+  span: {
+    start: {
+      line: 7
+      column: 16
+      offset: 125
+    }
+    end: {
+      line: 7
+      column: 21
+      offset: 130
+    }
+  }
+  library-compatibility: {
+    dependency: 'example.com/library'
+    package: 'example.com/library/service'
+    module-path: 'example.com/library'
+    version: 'v0.3.0'
+    commit: 'abc123'
+    actual-version: 'v0.4.0'
+    actual-required-api: '2.0'
+    candidate-version: 'v0.2.0'
+    query: 'latest'
+    floor: 'v0.1.0'
+    required-api: '1.1'
+    implemented-apis: [
+      '1.0',
+    ]
+    unobin-version: 'v0.12.0'
+    suggested-unobin-version: 'v0.13.0'
+    required-core-version: 'v0.12.1'
+    minimum-go-version: '1.26.2'
+    replacement: 'local/library'
+    actual-replacement: 'other/library'
+    requirement-chain: [
+      {
+        dependency: 'project.ub'
+        requires: 'example.com/app'
+        minimum-version: 'v0.1.0'
+      },
+      {
+        dependency: 'example.com/app'
+        version: 'v0.1.0'
+        requires: 'example.com/library'
+        minimum-version: 'v0.3.0'
+      },
+    ]
+  }
+}

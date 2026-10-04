@@ -33,6 +33,8 @@ type Diagnostic struct {
 	Hint     string   `json:"hint,omitempty"     ub:"hint,omitempty"`
 	Path     string   `json:"path,omitempty"     ub:"path,omitempty"`
 	Span     *Span    `json:"span,omitempty"     ub:"span,omitempty"`
+
+	LibraryCompatibility *LibraryCompatibilityDetails `json:"library-compatibility,omitempty" ub:"library-compatibility,omitempty"`
 }
 
 type Reporter interface {
@@ -84,15 +86,20 @@ func WriteText(out io.Writer, d Diagnostic) error {
 }
 
 func cloneDiagnostic(d Diagnostic) Diagnostic {
-	if d.Span == nil {
-		return d
+	if d.Span != nil {
+		span := *d.Span
+		if span.End != nil {
+			end := *span.End
+			span.End = &end
+		}
+		d.Span = &span
 	}
-	span := *d.Span
-	if span.End != nil {
-		end := *span.End
-		span.End = &end
+	if d.LibraryCompatibility != nil {
+		details := *d.LibraryCompatibility
+		details.ImplementedAPIs = slices.Clone(details.ImplementedAPIs)
+		details.RequirementChain = slices.Clone(details.RequirementChain)
+		d.LibraryCompatibility = &details
 	}
-	d.Span = &span
 	return d
 }
 
@@ -102,7 +109,8 @@ func diagnosticEqual(a, b Diagnostic) bool {
 		a.Message == b.Message &&
 		a.Hint == b.Hint &&
 		a.Path == b.Path &&
-		spanEqual(a.Span, b.Span)
+		spanEqual(a.Span, b.Span) &&
+		compareLibraryCompatibility(a.LibraryCompatibility, b.LibraryCompatibility) == 0
 }
 
 func spanEqual(a, b *Span) bool {
@@ -150,7 +158,10 @@ func compareDiagnostic(a, b Diagnostic) int {
 	if n := cmp.Compare(a.Message, b.Message); n != 0 {
 		return n
 	}
-	return cmp.Compare(a.Hint, b.Hint)
+	if n := cmp.Compare(a.Hint, b.Hint); n != 0 {
+		return n
+	}
+	return compareLibraryCompatibility(a.LibraryCompatibility, b.LibraryCompatibility)
 }
 
 func comparePosition(a, b Position) int {
