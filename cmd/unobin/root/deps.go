@@ -11,6 +11,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/spf13/cobra"
+	"golang.org/x/mod/semver"
+
 	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/deps"
@@ -20,7 +23,6 @@ import (
 	"github.com/cloudboss/unobin/pkg/projectmarker"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/cloudboss/unobin/pkg/toolchain"
-	"github.com/spf13/cobra"
 )
 
 // DepsCmd is the parent for the dependency-management subcommands.
@@ -134,6 +136,7 @@ type dependencyWriteResult struct {
 	Indirect    int
 	Selected    int
 	Files       []filechange.Change
+	Diagnostics []diagnostic.Diagnostic
 }
 
 type dependencySyncResult struct {
@@ -160,13 +163,17 @@ type dependencyGetResult struct {
 	Selected      int                     `json:"selected"       ub:"selected"`
 	Files         []filechange.Change     `json:"files"          ub:"files"`
 	Diagnostics   []diagnostic.Diagnostic `json:"diagnostics"    ub:"diagnostics"`
+
+	SelectedVersion string `json:"selected-version,omitempty" ub:"selected-version,omitempty"`
 }
 
 type dependencyGetOperation struct {
-	Dependency string
-	Version    string
-	Indirect   bool
-	Write      *dependencyWriteResult
+	Dependency      string
+	Version         string
+	SelectedVersion string
+	Indirect        bool
+	Write           *dependencyWriteResult
+	Diagnostics     []diagnostic.Diagnostic
 }
 
 type dependencyVerifyResult struct {
@@ -240,8 +247,8 @@ func dependencyCommandFailure(
 	return cmdout.WriteCommandError(cmd, format, nil, err)
 }
 
-func dependencyDiagnostics() []diagnostic.Diagnostic {
-	return []diagnostic.Diagnostic{}
+func dependencyDiagnostics(groups ...[]diagnostic.Diagnostic) []diagnostic.Diagnostic {
+	return diagnostic.Merge(groups...)
 }
 
 // projectRoot resolves the project root from a --path value. When an
@@ -290,7 +297,7 @@ func runDepsSync(cmd *cobra.Command, cfg *depsSyncConfig) error {
 			Indirect:      result.Indirect,
 			Selected:      result.Selected,
 			Files:         result.Files,
-			Diagnostics:   dependencyDiagnostics(),
+			Diagnostics:   dependencyDiagnostics(result.Diagnostics),
 		})
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(),
@@ -339,12 +346,16 @@ func syncDependencies(
 	if err != nil {
 		return nil, err
 	}
-	return writeDependencyFiles(root, prepared.Project, prepared.Lock)
+	result, err := writeDependencyFiles(root, prepared.Project, prepared.Lock)
+	if result != nil {
+		result.Diagnostics = prepared.Diagnostics
+	}
+	return result, err
 }
 
 // runDepsGet resolves a version for one dependency, sets its floor in the
-// project, and re-pins. The query may be empty or "latest" (the highest
-// tag), an exact version, or a partial one (v1, v1.2).
+// project, and re-pins. Automatic and prefix queries choose the highest compatible
+// candidate graph. An exact query validates one requested floor.
 func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 	format, err := dependencyCommandFormat(cmd)
 	if err != nil {
@@ -368,18 +379,23 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 	}
 	if format.Machine() {
 		result := operation.Write
+		selectedVersion := operation.SelectedVersion
+		if selectedVersion == operation.Version {
+			selectedVersion = ""
+		}
 		return cmdout.WriteDocument(cmd.OutOrStdout(), format, dependencyGetResult{
-			Kind:          "dependency-get-result",
-			FormatVersion: 1,
-			Dependency:    operation.Dependency,
-			Version:       operation.Version,
-			Indirect:      operation.Indirect,
-			ProjectFile:   result.ProjectFile,
-			LockFile:      result.LockFile,
-			Direct:        result.Direct,
-			Selected:      result.Selected,
-			Files:         result.Files,
-			Diagnostics:   dependencyDiagnostics(),
+			Kind:            "dependency-get-result",
+			FormatVersion:   1,
+			Dependency:      operation.Dependency,
+			Version:         operation.Version,
+			SelectedVersion: selectedVersion,
+			Indirect:        operation.Indirect,
+			ProjectFile:     result.ProjectFile,
+			LockFile:        result.LockFile,
+			Direct:          result.Direct,
+			Selected:        result.Selected,
+			Files:           result.Files,
+			Diagnostics:     dependencyDiagnostics(operation.Diagnostics),
 		})
 	}
 	result := operation.Write
@@ -435,54 +451,60 @@ func getDependency(
 	if err != nil {
 		return nil, err
 	}
-	version, err := deps.ResolveVersion(dep, query, tags)
+	candidates, err := deps.VersionCandidates(dep, query, tags)
 	if err != nil {
 		return nil, err
 	}
-	resolver, err := newDepsResolver(root, cfg.replaceUnobin, project.Replace)
-	if err != nil {
-		return nil, err
+	automatic := query == "" || query == "latest"
+	exact := query != "" && semver.Canonical(query) == strings.TrimSuffix(query, semver.Build(query))
+	floor := ""
+	if automatic && !deps.IsReplacementSentinel(project.Requires[dep].Version) {
+		floor = project.Requires[dep].Version
 	}
-	resolver = deps.NewTrialResolver(resolver)
-	if err := deps.RequireProject(dep, version, resolver); err != nil {
-		return nil, err
-	}
-	targetIsDirect := dependencyOwnsImportedPackage(dep, imported)
-	if targetIsDirect {
-		project.SetRequire(dep, version, false)
-	}
-	direct, err := directRequirementsForImports(projectName, project, imported, projectLock, resolver)
-	if err != nil {
-		return nil, err
-	}
-	for directDep, directVersion := range direct {
-		project.SetRequire(directDep, directVersion, false)
-	}
-	if !targetIsDirect {
-		reachable, err := reachableRequirements(direct, project.Replace, resolver)
+	notices := []diagnostic.Diagnostic{}
+	var lastFailure error
+	for _, version := range candidates {
+		if floor != "" && semver.Compare(version, floor) < 0 {
+			continue
+		}
+		prepared, indirect, err := prepareDependencyCandidate(root, projectName, project,
+			imported, projectLock, cfg, dep, version, toolOutput)
 		if err != nil {
-			return nil, err
+			diagnostics := dependencyTrialDiagnostics(err, version, query, floor, nil)
+			if exact || !retryDependencyCandidate(err) {
+				return nil, diagnostic.WithDiagnostics(err,
+					append(slices.Clone(notices), diagnostics...)...)
+			}
+			for i := range diagnostics {
+				diagnostics[i].Severity = diagnostic.SeverityInfo
+			}
+			notices = append(notices, diagnostics...)
+			lastFailure = err
+			fmt.Fprintf(toolOutput, "Skipping %s %s: %s\n", dep, version, err)
+			continue
 		}
-		if !reachable[dep] {
-			return nil, fmt.Errorf(
-				"%s is not imported directly or transitively by this project", dep)
+		diagnostics := dependencyDiagnostics(notices, prepared.Diagnostics)
+		writeResult, err := writeDependencyFiles(root, prepared.Project, prepared.Lock)
+		if writeResult != nil {
+			writeResult.Diagnostics = diagnostics
 		}
-		project.SetRequire(dep, version, true)
+		selectedVersion := prepared.Selection[dep]
+		if err == nil && announce != nil {
+			if selectedVersion != version {
+				fmt.Fprintf(toolOutput, "Requested %s floor %s\n", dep, version)
+			}
+			announce(dep, selectedVersion)
+		}
+		if err != nil {
+			err = diagnostic.WithDiagnostics(err, append(diagnostics,
+				diagnostic.FromError(err, diagnostic.ConvertOptions{})...)...)
+		}
+		return &dependencyGetOperation{
+			Dependency: dep.String(), Version: version, SelectedVersion: selectedVersion,
+			Indirect: indirect, Write: writeResult, Diagnostics: diagnostics,
+		}, err
 	}
-	prepared, err := prepareDependencies(root, project, cfg.replaceUnobin, toolOutput, resolver)
-	if err != nil {
-		return nil, err
-	}
-	writeResult, err := writeDependencyFiles(root, prepared.Project, prepared.Lock)
-	if err == nil && announce != nil {
-		announce(dep, version)
-	}
-	return &dependencyGetOperation{
-		Dependency: dep.String(),
-		Version:    version,
-		Indirect:   !targetIsDirect,
-		Write:      writeResult,
-	}, err
+	return nil, noCompatibleDependencyError(dep, query, floor, lastFailure, notices)
 }
 
 // readProjectOrEmpty reads the project file from root, returning an
@@ -550,7 +572,14 @@ func directRequirementsForImports(
 	replaced := deps.ProjectIDsFromReplace(m.Replace)
 	direct := map[deps.Dependency]string{}
 	var missing []string
+	packages := make([]deps.RemotePackage, 0, len(imported))
 	for pkg := range imported {
+		packages = append(packages, pkg)
+	}
+	slices.SortFunc(packages, func(a, b deps.RemotePackage) int {
+		return strings.Compare(a.String(), b.String())
+	})
+	for _, pkg := range packages {
 		replacement, hasReplacement := deps.MostSpecificProject(replaced, pkg)
 		if pkg.URL == toolchain.UnobinModulePath {
 			if !hasReplacement {

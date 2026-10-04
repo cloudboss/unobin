@@ -476,19 +476,28 @@ func validateGoModulePath(r *RemoteImport, modulePath string) error {
 	if err != nil {
 		return err
 	}
+	failure := func(message string) error {
+		dependency := r.URL
+		if subdir := remoteProjectSubdir(r); subdir != "" {
+			dependency += "//" + subdir
+		}
+		return &ModulePathError{
+			Dependency: dependency, ModulePath: modulePath, Version: version, Message: message,
+		}
+	}
 	if major < 2 && hasModuleMajor && moduleMajor >= 2 {
-		return fmt.Errorf("module %s cannot use version %s; module path requires v%d",
-			modulePath, version, moduleMajor)
+		return failure(fmt.Sprintf("module %s cannot use version %s; module path requires v%d",
+			modulePath, version, moduleMajor))
 	}
 	expectedBase := remoteProjectBase(r)
 	if !moduleBaseMatches(modulePath, expectedBase, major) {
-		return fmt.Errorf("module %s cannot serve %s; module path must be %s",
-			modulePath, expectedBase, expectedBase)
+		return failure(fmt.Sprintf("module %s cannot serve %s; module path must be %s",
+			modulePath, expectedBase, expectedBase))
 	}
 	if major >= 2 {
 		if !hasModuleMajor || moduleMajor != major {
-			return fmt.Errorf("module %s cannot use version %s; module path must end in /v%d",
-				modulePath, version, major)
+			return failure(fmt.Sprintf("module %s cannot use version %s; module path must end in /v%d",
+				modulePath, version, major))
 		}
 		return nil
 	}

@@ -1,0 +1,54 @@
+{
+  "name": "deps-get-api-operational-failure",
+  "rootPath": "root",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "tags": {
+    "example.com/lib": [
+      "v0.1.0",
+      "v0.2.0"
+    ]
+  },
+  "remotes": [
+    {
+      "key": "example.com/lib@v0.1.0",
+      "path": "remotes/lib-v0.1.0",
+      "commit": "commit-v0.1.0",
+      "sourcePath": true,
+      "moduleRootPath": "remotes/lib-v0.1.0",
+      "modulePath": "example.com/lib",
+      "goImportPath": "example.com/lib"
+    }
+  ],
+  "commands": [
+    {
+      "name": "rejected-json",
+      "args": [
+        "deps",
+        "get",
+        "example.com/lib",
+        "--format",
+        "json"
+      ],
+      "stdout": "want/rejected-json.stdout",
+      "normalize": "json",
+      "exitCode": 1
+    },
+    {
+      "name": "rejected-unobin",
+      "args": [
+        "deps",
+        "get",
+        "example.com/lib",
+        "--format",
+        "unobin"
+      ],
+      "stdout": "want/rejected-unobin.stdout",
+      "exitCode": 1
+    }
+  ],
+  "absentFiles": [
+    "root/project.ub",
+    "root/project-lock.ub"
+  ]
+}

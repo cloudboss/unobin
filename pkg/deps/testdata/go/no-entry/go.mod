@@ -1,3 +1,3 @@
-module example.com/aws/config
+module example.com/aws
 
 go 1.26

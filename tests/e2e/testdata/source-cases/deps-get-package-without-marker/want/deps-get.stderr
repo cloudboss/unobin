@@ -1,1 +1,2 @@
-github.com/x/libs//ub/helloer has no project.ub or go.mod; deps get operates on projects, while .ub imports may name packages below projects
+Skipping github.com/x/libs//ub/helloer v0.8.0: resolve github.com/x/libs//ub/helloer@v0.8.0: github.com/x/libs//ub/helloer has no project.ub or go.mod; deps get operates on projects, while .ub imports may name packages below projects
+github.com/x/libs//ub/helloer: no compatible version: resolve github.com/x/libs//ub/helloer@v0.8.0: github.com/x/libs//ub/helloer has no project.ub or go.mod; deps get operates on projects, while .ub imports may name packages below projects

@@ -2,6 +2,7 @@ package deps
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"golang.org/x/mod/semver"
@@ -84,4 +85,25 @@ func ResolveVersion(dep Dependency, query string, tags []string) (string, error)
 		return v, nil
 	}
 	return "", fmt.Errorf("%s: no version matches %s", dep, query)
+}
+
+func VersionCandidates(dep Dependency, query string, tags []string) ([]string, error) {
+	version, err := ResolveVersion(dep, query, tags)
+	if err != nil {
+		return nil, err
+	}
+	if query != "" && semver.Canonical(query) == strings.TrimSuffix(query, semver.Build(query)) {
+		return []string{version}, nil
+	}
+	available := Versions(dep, tags)
+	candidates := make([]string, 0, len(available))
+	for _, candidate := range available {
+		if query == "" || query == "latest" || candidate == query ||
+			strings.HasPrefix(candidate, query+".") {
+			candidates = append(candidates, candidate)
+		}
+	}
+	candidates = slices.Compact(candidates)
+	slices.Reverse(candidates)
+	return candidates, nil
 }

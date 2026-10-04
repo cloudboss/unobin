@@ -1,0 +1,4 @@
+Skipping example.com/lib v0.3.0: import "lib": required library API 2.0 has an unsupported major; implemented APIs: 1.0
+Skipping example.com/lib v0.2.0: import "lib": required library API 1.1 is newer than implemented API 1.0
+Using example.com/lib v0.1.0
+Wrote project.ub (1 direct, 0 indirect) and project-lock.ub (1 selected)

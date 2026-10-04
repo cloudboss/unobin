@@ -312,6 +312,18 @@ compiled source has no captured assets. Changes to the sidecar also appear in
 | `dependency-cache-clean-result` | `unobin deps clean` | `removed`, `diagnostics` |
 
 Each dependency entry has required `id`, `kind`, `version`, and `indirect` fields.
+
+The get result's `version` is the requested or chosen floor. Optional
+`selected-version` records a different final release selected by the dependency
+graph. Rejected automatic or prefix candidates appear as `info` diagnostics with
+their reason code and `candidate-version`, including when fallback succeeds.
+Compatibility failures use `command-error`, leave dependency files unchanged,
+and include the conflicting selected source and its requirement chain when
+available. The diagnostic array has the standard normalized order; text notices
+follow candidate trial order. Local replacement and core replacement notices
+describe the effective source checked by get or sync. These optional additions
+retain format version 1.
+
 Dependency kind is `ub` or `go`. A verification mismatch has required `id`,
 `expected-hash`, `actual-hash`, and `message` fields. Mismatches produce
 `ok: false` and exit 1; fetch or I/O failure uses `command-error`. `removed` is

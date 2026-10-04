@@ -12,4 +12,7 @@ func TestSourceCases(t *testing.T) {
 		e2etest.WithUnobinDir(filepath.Join("..", "..")),
 		e2etest.WithSourceDirectory("modules/e2elib", "testdata/modules/e2elib"),
 	)
+	e2etest.RunSourceCases(t, "testdata/ub/library-api/valid",
+		e2etest.WithUnobinDir(filepath.Join("..", "..")),
+	)
 }

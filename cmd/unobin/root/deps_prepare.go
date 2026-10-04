@@ -1,6 +1,7 @@
 package root
 
 import (
+	"fmt"
 	"io"
 	"maps"
 	"os"
@@ -15,6 +16,7 @@ import (
 type dependencyPreparation struct {
 	Project     *deps.Project
 	Selection   map[deps.Dependency]string
+	Resolution  *deps.Resolution
 	Lock        *deps.ProjectLock
 	Libraries   []golibrary.PackageMetadata
 	Diagnostics []diagnostic.Diagnostic
@@ -53,19 +55,47 @@ func prepareDependencies(
 		}
 		resolver = deps.NewTrialResolver(resolver)
 	}
-	selection, err := deps.Resolve(project, deps.NewFetcher(resolver))
+	resolution, err := deps.ResolveWithTrace(project, deps.NewFetcher(resolver))
 	if err != nil {
-		return nil, err
+		return nil, diagnostic.WithDiagnostics(err,
+			dependencyTrialDiagnostics(err, "", "", "", resolution)...)
 	}
+	selection := resolution.Selection
 	schemaRoots := compile.UnobinSchemaRoots(toolOutput, unobinReplace, cliVersion())
 	prepared, err := deps.PrepareProjectLock(os.DirFS(root), selection, resolver, project.Replace,
 		deps.ProjectLockOptions{SchemaRoots: schemaRoots, Compatibility: compatibility})
 	if err != nil {
-		return nil, err
+		return nil, diagnostic.WithDiagnostics(err,
+			dependencyTrialDiagnostics(err, "", "", "", resolution)...)
 	}
 	prepared.Lock.ToolchainVersion = cliVersion()
+	manifest := prepared.Compatibility.Manifest()
+	diagnostics := []diagnostic.Diagnostic{}
+	for _, metadata := range manifest {
+		module := metadata.Source.Module
+		if module.Replacement == "" {
+			continue
+		}
+		diagnostics = append(diagnostics, diagnostic.Diagnostic{
+			Code: "unobin.library-api.module-source", Severity: diagnostic.SeverityInfo,
+			Message: fmt.Sprintf("Using local package %s from %s",
+				metadata.Package, module.Replacement),
+			LibraryCompatibility: prepared.Compatibility.DiagnosticDetails(metadata),
+		})
+	}
+	if project.UnobinVersion != "" && unobinReplace != "" {
+		diagnostics = append(diagnostics, diagnostic.Diagnostic{
+			Code: "unobin.compile.replaced-toolchain", Severity: diagnostic.SeverityInfo,
+			Message: fmt.Sprintf("the project pins unobin %s; the replacement at %s runs instead",
+				project.UnobinVersion, unobinReplace),
+			LibraryCompatibility: &diagnostic.LibraryCompatibilityDetails{
+				Floor: project.UnobinVersion, UnobinVersion: cliVersion(), Replacement: unobinReplace,
+			},
+		})
+	}
 	return &dependencyPreparation{
 		Project: project, Selection: selection, Lock: prepared.Lock,
-		Libraries: prepared.Compatibility.Manifest(), Diagnostics: []diagnostic.Diagnostic{},
+		Resolution: resolution,
+		Libraries:  manifest, Diagnostics: dependencyDiagnostics(diagnostics),
 	}, nil
 }

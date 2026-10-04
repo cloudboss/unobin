@@ -186,3 +186,37 @@ func TestResolveVersion(t *testing.T) {
 		})
 	}
 }
+
+func TestVersionCandidates(t *testing.T) {
+	tests := []struct {
+		name  string
+		query string
+		want  []string
+	}{
+		{name: "automatic", want: []string{"v1.2.3", "v1.2.3-rc.1", "v1.1.0", "v0.9.0"}},
+		{name: "latest", query: "latest",
+			want: []string{"v1.2.3", "v1.2.3-rc.1", "v1.1.0", "v0.9.0"}},
+		{name: "major prefix", query: "v1", want: []string{"v1.2.3", "v1.2.3-rc.1", "v1.1.0"}},
+		{name: "minor prefix", query: "v1.2", want: []string{"v1.2.3", "v1.2.3-rc.1"}},
+		{name: "exact", query: "v1.1.0", want: []string{"v1.1.0"}},
+		{name: "exact prerelease", query: "v1.2.3-rc.1", want: []string{"v1.2.3-rc.1"}},
+	}
+	dependency := Dependency{URL: "example.com/libraries", Subdir: "nested"}
+	tags := []string{
+		"v9.0.0", "nested/v0.9.0", "nested/v1.2.3-rc.1", "nested/v1.1.0",
+		"nested/other/v2.0.0", "nested/v1.2.3", "nested/v1.2.3", "nested/latest",
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := VersionCandidates(dependency, tt.query, tags)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+	for _, query := range []string{"invalid", "v2", "v1.1.1"} {
+		_, err := VersionCandidates(dependency, query, tags)
+		require.Error(t, err)
+	}
+	_, err := VersionCandidates(dependency, "", nil)
+	require.EqualError(t, err, "example.com/libraries//nested: no versions available")
+}

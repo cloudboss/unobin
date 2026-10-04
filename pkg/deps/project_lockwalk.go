@@ -40,6 +40,25 @@ func (w *projectLockWalker) collectGoPackage(
 	if source == nil || source.Path == "" {
 		return nil
 	}
+	files, err := fs.ReadDir(source.FS, ".")
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	hasGoPackage := false
+	for _, file := range files {
+		if !file.IsDir() && strings.HasSuffix(file.Name(), ".go") &&
+			!strings.HasSuffix(file.Name(), "_test.go") {
+			hasGoPackage = true
+			break
+		}
+	}
+	if !hasGoPackage {
+		pkg := RemotePackage{URL: owner.Project.URL, Subdir: owner.Project.Subdir}
+		if owner.PackageSubdir != "." {
+			pkg.Subdir = pathpkg.Join(pkg.Subdir, owner.PackageSubdir)
+		}
+		return missingPackageProjectError(pkg, owner.Project, version, source)
+	}
 	dir, err := filepath.Abs(source.Path)
 	if err != nil {
 		return err
@@ -52,6 +71,20 @@ func (w *projectLockWalker) collectGoPackage(
 	module.Version, module.Commit = version, source.Commit
 	if _, replaced := w.replace[owner.Project.Dependency()]; replaced {
 		module.Replacement = module.Dir
+		module.Version, module.Commit = "", ""
+	}
+	if version != "" && module.Replacement == "" {
+		ref := &resolve.RemoteImport{
+			URL: owner.Project.URL, Subdir: owner.Project.Subdir,
+			ProjectSubdir: owner.Project.Subdir, Version: ProjectTag(owner.Project, version),
+		}
+		if err := resolve.ValidateGoModulePath(ref, module.Path); err != nil {
+			var mismatch *resolve.ModulePathError
+			if errors.As(err, &mismatch) {
+				mismatch.Commit = source.Commit
+			}
+			return err
+		}
 	}
 	entry := w.packages[dir]
 	if entry == nil {
@@ -373,10 +406,10 @@ func (w *projectLockWalker) walkRemote(
 	}
 	owner, version, ok := w.ownerVersion(pkg)
 	if !ok {
-		return fmt.Errorf(
+		return &SourceSelectionError{Package: pkg.String(), Message: fmt.Sprintf(
 			"%s is imported but has no owning project version in project.ub; "+
 				"add one with `unobin deps get <project>@<version>`",
-			pkg)
+			pkg)}
 	}
 	packageKey := pkg.String() + "@" + version + "::" + string(depKind)
 	if w.walked[packageKey] {
@@ -410,7 +443,7 @@ func (w *projectLockWalker) walkRemote(
 	case resolve.SourceFactory:
 		return fmt.Errorf("a factory cannot be imported")
 	case resolve.SourceInvalid:
-		return missingPackageProjectError(pkg, owner.Project)
+		return missingPackageProjectError(pkg, owner.Project, version, src)
 	case resolve.SourceUBLibrary:
 		kind = ProjectLockKindUB
 	case resolve.SourceGoLibrary:
@@ -418,6 +451,10 @@ func (w *projectLockWalker) walkRemote(
 			if err := resolve.ValidateGoModulePath(
 				remotePackageRef(pkg, owner, version), src.ModulePath,
 			); err != nil {
+				var mismatch *resolve.ModulePathError
+				if errors.As(err, &mismatch) {
+					mismatch.Commit = src.Commit
+				}
 				return err
 			}
 		}
@@ -479,7 +516,7 @@ func (w *projectLockWalker) validateSchemaDependencySource(
 	case resolve.SourceFactory:
 		return fmt.Errorf("a factory cannot be used as a library-config schema")
 	case resolve.SourceInvalid:
-		return missingPackageProjectError(pkg, owner.Project)
+		return missingPackageProjectError(pkg, owner.Project, version, src)
 	case resolve.SourceUBLibrary:
 		return fmt.Errorf("library-config schema dependency must resolve to a Go package")
 	case resolve.SourceGoLibrary:
@@ -487,6 +524,10 @@ func (w *projectLockWalker) validateSchemaDependencySource(
 			if err := resolve.ValidateGoModulePath(
 				remotePackageRef(pkg, owner, version), src.ModulePath,
 			); err != nil {
+				var mismatch *resolve.ModulePathError
+				if errors.As(err, &mismatch) {
+					mismatch.Commit = src.Commit
+				}
 				return err
 			}
 		}
@@ -525,11 +566,19 @@ func validateGoLibraryConfigurationSource(
 	return err
 }
 
-func missingPackageProjectError(pkg RemotePackage, project ProjectID) error {
-	return fmt.Errorf(
-		"selected project %s does not provide package %s; "+
-			"add the owning project to project.ub and run `unobin deps sync`",
-		project, pkg)
+func missingPackageProjectError(
+	pkg RemotePackage, project ProjectID, version string, src *resolve.Source,
+) error {
+	if _, err := fs.ReadDir(src.FS, "."); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	return &SourceSelectionError{
+		Dependency: project.String(), Package: pkg.String(), Version: version, Commit: src.Commit,
+		Message: fmt.Sprintf(
+			"selected project %s does not provide package %s; "+
+				"add the owning project to project.ub and run `unobin deps sync`",
+			project, pkg),
+	}
 }
 
 func (w *projectLockWalker) ownerVersion(pkg RemotePackage) (PackageOwner, string, bool) {

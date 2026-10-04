@@ -1,0 +1,3 @@
+factory: {
+  imports: { app: 'example.com/app' }
+}

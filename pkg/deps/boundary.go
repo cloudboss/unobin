@@ -75,22 +75,27 @@ func CheckPackageBoundary(
 			return err
 		}
 		if marker.Kind != projectmarker.None {
-			return nestedProjectOwnershipError(owner.Project, pkg, current)
+			return nestedProjectOwnershipError(src, owner.Project, pkg, current)
 		}
 	}
 	return nil
 }
 
-func nestedProjectOwnershipError(owner ProjectID, pkg RemotePackage, nestedRel string) error {
+func nestedProjectOwnershipError(
+	src *resolve.Source, owner ProjectID, pkg RemotePackage, nestedRel string,
+) error {
 	nested := ProjectID{URL: owner.URL, Subdir: nestedRel}
 	if owner.Subdir != "" {
 		nested.Subdir = pathpkg.Join(owner.Subdir, nestedRel)
 	}
-	return fmt.Errorf(
-		"selected project %s does not own package %s; "+
-			"the package is inside nested project %s; "+
-			"add that project to project.requires or replace it directly",
-		owner, pkg, nested)
+	return &SourceSelectionError{
+		Dependency: owner.String(), Package: pkg.String(), Commit: src.Commit,
+		Message: fmt.Sprintf(
+			"selected project %s does not own package %s; "+
+				"the package is inside nested project %s; "+
+				"add that project to project.requires or replace it directly",
+			owner, pkg, nested),
+	}
 }
 
 func localImportProjectBoundaryError(importPath string) error {

@@ -1,0 +1,6 @@
+factory: {
+  imports: {
+    app: 'example.com/app'
+    lib: 'example.com/lib'
+  }
+}

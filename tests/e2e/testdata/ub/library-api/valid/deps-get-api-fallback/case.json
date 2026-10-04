@@ -1,0 +1,86 @@
+{
+  "name": "deps-get-api-fallback",
+  "rootPath": "root",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "tags": {
+    "example.com/lib": [
+      "v0.1.0",
+      "v0.2.0",
+      "v0.3.0"
+    ]
+  },
+  "remotes": [
+    {
+      "key": "example.com/lib@v0.1.0",
+      "path": "remotes/lib-v0.1.0",
+      "commit": "commit-v0.1.0",
+      "sourcePath": true,
+      "moduleRootPath": "remotes/lib-v0.1.0",
+      "modulePath": "example.com/lib",
+      "goImportPath": "example.com/lib"
+    },
+    {
+      "key": "example.com/lib@v0.2.0",
+      "path": "remotes/lib-v0.2.0",
+      "commit": "commit-v0.2.0",
+      "sourcePath": true,
+      "moduleRootPath": "remotes/lib-v0.2.0",
+      "modulePath": "example.com/lib",
+      "goImportPath": "example.com/lib"
+    },
+    {
+      "key": "example.com/lib@v0.3.0",
+      "path": "remotes/lib-v0.3.0",
+      "commit": "commit-v0.3.0",
+      "sourcePath": true,
+      "moduleRootPath": "remotes/lib-v0.3.0",
+      "modulePath": "example.com/lib",
+      "goImportPath": "example.com/lib"
+    }
+  ],
+  "commands": [
+    {
+      "name": "automatic-json",
+      "args": [
+        "deps",
+        "get",
+        "example.com/lib",
+        "--format",
+        "json"
+      ],
+      "stdout": "want/automatic-json.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "latest-text",
+      "args": [
+        "deps",
+        "get",
+        "example.com/lib@latest"
+      ],
+      "stderr": "want/latest-text.stderr"
+    },
+    {
+      "name": "prefix-unobin",
+      "args": [
+        "deps",
+        "get",
+        "example.com/lib@v0",
+        "--format",
+        "unobin"
+      ],
+      "stdout": "want/prefix-unobin.stdout"
+    }
+  ],
+  "files": [
+    {
+      "path": "root/project.ub",
+      "want": "want/project.ub"
+    },
+    {
+      "path": "root/project-lock.ub",
+      "want": "want/project-lock.ub"
+    }
+  ]
+}

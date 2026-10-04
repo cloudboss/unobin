@@ -87,6 +87,28 @@ Validation failures leave existing files unchanged and absent files absent.
 A filesystem error during writing can leave `project.ub` updated before the
 lock is written; the command reports those completed file changes.
 
+An unversioned or `@latest` get tries releases from highest to lowest and selects
+the first compatible graph at or above the target's existing project floor.
+This includes an existing indirect floor. A prefix such as `@v1` or `@v1.2`
+searches matching releases and can change the target floor. An exact query tries
+one floor. Other project floors remain in effect, so a transitive requirement
+can raise the final selected release above the requested floor. The lock records
+that final release, and text output reports both versions when they differ.
+
+Get can skip a selected release for an unsupported API, missing compatibility
+record, higher core module floor, unavailable package, or module path conflict.
+It reports why each release was skipped. Invalid declarations, configuration
+failures, and repository or filesystem read failures stop the search. Each trial
+starts from the original project, so a rejected graph cannot affect a later trial.
+
+Sync uses the declared floors and does not search for older compatible releases.
+For an imported project without a floor, lock owner, or replacement, owner
+discovery tries the highest release under the existing project tag rules. If that
+selection is incompatible, use `unobin deps get <project>` to select a compatible
+floor. Local replacements are checked from their current source; a remote query
+can change their project floor but does not establish that the remote tag is
+compatible.
+
 Within a get or sync operation, project and package reads for one release use
 the first resolved commit. A tag that changes during those reads cannot change
 the inspected package source. A later operation resolves the tag again.

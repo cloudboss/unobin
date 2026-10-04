@@ -1,0 +1,1 @@
+{"kind":"command-error","format-version":1,"command":"deps get","code":"unobin.command.failed","message":"deps get failed","diagnostics":[{"code":"unobin.error","severity":"error","message":"fake resolver: no source for example.com/lib@v0.2.0"}],"files":[]}

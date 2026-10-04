@@ -1,0 +1,73 @@
+{
+  "name": "deps-get-api-raised-floor",
+  "rootPath": "root",
+  "executor": "root",
+  "cliVersion": "v0.1.0",
+  "tags": {
+    "example.com/lib": [
+      "v0.1.0",
+      "v0.2.0"
+    ]
+  },
+  "remotes": [
+    {
+      "key": "example.com/lib@v0.2.0",
+      "path": "remotes/lib-v0.2.0",
+      "commit": "commit-v0.2.0",
+      "sourcePath": true,
+      "moduleRootPath": "remotes/lib-v0.2.0",
+      "modulePath": "example.com/lib",
+      "goImportPath": "example.com/lib"
+    },
+    {
+      "key": "example.com/app@v0.1.0",
+      "path": "remotes/app",
+      "commit": "app-commit",
+      "sourcePath": true
+    }
+  ],
+  "commands": [
+    {
+      "name": "raised-json",
+      "args": [
+        "deps",
+        "get",
+        "example.com/lib@v0.1.0",
+        "--format",
+        "json"
+      ],
+      "stdout": "want/raised-json.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "raised-unobin",
+      "args": [
+        "deps",
+        "get",
+        "example.com/lib@v0.1.0",
+        "--format",
+        "unobin"
+      ],
+      "stdout": "want/raised-unobin.stdout"
+    },
+    {
+      "name": "raised-text",
+      "args": [
+        "deps",
+        "get",
+        "example.com/lib@v0.1.0"
+      ],
+      "stderr": "want/raised-text.stderr"
+    }
+  ],
+  "files": [
+    {
+      "path": "root/project.ub",
+      "want": "want/project.ub"
+    },
+    {
+      "path": "root/project-lock.ub",
+      "want": "want/project-lock.ub"
+    }
+  ]
+}

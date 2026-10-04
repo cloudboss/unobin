@@ -39,7 +39,7 @@ func (f *projectFetcher) Fetch(dep Dependency, version string) (*Project, error)
 		if ok, markerErr := HasProjectMarker(src.FS); markerErr != nil {
 			return nil, markerErr
 		} else if !ok {
-			return nil, noProjectMarkerError(dep)
+			return nil, noProjectMarkerError(dep, version, src.Commit)
 		}
 		return nil, nil
 	}
@@ -61,16 +61,19 @@ func RequireProject(dep Dependency, version string, resolver resolve.Resolver) e
 		return err
 	}
 	if !ok {
-		return noProjectMarkerError(dep)
+		return noProjectMarkerError(dep, version, src.Commit)
 	}
 	return nil
 }
 
-func noProjectMarkerError(dep Dependency) error {
-	return fmt.Errorf(
-		"%s has no project.ub or go.mod; deps get operates on projects, "+
-			"while .ub imports may name packages below projects",
-		dep)
+func noProjectMarkerError(dep Dependency, version, commit string) error {
+	return &SourceSelectionError{
+		Dependency: dep.String(), Version: version, Commit: commit,
+		Message: fmt.Sprintf(
+			"%s has no project.ub or go.mod; deps get operates on projects, "+
+				"while .ub imports may name packages below projects",
+			dep),
+	}
 }
 
 // HasProjectMarker reports whether fsys contains project.ub or go.mod at its root.

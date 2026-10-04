@@ -1,0 +1,3 @@
+hello: resource {
+  imports: { lib: 'example.com/lib' }
+}
