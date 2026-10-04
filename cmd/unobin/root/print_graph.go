@@ -7,17 +7,20 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
+
+	"github.com/cloudboss/unobin/internal/cmdconfig"
 	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/pkg/check"
 	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/graphprint"
+	projectpkg "github.com/cloudboss/unobin/pkg/project"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sourcecheck"
 	"github.com/cloudboss/unobin/pkg/toolchain"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -134,11 +137,12 @@ func buildSourceGraph(
 		}
 		replaceMap = project.Replace
 	}
-	replaceUnobin, err := printGraphUnobinReplace(projectDir, cfg.replaceUnobin, replaceMap)
+	replaceUnobin, err := projectpkg.UnobinReplacement(projectDir, cfg.replaceUnobin, replaceMap)
 	if err != nil {
 		return nil, "", err
 	}
-	compatibility, err := newCommandCompatibility(projectDir, project, replaceUnobin)
+	compatibility, err := cmdconfig.ProjectOptions("", "").Compatibility(
+		projectDir, project, replaceUnobin)
 	if err != nil {
 		return nil, "", err
 	}
@@ -147,7 +151,7 @@ func buildSourceGraph(
 	if err != nil {
 		return nil, "", err
 	}
-	resolver, err := newCompileResolver(projectDir)
+	resolver, err := cmdconfig.NewResolver(projectDir)
 	if err != nil {
 		return nil, "", err
 	}
@@ -246,26 +250,4 @@ func printGraphReplacedVersions(
 		}
 	}
 	return versions
-}
-
-func printGraphUnobinReplace(
-	projectDir string,
-	cliReplace string,
-	replace map[deps.Dependency]string,
-) (string, error) {
-	if cliReplace != "" {
-		return filepath.Abs(cliReplace)
-	}
-	path, ok := replace[deps.Dependency{URL: toolchain.UnobinModulePath}]
-	if !ok {
-		return "", nil
-	}
-	return printGraphAbsReplacePath(projectDir, path)
-}
-
-func printGraphAbsReplacePath(root, path string) (string, error) {
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(root, path)
-	}
-	return filepath.Abs(path)
 }

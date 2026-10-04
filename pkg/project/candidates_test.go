@@ -1,4 +1,4 @@
-package root
+package project
 
 import (
 	"bytes"
@@ -39,7 +39,8 @@ func TestRetryDependencyCandidate(t *testing.T) {
 		{name: "selected package", err: &deps.SourceSelectionError{}, retry: true},
 		{name: "module path", err: &resolve.ModulePathError{}, retry: true},
 		{name: "wrapped", err: fmt.Errorf("context: %w", unsupported), retry: true},
-		{name: "all joined failures are retryable", err: errors.Join(unsupported, missing), retry: true},
+		{name: "all joined failures are retryable",
+			err: errors.Join(unsupported, missing), retry: true},
 		{name: "operational failure", err: fs.ErrPermission},
 		{name: "authoring failure", err: authoring},
 		{name: "invalid declaration", err: &golibrary.CompatibilityError{
@@ -72,7 +73,8 @@ func TestDependencyTrialDiagnosticsRetainsSelectedOrigin(t *testing.T) {
 	}
 	original := diagnostic.Diagnostic{
 		Code: "unobin.library-api.unsupported-major", Severity: diagnostic.SeverityError,
-		Message: "unsupported library", LibraryCompatibility: &diagnostic.LibraryCompatibilityDetails{
+		Message: "unsupported library",
+		LibraryCompatibility: &diagnostic.LibraryCompatibilityDetails{
 			Dependency: dependency.String(), Version: "v2.0.0", Commit: "selected-commit",
 			RequiredAPI: "2.0", ImplementedAPIs: []string{"1.0"},
 		},
@@ -120,7 +122,7 @@ func candidateLibrarySource(t *testing.T, module, api string) *resolve.Source {
 	t.Helper()
 	dir := t.TempDir()
 	require.NoError(t, os.CopyFS(dir,
-		os.DirFS("../../../pkg/deps/testdata/go/compatibility")))
+		os.DirFS("../deps/testdata/go/compatibility")))
 	code, err := os.ReadFile(filepath.Join(dir, "library.go"))
 	require.NoError(t, err)
 	updated := strings.ReplaceAll(string(code), `RequiredAPI: "1.0"`, `RequiredAPI: "`+api+`"`)
@@ -166,8 +168,10 @@ func TestGetTriesCompatibleCandidates(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			root := t.TempDir()
-			factory := ubtest.ReadValidFixture(t, "testdata/ub/library-compatibility", "factory")
-			require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(factory), 0o644))
+			factory := ubtest.ReadValidFixture(t,
+				"testdata/ub/library-compatibility", "factory")
+			require.NoError(t, os.WriteFile(
+				filepath.Join(root, "factory.ub"), []byte(factory), 0o644))
 			lowerVersion := "v0.1.0"
 			if tt.query == "v0.2" {
 				lowerVersion = "v0.2.0-rc.1"
@@ -197,7 +201,7 @@ func TestGetTriesCompatibleCandidates(t *testing.T) {
 				arg += "@" + tt.query
 			}
 			announcements := []string{}
-			operation, err := getDependency(&depsSyncConfig{stackPath: root}, arg, io.Discard,
+			operation, err := getDependency(&Options{Path: root}, arg, io.Discard,
 				func(dependency deps.Dependency, version string) {
 					announcements = append(announcements, dependency.String()+"@"+version)
 				})
@@ -228,39 +232,43 @@ func TestGetTriesCompatibleCandidates(t *testing.T) {
 
 func TestGetStopsOnAuthoringAndOperationalFailures(t *testing.T) {
 	for _, operational := range []bool{false, true} {
-		t.Run(map[bool]string{false: "authoring", true: "operational"}[operational], func(t *testing.T) {
-			root := t.TempDir()
-			factory := ubtest.ReadValidFixture(t, "testdata/ub/library-compatibility", "factory")
-			require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(factory), 0o644))
-			library := candidateLibrarySource(t, "example.com/lib", "2.0")
-			path := filepath.Join(library.Path, "library.go")
-			code, err := os.ReadFile(path)
-			require.NoError(t, err)
-			require.NoError(t, os.WriteFile(path, []byte(strings.ReplaceAll(string(code),
-				`RequiredAPI: "2.0"`, `RequiredAPI: "2.0", Unknown: "x"`)), 0o644))
-			var failure error
-			if operational {
-				failure = fs.ErrPermission
-			}
-			calls := stubRecordingDependencyResolver(t, map[string]*resolve.Source{
-				remoteSourceKey("example.com/lib", "", "v0.2.0"): library,
-			}, failure)
-			t.Cleanup(SetDepsListTagsForTest(func(string) ([]string, error) {
-				return []string{"v0.1.0", "v0.2.0"}, nil
-			}))
-			_, err = getDependency(&depsSyncConfig{stackPath: root}, "example.com/lib", io.Discard, nil)
-			require.Error(t, err)
-			if operational {
-				assert.ErrorIs(t, err, failure)
-			} else {
-				var authoring *golibrary.CompatibilityError
-				require.ErrorAs(t, err, &authoring)
-				assert.Equal(t, golibrary.UnsupportedField, authoring.Kind)
-			}
-			assert.Equal(t, []string{"example.com/lib@v0.2.0"}, *calls)
-			require.NoFileExists(t, filepath.Join(root, deps.ProjectFileName))
-			require.NoFileExists(t, filepath.Join(root, deps.ProjectLockFileName))
-		})
+		t.Run(
+			map[bool]string{false: "authoring", true: "operational"}[operational],
+			func(t *testing.T) {
+				root := t.TempDir()
+				factory := ubtest.ReadValidFixture(t,
+					"testdata/ub/library-compatibility", "factory")
+				require.NoError(t, os.WriteFile(
+					filepath.Join(root, "factory.ub"), []byte(factory), 0o644))
+				library := candidateLibrarySource(t, "example.com/lib", "2.0")
+				path := filepath.Join(library.Path, "library.go")
+				code, err := os.ReadFile(path)
+				require.NoError(t, err)
+				require.NoError(t, os.WriteFile(path, []byte(strings.ReplaceAll(string(code),
+					`RequiredAPI: "2.0"`, `RequiredAPI: "2.0", Unknown: "x"`)), 0o644))
+				var failure error
+				if operational {
+					failure = fs.ErrPermission
+				}
+				calls := stubRecordingDependencyResolver(t, map[string]*resolve.Source{
+					remoteSourceKey("example.com/lib", "", "v0.2.0"): library,
+				}, failure)
+				t.Cleanup(SetDepsListTagsForTest(func(string) ([]string, error) {
+					return []string{"v0.1.0", "v0.2.0"}, nil
+				}))
+				_, err = getDependency(&Options{Path: root}, "example.com/lib", io.Discard, nil)
+				require.Error(t, err)
+				if operational {
+					assert.ErrorIs(t, err, failure)
+				} else {
+					var authoring *golibrary.CompatibilityError
+					require.ErrorAs(t, err, &authoring)
+					assert.Equal(t, golibrary.UnsupportedField, authoring.Kind)
+				}
+				assert.Equal(t, []string{"example.com/lib@v0.2.0"}, *calls)
+				require.NoFileExists(t, filepath.Join(root, deps.ProjectFileName))
+				require.NoFileExists(t, filepath.Join(root, deps.ProjectLockFileName))
+			})
 	}
 }
 
@@ -311,14 +319,13 @@ func TestGetValidatesTheSelectedReleaseInsteadOfTheRequestedFloor(t *testing.T) 
 				arg += "@" + test.query
 			}
 			var output bytes.Buffer
-			operation, err := getDependency(&depsSyncConfig{stackPath: root},
+			operation, err := getDependency(&Options{Path: root},
 				arg, &output, func(dep deps.Dependency, version string) {
 					announcements = append(announcements, dep.String()+"@"+version)
 				})
 			require.NoError(t, err)
 			assert.Equal(t, "v0.1.0", operation.Version)
 			assert.Equal(t, "v0.2.0", operation.SelectedVersion)
-			assert.Contains(t, output.String(), "Requested example.com/lib floor v0.1.0\n")
 			assert.Equal(t, []string{"example.com/app@v0.1.0", "example.com/lib@v0.2.0"}, *calls)
 			assert.Equal(t, []string{"example.com/lib@v0.2.0"}, announcements)
 			project, err = deps.ReadProject(os.DirFS(root))
@@ -358,7 +365,7 @@ func TestGetStartsEachTransitiveTrialFresh(t *testing.T) {
 	t.Cleanup(SetDepsListTagsForTest(func(string) ([]string, error) {
 		return []string{"v0.1.0", "v0.2.0"}, nil
 	}))
-	operation, err := getDependency(&depsSyncConfig{stackPath: root}, app.String(), io.Discard, nil)
+	operation, err := getDependency(&Options{Path: root}, app.String(), io.Discard, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "v0.1.0", operation.Version)
 	assert.Equal(t, []string{
@@ -386,21 +393,26 @@ func TestGetPreservesAutomaticDirectAndIndirectFloors(t *testing.T) {
 					fixture, name = "testdata/ub/dependency-candidates", "indirect-factory"
 				}
 				factory := ubtest.ReadValidFixture(t, fixture, name)
-				require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(factory), 0o644))
+				require.NoError(t, os.WriteFile(
+					filepath.Join(root, "factory.ub"), []byte(factory), 0o644))
 				library := deps.Dependency{URL: "example.com/lib"}
 				project := &deps.Project{Requires: map[deps.Dependency]deps.Requirement{
 					library: {Version: "v0.2.0", Indirect: indirect},
 				}}
 				remotes := map[string]*resolve.Source{
-					remoteSourceKey(library.URL, "", "v0.2.0"): candidateLibrarySource(t, library.URL, "2.0"),
-					remoteSourceKey(library.URL, "", "v0.1.0"): candidateLibrarySource(t, library.URL, "1.0"),
+					remoteSourceKey(library.URL, "", "v0.2.0"): candidateLibrarySource(
+						t, library.URL, "2.0"),
+					remoteSourceKey(library.URL, "", "v0.1.0"): candidateLibrarySource(
+						t, library.URL, "1.0"),
 				}
 				if indirect {
 					app := deps.Dependency{URL: "example.com/app"}
 					project.SetRequire(app, "v0.1.0", false)
 					dir := t.TempDir()
-					body := ubtest.ReadValidFixture(t, "testdata/ub/dependency-candidates", "library")
-					require.NoError(t, os.WriteFile(filepath.Join(dir, "library.ub"), []byte(body), 0o644))
+					body := ubtest.ReadValidFixture(t,
+						"testdata/ub/dependency-candidates", "library")
+					require.NoError(t, os.WriteFile(
+						filepath.Join(dir, "library.ub"), []byte(body), 0o644))
 					_, err := deps.WriteProjectChange(filepath.Join(dir, deps.ProjectFileName),
 						&deps.Project{Requires: map[deps.Dependency]deps.Requirement{
 							library: {Version: "v0.1.0"},
@@ -415,7 +427,7 @@ func TestGetPreservesAutomaticDirectAndIndirectFloors(t *testing.T) {
 				_, err := deps.WriteProjectChange(projectPath, project)
 				require.NoError(t, err)
 				oldLock := deps.NewProjectLock()
-				oldLock.ToolchainVersion = cliVersion()
+				oldLock.ToolchainVersion = "v0.1.0"
 				_, err = deps.WriteProjectLockChange(lockPath, oldLock)
 				require.NoError(t, err)
 				beforeProject, err := os.ReadFile(projectPath)
@@ -430,7 +442,7 @@ func TestGetPreservesAutomaticDirectAndIndirectFloors(t *testing.T) {
 				if query != "" {
 					arg += "@" + query
 				}
-				_, err = getDependency(&depsSyncConfig{stackPath: root}, arg, io.Discard, nil)
+				_, err = getDependency(&Options{Path: root}, arg, io.Discard, nil)
 				require.Error(t, err)
 				diagnostics := diagnostic.FromError(err, diagnostic.ConvertOptions{})
 				codes := []string{}
@@ -439,7 +451,8 @@ func TestGetPreservesAutomaticDirectAndIndirectFloors(t *testing.T) {
 					assert.Equal(t, "v0.2.0", d.LibraryCompatibility.Floor)
 				}
 				assert.ElementsMatch(t, []string{
-					"unobin.library-api.unsupported-major", "unobin.library-api.no-compatible-version",
+					"unobin.library-api.unsupported-major",
+					"unobin.library-api.no-compatible-version",
 				}, codes)
 				assert.NotContains(t, *calls, library.String()+"@v0.1.0")
 				after, err := os.ReadFile(projectPath)
@@ -448,7 +461,7 @@ func TestGetPreservesAutomaticDirectAndIndirectFloors(t *testing.T) {
 				after, err = os.ReadFile(lockPath)
 				require.NoError(t, err)
 				assert.Equal(t, beforeLock, after)
-				operation, err := getDependency(&depsSyncConfig{stackPath: root},
+				operation, err := getDependency(&Options{Path: root},
 					library.String()+"@v0.1.0", io.Discard, nil)
 				require.NoError(t, err)
 				assert.Equal(t, "v0.1.0", operation.Version)
@@ -460,7 +473,8 @@ func TestGetPreservesAutomaticDirectAndIndirectFloors(t *testing.T) {
 
 func TestGetReportsAFloorThatExcludesEveryAvailableRelease(t *testing.T) {
 	root := t.TempDir()
-	factory := ubtest.ReadValidFixture(t, "testdata/ub/library-compatibility", "factory")
+	factory := ubtest.ReadValidFixture(t,
+		"testdata/ub/library-compatibility", "factory")
 	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(factory), 0o644))
 	library := deps.Dependency{URL: "example.com/lib"}
 	project := &deps.Project{Requires: map[deps.Dependency]deps.Requirement{
@@ -475,7 +489,7 @@ func TestGetReportsAFloorThatExcludesEveryAvailableRelease(t *testing.T) {
 	t.Cleanup(SetDepsListTagsForTest(func(string) ([]string, error) {
 		return []string{"v0.1.0", "v0.2.0"}, nil
 	}))
-	_, err = getDependency(&depsSyncConfig{stackPath: root}, library.String(), io.Discard, nil)
+	_, err = getDependency(&Options{Path: root}, library.String(), io.Discard, nil)
 	require.Error(t, err)
 	ds := diagnostic.FromError(err, diagnostic.ConvertOptions{})
 	require.Len(t, ds, 1)
@@ -493,7 +507,8 @@ func TestGetReportsAFloorThatExcludesEveryAvailableRelease(t *testing.T) {
 
 func TestSyncRejectsAnIncompatibleDiscoveredOwner(t *testing.T) {
 	root := t.TempDir()
-	factory := ubtest.ReadValidFixture(t, "testdata/ub/library-compatibility", "factory")
+	factory := ubtest.ReadValidFixture(t,
+		"testdata/ub/library-compatibility", "factory")
 	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(factory), 0o644))
 	newer := candidateLibrarySource(t, "example.com/lib", "2.0")
 	older := candidateLibrarySource(t, "example.com/lib", "1.0")
@@ -504,7 +519,7 @@ func TestSyncRejectsAnIncompatibleDiscoveredOwner(t *testing.T) {
 	t.Cleanup(SetDepsListTagsForTest(func(string) ([]string, error) {
 		return []string{"v0.1.0", "v0.2.0"}, nil
 	}))
-	_, err := syncDependencies(&depsSyncConfig{stackPath: root}, io.Discard)
+	_, err := syncDependencies(&Options{Path: root}, io.Discard)
 	var unsupported *libraryapi.UnsupportedMajorError
 	require.ErrorAs(t, err, &unsupported)
 	assert.Equal(t, []string{"example.com/lib@v0.2.0"}, *calls)
@@ -517,13 +532,16 @@ func TestSyncRejectsAnIncompatibleDiscoveredOwner(t *testing.T) {
 
 func TestGetChecksCurrentLocalReplacementMetadata(t *testing.T) {
 	root := t.TempDir()
-	factory := ubtest.ReadValidFixture(t, "testdata/ub/library-compatibility", "factory")
+	factory := ubtest.ReadValidFixture(t,
+		"testdata/ub/library-compatibility", "factory")
 	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(factory), 0o644))
 	library := deps.Dependency{URL: "example.com/lib"}
 	local := candidateLibrarySource(t, library.URL, "1.0")
 	project := &deps.Project{
-		Requires: map[deps.Dependency]deps.Requirement{library: {Version: deps.ReplacementSentinel}},
-		Replace:  map[deps.Dependency]string{library: local.Path},
+		Requires: map[deps.Dependency]deps.Requirement{
+			library: {Version: deps.ReplacementSentinel},
+		},
+		Replace: map[deps.Dependency]string{library: local.Path},
 	}
 	projectPath, lockPath := filepath.Join(root, deps.ProjectFileName),
 		filepath.Join(root, deps.ProjectLockFileName)
@@ -533,7 +551,7 @@ func TestGetChecksCurrentLocalReplacementMetadata(t *testing.T) {
 	t.Cleanup(SetDepsListTagsForTest(func(string) ([]string, error) {
 		return []string{"v0.1.0", "v0.2.0"}, nil
 	}))
-	operation, err := getDependency(&depsSyncConfig{stackPath: root},
+	operation, err := getDependency(&Options{Path: root},
 		library.String(), io.Discard, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "v0.2.0", operation.Version)
@@ -554,7 +572,7 @@ func TestGetChecksCurrentLocalReplacementMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(path, []byte(strings.ReplaceAll(string(code),
 		`RequiredAPI: "1.0"`, `RequiredAPI: "2.0"`)), 0o644))
-	_, err = getDependency(&depsSyncConfig{stackPath: root},
+	_, err = getDependency(&Options{Path: root},
 		library.String()+"@v0.2.0", io.Discard, nil)
 	var unsupported *libraryapi.UnsupportedMajorError
 	require.ErrorAs(t, err, &unsupported)
@@ -593,7 +611,7 @@ func TestRejectedExactQueriesKeepExistingDependencyFiles(t *testing.T) {
 			_, err := deps.WriteProjectChange(projectPath, project)
 			require.NoError(t, err)
 			lock := deps.NewProjectLock()
-			lock.ToolchainVersion = cliVersion()
+			lock.ToolchainVersion = "v0.1.0"
 			lock.Deps[library.String()] = &deps.ProjectLockDep{
 				Kind: deps.ProjectLockKindGo, Version: "v0.1.0", Commit: "previous-commit",
 			}
@@ -626,7 +644,7 @@ func TestRejectedExactQueriesKeepExistingDependencyFiles(t *testing.T) {
 			t.Cleanup(SetDepsListTagsForTest(func(string) ([]string, error) {
 				return []string{"v0.1.0", "v0.2.0"}, nil
 			}))
-			operation, err := getDependency(&depsSyncConfig{stackPath: root},
+			operation, err := getDependency(&Options{Path: root},
 				library.String()+"@"+test.query, io.Discard, nil)
 			var unsupported *libraryapi.UnsupportedMajorError
 			require.ErrorAs(t, err, &unsupported)

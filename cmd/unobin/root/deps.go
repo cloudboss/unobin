@@ -1,28 +1,19 @@
 package root
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
-	"os"
-	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/mod/semver"
 
+	"github.com/cloudboss/unobin/internal/cmdconfig"
 	"github.com/cloudboss/unobin/internal/cmdout"
-	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/filechange"
-	"github.com/cloudboss/unobin/pkg/git"
-	"github.com/cloudboss/unobin/pkg/projectmarker"
-	"github.com/cloudboss/unobin/pkg/resolve"
-	"github.com/cloudboss/unobin/pkg/toolchain"
+	"github.com/cloudboss/unobin/pkg/project"
 )
 
 // DepsCmd is the parent for the dependency-management subcommands.
@@ -87,56 +78,16 @@ var (
 	}
 )
 
-// depsListTags lists a repository's tags. It is a package var so tests can
-// resolve versions without a network round trip.
-var depsListTags = func(url string) ([]string, error) {
-	return git.ListTags(context.Background(), resolve.WithDefaultScheme(url))
-}
-
-var newRemoteResolver = resolve.NewRemoteResolver
-
-// SetDepsListTagsForTest replaces tag listing and returns a restore function.
-func SetDepsListTagsForTest(listTags func(string) ([]string, error)) func() {
-	prev := depsListTags
-	depsListTags = listTags
-	return func() { depsListTags = prev }
-}
-
-// SetRemoteResolverForTest replaces remote resolver construction and returns
-// a restore function.
-func SetRemoteResolverForTest(newResolver func() (*resolve.RemoteResolver, error)) func() {
-	prev := newRemoteResolver
-	newRemoteResolver = newResolver
-	return func() { newRemoteResolver = prev }
-}
-
 type depsSyncConfig struct {
 	stackPath     string
 	replaceUnobin string
 }
 
-type dependencyListEntry struct {
-	ID       string               `json:"id"       ub:"id"`
-	Kind     deps.ProjectLockKind `json:"kind"     ub:"kind"`
-	Version  string               `json:"version"  ub:"version"`
-	Indirect bool                 `json:"indirect" ub:"indirect"`
-}
-
 type dependencyListResult struct {
-	Kind          string                  `json:"kind"           ub:"kind"`
-	FormatVersion int                     `json:"format-version" ub:"format-version"`
-	Dependencies  []dependencyListEntry   `json:"dependencies"   ub:"dependencies"`
-	Diagnostics   []diagnostic.Diagnostic `json:"diagnostics"    ub:"diagnostics"`
-}
-
-type dependencyWriteResult struct {
-	ProjectFile string
-	LockFile    string
-	Direct      int
-	Indirect    int
-	Selected    int
-	Files       []filechange.Change
-	Diagnostics []diagnostic.Diagnostic
+	Kind          string                    `json:"kind"           ub:"kind"`
+	FormatVersion int                       `json:"format-version" ub:"format-version"`
+	Dependencies  []project.DependencyEntry `json:"dependencies"   ub:"dependencies"`
+	Diagnostics   []diagnostic.Diagnostic   `json:"diagnostics"    ub:"diagnostics"`
 }
 
 type dependencySyncResult struct {
@@ -165,15 +116,6 @@ type dependencyGetResult struct {
 	Diagnostics   []diagnostic.Diagnostic `json:"diagnostics"    ub:"diagnostics"`
 
 	SelectedVersion string `json:"selected-version,omitempty" ub:"selected-version,omitempty"`
-}
-
-type dependencyGetOperation struct {
-	Dependency      string
-	Version         string
-	SelectedVersion string
-	Indirect        bool
-	Write           *dependencyWriteResult
-	Diagnostics     []diagnostic.Diagnostic
 }
 
 type dependencyVerifyResult struct {
@@ -235,7 +177,7 @@ func dependencyToolOutput(cmd *cobra.Command, format cmdout.Format) io.Writer {
 func dependencyCommandFailure(
 	cmd *cobra.Command,
 	format cmdout.Format,
-	result *dependencyWriteResult,
+	result *project.DependencyWriteResult,
 	err error,
 ) error {
 	if !format.Machine() {
@@ -251,27 +193,6 @@ func dependencyDiagnostics(groups ...[]diagnostic.Diagnostic) []diagnostic.Diagn
 	return diagnostic.Merge(groups...)
 }
 
-// projectRoot resolves the project root from a --path value. When an
-// ancestor has project.ub, that directory is the project root. Without a
-// project, the path itself is the root when it is a directory; otherwise its
-// parent is used so first-time deps sync can create project.ub there.
-func projectRoot(stackPath string) (string, error) {
-	root, marker, err := deps.FindProjectMarkerDir(stackPath)
-	if err == nil {
-		if marker.Kind == projectmarker.Go {
-			return "", fmt.Errorf("deps sync manages UB projects; use Go commands for Go modules")
-		}
-		return root, nil
-	}
-	if !errors.Is(err, fs.ErrNotExist) {
-		return "", err
-	}
-	if info, err := os.Stat(stackPath); err == nil && info.IsDir() {
-		return stackPath, nil
-	}
-	return filepath.Dir(stackPath), nil
-}
-
 // runDepsSync reconciles the project file and project-lock with the
 // project's imports. The project holds the floors; sync reads it,
 // requires a floor for every imported repository, removes floors for
@@ -283,7 +204,9 @@ func runDepsSync(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	if err != nil {
 		return err
 	}
-	result, err := syncDependencies(cfg, dependencyToolOutput(cmd, format))
+	options := cmdconfig.ProjectOptions(cfg.stackPath, cfg.replaceUnobin)
+	options.ToolOutput = dependencyToolOutput(cmd, format)
+	result, err := project.SyncDependencies(options)
 	if err != nil {
 		return dependencyCommandFailure(cmd, format, result, err)
 	}
@@ -312,52 +235,6 @@ func runDepsSync(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	return nil
 }
 
-func syncDependencies(
-	cfg *depsSyncConfig,
-	toolOutput io.Writer,
-) (*dependencyWriteResult, error) {
-	root, err := projectRoot(cfg.stackPath)
-	if err != nil {
-		return nil, err
-	}
-	project, projectName, err := readProjectOrEmpty(root)
-	if err != nil {
-		return nil, err
-	}
-	unobinReplace, err := printGraphUnobinReplace(root, cfg.replaceUnobin, project.Replace)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := newCommandCompatibility(root, project, unobinReplace); err != nil {
-		return nil, err
-	}
-	imported, err := deps.ImportedPackages(root)
-	if err != nil {
-		return nil, err
-	}
-	projectLock, err := readProjectLockOrNil(root)
-	if err != nil {
-		return nil, err
-	}
-	resolver, err := newDepsResolver(root, cfg.replaceUnobin, project.Replace)
-	if err != nil {
-		return nil, err
-	}
-	resolver = deps.NewTrialResolver(resolver)
-	if err := reconcileProject(projectName, project, imported, projectLock, resolver); err != nil {
-		return nil, err
-	}
-	prepared, err := prepareDependencies(root, project, cfg.replaceUnobin, toolOutput, resolver)
-	if err != nil {
-		return nil, err
-	}
-	result, err := writeDependencyFiles(root, prepared.Project, prepared.Lock)
-	if result != nil {
-		result.Diagnostics = prepared.Diagnostics
-	}
-	return result, err
-}
-
 // runDepsGet resolves a version for one dependency, sets its floor in the
 // project, and re-pins. Automatic and prefix queries choose the highest compatible
 // candidate graph. An exact query validates one requested floor.
@@ -366,17 +243,26 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 	if err != nil {
 		return err
 	}
-	var announce func(deps.Dependency, string)
+	options := cmdconfig.ProjectOptions(cfg.stackPath, cfg.replaceUnobin)
+	options.ToolOutput = dependencyToolOutput(cmd, format)
 	if format == cmdout.FormatText {
-		announce = func(dependency deps.Dependency, version string) {
-			fmt.Fprintf(cmd.ErrOrStderr(), "Using %s %s\n", dependency, version)
+		options.Progress = func(progress project.DependencyProgress) {
+			if progress.Err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Skipping %s %s: %s\n",
+					progress.Dependency, progress.Version, progress.Err)
+				return
+			}
+			if progress.SelectedVersion != progress.Version {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Requested %s floor %s\n",
+					progress.Dependency, progress.Version)
+			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "Using %s %s\n",
+				progress.Dependency, progress.SelectedVersion)
 		}
 	}
-	operation, err := getDependency(
-		cfg, arg, dependencyToolOutput(cmd, format), announce,
-	)
+	operation, err := project.UpdateDependency(options, arg)
 	if err != nil {
-		var result *dependencyWriteResult
+		var result *project.DependencyWriteResult
 		if operation != nil {
 			result = operation.Write
 		}
@@ -416,470 +302,19 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 	return nil
 }
 
-func getDependency(
-	cfg *depsSyncConfig,
-	arg string,
-	toolOutput io.Writer,
-	announce func(deps.Dependency, string),
-) (*dependencyGetOperation, error) {
-	root, err := projectRoot(cfg.stackPath)
-	if err != nil {
-		return nil, err
-	}
-	dep, query, err := parseGetArg(arg)
-	if err != nil {
-		return nil, err
-	}
-	if deps.IsReplacementSentinel(query) {
-		return nil, fmt.Errorf("%s is reserved for project replacements", query)
-	}
-	if dep.URL == toolchain.UnobinModulePath {
-		return nil, fmt.Errorf(
-			"%s is toolchain-versioned; pin it with the project's unobin-version line",
-			dep.URL)
-	}
-	project, projectName, err := readProjectOrEmpty(root)
-	if err != nil {
-		return nil, err
-	}
-	unobinReplace, err := printGraphUnobinReplace(root, cfg.replaceUnobin, project.Replace)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := newCommandCompatibility(root, project, unobinReplace); err != nil {
-		return nil, err
-	}
-	imported, err := deps.ImportedPackages(root)
-	if err != nil {
-		return nil, err
-	}
-	projectLock, err := readProjectLockOrNil(root)
-	if err != nil {
-		return nil, err
-	}
-	tags, err := depsListTags(dep.URL)
-	if err != nil {
-		return nil, err
-	}
-	candidates, err := deps.VersionCandidates(dep, query, tags)
-	if err != nil {
-		return nil, err
-	}
-	automatic := query == "" || query == "latest"
-	exact := query != "" && semver.Canonical(query) == strings.TrimSuffix(query, semver.Build(query))
-	floor := ""
-	if automatic && !deps.IsReplacementSentinel(project.Requires[dep].Version) {
-		floor = project.Requires[dep].Version
-	}
-	notices := []diagnostic.Diagnostic{}
-	var lastFailure error
-	for _, version := range candidates {
-		if floor != "" && semver.Compare(version, floor) < 0 {
-			continue
-		}
-		prepared, indirect, err := prepareDependencyCandidate(root, projectName, project,
-			imported, projectLock, cfg, dep, version, toolOutput)
-		if err != nil {
-			diagnostics := dependencyTrialDiagnostics(err, version, query, floor, nil)
-			if exact || !retryDependencyCandidate(err) {
-				return nil, diagnostic.WithDiagnostics(err,
-					append(slices.Clone(notices), diagnostics...)...)
-			}
-			for i := range diagnostics {
-				diagnostics[i].Severity = diagnostic.SeverityInfo
-			}
-			notices = append(notices, diagnostics...)
-			lastFailure = err
-			fmt.Fprintf(toolOutput, "Skipping %s %s: %s\n", dep, version, err)
-			continue
-		}
-		diagnostics := dependencyDiagnostics(notices, prepared.Diagnostics)
-		writeResult, err := writeDependencyFiles(root, prepared.Project, prepared.Lock)
-		if writeResult != nil {
-			writeResult.Diagnostics = prepared.Diagnostics
-		}
-		selectedVersion := prepared.Selection[dep]
-		if err == nil && announce != nil {
-			if selectedVersion != version {
-				fmt.Fprintf(toolOutput, "Requested %s floor %s\n", dep, version)
-			}
-			announce(dep, selectedVersion)
-		}
-		if err != nil {
-			err = diagnostic.WithDiagnostics(err, append(diagnostics,
-				diagnostic.FromError(err, diagnostic.ConvertOptions{})...)...)
-		}
-		return &dependencyGetOperation{
-			Dependency: dep.String(), Version: version, SelectedVersion: selectedVersion,
-			Indirect: indirect, Write: writeResult, Diagnostics: diagnostics,
-		}, err
-	}
-	return nil, noCompatibleDependencyError(dep, query, floor, lastFailure, notices)
-}
-
-// readProjectOrEmpty reads the project file from root, returning an
-// empty project when the file does not exist yet. There is no `deps init`:
-// the project is created the first time get or sync writes it.
-func readProjectOrEmpty(root string) (*deps.Project, string, error) {
-	project, err := deps.ReadProject(os.DirFS(root))
-	if errors.Is(err, fs.ErrNotExist) {
-		return &deps.Project{
-			Requires: map[deps.Dependency]deps.Requirement{},
-		}, deps.ProjectFileName, nil
-	}
-	if err != nil {
-		return nil, deps.ProjectFileName, err
-	}
-	return project, deps.ProjectFileName, nil
-}
-
-// reconcileProject makes the project's project floors match the imported
-// remote packages. An imported package with no owning project floor is an error
-// that points the author at `deps get`; a floor whose project owns no import is
-// kept only when the direct dependency graph reaches it. The unobin repository
-// takes no floor at all: an import from it must be served by a replace, since
-// its source version may not float free of the toolchain.
-func reconcileProject(
-	projectName string,
-	m *deps.Project,
-	imported map[deps.RemotePackage]bool,
-	projectLock *deps.ProjectLock,
-	resolver resolve.Resolver,
-) error {
-	direct, err := directRequirementsForImports(projectName, m, imported, projectLock, resolver)
-	if err != nil {
-		return err
-	}
-	reachable, err := reachableRequirements(direct, m.Replace, resolver)
-	if err != nil {
-		return err
-	}
-	next := map[deps.Dependency]deps.Requirement{}
-	for dep, version := range direct {
-		next[dep] = deps.Requirement{Version: version}
-	}
-	for dep, req := range m.Requires {
-		if _, ok := direct[dep]; ok {
-			continue
-		}
-		if reachable[dep] {
-			next[dep] = deps.Requirement{Version: req.Version, Indirect: true}
-		}
-	}
-	m.Requires = next
-	return nil
-}
-
-func directRequirementsForImports(
-	projectName string,
-	m *deps.Project,
-	imported map[deps.RemotePackage]bool,
-	projectLock *deps.ProjectLock,
-	resolver resolve.Resolver,
-) (map[deps.Dependency]string, error) {
-	projects := deps.ProjectIDsFromDependencies(m.Requires)
-	projectLockProjects := projectLockProjectIDs(projectLock)
-	replaced := deps.ProjectIDsFromReplace(m.Replace)
-	direct := map[deps.Dependency]string{}
-	var missing []string
-	packages := make([]deps.RemotePackage, 0, len(imported))
-	for pkg := range imported {
-		packages = append(packages, pkg)
-	}
-	slices.SortFunc(packages, func(a, b deps.RemotePackage) int {
-		return strings.Compare(a.String(), b.String())
-	})
-	for _, pkg := range packages {
-		replacement, hasReplacement := deps.MostSpecificProject(replaced, pkg)
-		if pkg.URL == toolchain.UnobinModulePath {
-			if !hasReplacement {
-				return nil, fmt.Errorf(
-					"%s is toolchain-versioned and cannot be imported at a dependency"+
-						" version; replace it locally:\n"+
-						"  in project.ub: project: { replace: { '%s': '<path-to-unobin>' } }",
-					pkg.URL, pkg.URL)
-			}
-			continue
-		}
-		owner, ok := deps.MostSpecificProject(projects, pkg)
-		if ok {
-			dep := owner.Project.Dependency()
-			direct[dep] = m.Requires[dep].Version
-			continue
-		}
-		owner, ok = deps.MostSpecificProject(projectLockProjects, pkg)
-		if ok {
-			dep := owner.Project.Dependency()
-			direct[dep] = projectLock.Deps[owner.Project.String()].Version
-			projects = append(projects, owner.Project)
-			continue
-		}
-		if hasReplacement {
-			dep := replacement.Project.Dependency()
-			direct[dep] = deps.ReplacementSentinel
-			projects = append(projects, replacement.Project)
-			continue
-		}
-		discovered, version, found, err := discoverImportOwner(pkg, resolver)
-		if err != nil {
-			return nil, err
-		}
-		if found {
-			dep := discovered.Project.Dependency()
-			direct[dep] = version
-			projects = append(projects, discovered.Project)
-			continue
-		}
-		missing = append(missing, pkg.String())
-	}
-	if len(missing) > 0 {
-		slices.Sort(missing)
-		return nil, fmt.Errorf(
-			"imported but missing an owning project in %s: %s\n"+
-				"add the owning project with `unobin deps get <project>@<version>`",
-			projectName, strings.Join(missing, ", "))
-	}
-	return direct, nil
-}
-
-func reachableRequirements(
-	direct map[deps.Dependency]string,
-	replace map[deps.Dependency]string,
-	resolver resolve.Resolver,
-) (map[deps.Dependency]bool, error) {
-	project := &deps.Project{
-		Requires: map[deps.Dependency]deps.Requirement{},
-		Replace:  replace,
-	}
-	for dep, version := range direct {
-		project.SetRequire(dep, version, false)
-	}
-	selection, err := deps.Resolve(project, deps.NewFetcher(resolver))
-	if err != nil {
-		return nil, err
-	}
-	reachable := map[deps.Dependency]bool{}
-	for dep := range selection {
-		reachable[dep] = true
-	}
-	return reachable, nil
-}
-
-func dependencyOwnsImportedPackage(
-	dep deps.Dependency,
-	imported map[deps.RemotePackage]bool,
-) bool {
-	project := deps.ProjectIDFromDependency(dep)
-	for pkg := range imported {
-		if _, ok := deps.ProjectContains(project, pkg); ok {
-			return true
-		}
-	}
-	return false
-}
-
-func discoverImportOwner(
-	pkg deps.RemotePackage, resolver resolve.Resolver,
-) (deps.PackageOwner, string, bool, error) {
-	tags, err := depsListTags(pkg.URL)
-	if err != nil {
-		return deps.PackageOwner{}, "", false, err
-	}
-	for _, project := range importOwnerCandidates(pkg) {
-		dep := project.Dependency()
-		versions := deps.Versions(dep, tags)
-		if len(versions) == 0 {
-			continue
-		}
-		version := versions[len(versions)-1]
-		owner, ok := deps.ProjectContains(project, pkg)
-		if !ok {
-			continue
-		}
-		found, err := discoveredProjectHasMarker(project, version, resolver)
-		if err != nil {
-			return deps.PackageOwner{}, "", false, err
-		}
-		if !found {
-			continue
-		}
-		packageOwner := deps.PackageOwner{Project: project, PackageSubdir: owner}
-		blocked, err := blockedByNestedProject(packageOwner, pkg, resolver, version)
-		if err != nil {
-			return deps.PackageOwner{}, "", false, err
-		}
-		if blocked {
-			continue
-		}
-		return packageOwner, version, true, nil
-	}
-	return deps.PackageOwner{}, "", false, nil
-}
-
-func importOwnerCandidates(pkg deps.RemotePackage) []deps.ProjectID {
-	var candidates []deps.ProjectID
-	for subdir := pkg.Subdir; ; subdir = parentSubdir(subdir) {
-		candidates = append(candidates, deps.ProjectID{URL: pkg.URL, Subdir: subdir})
-		if subdir == "" {
-			break
-		}
-	}
-	return candidates
-}
-
-func parentSubdir(subdir string) string {
-	if subdir == "" {
-		return ""
-	}
-	if i := strings.LastIndex(subdir, "/"); i >= 0 {
-		return subdir[:i]
-	}
-	return ""
-}
-
-func discoveredProjectHasMarker(
-	project deps.ProjectID, version string, resolver resolve.Resolver,
-) (bool, error) {
-	src, err := resolver.Resolve(&resolve.RemoteImport{
-		URL:           project.URL,
-		Subdir:        project.Subdir,
-		ProjectSubdir: project.Subdir,
-		PackageSubdir: project.Subdir,
-		Version:       deps.ProjectTag(project, version),
-	})
-	if err != nil {
-		return false, err
-	}
-	return deps.HasProjectMarker(src.FS)
-}
-
-func blockedByNestedProject(
-	owner deps.PackageOwner,
-	pkg deps.RemotePackage,
-	resolver resolve.Resolver,
-	version string,
-) (bool, error) {
-	src, err := resolver.Resolve(&resolve.RemoteImport{
-		URL:           pkg.URL,
-		Subdir:        pkg.Subdir,
-		ProjectSubdir: owner.Project.Subdir,
-		PackageSubdir: pkg.Subdir,
-		Version:       deps.ProjectTag(owner.Project, version),
-	})
-	if err != nil {
-		return false, nil
-	}
-	if err := deps.CheckPackageBoundary(src, owner, pkg); err != nil {
-		if strings.Contains(err.Error(), "does not own package") {
-			return true, nil
-		}
-		return false, err
-	}
-	return false, nil
-}
-
-func projectLockProjectIDs(projectLock *deps.ProjectLock) []deps.ProjectID {
-	if projectLock == nil {
-		return nil
-	}
-	projects := make([]deps.ProjectID, 0, len(projectLock.Deps))
-	for id := range projectLock.Deps {
-		dep, err := deps.ParseDependency(id)
-		if err != nil {
-			continue
-		}
-		projects = append(projects, deps.ProjectIDFromDependency(dep))
-	}
-	return projects
-}
-
-func parseGetArg(arg string) (deps.Dependency, string, error) {
-	repoPart, query := arg, ""
-	if at := strings.LastIndex(arg, "@"); at >= 0 {
-		repoPart, query = arg[:at], arg[at+1:]
-	}
-	dep, err := deps.ParseDependency(repoPart)
-	return dep, query, err
-}
-
-func writeDependencyFiles(
-	root string,
-	project *deps.Project,
-	projectLock *deps.ProjectLock,
-) (*dependencyWriteResult, error) {
-	result := &dependencyWriteResult{
-		ProjectFile: deps.ProjectFileName,
-		LockFile:    deps.ProjectLockFileName,
-		Direct:      project.DirectCount(),
-		Indirect:    project.IndirectCount(),
-		Selected:    len(projectLock.Deps),
-		Files:       []filechange.Change{},
-	}
-	projectPath := filepath.Join(root, deps.ProjectFileName)
-	projectChange, err := deps.WriteProjectChange(projectPath, project)
-	if err != nil {
-		return nil, err
-	}
-	projectChange.Path = deps.ProjectFileName
-	result.Files = append(result.Files, projectChange)
-	lockPath := filepath.Join(root, deps.ProjectLockFileName)
-	lockChange, err := deps.WriteProjectLockChange(lockPath, projectLock)
-	if err != nil {
-		return result, err
-	}
-	lockChange.Path = deps.ProjectLockFileName
-	result.Files = append(result.Files, lockChange)
-	result.Files, err = filechange.Compose(result.Files)
-	if err != nil {
-		return result, err
-	}
-	return result, nil
-}
-
 // runDepsList prints the project-lock dependencies, one per line, sorted by id.
 func runDepsList(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	format, err := dependencyCommandFormat(cmd)
 	if err != nil {
 		return err
 	}
-	root, err := projectRoot(cfg.stackPath)
+	dependencies, err := project.ListDependencies(cfg.stackPath)
 	if err != nil {
-		return dependencyCommandFailure(cmd, format, nil, err)
-	}
-	projectLock, err := readProjectLock(cfg.stackPath)
-	if err != nil {
-		return dependencyCommandFailure(cmd, format, nil, err)
-	}
-	project, err := deps.ReadProject(os.DirFS(root))
-	if errors.Is(err, fs.ErrNotExist) {
-		project = nil
-	} else if err != nil {
 		return dependencyCommandFailure(cmd, format, nil, err)
 	}
 	result := dependencyListResult{
-		Kind:          "dependency-list",
-		FormatVersion: 1,
-		Dependencies:  []dependencyListEntry{},
-		Diagnostics:   dependencyDiagnostics(),
-	}
-	for _, id := range projectLock.SortedIDs() {
-		selected := projectLock.Deps[id]
-		indirect := true
-		if project != nil {
-			dependency, parseErr := deps.ParseDependency(id)
-			if parseErr != nil {
-				return dependencyCommandFailure(cmd, format, nil, parseErr)
-			}
-			if requirement, ok := project.Requires[dependency]; ok {
-				indirect = requirement.Indirect
-			}
-		}
-		result.Dependencies = append(result.Dependencies, dependencyListEntry{
-			ID:       id,
-			Kind:     selected.Kind,
-			Version:  selected.Version,
-			Indirect: indirect,
-		})
+		Kind: "dependency-list", FormatVersion: 1,
+		Dependencies: dependencies, Diagnostics: dependencyDiagnostics(),
 	}
 	if format.Machine() {
 		return cmdout.WriteDocument(cmd.OutOrStdout(), format, result)
@@ -900,19 +335,8 @@ func runDepsVerify(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	if err != nil {
 		return err
 	}
-	projectLock, err := readProjectLock(cfg.stackPath)
-	if err != nil {
-		return dependencyCommandFailure(cmd, format, nil, err)
-	}
-	root, err := projectRoot(cfg.stackPath)
-	if err != nil {
-		return dependencyCommandFailure(cmd, format, nil, err)
-	}
-	resolver, err := newDepsResolver(root, cfg.replaceUnobin, nil)
-	if err != nil {
-		return dependencyCommandFailure(cmd, format, nil, err)
-	}
-	verified, err := deps.Verify(projectLock, resolver)
+	verified, err := project.VerifyDependencies(
+		cmdconfig.ProjectOptions(cfg.stackPath, cfg.replaceUnobin))
 	if err != nil {
 		return dependencyCommandFailure(cmd, format, nil, err)
 	}
@@ -947,35 +371,6 @@ func runDepsVerify(cmd *cobra.Command, cfg *depsSyncConfig) error {
 	return nil
 }
 
-// readProjectLock reads project-lock from stackPath's project root, with a
-// clear error when it is missing.
-func readProjectLock(stackPath string) (*deps.ProjectLock, error) {
-	root, rootErr := projectRoot(stackPath)
-	if rootErr != nil {
-		return nil, rootErr
-	}
-	projectLock, err := deps.ReadProjectLock(os.DirFS(root))
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, fmt.Errorf("no %s found; run `unobin deps sync` first",
-				deps.ProjectLockFileName)
-		}
-		return nil, err
-	}
-	return projectLock, nil
-}
-
-func readProjectLockOrNil(root string) (*deps.ProjectLock, error) {
-	projectLock, err := deps.ReadProjectLock(os.DirFS(root))
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return projectLock, nil
-}
-
 // runDepsClean removes the cached dependency sources, which are shared
 // across projects.
 func runDepsClean(cmd *cobra.Command) error {
@@ -983,17 +378,7 @@ func runDepsClean(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	resolver, err := newRemoteResolver()
-	if err != nil {
-		return dependencyCommandFailure(cmd, format, nil, err)
-	}
-	removed := false
-	if _, err := os.Stat(resolver.ImportsDir()); err == nil {
-		removed = true
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return dependencyCommandFailure(cmd, format, nil, err)
-	}
-	dir, err := resolver.CleanImports()
+	cleaned, err := project.CleanDependencies(cmdconfig.ProjectOptions("", ""))
 	if err != nil {
 		return dependencyCommandFailure(cmd, format, nil, err)
 	}
@@ -1001,20 +386,10 @@ func runDepsClean(cmd *cobra.Command) error {
 		return cmdout.WriteDocument(cmd.OutOrStdout(), format, dependencyCacheCleanResult{
 			Kind:          "dependency-cache-clean-result",
 			FormatVersion: 1,
-			Removed:       removed,
+			Removed:       cleaned.Removed,
 			Diagnostics:   dependencyDiagnostics(),
 		})
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "Removed the import cache at %s\n", dir)
+	fmt.Fprintf(cmd.ErrOrStderr(), "Removed the import cache at %s\n", cleaned.Path)
 	return nil
-}
-
-func newDepsResolver(
-	root, replaceUnobin string, replace map[deps.Dependency]string,
-) (resolve.Resolver, error) {
-	resolver, err := newCompileResolver(root)
-	if err != nil {
-		return nil, err
-	}
-	return compile.WrapReplaces(resolver, root, replaceUnobin, replace)
 }

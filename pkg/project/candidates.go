@@ -1,9 +1,8 @@
-package root
+package project
 
 import (
 	"errors"
 	"fmt"
-	"io"
 	"slices"
 
 	"github.com/cloudboss/unobin/pkg/deps"
@@ -18,13 +17,12 @@ func prepareDependencyCandidate(
 	project *deps.Project,
 	imported map[deps.RemotePackage]bool,
 	lock *deps.ProjectLock,
-	cfg *depsSyncConfig,
+	options Options,
 	dependency deps.Dependency,
 	version string,
-	toolOutput io.Writer,
 ) (*dependencyPreparation, bool, error) {
 	project = cloneDependencyProject(project)
-	resolver, err := newDepsResolver(root, cfg.replaceUnobin, project.Replace)
+	resolver, err := options.resolver(root, options.ReplaceUnobin, project.Replace)
 	if err != nil {
 		return nil, false, err
 	}
@@ -33,7 +31,8 @@ func prepareDependencyCandidate(
 	if directTarget {
 		project.SetRequire(dependency, version, false)
 	}
-	direct, err := directRequirementsForImports(projectName, project, imported, lock, resolver)
+	direct, err := directRequirementsForImports(
+		projectName, project, imported, lock, resolver, options.listTags)
 	if err != nil {
 		return nil, false, err
 	}
@@ -52,7 +51,7 @@ func prepareDependencyCandidate(
 				"%s is not imported directly or transitively by this project", dependency)
 		}
 	}
-	prepared, err := prepareDependencies(root, project, cfg.replaceUnobin, toolOutput, resolver)
+	prepared, err := prepareDependencies(root, project, options, resolver)
 	return prepared, !directTarget, err
 }
 
@@ -127,16 +126,18 @@ func dependencyTrialDiagnostics(
 			if declaring == "" {
 				declaring = deps.ProjectFileName
 			}
-			details.RequirementChain = append(details.RequirementChain, diagnostic.LibraryRequirementStep{
-				Dependency: declaring, Version: step.Version,
-				Requires: step.Requires.String(), MinimumVersion: step.MinimumVersion,
-			})
+			details.RequirementChain = append(
+				details.RequirementChain, diagnostic.LibraryRequirementStep{
+					Dependency: declaring, Version: step.Version,
+					Requires: step.Requires.String(), MinimumVersion: step.MinimumVersion,
+				})
 		}
 	}
 	return diagnostic.Normalize(diagnostics)
 }
 
 func noCompatibleDependencyError(
+	options Options,
 	dependency deps.Dependency,
 	query, floor string,
 	cause error,
@@ -154,12 +155,13 @@ func noCompatibleDependencyError(
 		failure = fmt.Errorf("%s: %w", message, cause)
 	}
 	descriptor := libraryapi.Current()
-	if libraryAPIDescriptor != nil {
-		descriptor = *libraryAPIDescriptor
+	if options.LibraryAPIDescriptor != nil {
+		descriptor = *options.LibraryAPIDescriptor
 	}
 	details := &diagnostic.LibraryCompatibilityDetails{
 		Dependency: dependency.String(), Query: query, Floor: floor,
-		UnobinVersion: cliVersion(), ImplementedAPIs: slices.Clone(descriptor.ImplementedAPIs),
+		UnobinVersion:   options.UnobinVersion,
+		ImplementedAPIs: slices.Clone(descriptor.ImplementedAPIs),
 	}
 	if floor != "" {
 		details.RequirementChain = []diagnostic.LibraryRequirementStep{{

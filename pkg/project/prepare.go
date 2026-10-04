@@ -1,8 +1,7 @@
-package root
+package project
 
 import (
 	"fmt"
-	"io"
 	"maps"
 	"os"
 
@@ -32,24 +31,24 @@ func cloneDependencyProject(project *deps.Project) *deps.Project {
 func prepareDependencies(
 	root string,
 	project *deps.Project,
-	replaceUnobin string,
-	toolOutput io.Writer,
+	options Options,
 	resolver resolve.Resolver,
 ) (*dependencyPreparation, error) {
+	toolOutput := options.toolOutput()
 	project = cloneDependencyProject(project)
 	if err := deps.CheckReplacementSentinels(project); err != nil {
 		return nil, err
 	}
-	unobinReplace, err := printGraphUnobinReplace(root, replaceUnobin, project.Replace)
+	unobinReplace, err := UnobinReplacement(root, options.ReplaceUnobin, project.Replace)
 	if err != nil {
 		return nil, err
 	}
-	compatibility, err := newCommandCompatibility(root, project, unobinReplace)
+	compatibility, err := options.Compatibility(root, project, unobinReplace)
 	if err != nil {
 		return nil, err
 	}
 	if resolver == nil {
-		resolver, err = newDepsResolver(root, replaceUnobin, project.Replace)
+		resolver, err = options.resolver(root, options.ReplaceUnobin, project.Replace)
 		if err != nil {
 			return nil, err
 		}
@@ -61,14 +60,14 @@ func prepareDependencies(
 			dependencyTrialDiagnostics(err, "", "", "", resolution)...)
 	}
 	selection := resolution.Selection
-	schemaRoots := compile.UnobinSchemaRoots(toolOutput, unobinReplace, cliVersion())
+	schemaRoots := compile.UnobinSchemaRoots(toolOutput, unobinReplace, options.UnobinVersion)
 	prepared, err := deps.PrepareProjectLock(os.DirFS(root), selection, resolver, project.Replace,
 		deps.ProjectLockOptions{SchemaRoots: schemaRoots, Compatibility: compatibility})
 	if err != nil {
 		return nil, diagnostic.WithDiagnostics(err,
 			dependencyTrialDiagnostics(err, "", "", "", resolution)...)
 	}
-	prepared.Lock.ToolchainVersion = cliVersion()
+	prepared.Lock.ToolchainVersion = options.UnobinVersion
 	manifest := prepared.Compatibility.Manifest()
 	diagnostics := []diagnostic.Diagnostic{}
 	for _, metadata := range manifest {
@@ -89,13 +88,14 @@ func prepareDependencies(
 			Message: fmt.Sprintf("the project pins unobin %s; the replacement at %s runs instead",
 				project.UnobinVersion, unobinReplace),
 			LibraryCompatibility: &diagnostic.LibraryCompatibilityDetails{
-				Floor: project.UnobinVersion, UnobinVersion: cliVersion(), Replacement: unobinReplace,
+				Floor: project.UnobinVersion, UnobinVersion: options.UnobinVersion,
+				Replacement: unobinReplace,
 			},
 		})
 	}
 	return &dependencyPreparation{
 		Project: project, Selection: selection, Lock: prepared.Lock,
 		Resolution: resolution,
-		Libraries:  manifest, Diagnostics: dependencyDiagnostics(diagnostics),
+		Libraries:  manifest, Diagnostics: diagnostic.Merge(diagnostics),
 	}, nil
 }

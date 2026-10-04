@@ -6,11 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/cobra"
+
+	"github.com/cloudboss/unobin/internal/cmdconfig"
 	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
-	"github.com/cloudboss/unobin/pkg/resolve"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -97,11 +98,11 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		GoVersion:            cfg.goVersion,
 		Version:              cfg.version,
 		CLIVersion:           cliVersion(),
-		LibraryAPIDescriptor: libraryAPIDescriptor,
+		LibraryAPIDescriptor: cmdconfig.LibraryAPIDescriptor,
 		ReplaceUnobin:        cfg.replaceUnobin,
 		ReplaceGoModules:     replaceGoModules,
 		Build:                cfg.build,
-		NewResolver:          newCompileResolver,
+		NewResolver:          cmdconfig.NewResolver,
 		Stdout:               cmd.OutOrStdout(),
 		Stderr:               cmd.ErrOrStderr(),
 	}
@@ -144,20 +145,6 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		)
 	}
 	return cmdout.WriteDocument(cmd.OutOrStdout(), format, response)
-}
-
-// newCompileResolver constructs the resolver the compile, print-graph,
-// and deps commands fetch import sources with. Tests override this
-// package var to avoid any network access.
-var newCompileResolver = compile.NewProjectResolver
-
-// SetCompileResolverForTest replaces the resolver factory and returns a restore function.
-func SetCompileResolverForTest(
-	newResolver func(string) (resolve.Resolver, error),
-) func() {
-	prev := newCompileResolver
-	newCompileResolver = newResolver
-	return func() { newCompileResolver = prev }
 }
 
 // parseReplaceFlags parses each `--replace-go-module module-path=local-path`

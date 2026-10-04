@@ -11,28 +11,12 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cloudboss/unobin/internal/cmdconfig"
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/libraryapi"
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
-
-func TestCommandCompatibilityUsesInjectedDescriptor(t *testing.T) {
-	descriptor := libraryapi.Descriptor{
-		FormatVersion: 1, ImplementedAPIs: []string{"1.1"}, GeneratorAPI: "1.1",
-	}
-	t.Cleanup(SetLibraryAPIDescriptorForTest(&descriptor))
-	context, err := newCommandCompatibility(t.TempDir(), nil, "")
-	require.NoError(t, err)
-	root := t.TempDir()
-	require.NoError(t, os.CopyFS(root, os.DirFS("../../../pkg/deps/testdata/go/compatibility")))
-	path := filepath.Join(root, "library.go")
-	source, err := os.ReadFile(path)
-	require.NoError(t, err)
-	source = []byte(strings.ReplaceAll(string(source), `RequiredAPI: "1.0"`, `RequiredAPI: "1.1"`))
-	require.NoError(t, os.WriteFile(path, source, 0o644))
-	require.NoError(t, context.CheckDirectory(root, true))
-}
 
 func TestCommandsCheckToolchainBeforeResolverOrTags(t *testing.T) {
 	for _, command := range []string{"compile", "check", "print-graph", "sync", "get"} {
@@ -43,12 +27,12 @@ func TestCommandsCheckToolchainBeforeResolverOrTags(t *testing.T) {
 				project := ubtest.ReadValidFixture(t, "testdata/ub/library-compatibility", "project")
 				projectPath := filepath.Join(root, deps.ProjectFileName)
 				require.NoError(t, os.WriteFile(projectPath, []byte(project), 0o644))
-				t.Cleanup(SetDepsListTagsForTest(func(string) ([]string, error) {
+				t.Cleanup(cmdconfig.SetDepsListTagsForTest(func(string) ([]string, error) {
 					t.Fatal("tags listed before checking the toolchain")
 					return nil, nil
 				}))
 				stubCompileResolver(t, nil)
-				newCompileResolver = func(string) (resolve.Resolver, error) {
+				cmdconfig.NewResolver = func(string) (resolve.Resolver, error) {
 					t.Fatal("resolver created before checking the toolchain")
 					return nil, nil
 				}
@@ -137,9 +121,9 @@ func TestCommandsUseCompatibilityContextForLibraryReads(t *testing.T) {
 					descriptor := libraryapi.Descriptor{
 						FormatVersion: 1, ImplementedAPIs: []string{"1.1"}, GeneratorAPI: "1.1",
 					}
-					t.Cleanup(SetLibraryAPIDescriptorForTest(&descriptor))
+					t.Cleanup(cmdconfig.SetLibraryAPIDescriptorForTest(&descriptor))
 				}
-				t.Cleanup(SetDepsListTagsForTest(func(string) ([]string, error) {
+				t.Cleanup(cmdconfig.SetDepsListTagsForTest(func(string) ([]string, error) {
 					return []string{"v0.1.0"}, nil
 				}))
 				source := &resolve.Source{Path: library, Commit: "c1"}

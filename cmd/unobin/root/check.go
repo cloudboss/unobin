@@ -9,14 +9,17 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/cobra"
+
+	"github.com/cloudboss/unobin/internal/cmdconfig"
 	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	projectpkg "github.com/cloudboss/unobin/pkg/project"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/cloudboss/unobin/pkg/sourcecheck"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -334,11 +337,12 @@ func checkOptions(
 		}
 		replaceMap = project.Replace
 	}
-	replaceUnobinAbs, err := printGraphUnobinReplace(projectDir, replaceUnobin, replaceMap)
+	replaceUnobinAbs, err := projectpkg.UnobinReplacement(projectDir, replaceUnobin, replaceMap)
 	if err != nil {
 		return sourcecheck.Options{}, err
 	}
-	compatibility, err := newCommandCompatibility(projectDir, project, replaceUnobinAbs)
+	compatibility, err := cmdconfig.ProjectOptions("", "").Compatibility(
+		projectDir, project, replaceUnobinAbs)
 	if err != nil {
 		return sourcecheck.Options{}, err
 	}
@@ -346,7 +350,7 @@ func checkOptions(
 	if err != nil {
 		return sourcecheck.Options{}, err
 	}
-	resolver, err := newCompileResolver(projectDir)
+	resolver, err := cmdconfig.NewResolver(projectDir)
 	if err != nil {
 		return sourcecheck.Options{}, err
 	}

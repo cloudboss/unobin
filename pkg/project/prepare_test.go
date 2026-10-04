@@ -1,4 +1,4 @@
-package root
+package project
 
 import (
 	"io"
@@ -35,7 +35,8 @@ func TestPrepareDependenciesLeavesFilesUntouched(t *testing.T) {
 		t.Run(map[bool]string{false: "absent", true: "existing"}[existing], func(t *testing.T) {
 			root := t.TempDir()
 			factory := ubtest.ReadValidFixture(t, "testdata/ub/library-compatibility", "factory")
-			require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(factory), 0o644))
+			require.NoError(t, os.WriteFile(
+				filepath.Join(root, "factory.ub"), []byte(factory), 0o644))
 			dep := deps.Dependency{URL: "example.com/lib"}
 			other := deps.Dependency{URL: "example.com/unused"}
 			require.NoError(t, os.Mkdir(filepath.Join(root, "unused"), 0o755))
@@ -65,12 +66,14 @@ func TestPrepareDependenciesLeavesFilesUntouched(t *testing.T) {
 			}
 			library := t.TempDir()
 			require.NoError(t, os.CopyFS(library,
-				os.DirFS("../../../pkg/deps/testdata/go/compatibility")))
-			source := &resolve.Source{FS: os.DirFS(library), Path: library, Commit: "selected-commit"}
+				os.DirFS("../deps/testdata/go/compatibility")))
+			source := &resolve.Source{
+				FS: os.DirFS(library), Path: library, Commit: "selected-commit",
+			}
 			stubCompileResolver(t, map[string]*resolve.Source{
 				remoteSourceKey(dep.URL, "", "v0.1.0"): source,
 			})
-			prepared, err := prepareDependencies(root, project, "", io.Discard, nil)
+			prepared, err := prepareDependencies(root, project, testOptions(Options{}), nil)
 			require.NoError(t, err)
 			assert.Equal(t, project, prepared.Project)
 			assert.NotSame(t, project, prepared.Project)
@@ -111,7 +114,7 @@ func TestGetDoesNotAnnounceRejectedSelection(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"), []byte(factory), 0o644))
 	library := t.TempDir()
 	require.NoError(t, os.CopyFS(library,
-		os.DirFS("../../../pkg/deps/testdata/go/compatibility")))
+		os.DirFS("../deps/testdata/go/compatibility")))
 	path := filepath.Join(library, "library.go")
 	code, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -126,7 +129,7 @@ func TestGetDoesNotAnnounceRejectedSelection(t *testing.T) {
 		return []string{"v0.1.0"}, nil
 	}))
 	announcements := []string{}
-	_, err = getDependency(&depsSyncConfig{stackPath: root}, "example.com/lib@v0.1.0", io.Discard,
+	_, err = getDependency(&Options{Path: root}, "example.com/lib@v0.1.0", io.Discard,
 		func(dep deps.Dependency, version string) {
 			announcements = append(announcements, dep.String()+"@"+version)
 		})
@@ -144,7 +147,7 @@ func TestGetKeepsTheFirstProjectCommitThroughPreparation(t *testing.T) {
 	first, second := t.TempDir(), t.TempDir()
 	for _, dir := range []string{first, second} {
 		require.NoError(t, os.CopyFS(dir,
-			os.DirFS("../../../pkg/deps/testdata/go/compatibility")))
+			os.DirFS("../deps/testdata/go/compatibility")))
 	}
 	path := filepath.Join(second, "library.go")
 	code, err := os.ReadFile(path)
@@ -161,7 +164,7 @@ func TestGetKeepsTheFirstProjectCommitThroughPreparation(t *testing.T) {
 	t.Cleanup(SetDepsListTagsForTest(func(string) ([]string, error) {
 		return []string{"v0.1.0"}, nil
 	}))
-	operation, err := getDependency(&depsSyncConfig{stackPath: root},
+	operation, err := getDependency(&Options{Path: root},
 		"example.com/lib@v0.1.0", io.Discard, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "v0.1.0", operation.Version)

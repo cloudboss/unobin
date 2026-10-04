@@ -13,13 +13,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
 	cmdroot "github.com/cloudboss/unobin/cmd/unobin/root"
 	cmdgenerate "github.com/cloudboss/unobin/cmd/unobin/root/generate"
+	"github.com/cloudboss/unobin/internal/cmdconfig"
 	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/pkg/gogen"
 	"github.com/cloudboss/unobin/pkg/resolve"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 func runSourceCase(t *testing.T, cfg config, executable string, c SourceCase) {
@@ -213,19 +215,23 @@ func rootCommandRunner(workspace string, c SourceCase) (rootCommandFunc, func(),
 	if err != nil {
 		return nil, nil, err
 	}
-	restoreResolver := cmdroot.SetCompileResolverForTest(func(root string) (resolve.Resolver, error) {
+	restoreResolver := cmdconfig.SetCompileResolverForTest(func(
+		root string,
+	) (resolve.Resolver, error) {
 		return &sourceResolver{
 			local:   resolve.NewLocalResolver(root),
 			remotes: remotes,
 		}, nil
 	})
-	restoreTags := cmdroot.SetDepsListTagsForTest(func(url string) ([]string, error) {
+	restoreTags := cmdconfig.SetDepsListTagsForTest(func(url string) ([]string, error) {
 		if tags, ok := c.Tags[url]; ok {
 			return tags, nil
 		}
 		return nil, fmt.Errorf("fake tags: no tags for %s", url)
 	})
-	restoreRemoteResolver := cmdroot.SetRemoteResolverForTest(func() (*resolve.RemoteResolver, error) {
+	restoreRemoteResolver := cmdconfig.SetRemoteResolverForTest(func() (
+		*resolve.RemoteResolver, error,
+	) {
 		return &resolve.RemoteResolver{
 			CacheRoot: filepath.Join(workspace, "cache", "unobin"),
 		}, nil

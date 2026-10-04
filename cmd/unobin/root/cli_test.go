@@ -11,12 +11,14 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/cloudboss/unobin/internal/ubtest"
-	"github.com/cloudboss/unobin/pkg/deps"
-	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/internal/cmdconfig"
+	"github.com/cloudboss/unobin/internal/ubtest"
+	"github.com/cloudboss/unobin/pkg/deps"
+	"github.com/cloudboss/unobin/pkg/resolve"
 )
 
 // TestMain stamps a release version the way a real build's ldflags
@@ -89,14 +91,14 @@ func runCommandWithRemotes(t *testing.T, remotes map[string]*resolve.Source,
 
 func stubCompileResolver(t *testing.T, remotes map[string]*resolve.Source) {
 	t.Helper()
-	prev := newCompileResolver
-	newCompileResolver = func(stackDir string) (resolve.Resolver, error) {
+	prev := cmdconfig.NewResolver
+	cmdconfig.NewResolver = func(stackDir string) (resolve.Resolver, error) {
 		return &fakeResolver{
 			local:   resolve.NewLocalResolver(stackDir),
 			remotes: remotes,
 		}, nil
 	}
-	t.Cleanup(func() { newCompileResolver = prev })
+	t.Cleanup(func() { cmdconfig.NewResolver = prev })
 }
 
 type fakeResolver struct {
@@ -238,7 +240,7 @@ func TestDepsSyncKeepsSchemaDependencyDirect(t *testing.T) {
 func TestDepsGetTreatsSchemaDependencyAsDirect(t *testing.T) {
 	dir := t.TempDir()
 	writeSchemaDependencyFactory(t, dir)
-	restoreTags := SetDepsListTagsForTest(func(url string) ([]string, error) {
+	restoreTags := cmdconfig.SetDepsListTagsForTest(func(url string) ([]string, error) {
 		require.Equal(t, "example.com/aws", url)
 		return []string{"v0.1.0"}, nil
 	})
@@ -258,7 +260,7 @@ func TestDepsGetUsesReplaceUnobinForSchemaDependencyConfigType(t *testing.T) {
 	rootDir := findUnobinRoot(t)
 	dir := t.TempDir()
 	writeSchemaDependencyFactory(t, dir)
-	restoreTags := SetDepsListTagsForTest(func(url string) ([]string, error) {
+	restoreTags := cmdconfig.SetDepsListTagsForTest(func(url string) ([]string, error) {
 		require.Equal(t, "example.com/aws", url)
 		return []string{"v0.1.0"}, nil
 	})
@@ -379,4 +381,11 @@ func findUnobinRoot(t *testing.T) string {
 	}
 	t.Fatalf("could not find unobin go.mod above %s", cwd)
 	return ""
+}
+
+func compatibleLibrarySource(t *testing.T) *resolve.Source {
+	t.Helper()
+	dir := t.TempDir()
+	require.NoError(t, os.CopyFS(dir, os.DirFS("../../../pkg/deps/testdata/go/compatibility")))
+	return &resolve.Source{FS: os.DirFS(dir), Path: dir, Commit: "selected-commit"}
 }

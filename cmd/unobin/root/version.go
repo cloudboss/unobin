@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"runtime/debug"
 
+	"github.com/spf13/cobra"
+
+	"github.com/cloudboss/unobin/internal/cmdconfig"
 	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
-	"github.com/spf13/cobra"
 )
 
 // Version is the build time version string. Set via -ldflags.
@@ -30,6 +32,7 @@ type versionResult struct {
 }
 
 func init() {
+	cmdconfig.CLIVersion = cliVersion
 	VersionCmd.Flags().String("format", "text", cmdout.FormatHelp())
 }
 
