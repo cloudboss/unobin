@@ -1,40 +1,28 @@
 # Changelog
 
-This changelog starts with v0.11.1. Earlier releases are listed in the
-[repository tags](https://github.com/cloudboss/unobin/tags).
+This changelog starts with v0.11.1. Earlier releases are listed in the [repository tags](https://github.com/cloudboss/unobin/tags).
 
 ## [Unreleased]
 
 ### Added
 
-- Enable bootstrap of S3 and GCS state buckets.
-- Add a release workflow that tests and builds the CLI before publishing Linux
-  and macOS archives for amd64 and arm64, with SHA-256 checksums.
-- Add shared CI checks, release commands, and a maintained changelog.
-- Add the public `pkg/e2etest` framework for compiled external library tests.
-- Declare independent library implementation APIs and check selected source
-  before schema extraction and factory builds. Automatic dependency queries
-  select the highest release whose final graph is compatible with the CLI.
+- Add a changelog.
+- Add test and release GitHub Actions workflows that integrate with the changelog for release notes.
+- Enable bootstrapping of S3 and GCS state buckets. They can now be created on the first run if they don't exist.
+- Declare independent library implementation APIs and check selected source before schema extraction and factory builds. Automatic dependency queries select the highest release whose final graph is compatible with the CLI.
 
 ### Changed
 
-- Resource libraries now register typed resource definitions and receive prior
-  target data through `runtime.Prior`. Library implementations must migrate to
-  these APIs.
-- Go library and configuration packages must declare their minimum implementation
-  API in `Library().Compatibility`. Migrate historical libraries without this
-  declaration and publish new tags; their existing tags remain unknown.
-- Define replacement rules with typed field selectors and check recorded
-  replacement decisions before mutations.
+- Move the `internal/e2etest` framework into `pkg/` for external library tests.
+- Libraries now register typed resource definitions and receive prior target data through `runtime.Prior`. Existing libraries must be updated to include this change.
+- Go library and configuration packages must declare their minimum implementation API in `Library().Compatibility`. Existing libraries must be updated to include this change.
+- Enhance library resource replacement rules to use typed field selectors. Replacement rules can also now nest below top level fields.
 
 ### Fixed
 
-- Keep sensitive values masked in destroy plans, including resources removed
-  from configuration.
-- Resolve resource decisions during apply when replacement or configuration
-  rules depend on values that were unknown during planning.
-- Keep dependent values pending until those resource decisions are resolved,
-  including resources with empty outputs.
+- Keep sensitive values masked in destroy plans, including resources removed from configuration.
+- Resolve resource decisions during apply when replacement or configuration rules depend on values that were unknown during planning.
+- Keep dependent values pending until those resource decisions are resolved, including resources with empty outputs.
 
 ## [0.11.1] - 2026-09-06
 
@@ -44,8 +32,7 @@ This changelog starts with v0.11.1. Earlier releases are listed in the
 
 ### Fixed
 
-- Preserve source locations in triple-string interpolation so imported
-  libraries compile with accurate diagnostics.
+- Preserve source locations in triple-string interpolation so imported libraries compile with accurate diagnostics.
 - Defer composite outputs with unresolved inputs until apply can evaluate them.
 
 [Unreleased]: https://github.com/cloudboss/unobin/compare/v0.11.1...HEAD
