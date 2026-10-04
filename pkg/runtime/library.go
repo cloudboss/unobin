@@ -19,6 +19,7 @@ type Library struct {
 	Name          string
 	LibraryPath   string
 	Description   string
+	Compatibility LibraryCompatibility
 	Configuration cfg.Registration
 	Actions       map[string]ActionRegistration
 	Resources     map[string]ResourceRegistration
@@ -52,6 +53,11 @@ type Library struct {
 	// field is left out, before constraints, triggers, and decode read
 	// them; an Optional marker fills nothing.
 	Defaults map[string][]lang.DefaultSpec
+}
+
+type LibraryCompatibility struct {
+	RequiredAPI            string
+	SuggestedUnobinVersion string
 }
 
 // FunctionType registers a callable function under a Go library. Functions

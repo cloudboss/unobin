@@ -16,12 +16,13 @@ import (
 const runtimeImportPath = "github.com/cloudboss/unobin/pkg/runtime"
 
 type Validation struct {
-	ModulePath   string
-	PackageName  string
-	HasResources bool
-	HasData      bool
-	HasActions   bool
-	HasFunctions bool
+	ModulePath       string
+	PackageName      string
+	HasResources     bool
+	HasData          bool
+	HasActions       bool
+	HasFunctions     bool
+	HasConfiguration bool
 }
 
 func FindModuleRoot(packageDir string) (string, error) {
@@ -111,6 +112,7 @@ func readModulePath(moduleRoot string) (string, error) {
 type parsedPackage struct {
 	Name  string
 	Files []*ast.File
+	FSet  *token.FileSet
 }
 
 func parsePackage(packageDir string) (*parsedPackage, error) {
@@ -138,7 +140,7 @@ func parsePackage(packageDir string) (*parsedPackage, error) {
 		return nil, fmt.Errorf("more than one Go package in %s", packageDir)
 	}
 	for name, files := range filesByPackage {
-		return &parsedPackage{Name: name, Files: files}, nil
+		return &parsedPackage{Name: name, Files: files, FSet: fset}, nil
 	}
 	panic("unreachable")
 }
@@ -157,7 +159,10 @@ func runtimeImportAliases(pkg *parsedPackage) (map[string]bool, error) {
 			if spec.Name != nil && spec.Name.Name == "." {
 				return nil, fmt.Errorf("dot import of %s is not accepted", runtimeImportPath)
 			}
-			if spec.Name != nil && spec.Name.Name != "_" {
+			if spec.Name != nil && spec.Name.Name == "_" {
+				continue
+			}
+			if spec.Name != nil {
 				aliases[spec.Name.Name] = true
 				continue
 			}
@@ -179,12 +184,23 @@ func libraryFunction(pkg *parsedPackage) (*ast.FuncDecl, error) {
 		}
 	}
 	if len(found) == 0 {
-		return nil, fmt.Errorf("no Library() function; no package-level library function")
+		return nil, &libraryFunctionError{missing: true}
 	}
 	if len(found) > 1 {
-		return nil, fmt.Errorf("more than one package-level library function")
+		return nil, &libraryFunctionError{}
 	}
 	return found[0], nil
+}
+
+type libraryFunctionError struct {
+	missing bool
+}
+
+func (e *libraryFunctionError) Error() string {
+	if e.missing {
+		return "no Library() function; no package-level library function"
+	}
+	return "more than one package-level library function"
 }
 
 func validateSignature(fn *ast.FuncDecl, runtimeAliases map[string]bool) error {
@@ -217,7 +233,7 @@ func validateBody(fn *ast.FuncDecl, runtimeAliases map[string]bool) (*Validation
 	}
 	validation := registeredFields(literal)
 	if !validation.HasResources && !validation.HasData && !validation.HasActions &&
-		!validation.HasFunctions {
+		!validation.HasFunctions && !validation.HasConfiguration {
 		return nil, fmt.Errorf("library function must register at least one usable type")
 	}
 	return validation, nil
@@ -288,7 +304,15 @@ func registeredFields(literal *ast.CompositeLit) *Validation {
 			continue
 		}
 		key, ok := kv.Key.(*ast.Ident)
-		if !ok || !nonEmptyMapLiteral(kv.Value) {
+		if !ok {
+			continue
+		}
+		if key.Name == "Configuration" {
+			ident, isIdent := kv.Value.(*ast.Ident)
+			validation.HasConfiguration = validation.HasConfiguration || !isIdent || ident.Name != "nil"
+			continue
+		}
+		if !nonEmptyMapLiteral(kv.Value) {
 			continue
 		}
 		switch key.Name {
