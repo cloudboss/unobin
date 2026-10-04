@@ -10,10 +10,13 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/internal/cmdout"
+	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/deps"
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/filechange"
 )
 
@@ -75,4 +78,71 @@ func TestDependencyWritePartialGolden(t *testing.T) {
 	want, err := os.ReadFile("testdata/dependency-write-partial.json")
 	require.NoError(t, err)
 	require.Equal(t, string(want), string(body))
+}
+
+func TestDependencyCommandsReportEffectiveSources(t *testing.T) {
+	for _, verb := range []string{"get", "sync"} {
+		for _, format := range []string{"text", "json", "unobin"} {
+			t.Run(verb+"/"+format, func(t *testing.T) {
+				setCLIVersion(t, "v0.1.0")
+				root := t.TempDir()
+				factory := ubtest.ReadValidFixture(t,
+					"testdata/ub/library-compatibility", "factory")
+				require.NoError(t, os.WriteFile(filepath.Join(root, "factory.ub"),
+					[]byte(factory), 0o644))
+				dep := deps.Dependency{URL: "example.com/lib"}
+				local := candidateLibrarySource(t, dep.URL, "1.0")
+				project := &deps.Project{
+					UnobinVersion: "v9.0.0",
+					Requires: map[deps.Dependency]deps.Requirement{
+						dep: {Version: deps.ReplacementSentinel},
+					},
+					Replace: map[deps.Dependency]string{dep: local.Path},
+				}
+				_, err := deps.WriteProjectChange(
+					filepath.Join(root, deps.ProjectFileName), project)
+				require.NoError(t, err)
+				calls := stubRecordingDependencyResolver(t, nil, nil)
+				t.Cleanup(SetDepsListTagsForTest(func(string) ([]string, error) {
+					return []string{"v0.1.0"}, nil
+				}))
+				command := &cobra.Command{Use: verb}
+				addFormatFlag(command)
+				require.NoError(t, command.Flags().Set("format", format))
+				var stdout, stderr bytes.Buffer
+				command.SetOut(&stdout)
+				command.SetErr(&stderr)
+				cfg := &depsSyncConfig{stackPath: root, replaceUnobin: findUnobinRoot(t)}
+				if verb == "get" {
+					err = runDepsGet(command, cfg, dep.String())
+				} else {
+					err = runDepsSync(command, cfg)
+				}
+				require.NoError(t, err)
+				assert.Empty(t, *calls)
+				if format == "text" {
+					assert.Empty(t, stdout.String())
+					assert.Contains(t, stderr.String(), "notice: Using local package "+dep.URL+
+						" from "+local.Path)
+					assert.Contains(t, stderr.String(), "notice: the project pins unobin v9.0.0")
+					assert.Equal(t, 1, strings.Count(stderr.String(), "Using local package"))
+				} else {
+					assert.Empty(t, stderr.String())
+					assert.Contains(t, stdout.String(), "unobin.library-api.module-source")
+					assert.Contains(t, stdout.String(), "unobin.compile.replaced-toolchain")
+					if format == "json" {
+						var result struct {
+							Diagnostics []diagnostic.Diagnostic `json:"diagnostics"`
+						}
+						require.NoError(t, json.Unmarshal(stdout.Bytes(), &result))
+						require.Len(t, result.Diagnostics, 2)
+						assert.Equal(t, local.Path,
+							result.Diagnostics[1].LibraryCompatibility.Replacement)
+						assert.Empty(t, result.Diagnostics[1].LibraryCompatibility.Version)
+						assert.Empty(t, result.Diagnostics[1].LibraryCompatibility.Commit)
+					}
+				}
+			})
+		}
+	}
 }

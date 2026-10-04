@@ -300,6 +300,11 @@ func runDepsSync(cmd *cobra.Command, cfg *depsSyncConfig) error {
 			Diagnostics:   dependencyDiagnostics(result.Diagnostics),
 		})
 	}
+	for _, notice := range result.Diagnostics {
+		if err := diagnostic.WriteText(cmd.ErrOrStderr(), notice); err != nil {
+			return err
+		}
+	}
 	fmt.Fprintf(cmd.ErrOrStderr(),
 		"Wrote %s (%d direct, %d indirect) and %s (%d selected)\n",
 		result.ProjectFile, result.Direct, result.Indirect,
@@ -399,6 +404,11 @@ func runDepsGet(cmd *cobra.Command, cfg *depsSyncConfig, arg string) error {
 		})
 	}
 	result := operation.Write
+	for _, notice := range result.Diagnostics {
+		if err := diagnostic.WriteText(cmd.ErrOrStderr(), notice); err != nil {
+			return err
+		}
+	}
 	fmt.Fprintf(cmd.ErrOrStderr(),
 		"Wrote %s (%d direct, %d indirect) and %s (%d selected)\n",
 		result.ProjectFile, result.Direct, result.Indirect,
@@ -486,7 +496,7 @@ func getDependency(
 		diagnostics := dependencyDiagnostics(notices, prepared.Diagnostics)
 		writeResult, err := writeDependencyFiles(root, prepared.Project, prepared.Lock)
 		if writeResult != nil {
-			writeResult.Diagnostics = diagnostics
+			writeResult.Diagnostics = prepared.Diagnostics
 		}
 		selectedVersion := prepared.Selection[dep]
 		if err == nil && announce != nil {
