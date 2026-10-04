@@ -3,6 +3,7 @@ package configschema
 import (
 	"github.com/cloudboss/unobin/pkg/constraint"
 	"github.com/cloudboss/unobin/pkg/defaults"
+	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
 
@@ -38,5 +39,13 @@ func LibraryConfiguration() cfg.ConfigurationType[*Configuration] {
 		New: func() *Configuration {
 			return &Configuration{}
 		},
+	}
+}
+
+func Library() *runtime.Library {
+	return &runtime.Library{
+		Name:          "configschema",
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+		Configuration: LibraryConfiguration(),
 	}
 }

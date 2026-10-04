@@ -31,6 +31,7 @@ func (c Configuration) Constraints() []constraint.Constraint {
 func Library() *runtime.Library {
     return &runtime.Library{
         Name: "cloud",
+        Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
         Configuration: &cfg.ConfigurationType[*Configuration]{
             Description: "Cloud connection settings.",
             New:         func() *Configuration { return &Configuration{} },
@@ -91,13 +92,14 @@ that config type at runtime.
 ## Separate configuration packages
 
 A repository can keep its configuration entry point in a separate Go package.
-That package defines `LibraryConfiguration()`:
+That package defines both `Library()` and `LibraryConfiguration()`:
 
 ```go
 package config
 
 import (
     "example.com/aws/awscfg"
+    "github.com/cloudboss/unobin/pkg/runtime"
     "github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
 
@@ -107,6 +109,14 @@ func LibraryConfiguration() *cfg.ConfigurationType[*awscfg.Configuration] {
         New: func() *awscfg.Configuration {
             return &awscfg.Configuration{}
         },
+    }
+}
+
+func Library() *runtime.Library {
+    return &runtime.Library{
+        Name:          "aws.config",
+        Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+        Configuration: LibraryConfiguration(),
     }
 }
 ```
@@ -124,6 +134,7 @@ import (
 func Library() *runtime.Library {
     return &runtime.Library{
         Name:          "aws-service",
+        Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
         Configuration: config.LibraryConfiguration(),
     }
 }
@@ -132,6 +143,10 @@ func Library() *runtime.Library {
 `LibraryConfiguration()` may return a configuration type from the same package
 or from another package in the same module. The schema identity is the resolved
 Go type, such as `example.com/aws/awscfg.Configuration`.
+
+Both entry points must return readable configuration registrations with the same
+Go type identity and schema digest. This check applies when reading the package
+as a library and when reading only its configuration schema.
 
 Factory source names the configuration package in `library-config(...)` and
 binds the resulting value to the service alias:
@@ -151,5 +166,5 @@ library-configs: {
 ```
 
 For remote dependencies, the `library-config(...)` path must resolve to a Go
-package with `LibraryConfiguration()`. `unobin deps sync` includes that package
-path when it builds `project-lock.ub`.
+package with both entry points. `unobin deps sync` includes that package path
+when it builds `project-lock.ub`.

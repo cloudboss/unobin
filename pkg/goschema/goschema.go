@@ -200,6 +200,25 @@ func (c *analysisContext) readSchema(
 	return schema, nil
 }
 
+func (c *analysisContext) readRegisteredConfigurationSchema() (*runtime.LibrarySchema, error) {
+	fn := findPackageFunc(c.root.files, "Library")
+	if fn == nil {
+		return nil, fmt.Errorf("no Library() function in %s", c.dir)
+	}
+	ref, init, found, ok := extractConfigurationRef(fn, c.root, c.loadImportedPackage)
+	if !found || !ok {
+		return nil, fmt.Errorf("Library().Configuration is missing or unreadable")
+	}
+	schema := &runtime.LibrarySchema{HasConfiguration: true}
+	if !c.fillConfigurationSchema(schema, ref, init, "Library().Configuration") {
+		return nil, fmt.Errorf("Library().Configuration: %s not found in reachable source", ref)
+	}
+	if len(c.errs) > 0 {
+		return nil, errors.Join(c.errs...)
+	}
+	return schema, nil
+}
+
 func (c *analysisContext) readLibraryConfigurationSchema(
 	fn *ast.FuncDecl,
 ) (*runtime.LibrarySchema, error) {
@@ -226,19 +245,27 @@ func (c *analysisContext) readLibraryConfigurationSchema(
 	if len(c.errs) > 0 {
 		return nil, errors.Join(c.errs...)
 	}
+	registered, err := c.readRegisteredConfigurationSchema()
+	if err != nil {
+		return nil, err
+	}
+	if schema.ConfigurationIdentity != registered.ConfigurationIdentity ||
+		schema.ConfigurationDigest != registered.ConfigurationDigest {
+		return nil, fmt.Errorf("LibraryConfiguration() disagrees with Library().Configuration")
+	}
 	return schema, nil
 }
 
 func (c *analysisContext) checkLibraryConfigurationMatch(
 	schema *runtime.LibrarySchema,
 ) error {
-	if schema == nil || !schema.HasConfiguration ||
-		(schema.ConfigurationFields == nil && !schema.ConfigurationEmpty) {
-		return nil
-	}
 	fn := findPackageFunc(c.root.files, "LibraryConfiguration")
 	if fn == nil {
 		return nil
+	}
+	if schema == nil || !schema.HasConfiguration ||
+		(schema.ConfigurationFields == nil && !schema.ConfigurationEmpty) {
+		return fmt.Errorf("Library().Configuration is missing or unreadable")
 	}
 	ref, init, found, ok := extractLibraryConfigurationRef(
 		fn,
