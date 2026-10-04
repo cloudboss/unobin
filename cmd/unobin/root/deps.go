@@ -463,10 +463,14 @@ func getDependency(
 		}
 		project.SetRequire(dep, version, true)
 	}
-	if announce != nil {
+	prepared, err := prepareDependencies(root, project, cfg.replaceUnobin, toolOutput, resolver)
+	if err != nil {
+		return nil, err
+	}
+	writeResult, err := writeDependencyFiles(root, prepared.Project, prepared.Lock)
+	if err == nil && announce != nil {
 		announce(dep, version)
 	}
-	writeResult, err := resolveAndWrite(root, project, cfg.replaceUnobin, toolOutput)
 	return &dependencyGetOperation{
 		Dependency: dep.String(),
 		Version:    version,
@@ -761,34 +765,11 @@ func resolveAndWrite(
 	replaceUnobin string,
 	toolOutput io.Writer,
 ) (*dependencyWriteResult, error) {
-	if err := deps.CheckReplacementSentinels(project); err != nil {
-		return nil, err
-	}
-	unobinReplace, err := printGraphUnobinReplace(root, replaceUnobin, project.Replace)
+	prepared, err := prepareDependencies(root, project, replaceUnobin, toolOutput, nil)
 	if err != nil {
 		return nil, err
 	}
-	compatibility, err := newCommandCompatibility(root, project, unobinReplace)
-	if err != nil {
-		return nil, err
-	}
-	resolver, err := newDepsResolver(root, replaceUnobin, project.Replace)
-	if err != nil {
-		return nil, err
-	}
-	selection, err := deps.Resolve(project, deps.NewFetcher(resolver))
-	if err != nil {
-		return nil, err
-	}
-	schemaRoots := compile.UnobinSchemaRoots(toolOutput, unobinReplace, cliVersion())
-	prepared, err := deps.PrepareProjectLock(os.DirFS(root), selection, resolver, project.Replace,
-		deps.ProjectLockOptions{SchemaRoots: schemaRoots, Compatibility: compatibility})
-	if err != nil {
-		return nil, err
-	}
-	projectLock := prepared.Lock
-	projectLock.ToolchainVersion = cliVersion()
-	return writeDependencyFiles(root, project, projectLock)
+	return writeDependencyFiles(root, prepared.Project, prepared.Lock)
 }
 
 func writeDependencyFiles(

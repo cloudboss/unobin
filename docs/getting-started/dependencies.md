@@ -81,6 +81,12 @@ To add or update a direct dependency:
 unobin deps get github.com/cloudboss/unobin-library-std@v0.2.1
 ```
 
+Get and sync check the selected library contracts and package sources before
+writing dependency files. Get reports a version after both writes succeed.
+Validation failures leave existing files unchanged and absent files absent.
+A filesystem error during writing can leave `project.ub` updated before the
+lock is written; the command reports those completed file changes.
+
 To reconcile imports with `project.ub` and `project-lock.ub`:
 
 ```
