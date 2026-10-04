@@ -65,6 +65,46 @@ type packageInspection struct {
 	declarationErr  error
 }
 
+func (c *CompatibilityContext) WithModules(modules []ModuleSource) (*CompatibilityContext, error) {
+	options := c.options
+	options.Descriptor = &c.descriptor
+	selected := map[string]ModuleSource{}
+	for _, module := range append(slices.Clone(options.Modules), modules...) {
+		selected[module.Path] = module
+	}
+	options.Modules = make([]ModuleSource, 0, len(selected))
+	for _, module := range selected {
+		options.Modules = append(options.Modules, module)
+	}
+	slices.SortFunc(options.Modules, func(a, b ModuleSource) int {
+		return cmp.Compare(a.Path, b.Path)
+	})
+	return NewCompatibilityContext(options)
+}
+
+func (c *CompatibilityContext) ModuleSources() []ModuleSource {
+	modules := slices.Clone(c.options.Modules)
+	if c.options.CoreReplacement != "" {
+		modules = append(modules, ModuleSource{
+			Path: "github.com/cloudboss/unobin", Dir: c.options.CoreReplacement,
+			Replacement: c.options.CoreReplacement,
+		})
+	}
+	return modules
+}
+
+func ModuleSourceAt(dir string) (ModuleSource, error) {
+	root, err := FindModuleRoot(dir)
+	if err != nil {
+		return ModuleSource{}, err
+	}
+	module, err := readModuleFile(root)
+	if err != nil {
+		return ModuleSource{}, err
+	}
+	return ModuleSource{Path: module.Module.Mod.Path, Dir: root}, nil
+}
+
 func (c *CompatibilityContext) inspectPackage(source PackageSource) (*packageInspection, error) {
 	if source.Dir == "" {
 		return nil, nil

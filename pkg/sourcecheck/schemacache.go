@@ -13,6 +13,8 @@ import (
 type SchemaCache struct {
 	compatibility     *golibrary.CompatibilityContext
 	compatibilityErr  error
+	baseCompatibility *golibrary.CompatibilityContext
+	baseError         error
 	read              func(sourcePath string) (*runtime.LibrarySchema, []string, error)
 	readConfiguration func(sourcePath string) (*runtime.LibrarySchema, []string, error)
 	entries           map[string]schemaCacheEntry
@@ -26,18 +28,20 @@ type schemaCacheEntry struct {
 	configurationWarnings []string
 }
 
+func (c *SchemaCache) moduleRoots() []goschema.ModuleRoot {
+	modules := c.compatibility.ModuleSources()
+	roots := make([]goschema.ModuleRoot, 0, len(modules))
+	for _, module := range modules {
+		roots = append(roots, goschema.ModuleRoot{Path: module.Path, Dir: module.Dir})
+	}
+	return roots
+}
+
 func NewSchemaCacheWithCompatibility(
 	compatibility *golibrary.CompatibilityContext, extra ...goschema.ModuleRoot,
 ) *SchemaCache {
 	return NewSchemaCacheWithReadersAndCompatibility(
-		compatibility,
-		func(sourcePath string) (*runtime.LibrarySchema, []string, error) {
-			return readGoSchema(sourcePath, extra...)
-		},
-		func(sourcePath string) (*runtime.LibrarySchema, []string, error) {
-			return readGoConfigurationSchema(sourcePath, extra...)
-		},
-		extra...,
+		compatibility, nil, nil, extra...,
 	)
 }
 
@@ -48,17 +52,20 @@ func NewSchemaCacheWithReadersAndCompatibility(
 	extra ...goschema.ModuleRoot,
 ) *SchemaCache {
 	var err error
+	modules := make([]golibrary.ModuleSource, 0, len(extra))
+	for _, root := range extra {
+		modules = append(modules, golibrary.ModuleSource{Path: root.Path, Dir: root.Dir})
+	}
 	if compatibility == nil {
-		modules := make([]golibrary.ModuleSource, 0, len(extra))
-		for _, root := range extra {
-			modules = append(modules, golibrary.ModuleSource{Path: root.Path, Dir: root.Dir})
-		}
 		compatibility, err = golibrary.NewCompatibilityContext(golibrary.CompatibilityOptions{
 			Modules: modules,
 		})
+	} else if len(modules) > 0 {
+		compatibility, err = compatibility.WithModules(modules)
 	}
 	return &SchemaCache{
 		compatibility: compatibility, compatibilityErr: err,
+		baseCompatibility: compatibility, baseError: err,
 		read: read, readConfiguration: readConfiguration,
 		entries: map[string]schemaCacheEntry{},
 	}
@@ -126,7 +133,13 @@ func (c *SchemaCache) Read(sourcePath string) (*runtime.LibrarySchema, []string,
 		return e.schema, e.warnings, nil
 	}
 	snapshot := c.entries[key].snapshot
-	schema, warnings, err := c.read(sourcePath)
+	var schema *runtime.LibrarySchema
+	var warnings []string
+	if c.read != nil {
+		schema, warnings, err = c.read(sourcePath)
+	} else {
+		schema, warnings, err = readGoSchema(sourcePath, c.moduleRoots()...)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -164,7 +177,13 @@ func (c *SchemaCache) ReadLibraryConfiguration(
 		}
 	}
 	snapshot := c.entries[key].snapshot
-	schema, warnings, err := c.readConfiguration(sourcePath)
+	var schema *runtime.LibrarySchema
+	var warnings []string
+	if c.readConfiguration != nil {
+		schema, warnings, err = c.readConfiguration(sourcePath)
+	} else {
+		schema, warnings, err = readGoConfigurationSchema(sourcePath, c.moduleRoots()...)
+	}
 	if err != nil {
 		return nil, nil, err
 	}

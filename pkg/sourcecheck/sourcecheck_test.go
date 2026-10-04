@@ -232,6 +232,7 @@ type testResolver struct {
 	local          *resolve.LocalResolver
 	remotes        map[string]*resolve.Source
 	noFetchMissing map[string]bool
+	resolveCalls   map[string]int
 }
 
 func newTestResolver(t testing.TB, root string) *testResolver {
@@ -246,6 +247,9 @@ func newTestResolver(t testing.TB, root string) *testResolver {
 }
 
 func (r *testResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {
+	if r.resolveCalls != nil {
+		r.resolveCalls[remoteKey(ref)]++
+	}
 	source, ok, err := r.lookup(ref)
 	if err != nil {
 		return nil, err

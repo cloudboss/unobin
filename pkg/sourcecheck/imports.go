@@ -11,6 +11,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/codegen"
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
+	"github.com/cloudboss/unobin/pkg/golibrary"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/resolve"
@@ -29,6 +30,7 @@ type ImportAnalysis struct {
 	UBPackages           map[string][]byte
 	Assets               *asset.Collection
 	RootAssetSetID       string
+	Compatibility        *golibrary.CompatibilityContext
 }
 
 // ImportAnalysisOptions configures AnalyzeImports.
@@ -46,6 +48,7 @@ type ImportAnalysisOptions struct {
 	Body                    *syntax.FactoryBody
 	RootSourceFile          syntax.SourceFileSpec
 	GeneratedOutputPath     string
+	Compatibility           *golibrary.CompatibilityContext
 }
 
 // AnalyzeImports resolves refs once and builds the data each caller needs.
@@ -70,11 +73,27 @@ func AnalyzeImports(
 	}
 	visitorOpts := opts
 	visitorOpts.Resolver = resolver
+	preflight, compatibility, err := preflightImports(refs, visitorOpts, schemas)
+	if err != nil {
+		return nil, err
+	}
+	schemas.compatibility = compatibility
+	schemas.compatibilityErr = nil
+	resolver = preflight
+	visitorOpts.Resolver = resolver
 	visitor := newImportVisitor(visitorOpts, schemas)
 	top, err := resolve.WalkUBFrom(refs, resolver, visitor, opts.Versions,
 		importSourceForOptions(opts))
 	if err != nil {
 		return nil, err
+	}
+	for _, metadata := range compatibility.Manifest() {
+		module := metadata.Source.Module
+		if metadata.Source.Linked && module.Version != "" {
+			if err := visitor.OnGoImport("", "", module.Path, module.Version); err != nil {
+				return nil, err
+			}
+		}
 	}
 	rootSet, err := asset.Capture(
 		opts.Source,
@@ -97,6 +116,7 @@ func AnalyzeImports(
 		UBImports:            map[string]string{},
 		UBPackages:           visitor.packages,
 		Assets:               visitor.assets,
+		Compatibility:        compatibility,
 	}
 	if rootSet != nil {
 		analysis.RootAssetSetID = rootSet.ID
