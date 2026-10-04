@@ -20,6 +20,8 @@ func sp0(start, end int) parse.Span {
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name: "inner",
 		ResourceComposites: map[string]*runtime.CompositeType{
 			"hello": {

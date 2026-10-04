@@ -3,9 +3,29 @@ package gogen
 import (
 	"go/parser"
 	"go/token"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/pkg/golibrary"
+	"github.com/cloudboss/unobin/pkg/libraryapi"
 )
+
+func TestLibraryFileDeclaresLiteralCompatibility(t *testing.T) {
+	source, err := LibraryFile("cloud", []ResourceSchema{sampleResourceSchema()},
+		nil, nil, "example.com/cloud", "tf")
+	require.NoError(t, err)
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "library.go"), source, 0o644))
+	declaration, err := golibrary.ReadCompatibility(dir, dir)
+	require.NoError(t, err)
+	require.Equal(t, libraryapi.Current().GeneratorAPI, declaration.RequiredAPI)
+	require.Empty(t, declaration.SuggestedUnobinVersion)
+	require.NoError(t, libraryapi.Check(declaration.RequiredAPI, libraryapi.Current()))
+}
 
 func sampleResourceSchema() ResourceSchema {
 	return ResourceSchema{

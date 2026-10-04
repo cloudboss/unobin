@@ -13,9 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/internal/ubtest"
+	"github.com/cloudboss/unobin/pkg/golibrary"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/libraryapi"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	"github.com/cloudboss/unobin/pkg/typecheck"
@@ -547,6 +549,18 @@ func TestGenerateUBLibraryEmptyBodies(t *testing.T) {
 	require.NotContains(t, s, "Composites:", "no composite maps when there are no bodies")
 }
 
+func TestGenerateUBLibraryDeclaresLiteralCompatibility(t *testing.T) {
+	source, err := GenerateUBLibrary("cloud", nil, nil, nil)
+	require.NoError(t, err)
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "library.go"), source, 0o644))
+	declaration, err := golibrary.ReadCompatibility(dir, dir)
+	require.NoError(t, err)
+	require.Equal(t, libraryapi.Current().GeneratorAPI, declaration.RequiredAPI)
+	require.Empty(t, declaration.SuggestedUnobinVersion)
+	require.NoError(t, libraryapi.Check(declaration.RequiredAPI, libraryapi.Current()))
+}
+
 func TestGenerateUBLibraryRejectsEmptyAlias(t *testing.T) {
 	_, err := GenerateUBLibrary("", nil, nil, nil)
 	require.Error(t, err)
@@ -604,6 +618,8 @@ import (
 func main() {
 	lib := net.Library()
 	fmt.Printf("name=%s\n", lib.Name)
+	fmt.Printf("required-api=%s hint=%q\n",
+		lib.Compatibility.RequiredAPI, lib.Compatibility.SuggestedUnobinVersion)
 	fmt.Printf("resource-composites=%d\n", len(lib.ResourceComposites))
 	for name, ct := range lib.ResourceComposites {
 		resourceCount := 0
@@ -648,6 +664,7 @@ replace github.com/cloudboss/unobin => %s
 
 	got := string(runOut)
 	require.Contains(t, got, "name=net")
+	require.Contains(t, got, "required-api="+libraryapi.Current().GeneratorAPI+` hint=""`)
 	require.Contains(t, got, "resource-composites=1")
 	require.Contains(t, got,
 		"composite=cluster kind=resource resources=1 span="+

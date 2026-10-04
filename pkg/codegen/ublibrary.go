@@ -14,6 +14,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/libraryapi"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
@@ -217,6 +218,7 @@ func generateUBLibraryPackage(
 	data := struct {
 		PackageName      string
 		LibraryName      string
+		RequiredAPI      string
 		SpecVars         []specVar
 		Groups           []*compositeGroup
 		GoImports        []goImport
@@ -228,6 +230,7 @@ func generateUBLibraryPackage(
 	}{
 		PackageName:   sanitizeIdent(packageID),
 		LibraryName:   libraryName,
+		RequiredAPI:   libraryapi.Current().GeneratorAPI,
 		SpecVars:      specVars,
 		Groups:        orderedGroups,
 		GoImports:     idents.imports(),
@@ -572,6 +575,8 @@ func {{.FuncName}}(start, end int) parse.Span {
 	{{.Schema}}
 {{- end}}
 {{end}}	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: {{quote .RequiredAPI}}},
+
 		Name: {{quote .LibraryName}},
 {{range .Groups}}		{{.MapField}}: map[string]*runtime.CompositeType{
 {{range .Entries}}			{{quote .Name}}: {

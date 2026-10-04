@@ -11,6 +11,7 @@ import (
 	"golang.org/x/mod/semver"
 
 	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/libraryapi"
 )
 
 // ResourceFile renders a Go source file for one resource into the resources/
@@ -253,6 +254,9 @@ func LibraryFile(
 
 	b.WriteString("func Library() *runtime.Library {\n")
 	b.WriteString("\treturn &runtime.Library{\n")
+	fmt.Fprintf(&b, "\t\tCompatibility: runtime.LibraryCompatibility{RequiredAPI: %q},\n",
+		libraryapi.Current().GeneratorAPI)
+	b.WriteString("\n")
 	fmt.Fprintf(&b, "\t\tName:        \"%s\",\n", packageName)
 	fmt.Fprintf(&b, "\t\tLibraryPath: \"%s\",\n", modulePath)
 	fmt.Fprintf(&b, "\t\tDescription: \"Generated %s library\",\n", packageName)

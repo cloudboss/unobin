@@ -12,6 +12,8 @@ import (
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name:        "demo",
 		LibraryPath: "example.com/demo",
 		Description: "Generated demo library",

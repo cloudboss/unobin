@@ -58,6 +58,8 @@ func Library() *runtime.Library {
 		ConfigurationDigest:   "89ff2fce90f41c3c24f6e8a0e4a224467982b25f7038e6a1139ec5428f76c1e3",
 	}
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name: "files",
 		ResourceComposites: map[string]*runtime.CompositeType{
 			"archive": {
