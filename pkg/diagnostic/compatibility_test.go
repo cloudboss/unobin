@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/encoding/ub"
 )
 
@@ -111,22 +110,6 @@ func TestCompatibilityDiagnosticOrdering(t *testing.T) {
 	assert.Equal(t, want, Normalize(variants))
 }
 
-func TestCompatibilityDiagnosticUBFixtures(t *testing.T) {
-	ubtest.Run(t, "testdata/ub/diagnostic/valid", func(
-		name string, source []byte,
-	) (string, []string) {
-		var d Diagnostic
-		if err := ub.Unmarshal(source, &d); err != nil {
-			return "", []string{err.Error()}
-		}
-		data, err := ub.MarshalIndent(d, "", "  ")
-		if err != nil {
-			return "", []string{err.Error()}
-		}
-		return string(data) + "\n", nil
-	}, ubtest.Idempotent())
-}
-
 func TestCompatibilityDiagnosticFormats(t *testing.T) {
 	diagnostic := compatibilityDiagnostic()
 	data, err := json.MarshalIndent(diagnostic, "", "  ")
@@ -136,6 +119,9 @@ func TestCompatibilityDiagnosticFormats(t *testing.T) {
 	assert.Equal(t, string(want), string(data)+"\n")
 	data, err = ub.MarshalIndent(diagnostic, "", "  ")
 	require.NoError(t, err)
+	var decoded Diagnostic
+	require.NoError(t, ub.Unmarshal(data, &decoded))
+	assert.Equal(t, diagnostic, decoded)
 	want, err = os.ReadFile("testdata/ub/diagnostic/valid/library-compatibility.ub.out")
 	require.NoError(t, err)
 	assert.Equal(t, string(want), string(data)+"\n")
