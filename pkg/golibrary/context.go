@@ -47,6 +47,7 @@ type CompatibilityOptions struct {
 	Descriptor      *libraryapi.Descriptor
 	UnobinVersion   string
 	CoreReplacement string
+	Modules         []ModuleSource
 }
 
 // CompatibilityContext checks eligibility before registration or schema reads.
@@ -70,6 +71,7 @@ func NewCompatibilityContext(options CompatibilityOptions) (*CompatibilityContex
 		})
 	}
 	options.Descriptor = nil
+	options.Modules = slices.Clone(options.Modules)
 	c := &CompatibilityContext{
 		descriptor: descriptor, options: options, entries: map[string]PackageMetadata{},
 	}
@@ -81,35 +83,45 @@ func NewCompatibilityContext(options CompatibilityOptions) (*CompatibilityContex
 
 // CheckPackage reads current source metadata without deriving schemas or executing Go.
 func (c *CompatibilityContext) CheckPackage(source PackageSource) error {
+	w := &configurationWalker{
+		context: c, checked: map[string]bool{}, active: map[string]bool{},
+		completed: map[string]bool{}, packages: map[string]*parsedPackage{},
+	}
+	return w.checkPackage(source)
+}
+
+func (c *CompatibilityContext) checkPackageDeclaration(
+	source PackageSource,
+) (*parsedPackage, error) {
 	if source.Dir == "" {
-		return nil
+		return nil, nil
 	}
 	var err error
 	source.Dir, err = filepath.Abs(source.Dir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	previous := c.entries[source.Dir]
 	delete(c.entries, source.Dir)
 	if source.Module.Dir == "" {
 		source.Module.Dir, err = FindModuleRoot(source.Dir)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	source.Module.Dir, err = filepath.Abs(source.Module.Dir)
+	source.Module.Dir, source.Dir, err = cleanRoots(source.Module.Dir, source.Dir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	module, err := readModuleFile(source.Module.Dir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	source.Module.Path = module.Module.Mod.Path
 	source.Linked = source.Linked || previous.Source.Linked
 	rel, err := filepath.Rel(source.Module.Dir, source.Dir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	packagePath := source.Module.Path
 	if rel != "." {
@@ -135,11 +147,15 @@ func (c *CompatibilityContext) CheckPackage(source PackageSource) error {
 			break
 		}
 	}
-	declaration, err := ReadCompatibility(source.Module.Dir, source.Dir)
+	pkg, err := parsePackage(source.Dir)
+	if err != nil {
+		return nil, err
+	}
+	declaration, err := readCompatibilityPackage(pkg)
 	if err != nil {
 		var invalid *CompatibilityError
 		if !errors.As(err, &invalid) {
-			return err
+			return nil, err
 		}
 		ds := invalid.Diagnostics()
 		for i := range ds {
@@ -149,7 +165,7 @@ func (c *CompatibilityContext) CheckPackage(source PackageSource) error {
 			}
 			ds[i].LibraryCompatibility = details
 		}
-		return diagnostic.WithDiagnostics(err, ds...)
+		return nil, diagnostic.WithDiagnostics(err, ds...)
 	}
 	metadata.Declaration = *declaration
 	details.RequiredAPI = declaration.RequiredAPI
@@ -165,7 +181,7 @@ func (c *CompatibilityContext) CheckPackage(source PackageSource) error {
 		if declaration.SuggestedUnobinVersion != "" {
 			hint = "The library recommends Unobin " + declaration.SuggestedUnobinVersion + ". " + hint
 		}
-		return diagnostic.WithDiagnostics(err, diagnostic.Diagnostic{
+		return nil, diagnostic.WithDiagnostics(err, diagnostic.Diagnostic{
 			Code: code, Severity: diagnostic.SeverityError,
 			Message: fmt.Sprintf("library %s requires API %s; Unobin %s implements %s",
 				packagePath, declaration.RequiredAPI, c.options.UnobinVersion,
@@ -179,7 +195,7 @@ func (c *CompatibilityContext) CheckPackage(source PackageSource) error {
 		version != "" && semver.Compare(coreRequirement.Mod.Version, version) > 0 {
 		err := &CoreFloorError{RequiredVersion: coreRequirement.Mod.Version, UnobinVersion: version}
 		position := coreRequirement.Syntax.Start
-		return diagnostic.WithDiagnostics(err, diagnostic.Diagnostic{
+		return nil, diagnostic.WithDiagnostics(err, diagnostic.Diagnostic{
 			Code: "unobin.library-api.core-floor", Severity: diagnostic.SeverityError,
 			Message: err.Error(), Path: filepath.Join(source.Module.Dir, "go.mod"),
 			Span: &diagnostic.Span{Start: diagnostic.Position{
@@ -191,7 +207,7 @@ func (c *CompatibilityContext) CheckPackage(source PackageSource) error {
 		})
 	}
 	c.entries[source.Dir] = metadata
-	return nil
+	return pkg, nil
 }
 
 // Manifest returns independent metadata records in deterministic package order.

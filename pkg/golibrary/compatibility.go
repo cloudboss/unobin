@@ -52,6 +52,10 @@ func ReadCompatibility(moduleRoot, packageDir string) (*CompatibilityDeclaration
 	if err != nil {
 		return nil, err
 	}
+	return readCompatibilityPackage(pkg)
+}
+
+func readCompatibilityPackage(pkg *parsedPackage) (*CompatibilityDeclaration, error) {
 	fn, err := libraryFunction(pkg)
 	if err != nil {
 		kind := InvalidDeclaration
