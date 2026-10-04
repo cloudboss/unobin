@@ -73,11 +73,22 @@ func checkSelectedLibraryModules(
 	manifest []golibrary.PackageMetadata,
 	modules []selectedLibraryModule,
 ) error {
+	context, err := compatibility.WithModuleResolver(nil)
+	if err != nil {
+		return err
+	}
+	compatibility = context
 	actual := make(map[string]selectedLibraryModule, len(modules))
+	inspected := make(map[string]golibrary.ModuleSource, len(manifest))
+	for _, metadata := range manifest {
+		inspected[metadata.Source.Module.Path] = metadata.Source.Module
+	}
 	roots := make([]golibrary.ModuleSource, 0, len(modules))
 	for _, module := range modules {
 		actual[module.Path] = module
-		root := golibrary.ModuleSource{Path: module.Path, Dir: module.Dir, Version: module.Version}
+		root := inspected[module.Path]
+		root.Path, root.Dir, root.Version = module.Path, module.Dir, module.Version
+		root.Replacement = ""
 		if module.Replace != nil && module.Replace.Version == "" {
 			root.Replacement = module.Replace.Dir
 		}

@@ -203,3 +203,61 @@ func TestProjectLockDoesNotHideMalformedMetadataAfterDiscoveryErrors(t *testing.
 	var major *libraryapi.UnsupportedMajorError
 	require.ErrorAs(t, err, &major)
 }
+
+func TestProjectLockRecordsSelectedConfigurationForwardingModule(t *testing.T) {
+	root := mapFS(map[string]string{
+		"factory.ub": projectLockWalkFixture(t, "library-api-linked-schema"),
+	})
+	service := projectCompatibilitySource(t, "example.com/aws", "1.0")
+	config := projectCompatibilitySource(t, "example.com/configs", "1.0")
+	config.Commit = "configuration-commit"
+	entry := filepath.Join(config.Path, "entry")
+	require.NoError(t, os.Mkdir(entry, 0o755))
+	require.NoError(t, os.Rename(filepath.Join(config.Path, "library.go"),
+		filepath.Join(entry, "library.go")))
+	path := filepath.Join(service.Path, "library.go")
+	code, err := os.ReadFile(path)
+	require.NoError(t, err)
+	code = []byte(strings.ReplaceAll(string(code), "import (",
+		"import (\n\tsettings \"example.com/configs/entry\""))
+	code = []byte(strings.ReplaceAll(string(code), "[*Configuration]", "[*settings.Configuration]"))
+	code = []byte(strings.ReplaceAll(string(code),
+		"return &cfg.ConfigurationType[*settings.Configuration]{\n"+
+			"\t\tNew: func() *Configuration { return &Configuration{} },\n\t}",
+		"return settings.LibraryConfiguration()"))
+	require.NoError(t, os.WriteFile(path, code, 0o644))
+	for _, replaced := range []bool{false, true} {
+		r := &fakeResolver{sources: map[string]*resolve.Source{
+			srcKey("example.com/aws", "config", "v0.1.0"): service,
+			srcKey("example.com/configs", "", "v1.2.0"):   config,
+			srcKey("example.com/configs", "", ""):         config,
+		}}
+		selection := map[Dependency]string{
+			{URL: "example.com/aws"}: "v0.1.0", {URL: "example.com/configs"}: "v1.2.0",
+			{URL: "example.com/unused"}: "v1.0.0",
+		}
+		replace := map[Dependency]string{}
+		expected := map[string]*ProjectLockDep{
+			"example.com/aws": {Kind: ProjectLockKindGo, Version: "v0.1.0", Commit: "selected-commit"},
+			"example.com/configs": {
+				Kind: ProjectLockKindGo, Version: "v1.2.0", Commit: "configuration-commit",
+			},
+		}
+		if replaced {
+			delete(selection, Dependency{URL: "example.com/configs"})
+			replace[Dependency{URL: "example.com/configs"}] = config.Path
+			delete(expected, "example.com/configs")
+		}
+		prepared, err := PrepareProjectLock(root, selection, r, replace, ProjectLockOptions{})
+		require.NoError(t, err)
+		assert.Equal(t, expected, prepared.Lock.Deps)
+		manifest := prepared.Compatibility.Manifest()
+		require.Len(t, manifest, 2)
+		assert.Equal(t, "example.com/configs/entry", manifest[1].Package)
+		assert.Equal(t, "configuration-commit", manifest[1].Source.Module.Commit)
+		assert.True(t, manifest[1].Source.Linked)
+		if replaced {
+			assert.Equal(t, config.Path, manifest[1].Source.Module.Replacement)
+		}
+	}
+}

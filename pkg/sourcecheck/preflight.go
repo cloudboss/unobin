@@ -104,6 +104,20 @@ func preflightImports(
 	if err != nil {
 		return nil, nil, err
 	}
+	selection := make(map[deps.Dependency]string, len(opts.Versions))
+	for id, version := range opts.Versions {
+		dep, err := deps.ParseDependency(id)
+		if err != nil {
+			return nil, nil, err
+		}
+		selection[dep] = version
+	}
+	context, err = context.WithModuleResolver(func(importPath string) (golibrary.ModuleSource, error) {
+		return deps.ResolveSelectedModule(importPath, selection, p, nil)
+	})
+	if err != nil {
+		return nil, nil, err
+	}
 	var failures []error
 	for _, source := range packages {
 		if err := context.CheckPackage(source); err != nil {

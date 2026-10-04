@@ -45,6 +45,13 @@ replacement runs. A missing or different descriptor fails before schema-source
 fallback. Explicit core replacement options take precedence over the project's
 core replacement, while more specific library replacements still apply.
 
+A Go library can forward its configuration registration to another selected
+module or an effective local replacement without a separate UB schema import.
+Unobin checks the defining configuration package and records its source in the
+lock and preflight manifest. The module root does not need a library record,
+and unused packages are not checked. Configuration forwarding from a linked
+library also adds that module to the generated Go requirements.
+
 With `compile --build`, Unobin checks Go's selected modules after `go mod tidy`
 and before building. Each linked library and configuration package must use the
 inspected version or local replacement directory. A higher selected library

@@ -177,6 +177,28 @@ func (w *configurationWalker) importedPackage(
 			selected = root
 		}
 	}
+	lookupModule := selected.Dir == ""
+	if selected.Dir != "" && w.context.options.ResolveModule != nil {
+		abs, err := filepath.Abs(selected.Dir)
+		if err != nil {
+			return PackageSource{}, err
+		}
+		relative := strings.TrimPrefix(strings.TrimPrefix(importPath, selected.Path), "/")
+		moduleRoot, err := FindModuleRoot(filepath.Join(abs, filepath.FromSlash(relative)))
+		lookupModule = err == nil && moduleRoot != abs
+	}
+	if lookupModule && w.context.options.ResolveModule != nil {
+		module, err := w.context.options.ResolveModule(importPath)
+		if err != nil {
+			return PackageSource{}, w.failure(source, pkg, selector,
+				"cannot read selected configuration module "+importPath, err)
+		}
+		if module.Path != "" && module.Dir != "" && len(module.Path) >= len(selected.Path) &&
+			(importPath == module.Path || strings.HasPrefix(importPath, module.Path+"/")) {
+			selected = module
+			w.context.options.Modules = append(w.context.options.Modules, module)
+		}
+	}
 	if selected.Dir == "" {
 		return PackageSource{}, w.failure(source, pkg, selector,
 			fmt.Sprintf("no selected source for configuration package %q", importPath), nil)

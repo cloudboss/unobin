@@ -216,3 +216,79 @@ func TestGoBuildRejectsChangedMetadataAfterTidy(t *testing.T) {
 	})
 	require.NoFileExists(t, filepath.Join(main, "factory"))
 }
+
+func TestCheckSelectedLibraryModulesDoesNotResolveOutsideBuild(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.CopyFS(dir, os.DirFS("../deps/testdata/go/compatibility")))
+	lookups := 0
+	context, err := golibrary.NewCompatibilityContext(golibrary.CompatibilityOptions{
+		ResolveModule: func(string) (golibrary.ModuleSource, error) {
+			lookups++
+			return golibrary.ModuleSource{}, nil
+		},
+	})
+	require.NoError(t, err)
+	require.NoError(t, context.CheckPackage(golibrary.PackageSource{
+		Dir: dir, Linked: true, Module: golibrary.ModuleSource{
+			Dir: dir, Dependency: "example.com/lib", Version: "v0.1.0", Commit: "locked",
+		},
+	}))
+	manifest := context.Manifest()
+	source := "package library\nimport (\n" +
+		"\"github.com/cloudboss/unobin/pkg/runtime\"\n" +
+		"settings \"example.com/configs/entry\"\n)\n" +
+		"func Library() *runtime.Library { return &runtime.Library{\n" +
+		"Compatibility: runtime.LibraryCompatibility{RequiredAPI: \"1.0\"},\n" +
+		"Configuration: settings.LibraryConfiguration(),\n} }\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "library.go"), []byte(source), 0o644))
+	err = checkSelectedLibraryModules(context, manifest, []selectedLibraryModule{
+		{Path: "example.com/lib", Dir: dir, Version: "v0.1.0"},
+	})
+	var unavailable *golibrary.ConfigurationSourceError
+	require.ErrorAs(t, err, &unavailable)
+	assert.Zero(t, lookups)
+}
+
+func TestCheckSelectedLibraryModulesKeepsConfigurationProvenance(t *testing.T) {
+	service := t.TempDir()
+	config := t.TempDir()
+	for _, dir := range []string{service, config} {
+		require.NoError(t, os.CopyFS(dir, os.DirFS("../deps/testdata/go/compatibility")))
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(config, "go.mod"), []byte(
+		"module example.com/configs\n\ngo 1.26.2\n"), 0o644))
+	source := "package library\nimport (\n" +
+		"\"github.com/cloudboss/unobin/pkg/runtime\"\n" +
+		"settings \"example.com/configs\"\n)\n" +
+		"func Library() *runtime.Library { return &runtime.Library{\n" +
+		"Compatibility: runtime.LibraryCompatibility{RequiredAPI: \"1.0\"},\n" +
+		"Configuration: settings.LibraryConfiguration(),\n} }\n"
+	require.NoError(t, os.WriteFile(filepath.Join(service, "library.go"), []byte(source), 0o644))
+	context, err := golibrary.NewCompatibilityContext(golibrary.CompatibilityOptions{
+		UnobinVersion: "v0.12.0", Modules: []golibrary.ModuleSource{{
+			Path: "example.com/configs", Dir: config, Dependency: "example.com/configs",
+			Version: "v0.1.0", Commit: "configuration-commit",
+		}},
+	})
+	require.NoError(t, err)
+	require.NoError(t, context.CheckPackage(golibrary.PackageSource{
+		Dir: service, Linked: true, Module: golibrary.ModuleSource{
+			Dir: service, Dependency: "example.com/lib", Version: "v0.1.0", Commit: "service-commit",
+		},
+	}))
+	manifest := context.Manifest()
+	require.NoError(t, os.WriteFile(filepath.Join(config, "go.mod"), []byte(
+		"module example.com/configs\n\ngo 1.26.2\n"+
+			"require github.com/cloudboss/unobin v0.13.0\n"), 0o644))
+	err = checkSelectedLibraryModules(context, manifest, []selectedLibraryModule{
+		{Path: "example.com/lib", Dir: service, Version: "v0.1.0"},
+		{Path: "example.com/configs", Dir: config, Version: "v0.1.0"},
+	})
+	var floor *golibrary.CoreFloorError
+	require.ErrorAs(t, err, &floor)
+	ds := diagnostic.FromError(err, diagnostic.ConvertOptions{})
+	require.Len(t, ds, 1)
+	assert.Equal(t, "example.com/configs", ds[0].LibraryCompatibility.Dependency)
+	assert.Equal(t, "configuration-commit", ds[0].LibraryCompatibility.Commit)
+	assert.Equal(t, "v0.13.0", ds[0].LibraryCompatibility.RequiredCoreVersion)
+}

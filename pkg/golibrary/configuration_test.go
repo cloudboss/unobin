@@ -199,6 +199,75 @@ func TestCompatibilityContextForwardedModuleCoreFloor(t *testing.T) {
 	assert.Equal(t, "example.com/configs/settings", ds[0].LibraryCompatibility.Package)
 }
 
+func TestCompatibilityContextLooksUpSelectedConfigurationModules(t *testing.T) {
+	root := writeContextPackage(t, "1.0", "")
+	service := writeForwardingPackage(t, root, "service", "1.0",
+		"settings.LibraryConfiguration()", "", `import settings "example.com/configs/entry"`)
+	configRoot := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(configRoot, "go.mod"), []byte(
+		"module example.com/configs\n\ngo 1.26.2\n"), 0o644))
+	writeForwardingPackage(t, configRoot, "entry", "1.0", "LibraryConfiguration()",
+		inlineConfiguration, "")
+	writeForwardingPackage(t, configRoot, "unused", "2.0", "LibraryConfiguration()",
+		inlineConfiguration, "")
+	context, err := NewCompatibilityContext(CompatibilityOptions{})
+	require.NoError(t, err)
+	lookups := []string{}
+	module := ModuleSource{
+		Path: "example.com/configs", Dir: configRoot, Dependency: "example.com/configs",
+		Version: "v0.3.0", Commit: "configuration-commit",
+	}
+	context, err = context.WithModuleResolver(func(importPath string) (ModuleSource, error) {
+		lookups = append(lookups, importPath)
+		return module, nil
+	})
+	require.NoError(t, err)
+	require.NoError(t, context.CheckPackage(PackageSource{
+		Dir: service, Module: ModuleSource{Dir: root}, Linked: true,
+	}))
+	assert.Equal(t, []string{"example.com/configs/entry"}, lookups)
+	manifest := context.Manifest()
+	require.Len(t, manifest, 2)
+	assert.Equal(t, "example.com/configs/entry", manifest[0].Package)
+	assert.Equal(t, module, manifest[0].Source.Module)
+	assert.True(t, manifest[0].Source.Linked)
+	assert.Contains(t, context.ModuleSources(), module)
+	require.NoError(t, context.CheckPackage(PackageSource{
+		Dir: service, Module: ModuleSource{Dir: root}, Linked: true,
+	}))
+	assert.Equal(t, []string{"example.com/configs/entry"}, lookups)
+}
+
+func TestCompatibilityContextLooksUpSelectedNestedConfigurationModule(t *testing.T) {
+	root := writeContextPackage(t, "1.0", "")
+	service := writeForwardingPackage(t, root, "service", "1.0",
+		"settings.LibraryConfiguration()", "", `import settings "example.com/lib/configs/entry"`)
+	configRoot := filepath.Join(root, "configs")
+	require.NoError(t, os.Mkdir(configRoot, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(configRoot, "go.mod"), []byte(
+		"module example.com/lib/configs\n\ngo 1.26.2\n"), 0o644))
+	writeForwardingPackage(t, configRoot, "entry", "1.0", "LibraryConfiguration()",
+		inlineConfiguration, "")
+	context, err := NewCompatibilityContext(CompatibilityOptions{
+		ResolveModule: func(importPath string) (ModuleSource, error) {
+			assert.Equal(t, "example.com/lib/configs/entry", importPath)
+			return ModuleSource{
+				Path: "example.com/lib/configs", Dir: configRoot,
+				Dependency: "example.com/lib//configs", Version: "v0.3.0", Commit: "selected",
+			}, nil
+		},
+	})
+	require.NoError(t, err)
+	require.NoError(t, context.CheckPackage(PackageSource{
+		Dir: service, Module: ModuleSource{Dir: root}, Linked: true,
+	}))
+	manifest := context.Manifest()
+	require.Len(t, manifest, 2)
+	assert.Equal(t, "example.com/lib/configs/entry", manifest[0].Package)
+	assert.Equal(t, "selected", manifest[0].Source.Module.Commit)
+	assert.Equal(t, "example.com/lib//configs", manifest[0].Source.Module.Dependency)
+}
+
 func TestCompatibilityContextRejectsConfigurationCyclesAndMissingFunctions(t *testing.T) {
 	tests := []struct {
 		name, entry, imports, message string

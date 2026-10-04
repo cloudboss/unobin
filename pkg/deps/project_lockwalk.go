@@ -81,6 +81,12 @@ func (w *projectLockWalker) validateSelectedPackages() error {
 	if err != nil {
 		return err
 	}
+	context, err = context.WithModuleResolver(func(importPath string) (golibrary.ModuleSource, error) {
+		return ResolveSelectedModule(importPath, w.selection, w.resolver, w.replace)
+	})
+	if err != nil {
+		return err
+	}
 	w.compatibility = context
 	failures := slices.Clone(w.discoveryErrors)
 	for _, dir := range dirs {
@@ -91,6 +97,17 @@ func (w *projectLockWalker) validateSelectedPackages() error {
 	}
 	if err := errors.Join(failures...); err != nil {
 		return err
+	}
+	for _, metadata := range context.Manifest() {
+		module := metadata.Source.Module
+		if module.Dependency == "" || module.Replacement != "" {
+			continue
+		}
+		if _, found := w.projectLock.Deps[module.Dependency]; !found {
+			w.projectLock.Deps[module.Dependency] = &ProjectLockDep{
+				Kind: ProjectLockKindGo, Version: module.Version, Commit: module.Commit,
+			}
+		}
 	}
 	w.schemaRoots = nil
 	for _, module := range context.ModuleSources() {

@@ -50,6 +50,7 @@ type CompatibilityOptions struct {
 	ToolchainPin    string
 	ProjectFile     string
 	Modules         []ModuleSource
+	ResolveModule   func(string) (ModuleSource, error)
 }
 
 // CompatibilityContext checks eligibility before registration or schema reads.
@@ -65,6 +66,15 @@ type packageInspection struct {
 	details         *diagnostic.LibraryCompatibilityDetails
 	coreRequirement *modfile.Require
 	declarationErr  error
+}
+
+func (c *CompatibilityContext) WithModuleResolver(
+	resolver func(string) (ModuleSource, error),
+) (*CompatibilityContext, error) {
+	options := c.options
+	options.Descriptor = &c.descriptor
+	options.ResolveModule = resolver
+	return NewCompatibilityContext(options)
 }
 
 func (c *CompatibilityContext) DiagnosticDetails(

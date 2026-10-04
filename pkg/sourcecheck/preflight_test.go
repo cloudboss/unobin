@@ -249,3 +249,67 @@ func TestImportAnalysisKeepsPreflightMetadata(t *testing.T) {
 	assert.Equal(t, "1.1", analysis.Compatibility.Manifest()[0].Declaration.RequiredAPI)
 	assert.Equal(t, "1.0", analysis.LibraryMetadata[0].Declaration.RequiredAPI)
 }
+
+func TestImportAnalysisResolvesSelectedConfigurationModule(t *testing.T) {
+	service := writeImportAnalysisGoLibrary(t)
+	config := writeImportAnalysisGoLibrary(t)
+	entry := filepath.Join(config, "entry")
+	require.NoError(t, os.Mkdir(entry, 0o755))
+	require.NoError(t, os.Rename(filepath.Join(config, "library.go"),
+		filepath.Join(entry, "library.go")))
+	moduleFile := filepath.Join(config, "go.mod")
+	module, err := os.ReadFile(moduleFile)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(moduleFile, []byte(strings.ReplaceAll(string(module),
+		"example.com/schema", "example.com/configs")), 0o644))
+	path := filepath.Join(service, "library.go")
+	library, err := os.ReadFile(path)
+	require.NoError(t, err)
+	library = []byte(strings.ReplaceAll(string(library), "import (",
+		"import (\n\tsettings \"example.com/configs/entry\""))
+	library = []byte(strings.ReplaceAll(string(library), "[*Configuration]",
+		"[*settings.Configuration]"))
+	library = []byte(strings.ReplaceAll(string(library),
+		"return &cfg.ConfigurationType[*settings.Configuration]{\n"+
+			"\t\tNew: func() *Configuration { return &Configuration{} },\n\t}",
+		"return settings.LibraryConfiguration()"))
+	require.NoError(t, os.WriteFile(path, library, 0o644))
+	factory := fixturePath("valid/schema-dependencies/import-and-schema/factory")
+	body := parseFactoryAt(t, factory)
+	refs, errs := resolve.ExtractSyntaxBodyImports(body)
+	require.Empty(t, errs)
+	resolver := newTestResolver(t, filepath.Dir(factory))
+	resolver.resolveCalls = map[string]int{}
+	resolver.remotes["example.com/schema"] = &resolve.Source{
+		FS: os.DirFS(service), Path: service, ModulePath: "example.com/schema",
+		GoImportPath: "example.com/schema", Commit: "service-commit",
+	}
+	resolver.remotes["example.com/configs"] = &resolve.Source{
+		FS: os.DirFS(config), Path: config, ModulePath: "example.com/configs",
+		GoImportPath: "example.com/configs", Commit: "configuration-commit",
+	}
+	for _, mode := range []Mode{ModeFetch, ModeNoFetch} {
+		resolver.resolveCalls = map[string]int{}
+		analysis, err := AnalyzeImports(refs, ImportAnalysisOptions{
+			Resolver: resolver, Body: &body, Mode: mode, Versions: map[string]string{
+				"example.com/schema": "v1.0.0", "example.com/configs": "v1.2.0",
+				"example.com/unused": "v1.0.0",
+			},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, map[string]string{
+			"example.com/schema": "v1.0.0", "example.com/configs": "v1.2.0",
+		}, analysis.GoModules)
+		require.Len(t, analysis.LibraryMetadata, 2)
+		metadata := analysis.LibraryMetadata[0]
+		assert.Equal(t, "example.com/configs/entry", metadata.Package)
+		assert.Equal(t, "configuration-commit", metadata.Source.Module.Commit)
+		assert.Equal(t, "example.com/configs", metadata.Source.Module.Dependency)
+		assert.True(t, metadata.Source.Linked)
+		calls := map[string]int{"example.com/schema//v1.0.0": 1, "example.com/configs//v1.2.0": 1}
+		if mode == ModeNoFetch {
+			calls = map[string]int{}
+		}
+		assert.Equal(t, calls, resolver.resolveCalls)
+	}
+}
