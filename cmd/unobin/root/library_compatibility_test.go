@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 
+	cmddeps "github.com/cloudboss/unobin/cmd/unobin/root/deps"
 	"github.com/cloudboss/unobin/internal/cmdconfig"
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/deps"
@@ -50,7 +51,7 @@ func TestCommandsCheckToolchainBeforeResolverOrTags(t *testing.T) {
 					args = append(args, "--replace-unobin", t.TempDir())
 				}
 				for _, command := range []*cobra.Command{
-					CompileCmd, CheckCmd, PrintGraphCmd, depsGetCmd, depsSyncCmd,
+					CompileCmd, CheckCmd, PrintGraphCmd, cmddeps.GetCmd, cmddeps.SyncCmd,
 				} {
 					resetFlags(command)
 				}

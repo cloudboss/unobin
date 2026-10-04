@@ -1,8 +1,9 @@
 package root
 
 import (
-	"github.com/cloudboss/unobin/cmd/unobin/root/generate"
 	"github.com/spf13/cobra"
+
+	"github.com/cloudboss/unobin/cmd/unobin/root/generate"
 )
 
 var GenerateCmd = &cobra.Command{
@@ -11,9 +12,6 @@ var GenerateCmd = &cobra.Command{
 }
 
 func init() {
-	// Assigned as the function, not its value: the version is stamped
-	// before commands run, after this package's vars initialize.
-	generate.CLIVersion = cliVersion
 	GenerateCmd.AddCommand(generate.GolibraryCmd)
 	GenerateCmd.AddCommand(generate.FactoryCmd)
 	GenerateCmd.AddCommand(generate.UblibraryCmd)

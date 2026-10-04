@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cmddeps "github.com/cloudboss/unobin/cmd/unobin/root/deps"
 	"github.com/cloudboss/unobin/internal/cmdconfig"
 	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/cloudboss/unobin/internal/ubtest"
@@ -34,8 +35,8 @@ func TestDependencyPartialCommandErrorGolden(t *testing.T) {
 		Path: deps.ProjectFileName, Action: filechange.ActionCreated,
 	}}}
 
-	err := dependencyCommandFailure(
-		command, cmdout.FormatJSON, result, errors.New("lock write failed"),
+	err := cmdout.WriteOperationError(
+		command, cmdout.FormatJSON, result.Files, errors.New("lock write failed"),
 	)
 	require.Error(t, err)
 	want, err := os.ReadFile("testdata/dependency-command-error-partial.json")
@@ -69,18 +70,22 @@ func TestDependencyCommandsReportEffectiveSources(t *testing.T) {
 				t.Cleanup(cmdconfig.SetDepsListTagsForTest(func(string) ([]string, error) {
 					return []string{"v0.1.0"}, nil
 				}))
-				command := &cobra.Command{Use: verb}
-				addFormatFlag(command)
-				require.NoError(t, command.Flags().Set("format", format))
+				resetFlags(cmddeps.GetCmd)
+				resetFlags(cmddeps.SyncCmd)
+				command := &cobra.Command{Use: "unobin", SilenceUsage: true, SilenceErrors: true}
+				command.AddCommand(DepsCmd)
 				var stdout, stderr bytes.Buffer
 				command.SetOut(&stdout)
 				command.SetErr(&stderr)
-				cfg := &depsSyncConfig{stackPath: root, replaceUnobin: findUnobinRoot(t)}
-				if verb == "get" {
-					err = runDepsGet(command, cfg, dep.String())
-				} else {
-					err = runDepsSync(command, cfg)
+				args := []string{
+					"deps", verb, "--path", root, "--replace-unobin", findUnobinRoot(t),
+					"--format", format,
 				}
+				if verb == "get" {
+					args = append(args, dep.String())
+				}
+				command.SetArgs(args)
+				err = command.Execute()
 				require.NoError(t, err)
 				if format == "text" {
 					assert.Empty(t, stdout.String())

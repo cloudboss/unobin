@@ -5,9 +5,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/cloudboss/unobin/pkg/gogen"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/internal/cmdconfig"
+	"github.com/cloudboss/unobin/pkg/gogen"
 )
 
 type fakeGoLibraryAdapter struct{}
@@ -55,9 +57,9 @@ func TestGenerateGoLibraryReportsResourcesAndDataSources(t *testing.T) {
 	}
 	t.Cleanup(func() { newGoLibraryAdapter = prevAdapter })
 
-	prevVersion := CLIVersion
-	CLIVersion = func() string { return "dev" }
-	t.Cleanup(func() { CLIVersion = prevVersion })
+	prevVersion := cmdconfig.CLIVersion
+	cmdconfig.CLIVersion = func() string { return "dev" }
+	t.Cleanup(func() { cmdconfig.CLIVersion = prevVersion })
 
 	cmd := &cobra.Command{}
 	stderr := &bytes.Buffer{}

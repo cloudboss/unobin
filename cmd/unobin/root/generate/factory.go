@@ -2,22 +2,15 @@ package generate
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
-	"github.com/cloudboss/unobin/internal/cmdout"
 	"github.com/spf13/cobra"
-	"golang.org/x/mod/semver"
 
-	"github.com/cloudboss/unobin/pkg/deps"
+	"github.com/cloudboss/unobin/internal/cmdconfig"
+	"github.com/cloudboss/unobin/internal/cmdout"
+	"github.com/cloudboss/unobin/pkg/codegen"
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/filechange"
-	"github.com/cloudboss/unobin/pkg/lang"
 )
-
-// CLIVersion reports the running CLI's own version; the root command
-// assigns it at startup. A release version becomes the toolchain pin
-// scaffolds record.
-var CLIVersion = func() string { return "dev" }
 
 var (
 	factoryCfg = &factoryConfig{}
@@ -57,13 +50,19 @@ func init() {
 }
 
 func runFactory(cmd *cobra.Command, cfg *factoryConfig) error {
-	format, err := commandFormat(cmd)
+	format, err := cmdout.CommandFormat(cmd)
 	if err != nil {
 		return err
 	}
-	output, err := generateFactory(cfg)
+	output, err := codegen.ScaffoldFactory(codegen.ScaffoldInput{
+		OutDir: cfg.output, Force: cfg.force, UnobinVersion: cmdconfig.CLIVersion(),
+	})
 	if err != nil {
-		return commandFailure(cmd, format, output, err)
+		var files []filechange.Change
+		if output != nil {
+			files = output.Files
+		}
+		return cmdout.WriteOperationError(cmd, format, files, err)
 	}
 	if format.Machine() {
 		return cmdout.WriteDocument(cmd.OutOrStdout(), format, factoryGenerationResult{
@@ -71,7 +70,7 @@ func runFactory(cmd *cobra.Command, cfg *factoryConfig) error {
 			FormatVersion: 1,
 			OutputDir:     output.OutDir,
 			Files:         output.Files,
-			Diagnostics:   diagnostics(),
+			Diagnostics:   diagnostic.Normalize(nil),
 		})
 	}
 	for _, change := range output.Files {
@@ -80,56 +79,10 @@ func runFactory(cmd *cobra.Command, cfg *factoryConfig) error {
 	return nil
 }
 
-func generateFactory(cfg *factoryConfig) (*generationOutput, error) {
-	if cfg.output == "" {
-		return nil, fmt.Errorf("--output must not be empty")
-	}
-	outDir := filepath.Clean(cfg.output)
-
-	if _, err := os.Stat(outDir); err == nil {
-		if !cfg.force {
-			return nil, fmt.Errorf(
-				"output directory %q already exists; pass --force to overwrite", outDir,
-			)
-		}
-	} else if !os.IsNotExist(err) {
-		return nil, err
-	}
-
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		return nil, err
-	}
-	output := &generationOutput{OutDir: outDir, Files: []filechange.Change{}}
-
-	factoryPath := filepath.Join(outDir, "factory.ub")
-	factorySource, err := lang.Canonicalize(factoryPath, []byte(renderFactoryStub()))
-	if err != nil {
-		return nil, err
-	}
-	factoryChange, err := filechange.WriteFile(factoryPath, factorySource, 0o644)
-	if err != nil {
-		return nil, err
-	}
-	output.Files = append(output.Files, factoryChange)
-
-	project := &deps.Project{}
-	if v := CLIVersion(); semver.IsValid(v) {
-		project.UnobinVersion = v
-	}
-	projectPath := filepath.Join(outDir, deps.ProjectFileName)
-	projectChange, err := deps.WriteProjectChange(projectPath, project)
-	if err != nil {
-		return partialFailure(output, err)
-	}
-	output.Files = append(output.Files, projectChange)
-	output.Files, err = filechange.Compose(output.Files)
-	if err != nil {
-		return output, err
-	}
-	return output, nil
-}
-
-func renderFactoryStub() string {
-	return "factory: {description: 'TODO: describe this factory' inputs: {} imports: {} " +
-		"data-sources: {} resources: {} actions: {} outputs: {}}\n"
+type factoryGenerationResult struct {
+	Kind          string                  `json:"kind"           ub:"kind"`
+	FormatVersion int                     `json:"format-version" ub:"format-version"`
+	OutputDir     string                  `json:"output-dir"     ub:"output-dir"`
+	Files         []filechange.Change     `json:"files"          ub:"files"`
+	Diagnostics   []diagnostic.Diagnostic `json:"diagnostics"    ub:"diagnostics"`
 }

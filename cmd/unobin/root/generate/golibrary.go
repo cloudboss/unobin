@@ -5,10 +5,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/cobra"
+
+	"github.com/cloudboss/unobin/internal/cmdconfig"
 	"github.com/cloudboss/unobin/internal/cmdout"
+	"github.com/cloudboss/unobin/pkg/diagnostic"
+	"github.com/cloudboss/unobin/pkg/filechange"
 	"github.com/cloudboss/unobin/pkg/gogen"
 	"github.com/cloudboss/unobin/pkg/gogen/tf"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -74,17 +78,17 @@ func init() {
 }
 
 func runGenerate(cmd *cobra.Command, cfg *golibraryConfig) error {
-	format, err := commandFormat(cmd)
+	format, err := cmdout.CommandFormat(cmd)
 	if err != nil {
 		return err
 	}
 	if strings.ToLower(cfg.from) == "tf" && len(cfg.provider) == 0 {
-		return commandFailure(
+		return cmdout.WriteOperationError(
 			cmd, format, nil, fmt.Errorf("--provider is required when --from is 'tf'"),
 		)
 	}
 	if len(cfg.goModulePath) == 0 {
-		return commandFailure(
+		return cmdout.WriteOperationError(
 			cmd, format, nil, fmt.Errorf("--go-module-path must not be empty"),
 		)
 	}
@@ -93,7 +97,7 @@ func runGenerate(cmd *cobra.Command, cfg *golibraryConfig) error {
 	if len(replaceUnobin) != 0 {
 		abs, err := filepath.Abs(replaceUnobin)
 		if err != nil {
-			return commandFailure(cmd, format, nil, err)
+			return cmdout.WriteOperationError(cmd, format, nil, err)
 		}
 		replaceUnobin = abs
 	}
@@ -105,15 +109,15 @@ func runGenerate(cmd *cobra.Command, cfg *golibraryConfig) error {
 		OutDir:        cfg.output,
 		ModulePath:    cfg.goModulePath,
 		ReplaceUnobin: replaceUnobin,
-		UnobinVersion: CLIVersion(),
+		UnobinVersion: cmdconfig.CLIVersion(),
 		From:          cfg.from,
 	})
 	if err != nil {
-		var partial *generationOutput
+		var files []filechange.Change
 		if out != nil {
-			partial = &generationOutput{OutDir: out.OutDir, Files: out.Files}
+			files = out.Files
 		}
-		return commandFailure(cmd, format, partial, err)
+		return cmdout.WriteOperationError(cmd, format, files, err)
 	}
 	if format.Machine() {
 		return cmdout.WriteDocument(cmd.OutOrStdout(), format, goLibraryGenerationResult{
@@ -125,7 +129,7 @@ func runGenerate(cmd *cobra.Command, cfg *golibraryConfig) error {
 			Resources:     out.Resources,
 			DataSources:   out.DataSources,
 			Files:         out.Files,
-			Diagnostics:   diagnostics(),
+			Diagnostics:   diagnostic.Normalize(nil),
 		})
 	}
 
@@ -136,4 +140,16 @@ func runGenerate(cmd *cobra.Command, cfg *golibraryConfig) error {
 	)
 
 	return nil
+}
+
+type goLibraryGenerationResult struct {
+	Kind          string                  `json:"kind"           ub:"kind"`
+	FormatVersion int                     `json:"format-version" ub:"format-version"`
+	OutputDir     string                  `json:"output-dir"     ub:"output-dir"`
+	ModulePath    string                  `json:"module-path"    ub:"module-path"`
+	Provider      string                  `json:"provider"       ub:"provider"`
+	Resources     int                     `json:"resources"      ub:"resources"`
+	DataSources   int                     `json:"data-sources"   ub:"data-sources"`
+	Files         []filechange.Change     `json:"files"          ub:"files"`
+	Diagnostics   []diagnostic.Diagnostic `json:"diagnostics"    ub:"diagnostics"`
 }

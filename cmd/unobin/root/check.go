@@ -4,22 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/cloudboss/unobin/internal/cmdconfig"
 	"github.com/cloudboss/unobin/internal/cmdout"
-	"github.com/cloudboss/unobin/pkg/compile"
-	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
-	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	projectpkg "github.com/cloudboss/unobin/pkg/project"
-	"github.com/cloudboss/unobin/pkg/resolve"
-	"github.com/cloudboss/unobin/pkg/sourcecheck"
 )
 
 var (
@@ -56,7 +49,7 @@ type checkResult struct {
 var errCheckNegative = errors.New("check found errors")
 
 func init() {
-	addFormatFlag(CheckCmd)
+	CheckCmd.Flags().String("format", "text", cmdout.FormatHelp())
 	CheckCmd.Flags().StringVarP(&checkCfg.path, "path", "p", ".",
 		"Path to a Unobin source file or directory.")
 	CheckCmd.Flags().StringVar(&checkCfg.replaceUnobin, "replace-unobin", "",
@@ -114,145 +107,18 @@ func runCheck(cmd *cobra.Command, cfg *checkConfig) error {
 	return nil
 }
 
-func checkSourcePath(
-	cmd *cobra.Command,
-	path string,
-	replaceUnobin string,
-) (checkTarget, error) {
+func checkSourcePath(cmd *cobra.Command, path, replacement string) (checkTarget, error) {
 	collector := &diagnostic.Collector{}
-	target, err := checkSourcePathWithReporter(cmd, path, replaceUnobin, collector)
-	target.diagnostics = collector.Diagnostics()
-	return target, err
-}
-
-func checkSourcePathWithReporter(
-	cmd *cobra.Command,
-	path string,
-	replaceUnobin string,
-	reporter diagnostic.Reporter,
-) (checkTarget, error) {
-	info, err := os.Stat(path)
-	if err != nil {
-		return checkTarget{}, err
-	}
-	if info.IsDir() {
-		return checkSourceDir(cmd, path, replaceUnobin, reporter)
-	}
-	return checkSourceFile(cmd, path, replaceUnobin, reporter)
-}
-
-func checkSourceDir(
-	cmd *cobra.Command,
-	path string,
-	replaceUnobin string,
-	reporter diagnostic.Reporter,
-) (checkTarget, error) {
-	factoryPath := filepath.Join(path, "factory.ub")
-	if info, err := os.Stat(factoryPath); err == nil && !info.IsDir() {
-		return checkSourceFile(cmd, factoryPath, replaceUnobin, reporter)
-	} else if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return checkTarget{}, err
-	}
-
-	source := sourceForDir(path)
-	if resolve.HasCompositeExports(source) {
-		target := checkTarget{Path: cleanCheckPath(path), Type: "library"}
-		opts, err := checkOptions(cmd, path, path, replaceUnobin, reporter)
-		if err != nil {
-			return target, err
-		}
-		return target, sourcecheck.CheckUBLibrary(opts.Source, opts)
-	}
-
-	target := checkTarget{Path: cleanCheckPath(path), Type: "directory"}
-	checked := false
-	for _, name := range []string{"project.ub", "project-lock.ub"} {
-		candidate := filepath.Join(path, name)
-		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-			if _, err := parseAndValidateSource(candidate); err != nil {
-				return target, err
-			}
-			checked = true
-		} else if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return target, err
-		}
-	}
-	if checked {
-		return target, nil
-	}
-	return checkTarget{}, fmt.Errorf("%s has no checkable Unobin source", path)
-}
-
-func checkSourceFile(
-	cmd *cobra.Command,
-	path string,
-	replaceUnobin string,
-	reporter diagnostic.Reporter,
-) (checkTarget, error) {
-	target := checkTarget{Path: cleanCheckPath(path), Type: checkTypeFromName(path)}
-	file, err := parseAndValidateSource(path)
-	if err != nil {
-		return target, err
-	}
-	target.Type = checkTypeFromKind(file.Kind)
-	dir := filepath.Dir(path)
-	switch file.Kind {
-	case syntax.FileFactory:
-		opts, err := checkOptions(cmd, dir, dir, replaceUnobin, reporter)
-		if err != nil {
-			return target, err
-		}
-		opts.RootSourceFile = sourceFileForProject(opts.ProjectDir, path)
-		_, err = sourcecheck.CheckFactoryBody(file.Factory.Body, opts)
-		return target, err
-	case syntax.FileLibrary:
-		opts, err := checkOptions(cmd, dir, dir, replaceUnobin, reporter)
-		if err != nil {
-			return target, err
-		}
-		opts.RootSourceFile = sourceFileForProject(opts.ProjectDir, path)
-		return target, sourcecheck.CheckLibraryFile(file.Library, opts)
-	case syntax.FileStack, syntax.FileProject, syntax.FileProjectLock:
-		return target, nil
-	default:
-		return checkTarget{}, fmt.Errorf("%s has no checkable Unobin source", path)
-	}
+	options := cmdconfig.ProjectOptions(path, replacement)
+	options.ToolOutput = checkToolOutput(cmd)
+	target, err := projectpkg.CheckSource(options, collector)
+	return checkTarget{
+		Path: target.Path, Type: target.Type, diagnostics: collector.Diagnostics(),
+	}, err
 }
 
 func cleanCheckPath(path string) string {
 	return filepath.ToSlash(filepath.Clean(path))
-}
-
-func checkTypeFromName(path string) string {
-	switch filepath.Base(path) {
-	case "factory.ub":
-		return "factory"
-	case "library.ub":
-		return "library"
-	case "project.ub":
-		return "project"
-	case "project-lock.ub":
-		return "project-lock"
-	default:
-		return ""
-	}
-}
-
-func checkTypeFromKind(kind syntax.FileKind) string {
-	switch kind {
-	case syntax.FileFactory:
-		return "factory"
-	case syntax.FileLibrary:
-		return "library"
-	case syntax.FileStack:
-		return "stack"
-	case syntax.FileProject:
-		return "project"
-	case syntax.FileProjectLock:
-		return "project-lock"
-	default:
-		return ""
-	}
 }
 
 func checkCommandFailure(path string, err error) error {
@@ -300,83 +166,6 @@ func hasErrorDiagnostics(diagnostics []diagnostic.Diagnostic) bool {
 	return false
 }
 
-func parseAndValidateSource(path string) (*syntax.File, error) {
-	body, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	file, err := syntax.ParseSource(path, body)
-	if err != nil {
-		return nil, err
-	}
-	if errs := syntax.ValidateFile(file); errs.Len() > 0 {
-		return nil, errs.Err()
-	}
-	return file, nil
-}
-
-func checkOptions(
-	cmd *cobra.Command,
-	projectStart string,
-	sourceDir string,
-	replaceUnobin string,
-	reporter diagnostic.Reporter,
-) (sourcecheck.Options, error) {
-	projectDir, err := printGraphProjectDir(projectStart)
-	if err != nil {
-		return sourcecheck.Options{}, err
-	}
-	project, err := printGraphProject(projectDir)
-	if err != nil {
-		return sourcecheck.Options{}, err
-	}
-	var replaceMap map[deps.Dependency]string
-	if project != nil {
-		if err := deps.CheckReplacementSentinels(project); err != nil {
-			return sourcecheck.Options{}, err
-		}
-		replaceMap = project.Replace
-	}
-	replaceUnobinAbs, err := projectpkg.UnobinReplacement(projectDir, replaceUnobin, replaceMap)
-	if err != nil {
-		return sourcecheck.Options{}, err
-	}
-	compatibility, err := cmdconfig.ProjectOptions("", "").Compatibility(
-		projectDir, project, replaceUnobinAbs)
-	if err != nil {
-		return sourcecheck.Options{}, err
-	}
-	projectLock, err := printGraphProjectLock(projectDir)
-	if err != nil {
-		return sourcecheck.Options{}, err
-	}
-	resolver, err := cmdconfig.NewResolver(projectDir)
-	if err != nil {
-		return sourcecheck.Options{}, err
-	}
-	resolver = compile.WrapProjectLockSources(resolver, projectLock)
-	resolver, err = compile.WrapReplaces(resolver, projectDir, replaceUnobin, replaceMap)
-	if err != nil {
-		return sourcecheck.Options{}, err
-	}
-	repoVersions, err := compile.ProjectLockVersions(projectDir)
-	if err != nil {
-		return sourcecheck.Options{}, err
-	}
-	repoVersions = printGraphReplacedVersions(
-		repoVersions, replaceUnobin != "", replaceMap)
-	schemaRoots := compile.UnobinSchemaRoots(
-		checkToolOutput(cmd), replaceUnobinAbs, cliVersion())
-	return sourcecheck.Options{
-		ProjectDir:  projectDir,
-		Source:      sourceForProjectDir(projectDir, sourceDir),
-		Resolver:    resolver,
-		Versions:    repoVersions,
-		SchemaCache: sourcecheck.NewSchemaCacheWithCompatibility(compatibility, schemaRoots...),
-		Reporter:    reporter,
-	}, nil
-}
-
 func checkToolOutput(cmd *cobra.Command) io.Writer {
 	value, err := cmd.Flags().GetString("format")
 	if err == nil {
@@ -386,53 +175,4 @@ func checkToolOutput(cmd *cobra.Command) io.Writer {
 		}
 	}
 	return cmd.ErrOrStderr()
-}
-
-func sourceForDir(path string) *resolve.Source {
-	return &resolve.Source{FS: os.DirFS(path), Path: path}
-}
-
-func sourceForProjectDir(projectDir, sourceDir string) *resolve.Source {
-	absoluteSourceDir, err := filepath.Abs(sourceDir)
-	if err != nil {
-		return sourceForDir(sourceDir)
-	}
-	source := sourceForDir(absoluteSourceDir)
-	relative, ok := relativeProjectPath(projectDir, absoluteSourceDir)
-	if !ok {
-		return source
-	}
-	if relative == "." {
-		relative = ""
-	}
-	source.ProjectFS = os.DirFS(projectDir)
-	source.ProjectPath = projectDir
-	source.PackageSubdir = filepath.ToSlash(relative)
-	return source
-}
-
-func sourceFileForProject(projectDir, sourcePath string) syntax.SourceFileSpec {
-	spec := syntax.SourceFileSpec{
-		PackageRelPath: filepath.ToSlash(filepath.Base(sourcePath)),
-	}
-	absoluteSourcePath, err := filepath.Abs(sourcePath)
-	if err != nil {
-		return spec
-	}
-	if relative, ok := relativeProjectPath(projectDir, absoluteSourcePath); ok {
-		spec.ProjectRelPath = filepath.ToSlash(relative)
-	}
-	return spec
-}
-
-func relativeProjectPath(projectDir, path string) (string, bool) {
-	if projectDir == "" {
-		return "", false
-	}
-	relative, err := filepath.Rel(projectDir, path)
-	if err != nil || relative == ".." ||
-		strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-		return "", false
-	}
-	return relative, true
 }

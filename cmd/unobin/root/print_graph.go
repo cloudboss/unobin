@@ -1,26 +1,15 @@
 package root
 
 import (
-	"errors"
 	"io"
-	"io/fs"
-	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
 	"github.com/cloudboss/unobin/internal/cmdconfig"
 	"github.com/cloudboss/unobin/internal/cmdout"
-	"github.com/cloudboss/unobin/pkg/check"
-	"github.com/cloudboss/unobin/pkg/compile"
-	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/graphprint"
 	projectpkg "github.com/cloudboss/unobin/pkg/project"
-	"github.com/cloudboss/unobin/pkg/resolve"
-	"github.com/cloudboss/unobin/pkg/runtime"
-	"github.com/cloudboss/unobin/pkg/sourcecheck"
-	"github.com/cloudboss/unobin/pkg/toolchain"
 )
 
 var (
@@ -74,7 +63,9 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 		reporter = textDiagnosticReporter{out: cmd.ErrOrStderr()}
 		toolOutput = cmd.ErrOrStderr()
 	}
-	dag, name, err := buildSourceGraph(cfg, reporter, toolOutput)
+	options := cmdconfig.ProjectOptions(cfg.stackPath, cfg.replaceUnobin)
+	options.ToolOutput = toolOutput
+	dag, name, err := projectpkg.SourceGraph(options, reporter)
 	if err != nil {
 		if format.Machine() {
 			return cmdout.WriteCommandError(
@@ -99,155 +90,10 @@ func runPrintGraph(cmd *cobra.Command, cfg *printGraphConfig) error {
 	return nil
 }
 
-func buildSourceGraph(
-	cfg *printGraphConfig,
-	reporter diagnostic.Reporter,
-	toolOutput io.Writer,
-) (*runtime.DAG, string, error) {
-	stackPath, err := compile.FactorySourcePath(cfg.stackPath)
-	if err != nil {
-		return nil, "", err
-	}
-	src, err := os.ReadFile(stackPath)
-	if err != nil {
-		return nil, "", err
-	}
-	sf, _, err := compile.ParseFactorySyntaxSource(stackPath, src)
-	if err != nil {
-		return nil, "", err
-	}
-
-	refs, errs := resolve.ExtractSyntaxBodyImports(sf.Factory.Body)
-	if len(errs) > 0 {
-		return nil, "", errors.Join(errs...)
-	}
-
-	projectDir, err := printGraphProjectDir(filepath.Dir(stackPath))
-	if err != nil {
-		return nil, "", err
-	}
-	project, err := printGraphProject(projectDir)
-	if err != nil {
-		return nil, "", err
-	}
-	var replaceMap map[deps.Dependency]string
-	if project != nil {
-		if err := deps.CheckReplacementSentinels(project); err != nil {
-			return nil, "", err
-		}
-		replaceMap = project.Replace
-	}
-	replaceUnobin, err := projectpkg.UnobinReplacement(projectDir, cfg.replaceUnobin, replaceMap)
-	if err != nil {
-		return nil, "", err
-	}
-	compatibility, err := cmdconfig.ProjectOptions("", "").Compatibility(
-		projectDir, project, replaceUnobin)
-	if err != nil {
-		return nil, "", err
-	}
-
-	projectLock, err := printGraphProjectLock(projectDir)
-	if err != nil {
-		return nil, "", err
-	}
-	resolver, err := cmdconfig.NewResolver(projectDir)
-	if err != nil {
-		return nil, "", err
-	}
-	resolver = compile.WrapProjectLockSources(resolver, projectLock)
-	resolver, err = compile.WrapReplaces(resolver, projectDir, cfg.replaceUnobin, replaceMap)
-	if err != nil {
-		return nil, "", err
-	}
-
-	repoVersions, err := compile.ProjectLockVersions(projectDir)
-	if err != nil {
-		return nil, "", err
-	}
-	repoVersions = printGraphReplacedVersions(
-		repoVersions, cfg.replaceUnobin != "", replaceMap)
-	schemaRoots := compile.UnobinSchemaRoots(
-		toolOutput, replaceUnobin, cliVersion())
-	analysis, err := sourcecheck.AnalyzeImports(refs, sourcecheck.ImportAnalysisOptions{
-		Resolver:       resolver,
-		Versions:       repoVersions,
-		Reporter:       reporter,
-		SchemaCache:    compile.NewSchemaCacheWithCompatibility(compatibility, schemaRoots...),
-		Body:           &sf.Factory.Body,
-		RootSourceFile: sourceFileForProject(projectDir, stackPath),
-		Source:         sourceForProjectDir(projectDir, filepath.Dir(stackPath)),
-	})
-	if err != nil {
-		return nil, "", err
-	}
-	libs := analysis.Libraries
-	checker := check.NewSyntaxWithLibraryConfigSchemas(
-		sf.Factory.Body,
-		libs,
-		analysis.LibraryConfigSchemas,
-		analysis.Assets.Catalog(),
-		analysis.RootAssetSetID,
-	)
-	if errs := checker.References(nil); errs.Len() > 0 {
-		return nil, "", errs.Err()
-	}
-	return checker.DAG(), compile.DeriveStackName(stackPath), nil
+type textDiagnosticReporter struct {
+	out io.Writer
 }
 
-func printGraphProjectDir(sourceDir string) (string, error) {
-	projectDir, err := deps.FindProjectDir(sourceDir)
-	if err == nil {
-		return projectDir, nil
-	}
-	if errors.Is(err, fs.ErrNotExist) {
-		return sourceDir, nil
-	}
-	return "", err
-}
-
-func printGraphProjectLock(projectDir string) (*deps.ProjectLock, error) {
-	projectLock, err := deps.ReadProjectLock(os.DirFS(projectDir))
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return projectLock, nil
-}
-
-func printGraphProject(projectDir string) (*deps.Project, error) {
-	project, err := deps.ReadProject(os.DirFS(projectDir))
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return project, nil
-}
-
-func printGraphReplacedVersions(
-	versions map[string]string,
-	replaceUnobin bool,
-	replace map[deps.Dependency]string,
-) map[string]string {
-	if !replaceUnobin && len(replace) == 0 {
-		return versions
-	}
-	if versions == nil {
-		versions = map[string]string{}
-	}
-	if replaceUnobin {
-		versions[toolchain.UnobinModulePath] = deps.ReplacementSentinel
-	}
-	for dep := range replace {
-		if dep.Subdir == "" {
-			versions[dep.URL] = deps.ReplacementSentinel
-		} else {
-			versions[dep.String()] = deps.ReplacementSentinel
-		}
-	}
-	return versions
+func (r textDiagnosticReporter) Report(d diagnostic.Diagnostic) {
+	_ = diagnostic.WriteText(r.out, d)
 }

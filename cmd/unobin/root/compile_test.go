@@ -8,11 +8,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cloudboss/unobin/internal/cmdout"
 	compilepkg "github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/filechange"
-	"github.com/stretchr/testify/require"
 )
 
 func TestCompileResultFormatGolden(t *testing.T) {

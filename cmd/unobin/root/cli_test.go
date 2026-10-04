@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 
+	cmddeps "github.com/cloudboss/unobin/cmd/unobin/root/deps"
 	"github.com/cloudboss/unobin/internal/cmdconfig"
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/deps"
@@ -66,10 +67,10 @@ func runCommandWithRemotes(t *testing.T, remotes map[string]*resolve.Source,
 	resetFlags(CheckCmd)
 	resetFlags(CompileCmd)
 	resetFlags(PrintGraphCmd)
-	resetFlags(depsSyncCmd)
-	resetFlags(depsListCmd)
-	resetFlags(depsVerifyCmd)
-	resetFlags(depsGetCmd)
+	resetFlags(cmddeps.SyncCmd)
+	resetFlags(cmddeps.ListCmd)
+	resetFlags(cmddeps.VerifyCmd)
+	resetFlags(cmddeps.GetCmd)
 	resetFlags(LSPCmd)
 	root := &cobra.Command{
 		Use:          "unobin",

@@ -44,3 +44,7 @@ func SetLibraryAPIDescriptorForTest(descriptor *libraryapi.Descriptor) func() {
 	LibraryAPIDescriptor = descriptor
 	return func() { LibraryAPIDescriptor = previous }
 }
+
+const DependencyPathHelp = "Path to the factory source file or project directory."
+const DependencyReplacementHelp = "Local path to substitute for " +
+	"github.com/cloudboss/unobin so the resolver reads from a working tree instead of fetching."
