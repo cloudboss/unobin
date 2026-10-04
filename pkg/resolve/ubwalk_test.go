@@ -194,6 +194,28 @@ func TestWalkUBValidatesGoModulePath(t *testing.T) {
 			wantErr:    "module path must end in /v2",
 		},
 		{
+			name:       "v2 prerelease accepts v2 module",
+			version:    "v2.0.0-rc.1",
+			modulePath: "example.com/lib/v2",
+		},
+		{
+			name:       "project replacement sentinel accepts v2 module",
+			version:    "v0.0.0-unobin-replaced",
+			modulePath: "example.com/lib/v2",
+		},
+		{
+			name:       "v2 prerelease rejects base module",
+			version:    "v2.0.0-rc.1",
+			modulePath: "example.com/lib",
+			wantErr:    "module path must end in /v2",
+		},
+		{
+			name:       "v1 prerelease rejects v2 module",
+			version:    "v1.2.3-beta.1",
+			modulePath: "example.com/lib/v2",
+			wantErr:    "cannot use version v1.2.3-beta.1",
+		},
+		{
 			name:       "v1 version rejects v2 module",
 			version:    "v1.2.3",
 			modulePath: "example.com/lib/v2",
@@ -231,6 +253,16 @@ func TestWalkUBValidatesGoModulePath(t *testing.T) {
 			require.Equal(t, []string{"lib=" + tt.modulePath + "@" + tt.version}, v.goCalls)
 		})
 	}
+}
+
+func TestValidateGoModulePathWithSubdirectoryPrerelease(t *testing.T) {
+	ref := &RemoteImport{
+		URL: "example.com/repo", Subdir: "provider/service", ProjectSubdir: "provider",
+		PackageSubdir: "provider/service", Version: "provider/v2.0.0-beta.1",
+	}
+	require.NoError(t, ValidateGoModulePath(ref, "example.com/repo/provider/v2"))
+	require.ErrorContains(t, ValidateGoModulePath(ref, "example.com/repo/provider"),
+		"module path must end in /v2")
 }
 
 func TestWalkUBRecordsUBLibrary(t *testing.T) {

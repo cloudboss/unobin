@@ -5,7 +5,8 @@
   "remotes": [
     {
       "key": "github.com/cloudboss/unobin//pkg/libraries/local@v0.1.0",
-      "path": "remotes/local"
+      "path": "remotes/local",
+      "commit": "c"
     }
   ],
   "commands": [

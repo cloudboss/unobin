@@ -30,6 +30,12 @@ project: {
 
 `project-lock.ub` records selected versions, commits, hashes, and toolchain facts. Compile reads the lock and reports stale metadata.
 
+Compile reads remote Go and UB package source at the locked commit, using the
+commit cache when available. An unavailable commit is an error; compilation
+does not substitute a current tag. The selected release version still determines
+the generated Go module requirement and its required module-path major suffix,
+including for prereleases.
+
 A directory containing a `factory.ub` cannot be imported except from within the directory itself. The convention is to import `.` as `self`, though the alias can be any name:
 
 ```

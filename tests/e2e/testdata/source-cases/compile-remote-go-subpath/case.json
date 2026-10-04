@@ -6,7 +6,8 @@
   "remotes": [
     {
       "key": "github.com/cloudboss/unobin-library-std//fs@v0.1.0",
-      "path": "remotes/std/fs"
+      "path": "remotes/std/fs",
+      "commit": "c"
     }
   ],
   "commands": [

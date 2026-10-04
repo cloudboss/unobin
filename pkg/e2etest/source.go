@@ -336,6 +336,11 @@ func sourceRemoteMap(workspace string, remotes []RemoteSource) (map[string]*reso
 		source.ModulePath = remote.ModulePath
 		source.GoImportPath = remote.GoImportPath
 		out[remote.Key] = source
+		if remote.Commit != "" {
+			if at := strings.LastIndex(remote.Key, "@"); at >= 0 {
+				out[remote.Key[:at+1]+remote.Commit] = source
+			}
+		}
 	}
 	return out, nil
 }

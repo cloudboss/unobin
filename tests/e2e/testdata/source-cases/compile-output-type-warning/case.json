@@ -7,7 +7,7 @@
     {
       "key": "example.com/partial@v0.1.0",
       "path": "remotes/partial",
-      "commit": "fakecommit",
+      "commit": "c",
       "sourcePath": true
     }
   ],

@@ -752,7 +752,13 @@ func (r *dispatchResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, erro
 	return nil, fmt.Errorf("unsupported import ref type %T", ref)
 }
 
-// WrapProjectLockSources fetches project-lock remote imports by commit and verifies UB hashes.
+func (r *dispatchResolver) CachedSource(
+	ref *resolve.RemoteImport, commit string,
+) (*resolve.Source, bool, error) {
+	return r.remote.CachedSource(ref, commit)
+}
+
+// WrapProjectLockSources reads remote Go and UB imports by commit and verifies UB hashes.
 func WrapProjectLockSources(
 	resolver resolve.Resolver,
 	projectLock *deps.ProjectLock,
@@ -774,21 +780,35 @@ func (r *projectLockResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, e
 		return r.wrapped.Resolve(ref)
 	}
 	owner, entry, ok := projectLockOwner(r.projectLock, ri)
-	if !ok || entry.Kind != deps.ProjectLockKindUB {
+	if !ok {
 		return r.wrapped.Resolve(ref)
 	}
 	projectLockRef := *ri
 	projectLockRef.ProjectSubdir = owner.Project.Subdir
 	projectLockRef.PackageSubdir = ri.Subdir
 	projectLockRef.Version = entry.Commit
-	src, err := r.wrapped.Resolve(&projectLockRef)
+	src, err := resolveLockedSource(r.wrapped, &projectLockRef)
 	if err != nil {
 		return nil, err
 	}
-	if err := r.verifyUBHash(owner.Project, entry); err != nil {
-		return nil, err
+	if entry.Kind == deps.ProjectLockKindUB {
+		if err := r.verifyUBHash(owner.Project, entry); err != nil {
+			return nil, err
+		}
 	}
 	return src, nil
+}
+
+func resolveLockedSource(resolver resolve.Resolver, ref *resolve.RemoteImport) (*resolve.Source, error) {
+	if cache, ok := resolver.(interface {
+		CachedSource(*resolve.RemoteImport, string) (*resolve.Source, bool, error)
+	}); ok {
+		source, found, err := cache.CachedSource(ref, ref.Version)
+		if found || err != nil {
+			return source, err
+		}
+	}
+	return resolver.Resolve(ref)
 }
 
 func projectLockOwner(
@@ -827,7 +847,7 @@ func (r *projectLockResolver) verifyUBHash(
 		PackageSubdir: project.Subdir,
 		Version:       entry.Commit,
 	}
-	projectSrc, err := r.wrapped.Resolve(projectRef)
+	projectSrc, err := resolveLockedSource(r.wrapped, projectRef)
 	if err != nil {
 		return err
 	}

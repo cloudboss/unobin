@@ -462,6 +462,9 @@ func ValidateGoModulePath(r *RemoteImport, modulePath string) error {
 
 func validateGoModulePath(r *RemoteImport, modulePath string) error {
 	version := r.Version
+	if version == "v0.0.0-unobin-replaced" {
+		return nil
+	}
 	if unprefixed, ok := unprefixedVersion(remoteProjectSubdir(r), version); ok {
 		version = unprefixed
 	}
@@ -493,7 +496,7 @@ func validateGoModulePath(r *RemoteImport, modulePath string) error {
 }
 
 func realVersionMajor(version string) (int, bool) {
-	if version == "" || !semver.IsValid(version) || semver.Prerelease(version) != "" {
+	if version == "" || !semver.IsValid(version) {
 		return 0, false
 	}
 	major, err := strconv.Atoi(strings.TrimPrefix(semver.Major(version), "v"))

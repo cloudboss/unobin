@@ -6,7 +6,8 @@
   "remotes": [
     {
       "key": "github.com/x/core//lib@v1.0.0",
-      "path": "remotes/core/lib"
+      "path": "remotes/core/lib",
+      "commit": "c1"
     }
   ],
   "commands": [

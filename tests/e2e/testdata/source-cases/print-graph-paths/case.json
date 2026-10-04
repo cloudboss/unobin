@@ -5,7 +5,8 @@
   "remotes": [
     {
       "key": "github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0",
-      "path": "remotes/core"
+      "path": "remotes/core",
+      "commit": "c"
     }
   ],
   "commands": [

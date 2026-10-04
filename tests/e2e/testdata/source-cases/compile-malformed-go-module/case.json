@@ -7,7 +7,7 @@
     {
       "key": "example.com/broken@v0.1.0",
       "path": "remotes/broken",
-      "commit": "fakecommit",
+      "commit": "c",
       "sourcePath": true
     }
   ],
