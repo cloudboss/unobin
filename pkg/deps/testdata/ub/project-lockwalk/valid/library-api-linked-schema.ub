@@ -1,0 +1,6 @@
+factory: {
+  imports: { lib: 'example.com/aws//config' }
+  inputs: {
+    settings: { type: library-config('example.com/aws//config') }
+  }
+}

@@ -1,0 +1,7 @@
+factory: {
+  imports: {
+    a: 'example.com/registration'
+    m: 'example.com/minor'
+    z: 'example.com/major'
+  }
+}

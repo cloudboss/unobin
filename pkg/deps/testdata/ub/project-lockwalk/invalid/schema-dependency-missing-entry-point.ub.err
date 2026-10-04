@@ -1,1 +1,1 @@
-library-config "input.aws.type": no LibraryConfiguration() function in testdata/go/no-entry
+library-config "input.aws.type": no Library() function; no package-level library function

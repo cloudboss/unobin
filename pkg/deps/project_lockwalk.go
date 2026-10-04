@@ -1,6 +1,7 @@
 package deps
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	pathpkg "path"
@@ -8,10 +9,110 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/golibrary"
 	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/resolve"
 )
+
+type ProjectLockOptions struct {
+	SchemaRoots   []goschema.ModuleRoot
+	Compatibility *golibrary.CompatibilityContext
+}
+
+type ProjectLockPreparation struct {
+	Lock          *ProjectLock
+	Compatibility *golibrary.CompatibilityContext
+}
+
+type selectedGoPackage struct {
+	source        *resolve.Source
+	metadata      golibrary.PackageSource
+	library       bool
+	configuration bool
+	context       string
+}
+
+func (w *projectLockWalker) collectGoPackage(
+	source *resolve.Source, owner PackageOwner, version string,
+	kind resolve.SyntaxDependencyKind, label string,
+) error {
+	if source == nil || source.Path == "" {
+		return nil
+	}
+	dir, err := filepath.Abs(source.Path)
+	if err != nil {
+		return err
+	}
+	module, err := golibrary.ModuleSourceAt(dir)
+	if err != nil {
+		return err
+	}
+	module.Dependency = owner.Project.String()
+	module.Version, module.Commit = version, source.Commit
+	if _, replaced := w.replace[owner.Project.Dependency()]; replaced {
+		module.Replacement = module.Dir
+	}
+	entry := w.packages[dir]
+	if entry == nil {
+		entry = &selectedGoPackage{source: source, context: label}
+		w.packages[dir] = entry
+	}
+	if kind == resolve.SyntaxDependencyImport && !entry.library {
+		entry.context = label
+	}
+	entry.library = entry.library || kind == resolve.SyntaxDependencyImport
+	entry.configuration = entry.configuration || kind == resolve.SyntaxDependencyLibraryConfig
+	entry.metadata = golibrary.PackageSource{Module: module, Dir: dir, Linked: entry.library}
+	return nil
+}
+
+func (w *projectLockWalker) validateSelectedPackages() error {
+	dirs := make([]string, 0, len(w.packages))
+	for dir := range w.packages {
+		dirs = append(dirs, dir)
+	}
+	slices.Sort(dirs)
+	modules := make([]golibrary.ModuleSource, 0, len(dirs))
+	for _, dir := range dirs {
+		modules = append(modules, w.packages[dir].metadata.Module)
+	}
+	context, err := w.compatibility.WithModules(modules)
+	if err != nil {
+		return err
+	}
+	w.compatibility = context
+	failures := slices.Clone(w.discoveryErrors)
+	for _, dir := range dirs {
+		entry := w.packages[dir]
+		if err := context.CheckPackage(entry.metadata); err != nil {
+			failures = append(failures, diagnostic.Context(entry.context, err))
+		}
+	}
+	if err := errors.Join(failures...); err != nil {
+		return err
+	}
+	w.schemaRoots = nil
+	for _, module := range context.ModuleSources() {
+		w.schemaRoots = append(w.schemaRoots, goschema.ModuleRoot{Path: module.Path, Dir: module.Dir})
+	}
+	for _, dir := range dirs {
+		entry := w.packages[dir]
+		if entry.library {
+			if err := validateGoLibrarySource(entry.source, context); err != nil {
+				failures = append(failures, diagnostic.Context(entry.context, err))
+			}
+		}
+		if entry.configuration {
+			if err := validateGoLibraryConfigurationSource(
+				entry.source, context, w.schemaRoots...,
+			); err != nil {
+				failures = append(failures, diagnostic.Context(entry.context, err))
+			}
+		}
+	}
+	return errors.Join(failures...)
+}
 
 // ProjectLockFromImports builds the project-lock for the project rooted at
 // rootFS. It visits every .ub file under the root -- factory.ub, library files
@@ -43,16 +144,47 @@ func ProjectLockFromImportsWithSchemaRoots(
 	replace map[Dependency]string,
 	schemaRoots []goschema.ModuleRoot,
 ) (*ProjectLock, error) {
-	w := &projectLockWalker{
-		resolver:    resolver,
-		selection:   selection,
-		replace:     replace,
-		schemaRoots: slices.Clone(schemaRoots),
-		projectLock: NewProjectLock(),
-		inProgress:  map[string]bool{},
-		walked:      map[string]bool{},
+	prepared, err := PrepareProjectLock(rootFS, selection, resolver, replace,
+		ProjectLockOptions{SchemaRoots: schemaRoots})
+	if err != nil {
+		return nil, err
 	}
-	err := fs.WalkDir(rootFS, ".", func(path string, d fs.DirEntry, err error) error {
+	return prepared.Lock, nil
+}
+
+func PrepareProjectLock(
+	rootFS fs.FS,
+	selection map[Dependency]string,
+	resolver resolve.Resolver,
+	replace map[Dependency]string,
+	opts ProjectLockOptions,
+) (*ProjectLockPreparation, error) {
+	modules := make([]golibrary.ModuleSource, 0, len(opts.SchemaRoots))
+	for _, root := range opts.SchemaRoots {
+		modules = append(modules, golibrary.ModuleSource{Path: root.Path, Dir: root.Dir})
+	}
+	context := opts.Compatibility
+	var err error
+	if context == nil {
+		context, err = golibrary.NewCompatibilityContext(golibrary.CompatibilityOptions{Modules: modules})
+	} else {
+		context, err = context.WithModules(modules)
+	}
+	if err != nil {
+		return nil, err
+	}
+	w := &projectLockWalker{
+		resolver:      resolver,
+		selection:     selection,
+		replace:       replace,
+		schemaRoots:   slices.Clone(opts.SchemaRoots),
+		compatibility: context,
+		packages:      map[string]*selectedGoPackage{},
+		projectLock:   NewProjectLock(),
+		inProgress:    map[string]bool{},
+		walked:        map[string]bool{},
+	}
+	err = fs.WalkDir(rootFS, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -75,15 +207,21 @@ func ProjectLockFromImportsWithSchemaRoots(
 		if !strings.HasSuffix(path, ".ub") {
 			return nil
 		}
-		return w.projectLockFileImports(rootFS, path)
+		if err := w.projectLockFileImports(rootFS, path); err != nil {
+			w.discoveryErrors = append(w.discoveryErrors, err)
+		}
+		return nil
 	})
 	if err != nil {
+		w.discoveryErrors = append(w.discoveryErrors, err)
+	}
+	if err := w.validateSelectedPackages(); err != nil {
 		return nil, err
 	}
 	if err := validateProjectLockDeps(w.projectLock); err != nil {
 		return nil, fmt.Errorf("project-lock: %w", err)
 	}
-	return w.projectLock, nil
+	return &ProjectLockPreparation{Lock: w.projectLock, Compatibility: w.compatibility}, nil
 }
 
 func (w *projectLockWalker) projectLockFileImports(rootFS fs.FS, path string) error {
@@ -95,32 +233,49 @@ func (w *projectLockWalker) projectLockFileImports(rootFS fs.FS, path string) er
 	if err != nil {
 		return err
 	}
+	var failures []error
 	for _, ref := range refs {
 		if local, ok := ref.Ref.(*resolve.LocalImport); ok {
 			if ref.Kind == resolve.SyntaxDependencyLibraryConfig {
+				source, err := w.resolver.Resolve(&resolve.LocalImport{
+					Path: rebaseLocalPath(filepath.Dir(path), local.Path),
+				})
+				if err != nil {
+					failures = append(failures, diagnostic.Context(ref.Label, err))
+					continue
+				}
+				label := fmt.Sprintf("%s %q", ref.Kind, ref.Label)
+				if err := w.validateSchemaDependencySource(RemotePackage{}, PackageOwner{}, "",
+					source, resolve.ClassifySource(source), label); err != nil {
+					failures = append(failures, diagnostic.Context(label, err))
+				}
 				continue
 			}
 			if err := w.checkLocalImport(rootFS, ref.Label, local, filepath.Dir(path)); err != nil {
-				return err
+				failures = append(failures, err)
 			}
 			continue
 		}
 		r := ref.Ref.(*resolve.RemoteImport)
-		if err := w.walkRemote(r, ref.Kind); err != nil {
-			return fmt.Errorf("%s %q: %w", ref.Kind, ref.Label, err)
+		if err := w.walkRemote(r, ref.Kind, fmt.Sprintf("%s %q", ref.Kind, ref.Label)); err != nil {
+			failures = append(failures, fmt.Errorf("%s %q: %w", ref.Kind, ref.Label, err))
+			continue
 		}
 	}
-	return nil
+	return errors.Join(failures...)
 }
 
 type projectLockWalker struct {
-	resolver    resolve.Resolver
-	selection   map[Dependency]string
-	replace     map[Dependency]string
-	schemaRoots []goschema.ModuleRoot
-	projectLock *ProjectLock
-	inProgress  map[string]bool
-	walked      map[string]bool
+	resolver        resolve.Resolver
+	selection       map[Dependency]string
+	replace         map[Dependency]string
+	schemaRoots     []goschema.ModuleRoot
+	projectLock     *ProjectLock
+	inProgress      map[string]bool
+	walked          map[string]bool
+	compatibility   *golibrary.CompatibilityContext
+	packages        map[string]*selectedGoPackage
+	discoveryErrors []error
 }
 
 type projectLockImportRef struct {
@@ -153,22 +308,33 @@ func (w *projectLockWalker) walkBodyFile(path string, src []byte, parent *resolv
 	if err != nil {
 		return err
 	}
+	var failures []error
 	for _, ref := range refs {
 		var err error
 		switch r := ref.Ref.(type) {
 		case *resolve.LocalImport:
 			if ref.Kind == resolve.SyntaxDependencyLibraryConfig {
+				source, resolveErr := resolve.ResolveLocalSource(r, parent)
+				if resolveErr != nil {
+					failures = append(failures, diagnostic.Context(ref.Label, resolveErr))
+					continue
+				}
+				label := fmt.Sprintf("%s %q", ref.Kind, ref.Label)
+				if err := w.validateSchemaDependencySource(RemotePackage{}, PackageOwner{}, "",
+					source, resolve.ClassifySource(source), label); err != nil {
+					failures = append(failures, diagnostic.Context(label, err))
+				}
 				continue
 			}
 			err = w.walkLocal(r, parent)
 		case *resolve.RemoteImport:
-			err = w.walkRemote(r, ref.Kind)
+			err = w.walkRemote(r, ref.Kind, fmt.Sprintf("%s %q", ref.Kind, ref.Label))
 		}
 		if err != nil {
-			return fmt.Errorf("%s %q: %w", ref.Kind, ref.Label, err)
+			failures = append(failures, fmt.Errorf("%s %q: %w", ref.Kind, ref.Label, err))
 		}
 	}
-	return nil
+	return errors.Join(failures...)
 }
 
 func (w *projectLockWalker) walkLocal(r *resolve.LocalImport, parent *resolve.Source) error {
@@ -182,10 +348,11 @@ func (w *projectLockWalker) walkLocal(r *resolve.LocalImport, parent *resolve.So
 func (w *projectLockWalker) walkRemote(
 	r *resolve.RemoteImport,
 	depKind resolve.SyntaxDependencyKind,
+	label string,
 ) error {
 	pkg := RemotePackage{URL: r.URL, Subdir: r.Subdir}
 	if _, replaced := MostSpecificProject(ProjectIDsFromReplace(w.replace), pkg); replaced {
-		return w.walkReplaced(r, depKind)
+		return w.walkReplaced(r, depKind, label)
 	}
 	owner, version, ok := w.ownerVersion(pkg)
 	if !ok {
@@ -194,7 +361,7 @@ func (w *projectLockWalker) walkRemote(
 				"add one with `unobin deps get <project>@<version>`",
 			pkg)
 	}
-	packageKey := pkg.String() + "@" + version
+	packageKey := pkg.String() + "@" + version + "::" + string(depKind)
 	if w.walked[packageKey] {
 		return nil
 	}
@@ -213,7 +380,9 @@ func (w *projectLockWalker) walkRemote(
 	}
 	classification := resolve.ClassifySource(src)
 	if depKind == resolve.SyntaxDependencyLibraryConfig {
-		if err := w.checkRemoteSchemaDependency(pkg, owner, version, src, classification); err != nil {
+		if err := w.checkRemoteSchemaDependency(
+			pkg, owner, version, src, classification, label,
+		); err != nil {
 			return err
 		}
 		w.walked[packageKey] = true
@@ -235,7 +404,7 @@ func (w *projectLockWalker) walkRemote(
 				return err
 			}
 		}
-		if err := validateGoLibrarySource(src); err != nil {
+		if err := w.collectGoPackage(src, owner, version, depKind, label); err != nil {
 			return err
 		}
 	}
@@ -262,8 +431,11 @@ func (w *projectLockWalker) checkRemoteSchemaDependency(
 	version string,
 	src *resolve.Source,
 	classification resolve.SourceClassification,
+	label string,
 ) error {
-	if err := w.validateSchemaDependencySource(pkg, owner, version, src, classification); err != nil {
+	if err := w.validateSchemaDependencySource(
+		pkg, owner, version, src, classification, label,
+	); err != nil {
 		return err
 	}
 	projectID := owner.Project.String()
@@ -284,6 +456,7 @@ func (w *projectLockWalker) validateSchemaDependencySource(
 	version string,
 	src *resolve.Source,
 	classification resolve.SourceClassification,
+	label string,
 ) error {
 	switch classification.Kind {
 	case resolve.SourceFactory:
@@ -300,14 +473,17 @@ func (w *projectLockWalker) validateSchemaDependencySource(
 				return err
 			}
 		}
-		return validateGoLibraryConfigurationSource(src, w.schemaRoots...)
+		return w.collectGoPackage(src, owner, version, resolve.SyntaxDependencyLibraryConfig, label)
 	}
 	return nil
 }
 
-func validateGoLibrarySource(src *resolve.Source) error {
+func validateGoLibrarySource(src *resolve.Source, context *golibrary.CompatibilityContext) error {
 	if src == nil || src.Path == "" {
 		return nil
+	}
+	if err := context.CheckDirectory(src.Path, true); err != nil {
+		return err
 	}
 	moduleRoot, err := golibrary.FindModuleRoot(src.Path)
 	if err != nil {
@@ -319,10 +495,14 @@ func validateGoLibrarySource(src *resolve.Source) error {
 
 func validateGoLibraryConfigurationSource(
 	src *resolve.Source,
+	context *golibrary.CompatibilityContext,
 	extra ...goschema.ModuleRoot,
 ) error {
 	if src == nil || src.Path == "" {
 		return nil
+	}
+	if err := context.CheckDirectory(src.Path, false); err != nil {
+		return err
 	}
 	_, _, err := goschema.ReadLibraryConfiguration(src.Path, extra...)
 	return err
@@ -453,6 +633,7 @@ func checkLocalImportProjectBoundary(rootFS fs.FS, baseDir, importPath string) e
 func (w *projectLockWalker) walkReplaced(
 	r *resolve.RemoteImport,
 	depKind resolve.SyntaxDependencyKind,
+	label string,
 ) error {
 	pkg := RemotePackage{URL: r.URL, Subdir: r.Subdir}
 	owner, ok := MostSpecificProject(ProjectIDsFromReplace(w.replace), pkg)
@@ -468,7 +649,7 @@ func (w *projectLockWalker) walkReplaced(
 	}
 	classification := resolve.ClassifySource(src)
 	if depKind == resolve.SyntaxDependencyLibraryConfig {
-		return w.validateSchemaDependencySource(pkg, owner, "", src, classification)
+		return w.validateSchemaDependencySource(pkg, owner, "", src, classification, label)
 	}
 	switch classification.Kind {
 	case resolve.SourceFactory:
@@ -476,7 +657,7 @@ func (w *projectLockWalker) walkReplaced(
 	case resolve.SourceUBLibrary:
 		return w.walkBodies(src)
 	case resolve.SourceGoLibrary:
-		return validateGoLibrarySource(src)
+		return w.collectGoPackage(src, owner, "", resolve.SyntaxDependencyImport, label)
 	default:
 		return nil
 	}
@@ -488,14 +669,15 @@ func (w *projectLockWalker) walkBodies(src *resolve.Source) error {
 		return err
 	}
 	slices.Sort(matches)
+	var failures []error
 	for _, name := range matches {
 		b, err := fs.ReadFile(src.FS, name)
 		if err != nil {
 			return err
 		}
 		if err := w.walkBodyFile(name, b, src); err != nil {
-			return err
+			failures = append(failures, err)
 		}
 	}
-	return nil
+	return errors.Join(failures...)
 }

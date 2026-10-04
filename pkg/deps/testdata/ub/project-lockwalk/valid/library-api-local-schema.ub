@@ -1,0 +1,5 @@
+factory: {
+  inputs: {
+    settings: { type: library-config('./config') }
+  }
+}
