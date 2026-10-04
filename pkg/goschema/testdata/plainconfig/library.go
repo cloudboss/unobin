@@ -43,6 +43,8 @@ type BucketOutput struct {
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name: "plain-config",
 		Configuration: &cfg.ConfigurationType[*Configuration]{
 			Description: "Plain Go config fixture.",

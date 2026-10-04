@@ -10,6 +10,8 @@ import (
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name:        "cloudlib",
 		Description: "Fixture library configured by a type from the unobin module.",
 		Configuration: &cfg.ConfigurationType[any]{

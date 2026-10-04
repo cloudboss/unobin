@@ -15,6 +15,8 @@ type BucketOutput struct {
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name:          "aws-service",
 		Configuration: config.LibraryConfiguration(),
 		Resources: map[string]runtime.ResourceRegistration{

@@ -41,36 +41,41 @@ func TestConfigurationReadersRequireMatchingRegistration(t *testing.T) {
 		},
 		{
 			"missing registration", `func Library() *runtime.Library {
-	return &runtime.Library{}
+	return &runtime.Library{Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"}}
 }`, "Library().Configuration",
 		},
 		{
 			"nil registration", `func Library() *runtime.Library {
-	return &runtime.Library{Configuration: nil}
+	return &runtime.Library{Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+		Configuration: nil}
 }`, "Library().Configuration",
 		},
 		{
 			"unreadable registration", `func Library() *runtime.Library {
-	return &runtime.Library{Configuration: computedConfiguration()}
+	return &runtime.Library{Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+		Configuration: computedConfiguration()}
 }`, "Library().Configuration",
 		},
 		{
 			"unreadable constructor", `func Library() *runtime.Library {
-	return &runtime.Library{Configuration: &cfg.ConfigurationType[*Configuration]{
+	return &runtime.Library{Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+		Configuration: &cfg.ConfigurationType[*Configuration]{
 		New: func() *Configuration { return constructor() },
 	}}
 }`, "Library().Configuration",
 		},
 		{
 			"different identity", `func Library() *runtime.Library {
-	return &runtime.Library{Configuration: &cfg.ConfigurationType[*OtherConfiguration]{
+	return &runtime.Library{Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+		Configuration: &cfg.ConfigurationType[*OtherConfiguration]{
 		New: func() *OtherConfiguration { return &OtherConfiguration{} },
 	}}
 }`, "disagrees",
 		},
 		{
 			"different digest", `func Library() *runtime.Library {
-	return &runtime.Library{Configuration: &cfg.ConfigurationType[*Configuration]{
+	return &runtime.Library{Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+		Configuration: &cfg.ConfigurationType[*Configuration]{
 		New: func() *Configuration {
 			return &Configuration{Region: &cfg.String{Default: "other"}}
 		},
@@ -91,7 +96,8 @@ func TestConfigurationReadersRequireMatchingRegistration(t *testing.T) {
 	}
 
 	dir := writeConfigurationRegistration(t, `func Library() *runtime.Library {
-	return &runtime.Library{Configuration: LibraryConfiguration()}
+	return &runtime.Library{Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+		Configuration: LibraryConfiguration()}
 }`)
 	for _, reader := range readers {
 		t.Run("matching "+reader.name, func(t *testing.T) {

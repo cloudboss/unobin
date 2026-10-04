@@ -48,6 +48,8 @@ func (c Configuration) Defaults() []defaults.Default {
 
 func Library() *ubruntime.Library {
 	return &ubruntime.Library{
+		Compatibility: ubruntime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name:        "e2elib",
 		Description: "Fixture library for Unobin e2e tests.",
 		Configuration: &cfg.ConfigurationType[*Configuration]{

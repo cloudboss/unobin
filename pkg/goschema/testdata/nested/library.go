@@ -9,6 +9,8 @@ import (
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name: "nested",
 		Resources: map[string]runtime.ResourceRegistration{
 			"db": runtime.MakeResource[DB, *DBOutput, any](

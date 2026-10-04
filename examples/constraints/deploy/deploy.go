@@ -23,6 +23,8 @@ import (
 // Library returns the registration record for the `deploy` library.
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name:        "deploy",
 		Description: "Demonstrates Go-declared constraints by rendering a service spec to a file.",
 		Resources: map[string]runtime.ResourceRegistration{

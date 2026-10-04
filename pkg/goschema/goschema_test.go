@@ -252,6 +252,8 @@ import "github.com/cloudboss/unobin/pkg/runtime"
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name: "lib",
 		Resources: map[string]runtime.ResourceRegistration{
 			"thing": runtime.MakeResource[Thing, *ThingOutput, any](
@@ -297,6 +299,8 @@ import (
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name: "lib",
 		Resources: map[string]runtime.ResourceRegistration{
 			"server": runtime.MakeResource[Server, *ServerOutput, any](
@@ -404,6 +408,8 @@ import (
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name: "lib",
 		Configuration: &cfg.ConfigurationType[*Configuration]{
 			New: func() *Configuration {
@@ -925,6 +931,8 @@ import "github.com/cloudboss/unobin/pkg/runtime"
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name: "lib",
 		Resources: map[string]runtime.ResourceRegistration{
 			"thing": runtime.MakeResource[Thing, *ThingOutput, any](
@@ -989,6 +997,8 @@ import "github.com/cloudboss/unobin/pkg/runtime"
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name: "lib",
 		Resources: map[string]runtime.ResourceRegistration{
 			"thing": runtime.MakeResource[Thing, *ThingOutput, any](
@@ -1141,6 +1151,8 @@ import "github.com/cloudboss/unobin/pkg/runtime"
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Functions: map[string]runtime.FunctionType{
 `
 	tests := []struct {
@@ -1211,6 +1223,8 @@ import "github.com/cloudboss/unobin/pkg/runtime"
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Functions: map[string]runtime.FunctionType{
 			"flag": runtime.MakeFunc("flag", "d", func(names []string, on bool) (bool, error) {
 				return on, nil

@@ -20,6 +20,8 @@ func LibraryConfiguration() cfg.ConfigurationType[*Configuration] {
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name:          "combined",
 		Configuration: LibraryConfiguration(),
 	}

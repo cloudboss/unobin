@@ -19,6 +19,8 @@ import (
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name: "lib",
 		Resources: map[string]runtime.ResourceRegistration{
 			"thing": runtime.MakeResource[Thing, *ThingOutput, any](
@@ -480,6 +482,8 @@ import (
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name: "lib",
 		Resources: map[string]runtime.ResourceRegistration{
 			"thing": runtime.MakeResource[Thing, *ThingOutput, any](

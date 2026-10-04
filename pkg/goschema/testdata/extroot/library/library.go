@@ -9,6 +9,8 @@ import (
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name:        "extroot",
 		Description: "Fixture library whose configuration type lives in another module.",
 		Configuration: &cfg.ConfigurationType[any]{

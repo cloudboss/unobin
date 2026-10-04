@@ -9,6 +9,8 @@ import (
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name: "tls",
 		Resources: map[string]runtime.ResourceRegistration{
 			"cert": runtime.MakeResource[Cert, *CertOutput, any](

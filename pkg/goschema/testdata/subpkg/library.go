@@ -9,6 +9,8 @@ import (
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name: "subpkg",
 		Resources: map[string]runtime.ResourceRegistration{
 			"thing": runtime.MakeResource[resources.Thing, *resources.ThingOutput, any](

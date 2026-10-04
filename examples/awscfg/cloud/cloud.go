@@ -56,6 +56,8 @@ func LibraryConfiguration() *cfg.ConfigurationType[*awscfg.Configuration] {
 // Library returns the registration record for the cloud library.
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name:          "cloud",
 		Description:   "Reports the AWS connection settings a configuration selects.",
 		Configuration: LibraryConfiguration(),

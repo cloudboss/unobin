@@ -20,6 +20,8 @@ func (r *Region) Run(_ context.Context, cfg *awscfg.Configuration) (*RegionOutpu
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name:          "aws-service",
 		Configuration: config.LibraryConfiguration(),
 		Actions: map[string]runtime.ActionRegistration{

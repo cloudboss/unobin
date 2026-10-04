@@ -13,6 +13,8 @@ func newConfiguration() any { return &Configuration{} }
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name: "badnew",
 		Configuration: &cfg.ConfigurationType[any]{
 			New: newConfiguration,

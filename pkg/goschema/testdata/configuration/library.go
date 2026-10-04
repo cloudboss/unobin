@@ -39,6 +39,8 @@ func (c Configuration) Constraints() []constraint.Constraint {
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name:        "configured",
 		Description: "Fixture library with a configuration and no types.",
 		Configuration: &cfg.ConfigurationType[any]{

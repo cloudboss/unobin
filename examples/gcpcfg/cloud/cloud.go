@@ -63,6 +63,8 @@ func LibraryConfiguration() *cfg.ConfigurationType[*gcpcfg.Configuration] {
 // Library returns the registration record for the cloud library.
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name:          "cloud",
 		Description:   "Reports Google Cloud connection settings.",
 		Configuration: LibraryConfiguration(),

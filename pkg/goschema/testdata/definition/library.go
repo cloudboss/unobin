@@ -9,6 +9,8 @@ import (
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name: "definition",
 		Configuration: &cfg.ConfigurationType[*Config]{
 			New: func() *Config { return &Config{} },

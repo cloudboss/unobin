@@ -14,6 +14,8 @@ import (
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name: "local",
 		Resources: map[string]runtime.ResourceRegistration{
 			"file": runtime.MakeResource[File, *FileOutput, runtime.NoConfig](

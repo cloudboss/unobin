@@ -8,6 +8,8 @@ import (
 
 func Library() *runtime.Library {
 	return &runtime.Library{
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+
 		Name: "samepkg",
 		Actions: map[string]runtime.ActionRegistration{
 			"do":  runtime.MakeAction[DoAction, *DoActionOutput, any](),
