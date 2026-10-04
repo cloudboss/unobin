@@ -302,6 +302,9 @@ func (c *referenceChecker) libraryConfigInputType(
 				"library-config %q has no resolved schema dependency", path)
 			return typecheck.TUnknown()
 		}
+		if schema.Path == "" {
+			return typecheck.TUnknown()
+		}
 		return schema.TypecheckType()
 	}
 	libs := c.libraries[scope]

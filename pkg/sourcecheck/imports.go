@@ -192,6 +192,7 @@ func bodyLibraryConfigDeps(
 
 type importVisitor struct {
 	resolver                resolve.Resolver
+	mode                    Mode
 	versions                map[string]string
 	stackName               string
 	generatePackages        bool
@@ -221,6 +222,7 @@ func newImportVisitor(opts ImportAnalysisOptions, schemas *SchemaCache) *importV
 	}
 	return &importVisitor{
 		resolver:                opts.Resolver,
+		mode:                    opts.Mode,
 		versions:                opts.Versions,
 		stackName:               stackName,
 		generatePackages:        opts.GeneratePackages,
@@ -322,6 +324,9 @@ func (v *importVisitor) resolveLibraryConfigDep(
 		if err := resolve.ValidateGoModulePath(remote, source.ModulePath); err != nil {
 			return runtime.LibraryConfigSchema{}, err
 		}
+	}
+	if source.Path == "" && v.mode == ModeNoFetch {
+		return runtime.LibraryConfigSchema{}, nil
 	}
 	schema, warnings, err := v.schemas.ReadLibraryConfiguration(source.Path)
 	if err != nil {

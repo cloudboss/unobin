@@ -25,6 +25,7 @@ type importPreflight struct {
 	imports  map[string]preflightSource
 	packages map[string]golibrary.PackageSource
 	contexts map[string]string
+	deferred map[string]bool
 }
 
 func (p *importPreflight) checkConfigDependency(
@@ -75,7 +76,7 @@ func preflightImports(
 		resolver: opts.Resolver, versions: opts.Versions,
 		sources: map[resolve.RemoteImport]*resolve.Source{},
 		imports: map[string]preflightSource{}, packages: map[string]golibrary.PackageSource{},
-		contexts: map[string]string{},
+		contexts: map[string]string{}, deferred: map[string]bool{},
 	}
 	if _, err := resolve.WalkUBFrom(
 		refs, p, p, opts.Versions, importSourceForOptions(opts),
@@ -112,15 +113,23 @@ func preflightImports(
 		}
 		selection[dep] = version
 	}
+	var moduleResolver resolve.Resolver = p
+	if opts.Mode == ModeNoFetch {
+		moduleResolver = cachedModuleResolver{wrapped: p}
+	}
 	context, err = context.WithModuleResolver(func(importPath string) (golibrary.ModuleSource, error) {
-		return deps.ResolveSelectedModule(importPath, selection, p, nil)
+		return deps.ResolveSelectedModule(importPath, selection, moduleResolver, nil)
 	})
 	if err != nil {
 		return nil, nil, err
 	}
 	var failures []error
 	for _, source := range packages {
-		if err := context.CheckPackage(source); err != nil {
+		deferred, err := deferUncachedMetadata(context.CheckPackage(source))
+		if deferred {
+			p.deferred[source.Dir] = true
+		}
+		if err != nil {
 			failures = append(failures, diagnostic.Context(p.contexts[source.Dir], err))
 		}
 	}
@@ -140,6 +149,9 @@ func (p *importPreflight) ResolveFrom(
 	remote, isRemote := ref.(*resolve.RemoteImport)
 	if isRemote {
 		if source, found := p.sources[*remote]; found {
+			if source != nil && p.deferred[source.Path] {
+				return opaqueSource(), nil
+			}
 			return source, nil
 		}
 	}
@@ -157,6 +169,9 @@ func (p *importPreflight) ResolveFrom(
 			importPath = source.GoImportPath
 		}
 		p.imports[importPath] = preflightSource{ref: remote, source: source}
+	}
+	if source != nil && p.deferred[source.Path] {
+		return opaqueSource(), nil
 	}
 	return source, nil
 }

@@ -1,0 +1,18 @@
+factory: {
+  imports: {
+    std: 'example.com/schema'
+  }
+
+  inputs: {
+    settings: {
+      type: library-config('example.com/schema')
+    }
+  }
+
+  resources: {
+    file: std.file {
+      path:    input.settings.path
+      content: input.settings.content
+    }
+  }
+}

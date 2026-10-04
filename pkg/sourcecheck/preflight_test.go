@@ -288,28 +288,85 @@ func TestImportAnalysisResolvesSelectedConfigurationModule(t *testing.T) {
 		FS: os.DirFS(config), Path: config, ModulePath: "example.com/configs",
 		GoImportPath: "example.com/configs", Commit: "configuration-commit",
 	}
-	for _, mode := range []Mode{ModeFetch, ModeNoFetch} {
-		resolver.resolveCalls = map[string]int{}
-		analysis, err := AnalyzeImports(refs, ImportAnalysisOptions{
-			Resolver: resolver, Body: &body, Mode: mode, Versions: map[string]string{
+	for _, test := range []struct {
+		name       string
+		mode       Mode
+		uncached   bool
+		required   string
+		unselected bool
+	}{
+		{name: "fetch", mode: ModeFetch, required: "1.0"},
+		{name: "cached", mode: ModeNoFetch, required: "1.0"},
+		{name: "uncached configuration", mode: ModeNoFetch, uncached: true, required: "1.0"},
+		{name: "incompatible cached service", mode: ModeNoFetch, uncached: true, required: "2.0"},
+		{name: "unselected configuration", mode: ModeNoFetch, required: "1.0", unselected: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			current := strings.ReplaceAll(string(library), `RequiredAPI: "1.0"`,
+				`RequiredAPI: "`+test.required+`"`)
+			require.NoError(t, os.WriteFile(path, []byte(current), 0o644))
+			resolver.noFetchMissing["example.com/configs"] = test.uncached
+			resolver.resolveCalls = map[string]int{}
+			versions := map[string]string{
 				"example.com/schema": "v1.0.0", "example.com/configs": "v1.2.0",
 				"example.com/unused": "v1.0.0",
-			},
+			}
+			if test.unselected {
+				delete(versions, "example.com/configs")
+			}
+			reads := []string{}
+			var schemas *SchemaCache
+			if test.uncached {
+				schemas = NewSchemaCacheWithReader(func(dir string) (*runtime.LibrarySchema,
+					[]string, error,
+				) {
+					reads = append(reads, dir)
+					return nil, nil, errors.New("schema reader must not run")
+				})
+			}
+			analysis, err := AnalyzeImports(refs, ImportAnalysisOptions{
+				Resolver: resolver, Body: &body, Mode: test.mode, Versions: versions,
+				SchemaCache: schemas,
+			})
+			if test.required == "2.0" {
+				var unsupported *libraryapi.UnsupportedMajorError
+				require.ErrorAs(t, err, &unsupported)
+				assert.Empty(t, reads)
+			} else if test.unselected {
+				var unavailable *golibrary.ConfigurationSourceError
+				require.ErrorAs(t, err, &unavailable)
+				assert.Contains(t, err.Error(), "no selected source")
+			} else if test.uncached {
+				require.NoError(t, err)
+				assert.Empty(t, reads)
+				require.Contains(t, analysis.Libraries, "std")
+				assert.Nil(t, analysis.Libraries["std"].Schema)
+				assert.Equal(t, map[string]runtime.LibraryConfigSchema{
+					"example.com/schema": {},
+				}, analysis.LibraryConfigSchemas)
+				_, err = CheckFactoryBody(body, Options{
+					Resolver: resolver, Versions: versions, Mode: test.mode, SchemaCache: schemas,
+				})
+				require.NoError(t, err)
+				assert.Empty(t, reads)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, map[string]string{
+					"example.com/schema": "v1.0.0", "example.com/configs": "v1.2.0",
+				}, analysis.GoModules)
+				require.Len(t, analysis.LibraryMetadata, 2)
+				metadata := analysis.LibraryMetadata[0]
+				assert.Equal(t, "example.com/configs/entry", metadata.Package)
+				assert.Equal(t, "configuration-commit", metadata.Source.Module.Commit)
+				assert.Equal(t, "example.com/configs", metadata.Source.Module.Dependency)
+				assert.True(t, metadata.Source.Linked)
+			}
+			calls := map[string]int{"example.com/schema//v1.0.0": 1,
+				"example.com/configs//v1.2.0": 1}
+			if test.mode == ModeNoFetch {
+				calls = map[string]int{}
+			}
+			assert.Equal(t, calls, resolver.resolveCalls)
 		})
-		require.NoError(t, err)
-		assert.Equal(t, map[string]string{
-			"example.com/schema": "v1.0.0", "example.com/configs": "v1.2.0",
-		}, analysis.GoModules)
-		require.Len(t, analysis.LibraryMetadata, 2)
-		metadata := analysis.LibraryMetadata[0]
-		assert.Equal(t, "example.com/configs/entry", metadata.Package)
-		assert.Equal(t, "configuration-commit", metadata.Source.Module.Commit)
-		assert.Equal(t, "example.com/configs", metadata.Source.Module.Dependency)
-		assert.True(t, metadata.Source.Linked)
-		calls := map[string]int{"example.com/schema//v1.0.0": 1, "example.com/configs//v1.2.0": 1}
-		if mode == ModeNoFetch {
-			calls = map[string]int{}
-		}
-		assert.Equal(t, calls, resolver.resolveCalls)
 	}
 }

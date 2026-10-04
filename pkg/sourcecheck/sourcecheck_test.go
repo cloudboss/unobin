@@ -1,6 +1,7 @@
 package sourcecheck
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,11 +9,14 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/resolve"
-	"github.com/stretchr/testify/require"
+	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
 func TestCheckFactoryReportsReferenceAndTypeErrors(t *testing.T) {
@@ -119,6 +123,39 @@ func TestCheckDoesNotFetchWhenNoFetchResolverMissesRemote(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Contains(t, result.Libraries, "ext")
+}
+
+func TestCheckDefersUncachedConfigurationSchemas(t *testing.T) {
+	for _, fixture := range []string{
+		"valid/no-fetch-configuration/factory",
+		"valid/schema-dependencies/check-factory/factory",
+	} {
+		t.Run(fixture, func(t *testing.T) {
+			path := fixturePath(fixture)
+			body := parseFactoryAt(t, path)
+			resolver := newTestResolver(t, filepath.Dir(path))
+			resolver.noFetchMissing["example.com/schema"] = true
+			resolver.resolveCalls = map[string]int{}
+			reads := []string{}
+			schemas := NewSchemaCacheWithReader(func(dir string) (*runtime.LibrarySchema,
+				[]string, error,
+			) {
+				reads = append(reads, dir)
+				return nil, nil, errors.New("schema reader must not run")
+			})
+			result, err := CheckFactoryBody(body, Options{
+				Resolver: resolver, SchemaCache: schemas, Mode: ModeNoFetch,
+				Versions: map[string]string{"example.com/schema": "v1.0.0"},
+			})
+			require.NoError(t, err)
+			assert.Equal(t, map[string]runtime.LibraryConfigSchema{
+				"example.com/schema": {},
+			}, result.LibraryConfigSchemas)
+			assert.Empty(t, schemas.CompatibilityContext().Manifest())
+			assert.Empty(t, reads)
+			assert.Empty(t, resolver.resolveCalls)
+		})
+	}
 }
 
 func BenchmarkCheckFactoryBodyLargeGraph(b *testing.B) {
