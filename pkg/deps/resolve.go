@@ -1,7 +1,5 @@
 package deps
 
-import "fmt"
-
 // Fetcher fetches a dependency's project at a selected version, for the
 // version walk. It returns nil when the dependency declares no project:
 // a leaf with no further dependencies, such as a Go library or a UB
@@ -19,33 +17,9 @@ type Fetcher interface {
 // each dependency to its selected version -- project-lock, keyed per imported
 // library, is built separately by the import walk.
 func Resolve(root *Project, fetch Fetcher) (map[Dependency]string, error) {
-	sel := NewSelection()
-	var queue []Dependency
-	enqueue := func(reqs map[Dependency]string) {
-		for dep, floor := range reqs {
-			if sel.Add(dep, floor) {
-				queue = append(queue, dep)
-			}
-		}
+	result, err := ResolveWithTrace(root, fetch)
+	if err != nil {
+		return nil, err
 	}
-	enqueue(root.RequireVersions())
-
-	fetchedAt := map[Dependency]string{}
-	for len(queue) > 0 {
-		dep := queue[0]
-		queue = queue[1:]
-		version := sel.Version(dep)
-		if fetchedAt[dep] == version {
-			continue // already fetched at the current selection
-		}
-		project, err := fetch.Fetch(dep, version)
-		if err != nil {
-			return nil, fmt.Errorf("resolve %s@%s: %w", dep, version, err)
-		}
-		fetchedAt[dep] = version
-		if project != nil {
-			enqueue(project.RequireVersions())
-		}
-	}
-	return sel.Chosen(), nil
+	return result.Selection, nil
 }
