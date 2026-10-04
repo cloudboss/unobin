@@ -2,6 +2,7 @@
   "name": "print-graph-go-v2-replacement",
   "rootPath": "repo",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "commands": [
     {
       "name": "print-graph",

@@ -2,6 +2,7 @@
   "name": "print-graph-unknown-format",
   "rootPath": "graph-bad-format",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "commands": [
     {
       "name": "print-graph",

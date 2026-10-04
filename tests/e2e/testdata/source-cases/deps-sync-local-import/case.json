@@ -2,6 +2,7 @@
   "name": "deps-sync-local-import",
   "rootPath": "root/services/app",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "commands": [
     {
       "name": "deps-sync",

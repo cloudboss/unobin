@@ -2,6 +2,7 @@
   "name": "print-graph-invalid-reference",
   "rootPath": "graph-invalid-ref",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "commands": [
     {
       "name": "print-graph",

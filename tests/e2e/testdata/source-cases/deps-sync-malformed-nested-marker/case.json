@@ -2,6 +2,7 @@
   "name": "deps-sync-malformed-nested-marker",
   "rootPath": "root",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "tags": {
     "example.com/repo": ["v1.0.0"]
   },

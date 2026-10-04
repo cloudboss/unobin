@@ -1,1 +1,1 @@
-import "local": replace github.com/cloudboss/unobin: stat <workspace>/no-such-tree/pkg/libraries/local: no such file or directory
+cannot read the effective core API descriptor: read library API descriptor pkg/libraryapi/descriptor.json: open pkg/libraryapi/descriptor.json: no such file or directory

@@ -312,6 +312,13 @@ func syncDependencies(
 	if err != nil {
 		return nil, err
 	}
+	unobinReplace, err := printGraphUnobinReplace(root, cfg.replaceUnobin, project.Replace)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := newCommandCompatibility(root, project, unobinReplace); err != nil {
+		return nil, err
+	}
 	imported, err := deps.ImportedPackages(root)
 	if err != nil {
 		return nil, err
@@ -400,15 +407,30 @@ func getDependency(
 			"%s is toolchain-versioned; pin it with the project's unobin-version line",
 			dep.URL)
 	}
+	project, projectName, err := readProjectOrEmpty(root)
+	if err != nil {
+		return nil, err
+	}
+	unobinReplace, err := printGraphUnobinReplace(root, cfg.replaceUnobin, project.Replace)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := newCommandCompatibility(root, project, unobinReplace); err != nil {
+		return nil, err
+	}
+	imported, err := deps.ImportedPackages(root)
+	if err != nil {
+		return nil, err
+	}
+	projectLock, err := readProjectLockOrNil(root)
+	if err != nil {
+		return nil, err
+	}
 	tags, err := depsListTags(dep.URL)
 	if err != nil {
 		return nil, err
 	}
 	version, err := deps.ResolveVersion(dep, query, tags)
-	if err != nil {
-		return nil, err
-	}
-	project, projectName, err := readProjectOrEmpty(root)
 	if err != nil {
 		return nil, err
 	}
@@ -419,17 +441,9 @@ func getDependency(
 	if err := deps.RequireProject(dep, version, resolver); err != nil {
 		return nil, err
 	}
-	imported, err := deps.ImportedPackages(root)
-	if err != nil {
-		return nil, err
-	}
 	targetIsDirect := dependencyOwnsImportedPackage(dep, imported)
 	if targetIsDirect {
 		project.SetRequire(dep, version, false)
-	}
-	projectLock, err := readProjectLockOrNil(root)
-	if err != nil {
-		return nil, err
 	}
 	direct, err := directRequirementsForImports(projectName, project, imported, projectLock, resolver)
 	if err != nil {
@@ -750,6 +764,14 @@ func resolveAndWrite(
 	if err := deps.CheckReplacementSentinels(project); err != nil {
 		return nil, err
 	}
+	unobinReplace, err := printGraphUnobinReplace(root, replaceUnobin, project.Replace)
+	if err != nil {
+		return nil, err
+	}
+	compatibility, err := newCommandCompatibility(root, project, unobinReplace)
+	if err != nil {
+		return nil, err
+	}
 	resolver, err := newDepsResolver(root, replaceUnobin, project.Replace)
 	if err != nil {
 		return nil, err
@@ -758,16 +780,13 @@ func resolveAndWrite(
 	if err != nil {
 		return nil, err
 	}
-	unobinReplace, err := printGraphUnobinReplace(root, replaceUnobin, project.Replace)
-	if err != nil {
-		return nil, err
-	}
 	schemaRoots := compile.UnobinSchemaRoots(toolOutput, unobinReplace, cliVersion())
-	projectLock, err := deps.ProjectLockFromImportsWithSchemaRoots(
-		os.DirFS(root), selection, resolver, project.Replace, schemaRoots)
+	prepared, err := deps.PrepareProjectLock(os.DirFS(root), selection, resolver, project.Replace,
+		deps.ProjectLockOptions{SchemaRoots: schemaRoots, Compatibility: compatibility})
 	if err != nil {
 		return nil, err
 	}
+	projectLock := prepared.Lock
 	projectLock.ToolchainVersion = cliVersion()
 	return writeDependencyFiles(root, project, projectLock)
 }

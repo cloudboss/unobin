@@ -2,6 +2,7 @@
   "name": "deps-get-package-without-marker",
   "rootPath": "root",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "tags": {
     "github.com/x/libs": ["v0.8.0", "ub/helloer/v0.8.0"]
   },

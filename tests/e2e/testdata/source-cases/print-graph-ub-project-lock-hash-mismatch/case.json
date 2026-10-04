@@ -2,6 +2,7 @@
   "name": "print-graph-ub-project-lock-hash-mismatch",
   "rootPath": "graph",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "remotes": [
     {
       "key": "github.com/scratch/repo//ub/helloer@v0.8.0",

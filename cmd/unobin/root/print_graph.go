@@ -134,6 +134,14 @@ func buildSourceGraph(
 		}
 		replaceMap = project.Replace
 	}
+	replaceUnobin, err := printGraphUnobinReplace(projectDir, cfg.replaceUnobin, replaceMap)
+	if err != nil {
+		return nil, "", err
+	}
+	compatibility, err := newCommandCompatibility(projectDir, project, replaceUnobin)
+	if err != nil {
+		return nil, "", err
+	}
 
 	projectLock, err := printGraphProjectLock(projectDir)
 	if err != nil {
@@ -155,17 +163,13 @@ func buildSourceGraph(
 	}
 	repoVersions = printGraphReplacedVersions(
 		repoVersions, cfg.replaceUnobin != "", replaceMap)
-	replaceUnobin, err := printGraphUnobinReplace(projectDir, cfg.replaceUnobin, replaceMap)
-	if err != nil {
-		return nil, "", err
-	}
 	schemaRoots := compile.UnobinSchemaRoots(
 		toolOutput, replaceUnobin, cliVersion())
 	analysis, err := sourcecheck.AnalyzeImports(refs, sourcecheck.ImportAnalysisOptions{
 		Resolver:       resolver,
 		Versions:       repoVersions,
 		Reporter:       reporter,
-		SchemaCache:    compile.NewSchemaCache(schemaRoots...),
+		SchemaCache:    compile.NewSchemaCacheWithCompatibility(compatibility, schemaRoots...),
 		Body:           &sf.Factory.Body,
 		RootSourceFile: sourceFileForProject(projectDir, stackPath),
 		Source:         sourceForProjectDir(projectDir, filepath.Dir(stackPath)),

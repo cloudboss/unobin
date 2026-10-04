@@ -2,6 +2,7 @@
   "name": "deps-get-unreachable",
   "rootPath": "root",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "tags": {
     "github.com/x/other": ["v1.0.0"]
   },

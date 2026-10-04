@@ -36,6 +36,15 @@ does not substitute a current tag. The selected release version still determines
 the generated Go module requirement and its required module-path major suffix,
 including for prereleases.
 
+Compile, source check, graph output, and dependency get/sync check the running
+CLI against the project's `unobin-version` pin before reading library schemas
+or selecting dependency versions. A development CLI needs a local Unobin core
+replacement with the same library API descriptor as that CLI. A matching core
+replacement permits a different project release pin; compile reports which
+replacement runs. A missing or different descriptor fails before schema-source
+fallback. Explicit core replacement options take precedence over the project's
+core replacement, while more specific library replacements still apply.
+
 A directory containing a `factory.ub` cannot be imported except from within the directory itself. The convention is to import `.` as `self`, though the alias can be any name:
 
 ```

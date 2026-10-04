@@ -90,19 +90,20 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		return err
 	}
 	options := compile.Options{
-		FactoryPath:      cfg.factoryPath,
-		OutDir:           cfg.outDir,
-		StackName:        cfg.stackName,
-		LibraryPath:      cfg.libraryPath,
-		GoVersion:        cfg.goVersion,
-		Version:          cfg.version,
-		CLIVersion:       cliVersion(),
-		ReplaceUnobin:    cfg.replaceUnobin,
-		ReplaceGoModules: replaceGoModules,
-		Build:            cfg.build,
-		NewResolver:      newCompileResolver,
-		Stdout:           cmd.OutOrStdout(),
-		Stderr:           cmd.ErrOrStderr(),
+		FactoryPath:          cfg.factoryPath,
+		OutDir:               cfg.outDir,
+		StackName:            cfg.stackName,
+		LibraryPath:          cfg.libraryPath,
+		GoVersion:            cfg.goVersion,
+		Version:              cfg.version,
+		CLIVersion:           cliVersion(),
+		LibraryAPIDescriptor: libraryAPIDescriptor,
+		ReplaceUnobin:        cfg.replaceUnobin,
+		ReplaceGoModules:     replaceGoModules,
+		Build:                cfg.build,
+		NewResolver:          newCompileResolver,
+		Stdout:               cmd.OutOrStdout(),
+		Stderr:               cmd.ErrOrStderr(),
 	}
 	if !format.Machine() {
 		return compile.Run(options)

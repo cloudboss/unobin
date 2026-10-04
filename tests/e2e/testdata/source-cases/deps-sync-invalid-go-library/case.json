@@ -2,6 +2,7 @@
   "name": "deps-sync-invalid-go-library",
   "rootPath": "root",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "remotes": [
     {
       "key": "github.com/x/bad@v1.0.0",

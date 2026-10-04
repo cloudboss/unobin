@@ -2,6 +2,7 @@
   "name": "print-graph-plain",
   "rootPath": "graph-plain",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "remotes": [
     {
       "key": "github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0",

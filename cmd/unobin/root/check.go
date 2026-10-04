@@ -334,6 +334,14 @@ func checkOptions(
 		}
 		replaceMap = project.Replace
 	}
+	replaceUnobinAbs, err := printGraphUnobinReplace(projectDir, replaceUnobin, replaceMap)
+	if err != nil {
+		return sourcecheck.Options{}, err
+	}
+	compatibility, err := newCommandCompatibility(projectDir, project, replaceUnobinAbs)
+	if err != nil {
+		return sourcecheck.Options{}, err
+	}
 	projectLock, err := printGraphProjectLock(projectDir)
 	if err != nil {
 		return sourcecheck.Options{}, err
@@ -353,10 +361,6 @@ func checkOptions(
 	}
 	repoVersions = printGraphReplacedVersions(
 		repoVersions, replaceUnobin != "", replaceMap)
-	replaceUnobinAbs, err := printGraphUnobinReplace(projectDir, replaceUnobin, replaceMap)
-	if err != nil {
-		return sourcecheck.Options{}, err
-	}
 	schemaRoots := compile.UnobinSchemaRoots(
 		checkToolOutput(cmd), replaceUnobinAbs, cliVersion())
 	return sourcecheck.Options{
@@ -364,7 +368,7 @@ func checkOptions(
 		Source:      sourceForProjectDir(projectDir, sourceDir),
 		Resolver:    resolver,
 		Versions:    repoVersions,
-		SchemaCache: sourcecheck.NewSchemaCache(schemaRoots...),
+		SchemaCache: sourcecheck.NewSchemaCacheWithCompatibility(compatibility, schemaRoots...),
 		Reporter:    reporter,
 	}, nil
 }

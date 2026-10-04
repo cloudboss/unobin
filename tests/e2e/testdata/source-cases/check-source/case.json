@@ -7,37 +7,77 @@
     {
       "name": "check-valid-factory",
       "dir": "valid-factory",
-      "args": ["check", "-p", "factory.ub"],
+      "args": [
+        "check",
+        "-p",
+        "factory.ub",
+        "--replace-unobin",
+        "$REPO_ROOT"
+      ],
       "stdout": "want/check-valid-factory.stdout",
       "stderr": "want/empty.stderr"
     },
     {
       "name": "check-valid-factory-json",
       "dir": "valid-factory",
-      "args": ["check", "-p", "factory.ub", "--format", "json"],
+      "args": [
+        "check",
+        "-p",
+        "factory.ub",
+        "--format",
+        "json",
+        "--replace-unobin",
+        "$REPO_ROOT"
+      ],
       "stdout": "want/check-valid-factory-json.stdout",
       "normalize": "json"
     },
     {
       "name": "check-valid-library-dir",
-      "args": ["check", "-p", "valid-library-dir/lib"],
+      "args": [
+        "check",
+        "-p",
+        "valid-library-dir/lib",
+        "--replace-unobin",
+        "$REPO_ROOT"
+      ],
       "stdout": "want/check-valid-library-dir.stdout",
       "stderr": "want/empty.stderr"
     },
     {
       "name": "check-valid-library-unobin",
-      "args": ["check", "-p", "valid-library-dir/lib", "--format", "unobin"],
+      "args": [
+        "check",
+        "-p",
+        "valid-library-dir/lib",
+        "--format",
+        "unobin",
+        "--replace-unobin",
+        "$REPO_ROOT"
+      ],
       "stdout": "want/check-valid-library-unobin.stdout"
     },
     {
       "name": "check-library-missing-import",
-      "args": ["check", "-p", "lib-missing-import"],
+      "args": [
+        "check",
+        "-p",
+        "lib-missing-import",
+        "--replace-unobin",
+        "$REPO_ROOT"
+      ],
       "stderr": "want/check-library-missing-import.stderr",
       "exitCode": 1
     },
     {
       "name": "check-library-for-each-nesting",
-      "args": ["check", "-p", "lib-nested-foreach"],
+      "args": [
+        "check",
+        "-p",
+        "lib-nested-foreach",
+        "--replace-unobin",
+        "$REPO_ROOT"
+      ],
       "stderr": "want/check-library-for-each-nesting.stderr",
       "exitCode": 1
     },
@@ -72,7 +112,15 @@
     },
     {
       "name": "check-missing-json",
-      "args": ["check", "-p", "missing.ub", "--format", "json"],
+      "args": [
+        "check",
+        "-p",
+        "missing.ub",
+        "--format",
+        "json",
+        "--replace-unobin",
+        "$REPO_ROOT"
+      ],
       "stdout": "want/check-missing-json.stdout",
       "normalize": "json",
       "exitCode": 1

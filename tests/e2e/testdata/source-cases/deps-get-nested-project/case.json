@@ -2,6 +2,7 @@
   "name": "deps-get-nested-project",
   "rootPath": "root",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "tags": {
     "github.com/x/libs": ["ub/project-b/v0.1.0"]
   },

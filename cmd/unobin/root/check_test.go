@@ -9,9 +9,10 @@ import (
 
 func TestCheckCommandDefaultPathPrintsOK(t *testing.T) {
 	setCLIVersion(t, "dev")
+	core := findUnobinRoot(t)
 	t.Chdir(filepath.Join("testdata", "ub", "check-command", "valid", "default-factory"))
 
-	out, err := runCommand(t, "check")
+	out, err := runCommand(t, "check", "--replace-unobin", core)
 
 	require.NoError(t, err)
 	require.Equal(t, "OK\n", out)

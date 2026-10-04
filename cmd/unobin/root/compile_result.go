@@ -199,7 +199,11 @@ func compileErrorDiagnostics(
 	defaultCode string,
 ) []diagnostic.Diagnostic {
 	var pathError *os.PathError
-	if errors.As(err, &pathError) {
+	var provider interface {
+		Diagnostics() []diagnostic.Diagnostic
+	}
+	hasDiagnostics := errors.As(err, &provider)
+	if !hasDiagnostics && errors.As(err, &pathError) {
 		return []diagnostic.Diagnostic{{
 			Code: defaultCode, Severity: diagnostic.SeverityError,
 			Message: mapper.ReplaceKnownPrefixes(pathError.Err.Error()),
@@ -207,7 +211,7 @@ func compileErrorDiagnostics(
 		}}
 	}
 	var linkError *os.LinkError
-	if errors.As(err, &linkError) {
+	if !hasDiagnostics && errors.As(err, &linkError) {
 		return []diagnostic.Diagnostic{{
 			Code: defaultCode, Severity: diagnostic.SeverityError,
 			Message: mapper.ReplaceKnownPrefixes(linkError.Err.Error()),

@@ -23,10 +23,12 @@ import (
 	"github.com/cloudboss/unobin/pkg/deps"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/filechange"
+	"github.com/cloudboss/unobin/pkg/golibrary"
 	"github.com/cloudboss/unobin/pkg/goschema"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/libraryapi"
 	"github.com/cloudboss/unobin/pkg/projectmarker"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	ubruntime "github.com/cloudboss/unobin/pkg/runtime"
@@ -55,6 +57,8 @@ type Options struct {
 	// go.mod pins unobin to it so the factory links the runtime its
 	// compile checks ran with. "dev" requires a replace.
 	CLIVersion string
+	// LibraryAPIDescriptor overrides the contract for in-process tests.
+	LibraryAPIDescriptor *libraryapi.Descriptor
 	// ReplaceUnobin substitutes a local path for the unobin repository.
 	ReplaceUnobin string
 	// ReplaceGoModules maps a Go module path to the local path that
@@ -268,8 +272,12 @@ func run(opts Options, resultOut **Result) error {
 	}
 
 	var replaceUnobinAbs string
-	if opts.ReplaceUnobin != "" {
-		abs, err := filepath.Abs(opts.ReplaceUnobin)
+	coreReplacement := opts.ReplaceUnobin
+	if local := opts.ReplaceGoModules[toolchain.UnobinModulePath]; local != "" {
+		coreReplacement = local
+	}
+	if coreReplacement != "" {
+		abs, err := filepath.Abs(coreReplacement)
 		if err != nil {
 			return err
 		}
@@ -310,6 +318,18 @@ func run(opts Options, resultOut **Result) error {
 		}
 	}
 
+	compatibilityOptions := golibrary.CompatibilityOptions{
+		Descriptor: opts.LibraryAPIDescriptor, UnobinVersion: opts.CLIVersion,
+		CoreReplacement: replaceUnobinAbs, ProjectFile: filepath.Join(projectDir, deps.ProjectFileName),
+	}
+	if project != nil {
+		compatibilityOptions.ToolchainPin = project.UnobinVersion
+	}
+	compatibility, err := golibrary.NewCompatibilityContext(compatibilityOptions)
+	if err != nil {
+		return err
+	}
+
 	// The generated go.mod requires unobin at this CLI's own version, so
 	// the runtime a factory links is the one its compile checks ran
 	// with. A development build has no version to pin; the replace is
@@ -317,14 +337,6 @@ func run(opts Options, resultOut **Result) error {
 	// placeholder the replace serves.
 	unobinVersion := opts.CLIVersion
 	if unobinVersion == "dev" {
-		if replaceUnobinAbs == "" {
-			return errors.New(
-				"this unobin is a development build with no version to pin; compile with\n" +
-					"  --replace-unobin <path-to-unobin-source>\n" +
-					"or add to project.ub:\n" +
-					"  project: { replace: { '" + toolchain.UnobinModulePath +
-					"': '<path-to-unobin-source>' } }")
-		}
 		unobinVersion = replacedVersion
 	}
 
@@ -342,14 +354,11 @@ func run(opts Options, resultOut **Result) error {
 					replaceUnobinAbs,
 				),
 			})
-		} else if project.UnobinVersion != unobinVersion {
-			return fmt.Errorf(
-				"this project pins unobin %s but this CLI is %s; install unobin %s",
-				project.UnobinVersion, unobinVersion, project.UnobinVersion)
 		}
 	}
 
-	schemas := NewSchemaCache(UnobinSchemaRoots(opts.stderr(), replaceUnobinAbs, unobinVersion)...)
+	schemas := NewSchemaCacheWithCompatibility(compatibility,
+		UnobinSchemaRoots(opts.stderr(), replaceUnobinAbs, unobinVersion)...)
 
 	projectLock, err := readProjectLock(projectDir)
 	if err != nil {
@@ -368,15 +377,6 @@ func run(opts Options, resultOut **Result) error {
 	// never reaches it and an unreplaced one is refused.
 	resolver = &unobinImportGuard{wrapped: resolver}
 	resolver = WrapProjectLockSources(resolver, projectLock)
-	if replaceUnobinAbs != "" {
-		resolver = &replaceResolver{
-			replacements: []localReplacement{{
-				dep:   deps.Dependency{URL: toolchain.UnobinModulePath},
-				local: replaceUnobinAbs,
-			}},
-			wrapped: resolver,
-		}
-	}
 	for prefix, local := range opts.ReplaceGoModules {
 		resolver = &replaceResolver{
 			replacements: []localReplacement{{
@@ -386,7 +386,7 @@ func run(opts Options, resultOut **Result) error {
 			wrapped: resolver,
 		}
 	}
-	resolver, err = WrapReplaces(resolver, projectDir, "", replaceMap)
+	resolver, err = WrapReplaces(resolver, projectDir, replaceUnobinAbs, replaceMap)
 	if err != nil {
 		return err
 	}
@@ -520,12 +520,12 @@ func run(opts Options, resultOut **Result) error {
 	}
 
 	replaces := codegen.Replaces{}
-	if replaceUnobinAbs != "" {
-		replaces[toolchain.UnobinModulePath] = replaceUnobinAbs
-	}
 	maps.Copy(replaces, opts.ReplaceGoModules)
 	if err := addProjectReplaces(replaces, projectDir, replaceMap, analysis.GoModules); err != nil {
 		return err
+	}
+	if replaceUnobinAbs != "" {
+		replaces[toolchain.UnobinModulePath] = replaceUnobinAbs
 	}
 
 	changes, err := codegen.WriteSource(opts.OutDir, in,
@@ -918,13 +918,13 @@ func (r *replaceResolver) Resolve(ref resolve.ImportRef) (*resolve.Source, error
 		ProjectSubdir: match.dep.Subdir,
 		PackageSubdir: ri.Subdir,
 	}
-	if err := addReplacementModuleMetadata(src, match.suffix); err != nil {
+	if err := addReplacementModuleMetadata(src); err != nil {
 		return nil, diagnostic.Context(fmt.Sprintf("replace %s", match.dep), err)
 	}
 	return src, nil
 }
 
-func addReplacementModuleMetadata(src *resolve.Source, packageSuffix string) error {
+func addReplacementModuleMetadata(src *resolve.Source) error {
 	marker, err := projectmarker.ClassifyRoot(src.ProjectFS)
 	if err != nil {
 		return err
@@ -932,11 +932,19 @@ func addReplacementModuleMetadata(src *resolve.Source, packageSuffix string) err
 	if marker.Kind != projectmarker.Go {
 		return nil
 	}
-	src.ModuleRootPath = src.ProjectPath
-	src.ModulePath = marker.ModulePath
-	src.GoImportPath = marker.ModulePath
-	if packageSuffix != "" {
-		src.GoImportPath += "/" + packageSuffix
+	module, err := golibrary.ModuleSourceAt(src.Path)
+	if err != nil {
+		return err
+	}
+	suffix, err := filepath.Rel(module.Dir, src.Path)
+	if err != nil {
+		return err
+	}
+	src.ModuleRootPath = module.Dir
+	src.ModulePath = module.Path
+	src.GoImportPath = module.Path
+	if suffix != "." {
+		src.GoImportPath += "/" + filepath.ToSlash(suffix)
 	}
 	return nil
 }
@@ -998,22 +1006,12 @@ func (g *unobinImportGuard) Resolve(ref resolve.ImportRef) (*resolve.Source, err
 func WrapReplaces(
 	resolver resolve.Resolver, root, replaceUnobin string, replace map[deps.Dependency]string,
 ) (resolve.Resolver, error) {
-	if replaceUnobin != "" {
-		abs, err := filepath.Abs(replaceUnobin)
-		if err != nil {
-			return nil, err
-		}
-		resolver = &replaceResolver{
-			replacements: []localReplacement{{
-				dep:   deps.Dependency{URL: toolchain.UnobinModulePath},
-				local: abs,
-			}},
-			wrapped: resolver,
-		}
-	}
+	replacements := make([]localReplacement, 0, len(replace)+1)
 	if len(replace) > 0 {
-		replacements := make([]localReplacement, 0, len(replace))
 		for dep, path := range replace {
+			if replaceUnobin != "" && dep == (deps.Dependency{URL: toolchain.UnobinModulePath}) {
+				continue
+			}
 			abs, err := absReplacePath(root, path)
 			if err != nil {
 				return nil, err
@@ -1023,6 +1021,17 @@ func WrapReplaces(
 			}
 			replacements = append(replacements, localReplacement{dep: dep, local: abs})
 		}
+	}
+	if replaceUnobin != "" {
+		abs, err := filepath.Abs(replaceUnobin)
+		if err != nil {
+			return nil, err
+		}
+		replacements = append(replacements, localReplacement{
+			dep: deps.Dependency{URL: toolchain.UnobinModulePath}, local: abs,
+		})
+	}
+	if len(replacements) > 0 {
 		resolver = &replaceResolver{replacements: replacements, wrapped: resolver}
 	}
 	return resolver, nil

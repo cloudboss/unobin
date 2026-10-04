@@ -47,6 +47,8 @@ type CompatibilityOptions struct {
 	Descriptor      *libraryapi.Descriptor
 	UnobinVersion   string
 	CoreReplacement string
+	ToolchainPin    string
+	ProjectFile     string
 	Modules         []ModuleSource
 }
 
@@ -228,6 +230,9 @@ func NewCompatibilityContext(options CompatibilityOptions) (*CompatibilityContex
 	if err := c.checkCoreReplacement(); err != nil {
 		return nil, err
 	}
+	if err := c.checkToolchainPin(); err != nil {
+		return nil, err
+	}
 	return c, nil
 }
 
@@ -339,6 +344,33 @@ type CoreDescriptorError struct {
 func (e *CoreDescriptorError) Error() string { return e.Message }
 func (e *CoreDescriptorError) Unwrap() error { return e.Cause }
 
+type ToolchainPinError struct {
+	Pin           string
+	UnobinVersion string
+}
+
+func (e *ToolchainPinError) Error() string {
+	return fmt.Sprintf("this project pins unobin %s but this CLI is %s; install unobin %s",
+		e.Pin, e.UnobinVersion, e.Pin)
+}
+
+func (c *CompatibilityContext) checkToolchainPin() error {
+	if c.options.ToolchainPin == "" || c.options.CoreReplacement != "" ||
+		c.options.ToolchainPin == c.options.UnobinVersion {
+		return nil
+	}
+	err := &ToolchainPinError{Pin: c.options.ToolchainPin, UnobinVersion: c.options.UnobinVersion}
+	return diagnostic.WithDiagnostics(err, diagnostic.Diagnostic{
+		Code: "unobin.library-api.toolchain-pin", Severity: diagnostic.SeverityError,
+		Message: err.Error(), Path: c.options.ProjectFile,
+		Hint: "Use the project's pinned Unobin release before checking its dependencies.",
+		LibraryCompatibility: &diagnostic.LibraryCompatibilityDetails{
+			Floor: c.options.ToolchainPin, UnobinVersion: c.options.UnobinVersion,
+			ImplementedAPIs: slices.Clone(c.descriptor.ImplementedAPIs),
+		},
+	})
+}
+
 func readModuleFile(dir string) (*modfile.File, error) {
 	path := filepath.Join(dir, "go.mod")
 	data, err := os.ReadFile(path)
@@ -370,7 +402,8 @@ func (c *CompatibilityContext) checkCoreReplacement() error {
 	}
 	if c.options.CoreReplacement == "" {
 		if c.options.UnobinVersion == "dev" {
-			return failure("", "a dev compiler requires a matching local core replacement", nil)
+			return failure("", "a dev compiler requires a matching local core replacement; "+
+				"use --replace-unobin <path-to-unobin-source>", nil)
 		}
 		if c.options.UnobinVersion != "" &&
 			!semver.IsValid(strings.TrimSuffix(c.options.UnobinVersion, "+dirty")) {

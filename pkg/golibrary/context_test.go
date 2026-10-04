@@ -180,6 +180,41 @@ func TestCompatibilityContextRejectsInvalidDescriptor(t *testing.T) {
 		diagnostic.FromError(err, diagnostic.ConvertOptions{})[0].Code)
 }
 
+func TestCompatibilityContextToolchainPin(t *testing.T) {
+	_, err := NewCompatibilityContext(CompatibilityOptions{
+		UnobinVersion: "v0.12.0", ToolchainPin: "v0.13.0", ProjectFile: "project.ub",
+	})
+	var pin *ToolchainPinError
+	require.ErrorAs(t, err, &pin)
+	assert.Equal(t, "v0.13.0", pin.Pin)
+	assert.Equal(t, "v0.12.0", pin.UnobinVersion)
+	ds := diagnostic.FromError(err, diagnostic.ConvertOptions{})
+	require.Len(t, ds, 1)
+	assert.Equal(t, "unobin.library-api.toolchain-pin", ds[0].Code)
+	assert.Equal(t, "project.ub", ds[0].Path)
+	assert.Equal(t, "v0.13.0", ds[0].LibraryCompatibility.Floor)
+	assert.Equal(t, "v0.12.0", ds[0].LibraryCompatibility.UnobinVersion)
+
+	_, err = NewCompatibilityContext(CompatibilityOptions{
+		UnobinVersion: "v0.12.0", ToolchainPin: "v0.12.0",
+	})
+	require.NoError(t, err)
+
+	core := t.TempDir()
+	writeCoreDescriptor(t, core, libraryapi.Current())
+	_, err = NewCompatibilityContext(CompatibilityOptions{
+		UnobinVersion: "dev", ToolchainPin: "v0.13.0", CoreReplacement: core,
+	})
+	require.NoError(t, err)
+	require.NoError(t, os.Remove(filepath.Join(core, "pkg", "libraryapi", "descriptor.json")))
+	_, err = NewCompatibilityContext(CompatibilityOptions{
+		UnobinVersion: "v0.12.0", ToolchainPin: "v0.13.0", CoreReplacement: core,
+	})
+	var descriptor *CoreDescriptorError
+	require.ErrorAs(t, err, &descriptor)
+	assert.NotErrorAs(t, err, &pin)
+}
+
 func writeContextPackage(t *testing.T, api, floor string) string {
 	t.Helper()
 	dir := t.TempDir()

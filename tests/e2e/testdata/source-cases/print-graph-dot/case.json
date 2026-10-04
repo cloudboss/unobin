@@ -2,6 +2,7 @@
   "name": "print-graph-dot",
   "rootPath": "graph-dot",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "remotes": [
     {
       "key": "github.com/cloudboss/unobin//pkg/libraries/core@v0.1.0",

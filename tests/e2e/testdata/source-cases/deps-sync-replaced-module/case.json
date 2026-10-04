@@ -2,6 +2,7 @@
   "name": "deps-sync-replaced-module",
   "rootPath": "root",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "commands": [
     {
       "name": "deps-sync",

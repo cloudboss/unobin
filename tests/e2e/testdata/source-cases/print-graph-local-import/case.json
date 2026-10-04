@@ -2,6 +2,7 @@
   "name": "print-graph-local-import",
   "rootPath": "repo/stacks/demo",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "commands": [
     {
       "name": "print-graph",

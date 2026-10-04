@@ -2,6 +2,7 @@
   "name": "deps-sync-nested-project-from-path",
   "rootPath": "repo/library-c",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "remotes": [
     {
       "key": "example.com/nested@v1.0.0",

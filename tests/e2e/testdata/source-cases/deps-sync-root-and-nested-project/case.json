@@ -2,6 +2,7 @@
   "name": "deps-sync-root-and-nested-project",
   "rootPath": "root",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "remotes": [
     {
       "key": "github.com/scratch/repo@v0.8.0",

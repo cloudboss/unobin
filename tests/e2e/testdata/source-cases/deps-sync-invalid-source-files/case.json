@@ -2,6 +2,7 @@
   "name": "deps-sync-invalid-source-files",
   "rootPath": ".",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "commands": [
     {
       "name": "invalid-meta",

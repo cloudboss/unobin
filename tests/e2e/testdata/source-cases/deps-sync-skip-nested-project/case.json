@@ -2,6 +2,7 @@
   "name": "deps-sync-skip-nested-project",
   "rootPath": "root",
   "executor": "root",
+  "cliVersion": "v0.1.0",
   "remotes": [
     {
       "key": "example.com/shared@v1.0.0",
