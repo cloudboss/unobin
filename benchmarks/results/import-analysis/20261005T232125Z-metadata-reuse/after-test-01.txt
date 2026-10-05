@@ -1,0 +1,5 @@
+ok  	github.com/cloudboss/unobin/pkg/sourcecheck	0.316s
+ok  	github.com/cloudboss/unobin/pkg/resolve	0.192s
+ok  	github.com/cloudboss/unobin/pkg/goschema	0.046s
+ok  	github.com/cloudboss/unobin/pkg/gopackage	0.143s
+ok  	github.com/cloudboss/unobin/internal/ubtest	16.746s

@@ -1,0 +1,46 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/compile
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkCompileFactoryGeneration/nodes=10           	     607	   3909519 ns/op	        10.00 nodes	      6262 source-bytes	 1502554 B/op	   28082 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10           	     721	   3217906 ns/op	        10.00 nodes	      6261 source-bytes	 1482973 B/op	   28065 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10           	     808	   2938202 ns/op	        10.00 nodes	      6262 source-bytes	 1483292 B/op	   28065 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10           	     812	   2957447 ns/op	        10.00 nodes	      6262 source-bytes	 1483294 B/op	   28065 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10           	     812	   2942377 ns/op	        10.00 nodes	      6262 source-bytes	 1483186 B/op	   28065 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10           	     801	   2947968 ns/op	        10.00 nodes	      6262 source-bytes	 1483188 B/op	   28065 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10           	     796	   2952210 ns/op	        10.00 nodes	      6262 source-bytes	 1483186 B/op	   28065 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10           	     814	   2942569 ns/op	        10.00 nodes	      6262 source-bytes	 1483186 B/op	   28065 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10           	     807	   2952479 ns/op	        10.00 nodes	      6262 source-bytes	 1483292 B/op	   28065 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10           	     807	   2975748 ns/op	        10.00 nodes	      6262 source-bytes	 1483185 B/op	   28065 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10-4         	     939	   2479786 ns/op	        10.00 nodes	      6262 source-bytes	 1501835 B/op	   28081 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10-4         	     984	   2455730 ns/op	        10.00 nodes	      6261 source-bytes	 1501770 B/op	   28081 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10-4         	     972	   2468239 ns/op	        10.00 nodes	      6262 source-bytes	 1502516 B/op	   28082 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10-4         	     950	   2485912 ns/op	        10.00 nodes	      6261 source-bytes	 1502191 B/op	   28082 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10-4         	     970	   2466682 ns/op	        10.00 nodes	      6261 source-bytes	 1502199 B/op	   28082 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10-4         	     975	   2490729 ns/op	        10.00 nodes	      6262 source-bytes	 1502119 B/op	   28081 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10-4         	     955	   2497169 ns/op	        10.00 nodes	      6262 source-bytes	 1501652 B/op	   28081 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10-4         	     944	   2474328 ns/op	        10.00 nodes	      6262 source-bytes	 1502380 B/op	   28082 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10-4         	     986	   2456405 ns/op	        10.00 nodes	      6262 source-bytes	 1502040 B/op	   28081 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=10-4         	     972	   2453535 ns/op	        10.00 nodes	      6262 source-bytes	 1502269 B/op	   28081 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500          	      70	  32907471 ns/op	       500.0 nodes	    177303 source-bytes	21342534 B/op	  392045 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500          	      63	  40121122 ns/op	       500.0 nodes	    177303 source-bytes	21291897 B/op	  391970 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500          	      58	  40232721 ns/op	       500.0 nodes	    177303 source-bytes	21307543 B/op	  391979 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500          	      60	  40373239 ns/op	       500.0 nodes	    177303 source-bytes	21299821 B/op	  391976 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500          	      61	  40447142 ns/op	       500.0 nodes	    177303 source-bytes	21292505 B/op	  391971 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500          	      61	  40307425 ns/op	       500.0 nodes	    177303 source-bytes	21289849 B/op	  391968 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500          	      61	  40188422 ns/op	       500.0 nodes	    177303 source-bytes	21297336 B/op	  391974 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500          	      60	  39944234 ns/op	       500.0 nodes	    177303 source-bytes	21292574 B/op	  391972 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500          	      61	  40271361 ns/op	       500.0 nodes	    177303 source-bytes	21301013 B/op	  391976 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500          	      60	  40148298 ns/op	       500.0 nodes	    177302 source-bytes	21311279 B/op	  391981 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500-4        	      69	  32983059 ns/op	       500.0 nodes	    177303 source-bytes	21344274 B/op	  392048 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500-4        	      73	  33091301 ns/op	       500.0 nodes	    177302 source-bytes	21342638 B/op	  392044 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500-4        	      74	  33028640 ns/op	       500.0 nodes	    177303 source-bytes	21342025 B/op	  392043 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500-4        	      74	  32959811 ns/op	       500.0 nodes	    177302 source-bytes	21341354 B/op	  392043 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500-4        	      74	  33231743 ns/op	       500.0 nodes	    177303 source-bytes	21342596 B/op	  392046 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500-4        	      74	  32895972 ns/op	       500.0 nodes	    177303 source-bytes	21343227 B/op	  392047 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500-4        	      72	  33060954 ns/op	       500.0 nodes	    177302 source-bytes	21341590 B/op	  392042 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500-4        	      73	  33249169 ns/op	       500.0 nodes	    177303 source-bytes	21342509 B/op	  392045 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500-4        	      73	  32969497 ns/op	       500.0 nodes	    177303 source-bytes	21343455 B/op	  392046 allocs/op
+BenchmarkCompileFactoryGeneration/nodes=500-4        	      75	  33093074 ns/op	       500.0 nodes	    177302 source-bytes	21341134 B/op	  392043 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/compile	96.596s

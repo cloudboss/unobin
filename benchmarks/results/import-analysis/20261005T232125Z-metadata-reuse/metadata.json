@@ -1,0 +1,840 @@
+{
+  "format-version": 1,
+  "kind": "benchmark-comparison",
+  "before": {
+    "format-version": 1,
+    "workload": {
+      "work-package": "import-analysis",
+      "description": "Shared nested import resolution, schema reuse across exports, and schema freshness",
+      "kind": "micro",
+      "fixtures": [
+        "pkg/sourcecheck/analysis_benchmark_test.go",
+        "pkg/sourcecheck/imports_test.go",
+        "pkg/sourcecheck/sourcecheck_test.go",
+        "pkg/sourcecheck/testdata/golibrary/schema/go.mod",
+        "pkg/sourcecheck/testdata/golibrary/schema/library.go",
+        "pkg/sourcecheck/testdata/golibrary/analysis-helper/helper.go",
+        "pkg/sourcecheck/testdata/golibrary/analysis-helper/helper-updated.go.txt",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/benchmark-import-analysis/factory/factory.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/benchmark-import-analysis/inner/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/benchmark-import-analysis/outer/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-2/factory.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-2/level-0/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-2/level-1/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/factory.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-0/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-1/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-2/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-3/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-4/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/factory.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-0/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-1/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-2/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-3/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-4/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-5/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-6/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-7/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-8/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-9/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-1/factory.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-1/library/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-10/factory.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-10/library/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-100/factory.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-100/library/library.ub"
+      ],
+      "parameters": {
+        "changed-schema-lookups": "2 with one deterministic helper edit",
+        "existing-factory-case": "500 resource nodes",
+        "existing-nested-case": "two UB libraries and one Go schema",
+        "exports-sharing-schema": "1,10,100",
+        "import-depths": "2,5,10",
+        "unchanged-schema-lookups": "100"
+      },
+      "packages": [
+        "./pkg/sourcecheck"
+      ],
+      "benchmark": "^(BenchmarkAnalyzeNestedLibraries|BenchmarkAnalyzeSharedExports|BenchmarkSchemaCacheReads|BenchmarkImportAnalysisNestedUBLibraries|BenchmarkCheckFactoryBodyLargeGraph)$",
+      "cases": [
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkAnalyzeNestedLibraries/depth=2",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "libraries",
+            "ub-reads/op",
+            "schema-reads/op",
+            "resolves/op"
+          ],
+          "fixed": {
+            "libraries": 2,
+            "schema-reads/op": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkAnalyzeNestedLibraries/depth=5",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "libraries",
+            "ub-reads/op",
+            "schema-reads/op",
+            "resolves/op"
+          ],
+          "fixed": {
+            "libraries": 5,
+            "schema-reads/op": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkAnalyzeNestedLibraries/depth=10",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "libraries",
+            "ub-reads/op",
+            "schema-reads/op",
+            "resolves/op"
+          ],
+          "fixed": {
+            "libraries": 10,
+            "schema-reads/op": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkAnalyzeSharedExports/exports=1",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "exports",
+            "ub-reads/op",
+            "schema-reads/op",
+            "resolves/op"
+          ],
+          "fixed": {
+            "exports": 1,
+            "schema-reads/op": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkAnalyzeSharedExports/exports=10",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "exports",
+            "ub-reads/op",
+            "schema-reads/op",
+            "resolves/op"
+          ],
+          "fixed": {
+            "exports": 10,
+            "schema-reads/op": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkAnalyzeSharedExports/exports=100",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "exports",
+            "ub-reads/op",
+            "schema-reads/op",
+            "resolves/op"
+          ],
+          "fixed": {
+            "exports": 100,
+            "schema-reads/op": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkSchemaCacheReads/unchanged",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "lookups",
+            "schema-reads/op"
+          ],
+          "fixed": {
+            "lookups": 100,
+            "schema-reads/op": 0
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkSchemaCacheReads/helper-edit",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "lookups",
+            "schema-reads/op"
+          ],
+          "fixed": {
+            "lookups": 2,
+            "schema-reads/op": 2
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkImportAnalysisNestedUBLibraries",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op"
+          ]
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkCheckFactoryBodyLargeGraph",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op"
+          ]
+        }
+      ],
+      "samples": 10,
+      "benchtime": "2s",
+      "cpus": [
+        1,
+        4
+      ],
+      "setup": "Copy committed UB fixtures and Go metadata into temporary source roots outside timing. Each import analysis creates a fresh schema cache and resolves the complete graph. Inject a counted schema reader returning a fixed validated schema. Include metadata checks, source snapshots, UB parsing, resolution, and semantic library construction; count UB opens through the source filesystem. Check exact nested exports, shared schemas, and counted reads after timing. The schema hit case primes one cache before timing and performs 100 unchanged reads per operation. The edit case creates a fresh cache, reads the initial helper, replaces it with the committed variant, and reads again; include file writes, snapshots, and both schema reads. Retain existing source-check and generated-package benchmarks as regression cases.",
+      "cache-policy": "Symmetric warm Go build and module caches, one 1x benchmark warmup, default GC, fresh import analysis per operation, and no unrelated CPU-intensive work during collection.",
+      "primary-unit": "sec/op",
+      "primary-direction": "lower",
+      "tests": [
+        [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/sourcecheck",
+          "./pkg/resolve",
+          "./pkg/goschema",
+          "./pkg/gopackage",
+          "./internal/ubtest"
+        ],
+        [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "^TestCompiledCases$/^ub-composite-foreach$",
+          "./tests/e2e"
+        ]
+      ]
+    },
+    "source-revision": "16537be05d7aa7e7f12c615ea93c2ab636a97d29",
+    "fixture-revision": "e87545ab2df76016f3a1372cc2c9be751717d43a",
+    "workload-path": "benchmarks/workloads/import-analysis.json",
+    "repository": "/home/joseph/code/unobin",
+    "clean-source": true,
+    "fixture-digests": {
+      "benchmarks/workloads/import-analysis.json": "fbbf9cebccc9a807847f4692b0f82776f0cc41daaf9afc4973af4e579e6186c9",
+      "pkg/sourcecheck/analysis_benchmark_test.go": "075acd51b4165c5d7903106c79f7379fdc11d97ac7cca36211d9bedfb74c0765",
+      "pkg/sourcecheck/imports_test.go": "11c0e1cb93a0183de1a525ad29b19afea1b1e7c3e54901abd72f0613493bb4da",
+      "pkg/sourcecheck/sourcecheck_test.go": "bb586cd67494c9c570a05d669b9589d6cb18c8710c9fe38dcd0d372d95ce4972",
+      "pkg/sourcecheck/testdata/golibrary/analysis-helper/helper-updated.go.txt": "0fefe6dbd0937694490b52b5e27ce324e99f208a8ae08263eb50bf4297e7feb3",
+      "pkg/sourcecheck/testdata/golibrary/analysis-helper/helper.go": "a010dce80f8dca03c1e6c00709dd7390c4ea2cfdfcd3819af8d0e43843398b69",
+      "pkg/sourcecheck/testdata/golibrary/schema/go.mod": "1236d40edb5eb839064a65a55cd6d3e85cc5030be0aaea738056ae8ae34cee74",
+      "pkg/sourcecheck/testdata/golibrary/schema/library.go": "64d866faa14a2389100fd19b5c559ca588443fdd072c7acfcd6fae8648befae2",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-1/factory.ub": "b06c0e77424242223aa32ee45e5430fd01a41664ac0e53931827b2ec1618d0c7",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-1/library/library.ub": "c938486f26b12ece1422b6ccba45de8cea68c107f4f8cd65dad0b2f7baac934b",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-10/factory.ub": "c95d40cbac798d695b89dae6504e73efd6ef314cd9f44f10bc6c7054118f8911",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-10/library/library.ub": "0ebf5dc407da24eafd7ef03db4f1c987c3b9722f2f4e38c76afe3f8797b76aac",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-100/factory.ub": "e17be3b5640b612ad11a5313222ef69edb92fa5d9a36ee2c8c2a22b37838830d",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-100/library/library.ub": "843dd64fd457e63676a8b17275a492c6a0e4a95770c03b55b0fdf1fb1a32f1a3",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/factory.ub": "74e326c99fc84221d6e6f76699f230be2b70efd20c7e4455b5c31a93240e089a",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-0/library.ub": "8ada22c8bc03673de96086afd2eeafa7e7d9f3802e2255a6c130deaa4896ead2",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-1/library.ub": "8f365d6c42e50b96c5d01b80d18094cf139afaf356a87bea16c0eade0271e49e",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-2/library.ub": "5b9aba7e3da0be7c1bae30d7eb6e22d212c7fa0aec9486951efbff1c1e63bac1",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-3/library.ub": "f03d9fbac8f7ca5f3c30008e7dc9de3e31f32599d40393f93c6a15238ebbdb4e",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-4/library.ub": "63a029320454d9c3b068ff529a1301d47081a7c69c40f483c78059fe5918f901",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-5/library.ub": "c382437e3b721b4f935cbb7fc0cba6d41d8cff08fc46899096515f145b638aa9",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-6/library.ub": "18461b2d77f9a23a3e7dc36d145ba1fbdb5350f5a0f8bf61e1686ef99a5e0bc1",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-7/library.ub": "e1653a01822e3ca17afd8ef1f60373bb398b52e431f0aa76804aea4a8a3083b1",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-8/library.ub": "5221a6e2e691907e71b6d5d88343fafb39789816d3a412d0b60dbd51da385501",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-9/library.ub": "3648d2c2810801a5dc213c23bf7e9d79f9ac9919e6baecf3be44c0241e77d133",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-2/factory.ub": "74e326c99fc84221d6e6f76699f230be2b70efd20c7e4455b5c31a93240e089a",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-2/level-0/library.ub": "8ada22c8bc03673de96086afd2eeafa7e7d9f3802e2255a6c130deaa4896ead2",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-2/level-1/library.ub": "3648d2c2810801a5dc213c23bf7e9d79f9ac9919e6baecf3be44c0241e77d133",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/factory.ub": "74e326c99fc84221d6e6f76699f230be2b70efd20c7e4455b5c31a93240e089a",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-0/library.ub": "8ada22c8bc03673de96086afd2eeafa7e7d9f3802e2255a6c130deaa4896ead2",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-1/library.ub": "8f365d6c42e50b96c5d01b80d18094cf139afaf356a87bea16c0eade0271e49e",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-2/library.ub": "5b9aba7e3da0be7c1bae30d7eb6e22d212c7fa0aec9486951efbff1c1e63bac1",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-3/library.ub": "f03d9fbac8f7ca5f3c30008e7dc9de3e31f32599d40393f93c6a15238ebbdb4e",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-4/library.ub": "3648d2c2810801a5dc213c23bf7e9d79f9ac9919e6baecf3be44c0241e77d133",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/benchmark-import-analysis/factory/factory.ub": "25583ba691d3ea89aa5481bd5c7a36d2a46916a4f05586b2adb920b91c22f107",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/benchmark-import-analysis/inner/library.ub": "b52a6081dd42c060d115ac1f3fd7877341e0cc540619ad232010d72ae7e4ab72",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/benchmark-import-analysis/outer/library.ub": "766863788f96373187eec28ff2c67d7293134a280d443bebce52e431fd40f4a0"
+    },
+    "dependency-locks": {
+      "go.mod": "588dedf3818897394d476ef520f1490eaa0c46084a617876add0bb6645aa162e",
+      "go.sum": "1e1f203654bb19eb6d9c941749ae98c646e73039a7932d3730efd477d542fe45"
+    },
+    "machine": {
+      "go-version": "go1.26.2",
+      "goos": "linux",
+      "goarch": "amd64",
+      "cpu-model": "AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M",
+      "logical-cpus": 24
+    },
+    "environment": {
+      "CC": "",
+      "CGO_CFLAGS": "",
+      "CGO_CPPFLAGS": "",
+      "CGO_CXXFLAGS": "",
+      "CGO_ENABLED": "1",
+      "CGO_LDFLAGS": "",
+      "CXX": "",
+      "GO386": "",
+      "GOAMD64": "v1",
+      "GOARCH": "amd64",
+      "GOARM": "",
+      "GOARM64": "",
+      "GOCACHE": "/home/joseph/code/unobin/_output/remediation/gocache",
+      "GODEBUG": "",
+      "GOEXPERIMENT": "",
+      "GOFLAGS": "",
+      "GOMAXPROCS": "",
+      "GOMIPS": "",
+      "GOMIPS64": "",
+      "GOMODCACHE": "/home/joseph/code/unobin/_output/remediation/gomodcache",
+      "GOOS": "linux",
+      "GOPPC64": "",
+      "GORISCV64": "",
+      "GOROOT": "/home/joseph/.local/go1.26.2",
+      "GOTMPDIR": "",
+      "GOTOOLCHAIN": "auto",
+      "GOVERSION": "go1.26.2",
+      "GOWASM": "",
+      "GOWORK": "",
+      "UNOBIN_BENCH_PROFILE": ""
+    },
+    "benchstat-version": "v0.0.0-20260929162123-406019bb8b68",
+    "tests": [
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/sourcecheck",
+          "./pkg/resolve",
+          "./pkg/goschema",
+          "./pkg/gopackage",
+          "./internal/ubtest"
+        ],
+        "directory": ".",
+        "started": "2026-10-05T22:31:08.828156777Z",
+        "finished": "2026-10-05T22:31:27.629277349Z",
+        "exit-code": 0,
+        "output": "before-test-01.txt",
+        "sha256": "7deb65dabf025e299aa6ff3d62b539f5d2ad2a5e25445d79dbfefe50c150de7e"
+      },
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "^TestCompiledCases$/^ub-composite-foreach$",
+          "./tests/e2e"
+        ],
+        "directory": ".",
+        "started": "2026-10-05T22:31:27.629567053Z",
+        "finished": "2026-10-05T22:31:30.498065828Z",
+        "exit-code": 0,
+        "output": "before-test-02.txt",
+        "sha256": "39b5523c8019d14f9c033321be38c5af0ecec39a8ed4da33765a88ec04baa714"
+      }
+    ],
+    "warmup": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkAnalyzeNestedLibraries|BenchmarkAnalyzeSharedExports|BenchmarkSchemaCacheReads|BenchmarkImportAnalysisNestedUBLibraries|BenchmarkCheckFactoryBodyLargeGraph)$",
+        "-benchmem",
+        "-benchtime=1x",
+        "-count=1",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/sourcecheck"
+      ],
+      "directory": ".",
+      "started": "2026-10-05T22:31:30.498164743Z",
+      "finished": "2026-10-05T22:31:31.334887173Z",
+      "exit-code": 0,
+      "output": "before-warmup.txt",
+      "sha256": "2979140c7bdc34b5e9638cf1508077b208ce569c7e6a1ba4a55b24f9249bddf4"
+    },
+    "benchmark": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkAnalyzeNestedLibraries|BenchmarkAnalyzeSharedExports|BenchmarkSchemaCacheReads|BenchmarkImportAnalysisNestedUBLibraries|BenchmarkCheckFactoryBodyLargeGraph)$",
+        "-benchmem",
+        "-benchtime=2s",
+        "-count=10",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/sourcecheck"
+      ],
+      "directory": ".",
+      "started": "2026-10-05T22:31:31.335020112Z",
+      "finished": "2026-10-05T22:39:30.629690282Z",
+      "exit-code": 0,
+      "output": "before.txt",
+      "sha256": "57a7d90b5ce7bb37cc6621036a493af0c2545fa31ca48714289e71a823d0ee74"
+    }
+  },
+  "after": {
+    "format-version": 1,
+    "workload": {
+      "work-package": "import-analysis",
+      "description": "Shared nested import resolution, schema reuse across exports, and schema freshness",
+      "kind": "micro",
+      "fixtures": [
+        "pkg/sourcecheck/analysis_benchmark_test.go",
+        "pkg/sourcecheck/imports_test.go",
+        "pkg/sourcecheck/sourcecheck_test.go",
+        "pkg/sourcecheck/testdata/golibrary/schema/go.mod",
+        "pkg/sourcecheck/testdata/golibrary/schema/library.go",
+        "pkg/sourcecheck/testdata/golibrary/analysis-helper/helper.go",
+        "pkg/sourcecheck/testdata/golibrary/analysis-helper/helper-updated.go.txt",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/benchmark-import-analysis/factory/factory.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/benchmark-import-analysis/inner/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/benchmark-import-analysis/outer/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-2/factory.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-2/level-0/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-2/level-1/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/factory.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-0/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-1/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-2/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-3/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-4/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/factory.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-0/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-1/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-2/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-3/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-4/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-5/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-6/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-7/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-8/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-9/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-1/factory.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-1/library/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-10/factory.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-10/library/library.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-100/factory.ub",
+        "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-100/library/library.ub"
+      ],
+      "parameters": {
+        "changed-schema-lookups": "2 with one deterministic helper edit",
+        "existing-factory-case": "500 resource nodes",
+        "existing-nested-case": "two UB libraries and one Go schema",
+        "exports-sharing-schema": "1,10,100",
+        "import-depths": "2,5,10",
+        "unchanged-schema-lookups": "100"
+      },
+      "packages": [
+        "./pkg/sourcecheck"
+      ],
+      "benchmark": "^(BenchmarkAnalyzeNestedLibraries|BenchmarkAnalyzeSharedExports|BenchmarkSchemaCacheReads|BenchmarkImportAnalysisNestedUBLibraries|BenchmarkCheckFactoryBodyLargeGraph)$",
+      "cases": [
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkAnalyzeNestedLibraries/depth=2",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "libraries",
+            "ub-reads/op",
+            "schema-reads/op",
+            "resolves/op"
+          ],
+          "fixed": {
+            "libraries": 2,
+            "schema-reads/op": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkAnalyzeNestedLibraries/depth=5",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "libraries",
+            "ub-reads/op",
+            "schema-reads/op",
+            "resolves/op"
+          ],
+          "fixed": {
+            "libraries": 5,
+            "schema-reads/op": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkAnalyzeNestedLibraries/depth=10",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "libraries",
+            "ub-reads/op",
+            "schema-reads/op",
+            "resolves/op"
+          ],
+          "fixed": {
+            "libraries": 10,
+            "schema-reads/op": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkAnalyzeSharedExports/exports=1",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "exports",
+            "ub-reads/op",
+            "schema-reads/op",
+            "resolves/op"
+          ],
+          "fixed": {
+            "exports": 1,
+            "schema-reads/op": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkAnalyzeSharedExports/exports=10",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "exports",
+            "ub-reads/op",
+            "schema-reads/op",
+            "resolves/op"
+          ],
+          "fixed": {
+            "exports": 10,
+            "schema-reads/op": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkAnalyzeSharedExports/exports=100",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "exports",
+            "ub-reads/op",
+            "schema-reads/op",
+            "resolves/op"
+          ],
+          "fixed": {
+            "exports": 100,
+            "schema-reads/op": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkSchemaCacheReads/unchanged",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "lookups",
+            "schema-reads/op"
+          ],
+          "fixed": {
+            "lookups": 100,
+            "schema-reads/op": 0
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkSchemaCacheReads/helper-edit",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "lookups",
+            "schema-reads/op"
+          ],
+          "fixed": {
+            "lookups": 2,
+            "schema-reads/op": 2
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkImportAnalysisNestedUBLibraries",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op"
+          ]
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+          "name": "BenchmarkCheckFactoryBodyLargeGraph",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op"
+          ]
+        }
+      ],
+      "samples": 10,
+      "benchtime": "2s",
+      "cpus": [
+        1,
+        4
+      ],
+      "setup": "Copy committed UB fixtures and Go metadata into temporary source roots outside timing. Each import analysis creates a fresh schema cache and resolves the complete graph. Inject a counted schema reader returning a fixed validated schema. Include metadata checks, source snapshots, UB parsing, resolution, and semantic library construction; count UB opens through the source filesystem. Check exact nested exports, shared schemas, and counted reads after timing. The schema hit case primes one cache before timing and performs 100 unchanged reads per operation. The edit case creates a fresh cache, reads the initial helper, replaces it with the committed variant, and reads again; include file writes, snapshots, and both schema reads. Retain existing source-check and generated-package benchmarks as regression cases.",
+      "cache-policy": "Symmetric warm Go build and module caches, one 1x benchmark warmup, default GC, fresh import analysis per operation, and no unrelated CPU-intensive work during collection.",
+      "primary-unit": "sec/op",
+      "primary-direction": "lower",
+      "tests": [
+        [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/sourcecheck",
+          "./pkg/resolve",
+          "./pkg/goschema",
+          "./pkg/gopackage",
+          "./internal/ubtest"
+        ],
+        [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "^TestCompiledCases$/^ub-composite-foreach$",
+          "./tests/e2e"
+        ]
+      ]
+    },
+    "source-revision": "09016fe67565fa77435685a48b8e77df5a242e6c",
+    "fixture-revision": "e87545ab2df76016f3a1372cc2c9be751717d43a",
+    "workload-path": "benchmarks/workloads/import-analysis.json",
+    "repository": "/home/joseph/code/unobin",
+    "clean-source": true,
+    "fixture-digests": {
+      "benchmarks/workloads/import-analysis.json": "fbbf9cebccc9a807847f4692b0f82776f0cc41daaf9afc4973af4e579e6186c9",
+      "pkg/sourcecheck/analysis_benchmark_test.go": "075acd51b4165c5d7903106c79f7379fdc11d97ac7cca36211d9bedfb74c0765",
+      "pkg/sourcecheck/imports_test.go": "11c0e1cb93a0183de1a525ad29b19afea1b1e7c3e54901abd72f0613493bb4da",
+      "pkg/sourcecheck/sourcecheck_test.go": "bb586cd67494c9c570a05d669b9589d6cb18c8710c9fe38dcd0d372d95ce4972",
+      "pkg/sourcecheck/testdata/golibrary/analysis-helper/helper-updated.go.txt": "0fefe6dbd0937694490b52b5e27ce324e99f208a8ae08263eb50bf4297e7feb3",
+      "pkg/sourcecheck/testdata/golibrary/analysis-helper/helper.go": "a010dce80f8dca03c1e6c00709dd7390c4ea2cfdfcd3819af8d0e43843398b69",
+      "pkg/sourcecheck/testdata/golibrary/schema/go.mod": "1236d40edb5eb839064a65a55cd6d3e85cc5030be0aaea738056ae8ae34cee74",
+      "pkg/sourcecheck/testdata/golibrary/schema/library.go": "64d866faa14a2389100fd19b5c559ca588443fdd072c7acfcd6fae8648befae2",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-1/factory.ub": "b06c0e77424242223aa32ee45e5430fd01a41664ac0e53931827b2ec1618d0c7",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-1/library/library.ub": "c938486f26b12ece1422b6ccba45de8cea68c107f4f8cd65dad0b2f7baac934b",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-10/factory.ub": "c95d40cbac798d695b89dae6504e73efd6ef314cd9f44f10bc6c7054118f8911",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-10/library/library.ub": "0ebf5dc407da24eafd7ef03db4f1c987c3b9722f2f4e38c76afe3f8797b76aac",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-100/factory.ub": "e17be3b5640b612ad11a5313222ef69edb92fa5d9a36ee2c8c2a22b37838830d",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-100/library/library.ub": "843dd64fd457e63676a8b17275a492c6a0e4a95770c03b55b0fdf1fb1a32f1a3",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/factory.ub": "74e326c99fc84221d6e6f76699f230be2b70efd20c7e4455b5c31a93240e089a",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-0/library.ub": "8ada22c8bc03673de96086afd2eeafa7e7d9f3802e2255a6c130deaa4896ead2",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-1/library.ub": "8f365d6c42e50b96c5d01b80d18094cf139afaf356a87bea16c0eade0271e49e",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-2/library.ub": "5b9aba7e3da0be7c1bae30d7eb6e22d212c7fa0aec9486951efbff1c1e63bac1",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-3/library.ub": "f03d9fbac8f7ca5f3c30008e7dc9de3e31f32599d40393f93c6a15238ebbdb4e",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-4/library.ub": "63a029320454d9c3b068ff529a1301d47081a7c69c40f483c78059fe5918f901",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-5/library.ub": "c382437e3b721b4f935cbb7fc0cba6d41d8cff08fc46899096515f145b638aa9",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-6/library.ub": "18461b2d77f9a23a3e7dc36d145ba1fbdb5350f5a0f8bf61e1686ef99a5e0bc1",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-7/library.ub": "e1653a01822e3ca17afd8ef1f60373bb398b52e431f0aa76804aea4a8a3083b1",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-8/library.ub": "5221a6e2e691907e71b6d5d88343fafb39789816d3a412d0b60dbd51da385501",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-9/library.ub": "3648d2c2810801a5dc213c23bf7e9d79f9ac9919e6baecf3be44c0241e77d133",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-2/factory.ub": "74e326c99fc84221d6e6f76699f230be2b70efd20c7e4455b5c31a93240e089a",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-2/level-0/library.ub": "8ada22c8bc03673de96086afd2eeafa7e7d9f3802e2255a6c130deaa4896ead2",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-2/level-1/library.ub": "3648d2c2810801a5dc213c23bf7e9d79f9ac9919e6baecf3be44c0241e77d133",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/factory.ub": "74e326c99fc84221d6e6f76699f230be2b70efd20c7e4455b5c31a93240e089a",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-0/library.ub": "8ada22c8bc03673de96086afd2eeafa7e7d9f3802e2255a6c130deaa4896ead2",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-1/library.ub": "8f365d6c42e50b96c5d01b80d18094cf139afaf356a87bea16c0eade0271e49e",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-2/library.ub": "5b9aba7e3da0be7c1bae30d7eb6e22d212c7fa0aec9486951efbff1c1e63bac1",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-3/library.ub": "f03d9fbac8f7ca5f3c30008e7dc9de3e31f32599d40393f93c6a15238ebbdb4e",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-4/library.ub": "3648d2c2810801a5dc213c23bf7e9d79f9ac9919e6baecf3be44c0241e77d133",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/benchmark-import-analysis/factory/factory.ub": "25583ba691d3ea89aa5481bd5c7a36d2a46916a4f05586b2adb920b91c22f107",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/benchmark-import-analysis/inner/library.ub": "b52a6081dd42c060d115ac1f3fd7877341e0cc540619ad232010d72ae7e4ab72",
+      "pkg/sourcecheck/testdata/ub/sourcecheck/valid/benchmark-import-analysis/outer/library.ub": "766863788f96373187eec28ff2c67d7293134a280d443bebce52e431fd40f4a0"
+    },
+    "dependency-locks": {
+      "go.mod": "588dedf3818897394d476ef520f1490eaa0c46084a617876add0bb6645aa162e",
+      "go.sum": "1e1f203654bb19eb6d9c941749ae98c646e73039a7932d3730efd477d542fe45"
+    },
+    "machine": {
+      "go-version": "go1.26.2",
+      "goos": "linux",
+      "goarch": "amd64",
+      "cpu-model": "AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M",
+      "logical-cpus": 24
+    },
+    "environment": {
+      "CC": "",
+      "CGO_CFLAGS": "",
+      "CGO_CPPFLAGS": "",
+      "CGO_CXXFLAGS": "",
+      "CGO_ENABLED": "1",
+      "CGO_LDFLAGS": "",
+      "CXX": "",
+      "GO386": "",
+      "GOAMD64": "v1",
+      "GOARCH": "amd64",
+      "GOARM": "",
+      "GOARM64": "",
+      "GOCACHE": "/home/joseph/code/unobin/_output/remediation/gocache",
+      "GODEBUG": "",
+      "GOEXPERIMENT": "",
+      "GOFLAGS": "",
+      "GOMAXPROCS": "",
+      "GOMIPS": "",
+      "GOMIPS64": "",
+      "GOMODCACHE": "/home/joseph/code/unobin/_output/remediation/gomodcache",
+      "GOOS": "linux",
+      "GOPPC64": "",
+      "GORISCV64": "",
+      "GOROOT": "/home/joseph/.local/go1.26.2",
+      "GOTMPDIR": "",
+      "GOTOOLCHAIN": "auto",
+      "GOVERSION": "go1.26.2",
+      "GOWASM": "",
+      "GOWORK": "",
+      "UNOBIN_BENCH_PROFILE": ""
+    },
+    "benchstat-version": "v0.0.0-20260929162123-406019bb8b68",
+    "tests": [
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/sourcecheck",
+          "./pkg/resolve",
+          "./pkg/goschema",
+          "./pkg/gopackage",
+          "./internal/ubtest"
+        ],
+        "directory": ".",
+        "started": "2026-10-05T23:12:48.972422252Z",
+        "finished": "2026-10-05T23:13:06.289767624Z",
+        "exit-code": 0,
+        "output": "after-test-01.txt",
+        "sha256": "00a4c4a1b86f80349c3b416a05bd115dd984c3558db78ae180a5f321ad55e834"
+      },
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "^TestCompiledCases$/^ub-composite-foreach$",
+          "./tests/e2e"
+        ],
+        "directory": ".",
+        "started": "2026-10-05T23:13:06.28993085Z",
+        "finished": "2026-10-05T23:13:09.027925127Z",
+        "exit-code": 0,
+        "output": "after-test-02.txt",
+        "sha256": "cf16699604ba0c79944c6514e20677f41c1f4389d605901675fae77af0c4f3b3"
+      }
+    ],
+    "warmup": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkAnalyzeNestedLibraries|BenchmarkAnalyzeSharedExports|BenchmarkSchemaCacheReads|BenchmarkImportAnalysisNestedUBLibraries|BenchmarkCheckFactoryBodyLargeGraph)$",
+        "-benchmem",
+        "-benchtime=1x",
+        "-count=1",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/sourcecheck"
+      ],
+      "directory": ".",
+      "started": "2026-10-05T23:13:09.028053699Z",
+      "finished": "2026-10-05T23:13:09.9454359Z",
+      "exit-code": 0,
+      "output": "after-warmup.txt",
+      "sha256": "a25598849f98ac58940d7dd56ac1e3eb8043fcde091e239dd491351a85008217"
+    },
+    "benchmark": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkAnalyzeNestedLibraries|BenchmarkAnalyzeSharedExports|BenchmarkSchemaCacheReads|BenchmarkImportAnalysisNestedUBLibraries|BenchmarkCheckFactoryBodyLargeGraph)$",
+        "-benchmem",
+        "-benchtime=2s",
+        "-count=10",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/sourcecheck"
+      ],
+      "directory": ".",
+      "started": "2026-10-05T23:13:09.94556937Z",
+      "finished": "2026-10-05T23:21:09.015795334Z",
+      "exit-code": 0,
+      "output": "after.txt",
+      "sha256": "5e66ec36597ead64b5eb4bc392ec05a87096784b8959dbee5468253a6a9253cd"
+    }
+  },
+  "comparison": {
+    "args": [
+      "go",
+      "tool",
+      "benchstat",
+      "before.txt",
+      "after.txt"
+    ],
+    "directory": ".",
+    "started": "2026-10-05T23:21:38.256057839Z",
+    "finished": "2026-10-05T23:21:38.263394643Z",
+    "exit-code": 0,
+    "output": "comparison.txt",
+    "sha256": "a64c62336eea7c27212089f13c145037b95373e6b15983aa37b712dd2997fa31"
+  },
+  "summary-sha256": "aa70aad7f4b7d6807644d7e34062521a732e25018864ea7c332cd891313c0920"
+}

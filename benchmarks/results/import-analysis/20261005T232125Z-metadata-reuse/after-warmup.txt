@@ -1,0 +1,26 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/sourcecheck
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkAnalyzeNestedLibraries/depth=2      	       1	   2573711 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        12.00 ub-reads/op	  923472 B/op	   19356 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2-4    	       1	   2267597 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        12.00 ub-reads/op	  914392 B/op	   19240 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5      	       1	   4001942 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        24.00 ub-reads/op	 1664136 B/op	   34635 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5-4    	       1	   3811995 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        24.00 ub-reads/op	 1663992 B/op	   34636 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10     	       1	   7236694 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        44.00 ub-reads/op	 2927128 B/op	   60421 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10-4   	       1	   7251963 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        44.00 ub-reads/op	 2935832 B/op	   60431 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1      	       1	   1823553 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	         8.000 ub-reads/op	  675208 B/op	   14418 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1-4    	       1	   1647132 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	         8.000 ub-reads/op	  675256 B/op	   14419 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10     	       1	  10513416 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        17.00 ub-reads/op	 4297288 B/op	  104201 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10-4   	       1	  10262854 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        17.00 ub-reads/op	 4305408 B/op	  104213 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100    	       1	  98858391 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       107.0 ub-reads/op	40479784 B/op	 1001514 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100-4  	       1	  99628658 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       107.0 ub-reads/op	40489760 B/op	 1001544 allocs/op
+BenchmarkSchemaCacheReads/unchanged          	       1	   9034700 ns/op	       100.0 lookups	         0 schema-reads/op	 5689240 B/op	   67338 allocs/op
+BenchmarkSchemaCacheReads/unchanged-4        	       1	   9211050 ns/op	       100.0 lookups	         0 schema-reads/op	 5697808 B/op	   67338 allocs/op
+BenchmarkSchemaCacheReads/helper-edit        	       1	    378741 ns/op	         2.000 lookups	         2.000 schema-reads/op	  237728 B/op	    2755 allocs/op
+BenchmarkSchemaCacheReads/helper-edit-4      	       1	    407856 ns/op	         2.000 lookups	         2.000 schema-reads/op	  237344 B/op	    2755 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries     	       1	   5282245 ns/op	 1995024 B/op	   40050 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries-4   	       1	   5281294 ns/op	 1976720 B/op	   40031 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph          	       1	    861658 ns/op	  717504 B/op	    9757 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph-4        	       1	    815190 ns/op	  717392 B/op	    9755 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/sourcecheck	0.319s

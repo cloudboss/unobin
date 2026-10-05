@@ -1,0 +1,44 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/compile
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+                                     │ before.txt  │              after.txt              │
+                                     │   sec/op    │    sec/op     vs base               │
+CompileFactoryGeneration/nodes=10      2.952m ± 9%   2.984m ± 31%       ~ (p=0.063 n=10)
+CompileFactoryGeneration/nodes=10-4    2.471m ± 1%   2.507m ±  1%  +1.47% (p=0.001 n=10)
+CompileFactoryGeneration/nodes=500     40.21m ± 1%   40.13m ±  1%       ~ (p=0.481 n=10)
+CompileFactoryGeneration/nodes=500-4   33.04m ± 1%   33.31m ±  1%  +0.79% (p=0.000 n=10)
+geomean                                9.923m        10.00m        +0.78%
+
+                                     │ before.txt │              after.txt              │
+                                     │   nodes    │   nodes     vs base                 │
+CompileFactoryGeneration/nodes=10      10.00 ± 0%   10.00 ± 0%       ~ (p=1.000 n=10) ¹
+CompileFactoryGeneration/nodes=10-4    10.00 ± 0%   10.00 ± 0%       ~ (p=1.000 n=10) ¹
+CompileFactoryGeneration/nodes=500     500.0 ± 0%   500.0 ± 0%       ~ (p=1.000 n=10) ¹
+CompileFactoryGeneration/nodes=500-4   500.0 ± 0%   500.0 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                70.71        70.71       +0.00%
+¹ all samples are equal
+
+                                     │  before.txt  │              after.txt              │
+                                     │ source-bytes │ source-bytes  vs base               │
+CompileFactoryGeneration/nodes=10      6.115Ki ± 0%   6.115Ki ± 0%       ~ (p=1.000 n=10)
+CompileFactoryGeneration/nodes=10-4    6.115Ki ± 0%   6.115Ki ± 0%       ~ (p=1.000 n=10)
+CompileFactoryGeneration/nodes=500     173.1Ki ± 0%   173.1Ki ± 0%       ~ (p=0.737 n=10)
+CompileFactoryGeneration/nodes=500-4   173.1Ki ± 0%   173.1Ki ± 0%       ~ (p=0.628 n=10)
+geomean                                32.54Ki        32.54Ki       +0.00%
+
+                                     │  before.txt  │              after.txt              │
+                                     │     B/op     │     B/op      vs base               │
+CompileFactoryGeneration/nodes=10      1.414Mi ± 0%   1.415Mi ± 0%  +0.04% (p=0.003 n=10)
+CompileFactoryGeneration/nodes=10-4    1.433Mi ± 0%   1.433Mi ± 0%  +0.05% (p=0.000 n=10)
+CompileFactoryGeneration/nodes=500     20.31Mi ± 0%   20.31Mi ± 0%       ~ (p=0.971 n=10)
+CompileFactoryGeneration/nodes=500-4   20.35Mi ± 0%   20.35Mi ± 0%       ~ (p=0.353 n=10)
+geomean                                5.380Mi        5.381Mi       +0.02%
+
+                                     │ before.txt  │             after.txt              │
+                                     │  allocs/op  │  allocs/op   vs base               │
+CompileFactoryGeneration/nodes=10      28.07k ± 0%   28.07k ± 0%  +0.02% (p=0.000 n=10)
+CompileFactoryGeneration/nodes=10-4    28.08k ± 0%   28.09k ± 0%  +0.02% (p=0.000 n=10)
+CompileFactoryGeneration/nodes=500     392.0k ± 0%   392.0k ± 0%       ~ (p=0.072 n=10)
+CompileFactoryGeneration/nodes=500-4   392.0k ± 0%   392.1k ± 0%  +0.00% (p=0.000 n=10)
+geomean                                104.9k        104.9k       +0.01%
