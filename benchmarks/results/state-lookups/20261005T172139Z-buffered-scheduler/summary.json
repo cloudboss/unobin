@@ -1,0 +1,2248 @@
+{
+  "format-version": 1,
+  "work-package": "state-lookups",
+  "before-revision": "f34c2f4c8b606ee7184aa52598a35c7ffa9ddee2",
+  "after-revision": "2d397e996c9c4ac45956466c005011192e25d7a0",
+  "fixture-revision": "f34c2f4c8b606ee7184aa52598a35c7ffa9ddee2",
+  "primary-unit": "sec/op",
+  "assessment": "mixed",
+  "statistics": [
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/chain",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 2106632,
+        "low": 2106632,
+        "high": 2106632,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1764952,
+        "low": 1764952,
+        "high": 1764952,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -16.219254240892568,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/chain",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 15160,
+        "low": 15160,
+        "high": 15160,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 14161,
+        "low": 14161,
+        "high": 14161,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -6.58970976253298,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/chain",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0020371055,
+        "low": 0.002008026,
+        "high": 0.0020465130000000002,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.001598192,
+        "low": 0.0015809630000000001,
+        "high": 0.001601837,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -21.54593858786401,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/chain",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 2107153,
+        "low": 2107110,
+        "high": 2107181,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1765587.5,
+        "low": 1765537,
+        "high": 1765613,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -16.209810108710666,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/chain",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 15164,
+        "low": 15164,
+        "high": 15164,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 14166,
+        "low": 14166,
+        "high": 14166,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -6.581376945396988,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/chain",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0017159905,
+        "low": 0.001706051,
+        "high": 0.001731972,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0014337755000000002,
+        "low": 0.001430959,
+        "high": 0.001436208,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -16.446186619331517,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/fan",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 2275868.5,
+        "low": 2275851,
+        "high": 2275879,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1902338,
+        "low": 1902332,
+        "high": 1902340,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -16.41265740968777,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/fan",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 19173,
+        "low": 19172,
+        "high": 19173,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 16183,
+        "low": 16183,
+        "high": 16183,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -15.59484692014812,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/fan",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0028812925000000003,
+        "low": 0.0028613740000000003,
+        "high": 0.0028952910000000004,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.002086173,
+        "low": 0.0020563160000000003,
+        "high": 0.0021081000000000003,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -27.595931339841407,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/fan",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 2275377,
+        "low": 2275309,
+        "high": 2275413,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1901892.5,
+        "low": 1901842,
+        "high": 1901915,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -16.41418103461536,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/fan",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 19118.5,
+        "low": 19117,
+        "high": 19119,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 16126.5,
+        "low": 16126,
+        "high": 16127,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -15.649763318251953,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/fan",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.00226311,
+        "low": 0.002219121,
+        "high": 0.0023174790000000003,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0015650490000000002,
+        "low": 0.0015589690000000001,
+        "high": 0.001572917,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -30.845208584646787,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/independent",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 2173674.5,
+        "low": 2173659,
+        "high": 2173692,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1800110,
+        "low": 1800100,
+        "high": 1800114,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -17.185852803628144,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/independent",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 17162,
+        "low": 17161,
+        "high": 17163,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 14170,
+        "low": 14169,
+        "high": 14170,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -17.433865516839532,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/independent",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0024654975000000003,
+        "low": 0.00245356,
+        "high": 0.0029252410000000003,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0016836105,
+        "low": 0.001673056,
+        "high": 0.001733114,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -31.713153227695436,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/independent",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 2173245,
+        "low": 2173187,
+        "high": 2173274,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1799549,
+        "low": 1799513,
+        "high": 1799592,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -17.195300115725566,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/independent",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 17109,
+        "low": 17108,
+        "high": 17109,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 14112,
+        "low": 14111,
+        "high": 14112,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -17.517096265123623,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/independent",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0017855195000000001,
+        "low": 0.0017763610000000002,
+        "high": 0.001807865,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0012869425000000003,
+        "low": 0.0012809590000000001,
+        "high": 0.001297263,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -27.923357879877532,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkPlanLargeAlreadyCheckedFactory",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 838424,
+        "low": 838424,
+        "high": 838424,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 838440,
+        "low": 838440,
+        "high": 838440,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.0019083423184351744,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkPlanLargeAlreadyCheckedFactory",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 10690,
+        "low": 10690,
+        "high": 10690,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10690,
+        "low": 10690,
+        "high": 10690,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkPlanLargeAlreadyCheckedFactory",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0007200905,
+        "low": 0.000715087,
+        "high": 0.000726505,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0007248280000000001,
+        "low": 0.000720206,
+        "high": 0.000731279,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.6579034163067154,
+      "p": 0.052425902271103525,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkPlanLargeAlreadyCheckedFactory",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 838424,
+        "low": 838424,
+        "high": 838424,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 838440,
+        "low": 838440,
+        "high": 838440,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.0019083423184351744,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkPlanLargeAlreadyCheckedFactory",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 10690,
+        "low": 10690,
+        "high": 10690,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10690,
+        "low": 10690,
+        "high": 10690,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkPlanLargeAlreadyCheckedFactory",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.000613082,
+        "low": 0.000611092,
+        "high": 0.000636507,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0006292045,
+        "low": 0.000625516,
+        "high": 0.0006366690000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 2.629746102478947,
+      "p": 0.03546298902336055,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=100",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 144,
+        "low": 144,
+        "high": 144,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 3720,
+        "low": 3720,
+        "high": 3720,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 2483.333333333333,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=100",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 6,
+        "low": 6,
+        "high": 6,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 500,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=100",
+      "cpu": 1,
+      "unit": "entries",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=100",
+      "cpu": 1,
+      "unit": "lookups",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=100",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0000129735,
+        "low": 0.00001291,
+        "high": 0.000013100000000000002,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0000030245000000000004,
+        "low": 0.0000029970000000000003,
+        "high": 0.0000031380000000000003,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -76.68709292018346,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=100",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 144,
+        "low": 144,
+        "high": 144,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 3720,
+        "low": 3720,
+        "high": 3720,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 2483.333333333333,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=100",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 6,
+        "low": 6,
+        "high": 6,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 500,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=100",
+      "cpu": 4,
+      "unit": "entries",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=100",
+      "cpu": 4,
+      "unit": "lookups",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=100",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.000012881500000000002,
+        "low": 0.000012800000000000001,
+        "high": 0.000012939000000000001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0000023985,
+        "low": 0.00000239,
+        "high": 0.0000024160000000000002,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -81.3802740364088,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=1000",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 144,
+        "low": 144,
+        "high": 144,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 54832,
+        "low": 54832,
+        "high": 54832,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 37977.777777777774,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=1000",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 8,
+        "low": 8,
+        "high": 8,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 700,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=1000",
+      "cpu": 1,
+      "unit": "entries",
+      "before": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=1000",
+      "cpu": 1,
+      "unit": "lookups",
+      "before": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=1000",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0010849140000000002,
+        "low": 0.0010706980000000001,
+        "high": 0.001112052,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.00003074600000000001,
+        "low": 0.000030452000000000003,
+        "high": 0.000031084,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -97.16604265407211,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=1000",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 144,
+        "low": 144,
+        "high": 144,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 54832,
+        "low": 54832,
+        "high": 54832,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 37977.777777777774,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=1000",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 8,
+        "low": 8,
+        "high": 8,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 700,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=1000",
+      "cpu": 4,
+      "unit": "entries",
+      "before": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=1000",
+      "cpu": 4,
+      "unit": "lookups",
+      "before": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=1000",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0010927465,
+        "low": 0.001065479,
+        "high": 0.0011023320000000001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.000024872000000000002,
+        "low": 0.000024516,
+        "high": 0.000025213,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -97.72390028245343,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=10000",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 144,
+        "low": 144,
+        "high": 144,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 437088,
+        "low": 437088,
+        "high": 437088,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 303433.3333333334,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=10000",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 36,
+        "low": 36,
+        "high": 36,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 3500,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=10000",
+      "cpu": 1,
+      "unit": "entries",
+      "before": {
+        "samples": 10,
+        "median": 10000,
+        "low": 10000,
+        "high": 10000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10000,
+        "low": 10000,
+        "high": 10000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=10000",
+      "cpu": 1,
+      "unit": "lookups",
+      "before": {
+        "samples": 10,
+        "median": 10000,
+        "low": 10000,
+        "high": 10000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10000,
+        "low": 10000,
+        "high": 10000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=10000",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.11063239250000001,
+        "low": 0.106160738,
+        "high": 0.11229443400000001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.00034895300000000005,
+        "low": 0.000345684,
+        "high": 0.000356688,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -99.68458333756092,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=10000",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 144,
+        "low": 144,
+        "high": 144,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 437088,
+        "low": 437088,
+        "high": 437088,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 303433.3333333334,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=10000",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 36,
+        "low": 36,
+        "high": 36,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 3500,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=10000",
+      "cpu": 4,
+      "unit": "entries",
+      "before": {
+        "samples": 10,
+        "median": 10000,
+        "low": 10000,
+        "high": 10000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10000,
+        "low": 10000,
+        "high": 10000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=10000",
+      "cpu": 4,
+      "unit": "lookups",
+      "before": {
+        "samples": 10,
+        "median": 10000,
+        "low": 10000,
+        "high": 10000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10000,
+        "low": 10000,
+        "high": 10000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=10000",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.1089705675,
+        "low": 0.10702821000000001,
+        "high": 0.112226371,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.00029127700000000005,
+        "low": 0.000288851,
+        "high": 0.00029472300000000004,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -99.73270121769349,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=100",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 154624,
+        "low": 154624,
+        "high": 154624,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 165320,
+        "low": 165320,
+        "high": 165320,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 6.917425496688745,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=100",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2141,
+        "low": 2141,
+        "high": 2141,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2156,
+        "low": 2156,
+        "high": 2156,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.7006071929005042,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=100",
+      "cpu": 1,
+      "unit": "entries",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=100",
+      "cpu": 1,
+      "unit": "lookups",
+      "before": {
+        "samples": 10,
+        "median": 203,
+        "low": 203,
+        "high": 203,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 203,
+        "low": 203,
+        "high": 203,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=100",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.00013545800000000003,
+        "low": 0.000132829,
+        "high": 0.000136057,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.00011897350000000001,
+        "low": 0.000117881,
+        "high": 0.00012075700000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -12.169454738738217,
+      "p": 0.0010500335577734961,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=100",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 154625,
+        "low": 154625,
+        "high": 154625,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 165321,
+        "low": 165321,
+        "high": 165321,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 6.91738075990298,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=100",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2141,
+        "low": 2141,
+        "high": 2141,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2156,
+        "low": 2156,
+        "high": 2156,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.7006071929005042,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=100",
+      "cpu": 4,
+      "unit": "entries",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=100",
+      "cpu": 4,
+      "unit": "lookups",
+      "before": {
+        "samples": 10,
+        "median": 203,
+        "low": 203,
+        "high": 203,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 203,
+        "low": 203,
+        "high": 203,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=100",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.00011256500000000002,
+        "low": 0.000109846,
+        "high": 0.00011652900000000001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.00009895350000000001,
+        "low": 0.000096618,
+        "high": 0.000102779,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -12.092124550259854,
+      "p": 0.0007252809110394251,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=1000",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 1635298,
+        "low": 1635298,
+        "high": 1635298,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1799330,
+        "low": 1799330,
+        "high": 1799330,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 10.030709999033816,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=1000",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 21056,
+        "low": 21056,
+        "high": 21056,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 21077,
+        "low": 21077,
+        "high": 21077,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.09973404255319007,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=1000",
+      "cpu": 1,
+      "unit": "entries",
+      "before": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=1000",
+      "cpu": 1,
+      "unit": "lookups",
+      "before": {
+        "samples": 10,
+        "median": 2003,
+        "low": 2003,
+        "high": 2003,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2003,
+        "low": 2003,
+        "high": 2003,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=1000",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.003425328,
+        "low": 0.003344904,
+        "high": 0.003466373,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0011551115,
+        "low": 0.001145841,
+        "high": 0.001161469,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -66.27734628625346,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=1000",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 1635300,
+        "low": 1635299,
+        "high": 1635301,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1799332.5,
+        "low": 1799332,
+        "high": 1799333,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 10.030728306732705,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=1000",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 21056,
+        "low": 21056,
+        "high": 21056,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 21077,
+        "low": 21077,
+        "high": 21077,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.09973404255319007,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=1000",
+      "cpu": 4,
+      "unit": "entries",
+      "before": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=1000",
+      "cpu": 4,
+      "unit": "lookups",
+      "before": {
+        "samples": 10,
+        "median": 2003,
+        "low": 2003,
+        "high": 2003,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2003,
+        "low": 2003,
+        "high": 2003,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=1000",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0031510055,
+        "low": 0.0031353960000000004,
+        "high": 0.0031671240000000003,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0009351170000000001,
+        "low": 0.000924461,
+        "high": 0.000970034,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -70.3232190486497,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=10000",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 15813476,
+        "low": 15813474,
+        "high": 15813476,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 17124274,
+        "low": 17124274,
+        "high": 17124274,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 8.289119988546467,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=10000",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 210171,
+        "low": 210171,
+        "high": 210171,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 210276,
+        "low": 210276,
+        "high": 210276,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.049959318840375744,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=10000",
+      "cpu": 1,
+      "unit": "entries",
+      "before": {
+        "samples": 10,
+        "median": 10000,
+        "low": 10000,
+        "high": 10000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10000,
+        "low": 10000,
+        "high": 10000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=10000",
+      "cpu": 1,
+      "unit": "lookups",
+      "before": {
+        "samples": 10,
+        "median": 20003,
+        "low": 20003,
+        "high": 20003,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 20003,
+        "low": 20003,
+        "high": 20003,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=10000",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.23649163700000003,
+        "low": 0.23194650900000002,
+        "high": 0.240205467,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.013487924500000002,
+        "low": 0.013437925000000002,
+        "high": 0.013639743000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -94.29665899771331,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=10000",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 15813480,
+        "low": 15813480,
+        "high": 15813483,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 17124280,
+        "low": 17124279,
+        "high": 17124280,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 8.289130539261436,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=10000",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 210171,
+        "low": 210171,
+        "high": 210171,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 210276,
+        "low": 210276,
+        "high": 210276,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.049959318840375744,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=10000",
+      "cpu": 4,
+      "unit": "entries",
+      "before": {
+        "samples": 10,
+        "median": 10000,
+        "low": 10000,
+        "high": 10000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10000,
+        "low": 10000,
+        "high": 10000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=10000",
+      "cpu": 4,
+      "unit": "lookups",
+      "before": {
+        "samples": 10,
+        "median": 20003,
+        "low": 20003,
+        "high": 20003,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 20003,
+        "low": 20003,
+        "high": 20003,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=10000",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.2295215345,
+        "low": 0.22667968200000002,
+        "high": 0.232491844,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.010441140000000002,
+        "low": 0.010408549000000001,
+        "high": 0.010619587000000002,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -95.45091051140562,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    }
+  ],
+  "warnings": []
+}
