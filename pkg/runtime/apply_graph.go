@@ -1,25 +1,17 @@
 package runtime
 
-import (
-	"maps"
-	"slices"
-
-	"github.com/cloudboss/unobin/pkg/stateref"
-)
+import "slices"
 
 // stepGraph is the apply-time view of step-to-step dependencies. It is
 // derived from the plan's step addresses and the executor's DAG edges
 // (template-form). Each entry in indegree counts how many predecessors
 // have not yet completed. dependents names who depends on this step.
 // locks names the `@lock:` value for each step (empty for steps not
-// under a named lock). pairKey records the dep templates a
-// step's body references with an `[@each.key]` index segment, which
-// lets the builder narrow the cartesian fan-out down to same-key pairs.
+// under a named lock).
 type stepGraph struct {
 	indegree   map[string]int
 	dependents map[string][]string
 	locks      map[string]string
-	pairKey    map[string]map[string]bool
 }
 
 // buildStepGraph translates the template-form DAG edges into instance-
@@ -39,14 +31,15 @@ func buildStepGraph(pf *PlanFile, dag *DAG) *stepGraph {
 	for i := range pf.Steps {
 		addresses[i] = pf.Steps[i].Address
 	}
+	instances := indexStepInstances(addresses)
 	pairKey := map[string]map[string]bool{}
-	for _, addr := range addresses {
-		node, ok := dag.Nodes[templateAddress(addr)]
+	for declaration := range instances.declarations {
+		node, ok := dag.Nodes[declaration]
 		if !ok {
 			continue
 		}
 		if pk := pairKeyDeps(node.Body, dag.Nodes, node.Composite); pk != nil {
-			pairKey[addr] = pk
+			pairKey[declaration] = pk
 		}
 	}
 	destroying := make(map[string]bool, len(pf.Steps))
@@ -55,14 +48,17 @@ func buildStepGraph(pf *PlanFile, dag *DAG) *stepGraph {
 			destroying[pf.Steps[i].Address] = true
 		}
 	}
-	g := buildStepGraphWithPairKey(addresses, dag, pairKey, destroying)
-	for _, addr := range addresses {
-		node, ok := dag.Nodes[templateAddress(addr)]
+	g := buildIndexedStepGraph(instances, dag, func(instance *stepInstance) map[string]bool {
+		return pairKey[instance.DeclarationAddress]
+	}, destroying)
+	for i := range instances.instances {
+		instance := &instances.instances[i]
+		node, ok := dag.Nodes[instance.DeclarationAddress]
 		if !ok {
 			continue
 		}
 		if node.LockName != "" {
-			g.locks[addr] = node.LockName
+			g.locks[instance.Address] = node.LockName
 		}
 	}
 	addDestroyEdges(g, pf.Steps)
@@ -115,45 +111,47 @@ func buildStepGraphWithPairKey(
 	addresses []string, dag *DAG, pairKey map[string]map[string]bool,
 	destroying map[string]bool,
 ) *stepGraph {
+	return buildIndexedStepGraph(indexStepInstances(addresses), dag,
+		func(instance *stepInstance) map[string]bool { return pairKey[instance.Address] }, destroying)
+}
+
+func buildIndexedStepGraph(
+	instances *stepInstances, dag *DAG, pairs func(*stepInstance) map[string]bool,
+	destroying map[string]bool,
+) *stepGraph {
+	size := len(instances.instances)
 	g := &stepGraph{
-		indegree:   make(map[string]int, len(addresses)),
-		dependents: make(map[string][]string, len(addresses)),
+		indegree:   make(map[string]int, size),
+		dependents: make(map[string][]string, size),
 		locks:      map[string]string{},
-		pairKey:    map[string]map[string]bool{},
 	}
-	maps.Copy(g.pairKey, pairKey)
-	for _, a := range addresses {
-		g.indegree[a] = 0
+	for i := range instances.instances {
+		g.indegree[instances.instances[i].Address] = 0
 	}
-	instancesByTemplate := make(map[string][]string, len(addresses))
-	for _, a := range addresses {
-		t := templateAddress(a)
-		instancesByTemplate[t] = append(instancesByTemplate[t], a)
-	}
-	for _, a := range addresses {
-		if destroying[a] {
+	for i := range instances.instances {
+		instance := &instances.instances[i]
+		if destroying[instance.Address] {
 			continue
 		}
-		t := templateAddress(a)
-		sPath := keyPath(a)
-		stepPairs := g.pairKey[a]
-		for _, depTemplate := range dag.Edges[t] {
+		stepPairs := pairs(instance)
+		for _, depTemplate := range dag.Edges[instance.DeclarationAddress] {
 			if _, ok := dag.Nodes[depTemplate]; !ok {
 				continue
 			}
-			narrow := stepPairs[depTemplate] && len(sPath) == 1
-			for _, depInstance := range instancesByTemplate[depTemplate] {
-				if depInstance == a {
+			narrow := stepPairs[depTemplate] && len(instance.keys) == 1
+			candidates := instances.candidates(depTemplate, instance.keys, narrow)
+			for dep := candidates.next(); dep != nil; dep = candidates.next() {
+				if dep.Address == instance.Address {
 					continue
 				}
-				if !keyPathsAgree(sPath, keyPath(depInstance)) {
+				if !keyPathsAgree(instance.keys, dep.keys) {
 					continue
 				}
-				if narrow && !pairKeyMatches(sPath, keyPath(depInstance)) {
+				if narrow && !pairKeyMatches(instance.keys, dep.keys) {
 					continue
 				}
-				g.dependents[depInstance] = append(g.dependents[depInstance], a)
-				g.indegree[a]++
+				g.dependents[dep.Address] = append(g.dependents[dep.Address], instance.Address)
+				g.indegree[instance.Address]++
 			}
 		}
 	}
@@ -262,23 +260,8 @@ type keyPosition struct {
 // using template-form for every prior segment plus the current
 // segment's template form.
 func keyPath(addr string) []keyPosition {
-	ref, err := stateref.ParseStateRef(addr)
-	if err != nil {
-		return nil
-	}
-	tmpl := make([]stateref.StateAddressSegment, 0, len(ref.Segments))
-	var out []keyPosition
-	for _, segment := range ref.Segments {
-		key := segment.Key
-		segment.Key = nil
-		tmpl = append(tmpl, segment)
-		if key == nil {
-			continue
-		}
-		prefix := stateref.StateRef{Segments: tmpl}.String()
-		out = append(out, keyPosition{at: prefix, key: key.Value})
-	}
-	return out
+	_, keys := parseStepAddress(addr)
+	return keys
 }
 
 // keyPathsAgree reports whether two key paths can describe instances
