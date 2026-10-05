@@ -83,7 +83,7 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 	}
 
 	ready := make(chan *PlanStep)
-	results := make(chan stepResult)
+	results := make(chan stepResult, parallelism*2)
 
 	var wg sync.WaitGroup
 	for range parallelism {
@@ -91,6 +91,9 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 			for planned := range ready {
 				step := *planned
 				start := sync.OnceFunc(func() {
+					if e.Events == nil {
+						return
+					}
 					started := step
 					results <- stepResult{step: &started, started: true}
 				})
