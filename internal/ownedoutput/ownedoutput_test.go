@@ -108,6 +108,26 @@ func TestApplyRemovesOnlyUntouchedScaffolds(t *testing.T) {
 	}
 }
 
+func TestApplyAcceptsManagedToolingEdits(t *testing.T) {
+	dir := t.TempDir()
+	module := File{Path: "go.mod", Content: []byte("initial"), Mode: 0o644, Managed: true}
+	_, err := Apply(dir, testGenerator, []File{module})
+	require.NoError(t, err)
+	path := filepath.Join(dir, module.Path)
+	require.NoError(t, os.WriteFile(path, []byte("tidied"), 0o644))
+	module.Content = []byte("updated requirements")
+	_, err = Apply(dir, testGenerator, []File{module})
+	require.NoError(t, err)
+	body, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, module.Content, body)
+	module.Managed = false
+	before := outputFiles(t, dir)
+	_, err = Apply(dir, testGenerator, []File{module})
+	require.ErrorContains(t, err, "ownership policy changed")
+	require.Equal(t, before, outputFiles(t, dir))
+}
+
 func TestApplyRejectsConflictsBeforePublication(t *testing.T) {
 	for _, conflict := range []string{"modified owned", "unknown collision", "legacy directory"} {
 		t.Run(conflict, func(t *testing.T) {

@@ -204,3 +204,23 @@ func TestPublishCheckedBinaryPreservesPreviousBinary(t *testing.T) {
 		})
 	}
 }
+
+func TestPublishCheckedBinaryRejectsSourceAndExternalTargets(t *testing.T) {
+	for _, name := range []string{
+		"../outside", "main.go", "library.go", "go.mod", "go.sum", "factory.assets",
+		".unobin-generated.json", "nested/factory", `bad\path`, "bad:path", "", ".",
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "output")
+			require.NoError(t, os.MkdirAll(dir, 0o755))
+			called := false
+			changes, err := publishCheckedBinary(dir, name, func(staged string) error {
+				called = true
+				return os.WriteFile(staged, []byte("binary"), 0o755)
+			}, func() error { return nil })
+			require.Error(t, err)
+			require.Empty(t, changes)
+			require.False(t, called)
+		})
+	}
+}

@@ -18,6 +18,7 @@ import (
 
 	"golang.org/x/mod/modfile"
 
+	"github.com/cloudboss/unobin/internal/ownedoutput"
 	"github.com/cloudboss/unobin/pkg/filechange"
 	"github.com/cloudboss/unobin/pkg/gopackage"
 )
@@ -125,6 +126,9 @@ func publishCheckedBinary(
 	build func(string) error,
 	verify func() error,
 ) ([]filechange.Change, error) {
+	if err := validateBinaryName(name); err != nil {
+		return nil, err
+	}
 	abs, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, err
@@ -145,6 +149,18 @@ func publishCheckedBinary(
 	}
 	path := filepath.Join(dir, name)
 	return filechange.Observe([]string{path}, func() error { return os.Rename(staged.Name(), path) })
+}
+
+func validateBinaryName(name string) error {
+	if name == "" || name == "." || !filepath.IsLocal(name) || filepath.Base(name) != name ||
+		strings.ContainsAny(name, `/\:`) || strings.HasSuffix(name, ".go") {
+		return fmt.Errorf("invalid factory binary name %q; use a filename distinct from source", name)
+	}
+	switch name {
+	case "go.mod", "go.sum", "factory.assets", ownedoutput.ManifestName:
+		return fmt.Errorf("factory binary name %q conflicts with a generated output", name)
+	}
+	return nil
 }
 
 type buildModule struct {

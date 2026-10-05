@@ -2,7 +2,7 @@
   "name": "compile-pins-go-mod-version",
   "rootPath": "demo-factory",
   "executor": "root",
-  "cliVersion": "v9.9.9",
+  "cliVersion": "v0.99.99",
   "commands": [
     {
       "name": "compile",

@@ -1,0 +1,4 @@
+factory: {
+  imports: { renamed: './outer' }
+  data-sources: { nested: renamed.box {} }
+}

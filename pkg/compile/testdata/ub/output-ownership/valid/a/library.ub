@@ -1,0 +1,3 @@
+first: data-source {
+  outputs: { value: { value: 'first' } }
+}

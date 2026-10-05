@@ -2,6 +2,19 @@
 
 Compile writes a generated Go program. With `--build`, it also builds the factory executable.
 
+The compiler records generated source and captured assets in
+`.unobin-generated.json`. Recompilation validates that ownership, removes obsolete
+generated UB packages and assets, and preserves unrelated files. Edits to owned
+source or collisions with authored files stop compilation before publication.
+
+The compiler replaces `go.mod` and resets `go.sum` for the current imports. A build
+then runs `go mod tidy`, verifies the selected dependencies, and computes factory
+identity before publishing the executable. Generation without `--build` reports no
+verified revision. Module files and built executables have separate update rules
+from source; keep authored code in the source project.
+
+For output from older compilers without a manifest, choose a fresh `-o` directory.
+
 From the factory source directory:
 
 ```

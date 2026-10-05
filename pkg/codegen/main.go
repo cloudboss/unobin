@@ -46,6 +46,8 @@ type Input struct {
 	GoImports      map[string]string
 	GoModules      map[string]string
 	UBImports      map[string]string
+	// UBPackages contains generated UB-library source keyed by its local package ID.
+	UBPackages map[string][]byte
 	// GoConstraints maps a Go-library alias to its types' cross-field
 	// constraints (kebab type name -> specs), gathered by the dev CLI
 	// from the library's source. codegen attaches them to the library in

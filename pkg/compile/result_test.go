@@ -8,11 +8,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/asset"
 	"github.com/cloudboss/unobin/pkg/filechange"
 	"github.com/cloudboss/unobin/pkg/resolve"
-	"github.com/stretchr/testify/require"
 )
 
 type compileResultGolden struct {
@@ -57,7 +58,7 @@ func TestRunResultGolden(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(blockedOptions.OutDir, "go.mod"), 0o755))
 	compiled, err = RunResult(blockedOptions)
 	result.Cases = append(result.Cases,
-		compileResultGoldenCase("partial write failure", blockedRoot, compiled, err))
+		compileResultGoldenCase("legacy output directory", blockedRoot, compiled, err))
 
 	missingRoot := t.TempDir()
 	missingOptions := compileResultOptions(missingRoot)

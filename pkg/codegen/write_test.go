@@ -7,9 +7,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/filechange"
-	"github.com/stretchr/testify/require"
 )
 
 func TestWriteSourceLaysOutFiles(t *testing.T) {
@@ -189,7 +190,7 @@ func TestWriteSourceChangesGolden(t *testing.T) {
 		missingVersionDir, missingVersion, "1.26", "v0.1.0", map[string]string{}, nil,
 	)
 	result.Cases = append(result.Cases, writeSourceGoldenCase(
-		"failure after main", missingVersionDir, changes, err,
+		"render failure", missingVersionDir, changes, err,
 	))
 
 	blockedDir := filepath.Join(t.TempDir(), "out")
@@ -199,7 +200,7 @@ func TestWriteSourceChangesGolden(t *testing.T) {
 		"1.26", "v0.1.0", map[string]string{}, nil,
 	)
 	result.Cases = append(result.Cases, writeSourceGoldenCase(
-		"go mod write failure", blockedDir, changes, err,
+		"legacy output directory", blockedDir, changes, err,
 	))
 
 	got, err := json.MarshalIndent(result, "", "  ")
@@ -221,8 +222,10 @@ func TestWriteSourceManagesAssetSidecar(t *testing.T) {
 	changes, err := writeSource(t, dir, in)
 	require.NoError(t, err)
 	require.Equal(t, []filechange.Change{
+		{Path: filepath.Join(dir, ".unobin-generated.json"), Action: filechange.ActionCreated},
 		{Path: filepath.Join(dir, "factory.assets"), Action: filechange.ActionCreated},
 		{Path: filepath.Join(dir, "go.mod"), Action: filechange.ActionCreated},
+		{Path: filepath.Join(dir, "go.sum"), Action: filechange.ActionCreated},
 		{Path: filepath.Join(dir, "main.go"), Action: filechange.ActionCreated},
 	}, changes)
 	info, err := os.Stat(filepath.Join(dir, "factory.assets"))
@@ -235,8 +238,10 @@ func TestWriteSourceManagesAssetSidecar(t *testing.T) {
 	changes, err = writeSource(t, dir, in)
 	require.NoError(t, err)
 	require.Equal(t, []filechange.Change{
+		{Path: filepath.Join(dir, ".unobin-generated.json"), Action: filechange.ActionUnchanged},
 		{Path: filepath.Join(dir, "factory.assets"), Action: filechange.ActionUnchanged},
 		{Path: filepath.Join(dir, "go.mod"), Action: filechange.ActionUnchanged},
+		{Path: filepath.Join(dir, "go.sum"), Action: filechange.ActionUnchanged},
 		{Path: filepath.Join(dir, "main.go"), Action: filechange.ActionUnchanged},
 	}, changes)
 
@@ -244,8 +249,10 @@ func TestWriteSourceManagesAssetSidecar(t *testing.T) {
 	changes, err = writeSource(t, dir, in)
 	require.NoError(t, err)
 	require.Equal(t, []filechange.Change{
+		{Path: filepath.Join(dir, ".unobin-generated.json"), Action: filechange.ActionUpdated},
 		{Path: filepath.Join(dir, "factory.assets"), Action: filechange.ActionUpdated},
 		{Path: filepath.Join(dir, "go.mod"), Action: filechange.ActionUnchanged},
+		{Path: filepath.Join(dir, "go.sum"), Action: filechange.ActionUnchanged},
 		{Path: filepath.Join(dir, "main.go"), Action: filechange.ActionUnchanged},
 	}, changes)
 
@@ -255,8 +262,10 @@ func TestWriteSourceManagesAssetSidecar(t *testing.T) {
 	changes, err = writeSource(t, dir, in)
 	require.NoError(t, err)
 	require.Equal(t, []filechange.Change{
+		{Path: filepath.Join(dir, ".unobin-generated.json"), Action: filechange.ActionUpdated},
 		{Path: filepath.Join(dir, "factory.assets"), Action: filechange.ActionRemoved},
 		{Path: filepath.Join(dir, "go.mod"), Action: filechange.ActionUnchanged},
+		{Path: filepath.Join(dir, "go.sum"), Action: filechange.ActionUnchanged},
 		{Path: filepath.Join(dir, "main.go"), Action: filechange.ActionUpdated},
 	}, changes)
 	_, err = os.Stat(filepath.Join(dir, "factory.assets"))

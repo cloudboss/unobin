@@ -4,7 +4,15 @@
       "name": "created",
       "changes": [
         {
+          "path": ".unobin-generated.json",
+          "action": "created"
+        },
+        {
           "path": "go.mod",
+          "action": "created"
+        },
+        {
+          "path": "go.sum",
           "action": "created"
         },
         {
@@ -18,7 +26,15 @@
       "name": "unchanged",
       "changes": [
         {
+          "path": ".unobin-generated.json",
+          "action": "unchanged"
+        },
+        {
           "path": "go.mod",
+          "action": "unchanged"
+        },
+        {
+          "path": "go.sum",
           "action": "unchanged"
         },
         {
@@ -32,8 +48,16 @@
       "name": "updated",
       "changes": [
         {
+          "path": ".unobin-generated.json",
+          "action": "updated"
+        },
+        {
           "path": "go.mod",
           "action": "updated"
+        },
+        {
+          "path": "go.sum",
+          "action": "unchanged"
         },
         {
           "path": "main.go",
@@ -43,28 +67,14 @@
       "error": ""
     },
     {
-      "name": "failure after main",
-      "changes": [
-        {
-          "path": "main.go",
-          "action": "created"
-        }
-      ],
+      "name": "render failure",
+      "changes": null,
       "error": "codegen: no version for import \"remote\" (example.com/remote)"
     },
     {
-      "name": "go mod write failure",
-      "changes": [
-        {
-          "path": "go.mod",
-          "action": "unchanged"
-        },
-        {
-          "path": "main.go",
-          "action": "created"
-        }
-      ],
-      "error": "rename $OUT/.go.mod.tmp $OUT/go.mod: file exists"
+      "name": "legacy output directory",
+      "changes": [],
+      "error": "existing output directory $OUT has no ownership manifest; use a fresh directory or review a migration"
     }
   ]
 }

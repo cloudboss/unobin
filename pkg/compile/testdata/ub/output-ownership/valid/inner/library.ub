@@ -1,0 +1,5 @@
+value: data-source {
+  imports: { provider: 'example.com/cleanup/provider' }
+  data-sources: { result: provider.value {} }
+  outputs: { value: { value: data-source.result.value } }
+}

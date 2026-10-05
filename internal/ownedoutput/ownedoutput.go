@@ -34,6 +34,8 @@ type File struct {
 	Marker   string
 	// RemoveIfUnchanged removes obsolete scaffolds only while their initial content is intact.
 	RemoveIfUnchanged bool
+	// Managed allows tooling edits and replaces the file on each generation.
+	Managed bool
 }
 
 func Apply(dir string, generator Generator, files []File) ([]filechange.Change, error) {
@@ -125,6 +127,7 @@ type record struct {
 	Preserve          bool        `json:"preserve"`
 	Marker            string      `json:"marker,omitempty"`
 	RemoveIfUnchanged bool        `json:"remove-if-unchanged,omitempty"`
+	Managed           bool        `json:"managed,omitempty"`
 }
 
 type output struct {
@@ -195,6 +198,9 @@ func validateFiles(files []File) ([]File, error) {
 		}
 		if file.RemoveIfUnchanged && !file.Preserve {
 			return nil, fmt.Errorf("scaffold %s must preserve implementation edits", file.Path)
+		}
+		if file.Managed && (file.Preserve || file.Marker != "") {
+			return nil, fmt.Errorf("managed output %s cannot preserve edits or require a marker", file.Path)
 		}
 		if file.Marker != "" && !bytes.Contains(file.Content, []byte(file.Marker)) {
 			return nil, fmt.Errorf("owned output %s is missing its generated marker", file.Path)
@@ -272,6 +278,9 @@ func readManifest(dir string, generator Generator) (manifest, error) {
 		if file.RemoveIfUnchanged && !file.Preserve {
 			return manifest, fmt.Errorf("invalid scaffold ownership record for %s", file.Path)
 		}
+		if file.Managed && (file.Preserve || file.Marker != "") {
+			return manifest, fmt.Errorf("invalid managed ownership record for %s", file.Path)
+		}
 		if seen[file.Path] {
 			return manifest, fmt.Errorf("duplicate ownership record for %s", file.Path)
 		}
@@ -305,7 +314,7 @@ func prepareBatch(dir string, generator Generator, old manifest, files []File) (
 			return batch, err
 		}
 		batch.before[path] = before
-		if file, owned := known[path]; owned && !file.Preserve && before.exists {
+		if file, owned := known[path]; owned && !file.Preserve && !file.Managed && before.exists {
 			if contentDigest(before.content) != file.Digest ||
 				file.Marker != "" && !bytes.Contains(before.content, []byte(file.Marker)) {
 				return batch, fmt.Errorf("owned output %s was modified; preserve it before regenerating", path)
@@ -324,7 +333,7 @@ func prepareBatch(dir string, generator Generator, old manifest, files []File) (
 			return batch, fmt.Errorf("owned output %s conflicts with an unknown file", file.Path)
 		}
 		if owned && (file.Preserve != previous.Preserve ||
-			file.RemoveIfUnchanged != previous.RemoveIfUnchanged) {
+			file.RemoveIfUnchanged != previous.RemoveIfUnchanged || file.Managed != previous.Managed) {
 			return batch, fmt.Errorf("ownership policy changed for %s", file.Path)
 		}
 		if file.Preserve && before.exists {
@@ -335,6 +344,7 @@ func prepareBatch(dir string, generator Generator, old manifest, files []File) (
 			Path: file.Path, Digest: contentDigest(file.Content), Mode: file.Mode,
 			Preserve: file.Preserve, Marker: file.Marker,
 			RemoveIfUnchanged: file.RemoveIfUnchanged,
+			Managed:           file.Managed,
 		})
 		if !before.exists || !bytes.Equal(before.content, file.Content) {
 			batch.updates = append(batch.updates, update{

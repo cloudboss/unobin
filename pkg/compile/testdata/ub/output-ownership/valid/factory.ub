@@ -1,0 +1,5 @@
+factory: {
+  imports: { outer: './outer' }
+  assets: { message: './message.txt' }
+  data-sources: { nested: outer.box {} }
+}

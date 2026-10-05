@@ -1,0 +1,7 @@
+factory: {
+  imports: { a: './a', wrap: './wrap' }
+  data-sources: {
+    root: a.first {}
+    nested: wrap.box {}
+  }
+}

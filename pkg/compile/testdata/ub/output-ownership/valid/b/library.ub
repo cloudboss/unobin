@@ -1,0 +1,3 @@
+second: data-source {
+  outputs: { value: { value: 'second' } }
+}

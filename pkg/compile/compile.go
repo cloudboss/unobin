@@ -270,6 +270,11 @@ func run(opts Options, resultOut **Result) error {
 	if name == "" {
 		name = DeriveStackName(factoryPath)
 	}
+	if opts.Build {
+		if err := validateBinaryName(name); err != nil {
+			return err
+		}
+	}
 
 	var replaceUnobinAbs string
 	coreReplacement := opts.ReplaceUnobin
@@ -481,6 +486,7 @@ func run(opts Options, resultOut **Result) error {
 		GoImports:      analysis.GoImports,
 		GoModules:      analysis.GoModules,
 		UBImports:      analysis.UBImports,
+		UBPackages:     analysis.UBPackages,
 		GoConstraints:  goConstraints,
 		GoDefaults:     goDefaults,
 		GoSchemas:      goSchemas,
@@ -533,22 +539,6 @@ func run(opts Options, resultOut **Result) error {
 	result.Files = append(result.Files, changes...)
 	if err != nil {
 		return err
-	}
-	for _, packageID := range slices.Sorted(maps.Keys(analysis.UBPackages)) {
-		pkgBytes := analysis.UBPackages[packageID]
-		pkgDir := filepath.Join(opts.OutDir, "internal", packageID)
-		if err := os.MkdirAll(pkgDir, 0o755); err != nil {
-			return err
-		}
-		change, err := filechange.WriteFile(
-			filepath.Join(pkgDir, packageID+".go"), pkgBytes, 0o644,
-		)
-		if change.Path != "" {
-			result.Files = append(result.Files, change)
-		}
-		if err != nil {
-			return err
-		}
 	}
 	if opts.Build {
 		buildResult, err := runGoBuild(

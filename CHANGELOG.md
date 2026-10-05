@@ -20,6 +20,9 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ### Fixed
 
+- Remove obsolete owned UB packages and captured assets before building a factory.
+  Reused output now resolves the same dependencies and factory identity as clean
+  output. Earlier output directories require a fresh compilation destination.
 - Preserve authored lifecycle implementations when regenerating Go libraries.
   Validate output ownership before publishing and remove only untouched obsolete
   lifecycle stubs.

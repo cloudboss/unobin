@@ -1,0 +1,5 @@
+box: data-source {
+  imports: { inner: '../inner' }
+  data-sources: { nested: inner.value {} }
+  outputs: { value: { value: data-source.nested.value } }
+}

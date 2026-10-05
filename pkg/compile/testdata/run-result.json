@@ -17,7 +17,15 @@
         "binary-path": "",
         "files": [
           {
+            "path": "build/.unobin-generated.json",
+            "action": "created"
+          },
+          {
             "path": "build/go.mod",
+            "action": "created"
+          },
+          {
+            "path": "build/go.sum",
             "action": "created"
           },
           {
@@ -45,7 +53,15 @@
         "binary-path": "",
         "files": [
           {
+            "path": "build/.unobin-generated.json",
+            "action": "unchanged"
+          },
+          {
             "path": "build/go.mod",
+            "action": "unchanged"
+          },
+          {
+            "path": "build/go.sum",
             "action": "unchanged"
           },
           {
@@ -57,32 +73,9 @@
       "error": ""
     },
     {
-      "name": "partial write failure",
-      "result": {
-        "factory-name": "demo",
-        "version": "v1.2.3",
-        "content-revision": "",
-        "library-path": "example.com/demo",
-        "source-path": "factory.ub",
-        "project-dir": ".",
-        "output-dir": "build",
-        "main-go-path": "build/main.go",
-        "go-mod-path": "build/go.mod",
-        "assets-path": "",
-        "built": false,
-        "binary-path": "",
-        "files": [
-          {
-            "path": "build/go.mod",
-            "action": "unchanged"
-          },
-          {
-            "path": "build/main.go",
-            "action": "created"
-          }
-        ]
-      },
-      "error": "rename $ROOT/build/.go.mod.tmp $ROOT/build/go.mod: file exists"
+      "name": "legacy output directory",
+      "result": null,
+      "error": "existing output directory $ROOT/build has no ownership manifest; use a fresh directory or review a migration"
     },
     {
       "name": "failure before mutation",
