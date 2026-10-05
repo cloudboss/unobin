@@ -128,7 +128,7 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (result *ExecRes
 	if err := e.runApplySchedule(ctx, rs, pf); err != nil {
 		return nil, NewApplyFailure(ApplyFailureExecute, err)
 	}
-	pruneStateEntries(rs.next, pf.Steps)
+	rs.pruneNext(pf.Steps)
 	// A destroy leaves nothing to read outputs from, so reconciliation
 	// and output evaluation are skipped and the snapshot ends with no
 	// outputs.
@@ -272,7 +272,7 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 		hash = t.Hash
 	}
 
-	upsertEntry(rs.next, &state.Entry{
+	rs.upsertNext(&state.Entry{
 		Address:          step.Address,
 		Type:             state.EntryAction,
 		Category:         string(prep.node.Kind),
@@ -510,7 +510,7 @@ func (e *Executor) applyResource(
 	} else {
 		seedAddressInstance(prep.parent.Resources, prep.node.Address, prep.instKey, attrs)
 	}
-	upsertEntry(rs.next, &state.Entry{
+	rs.upsertNext(&state.Entry{
 		Address:          step.Address,
 		Type:             state.EntryLeaf,
 		Category:         string(prep.node.Kind),
@@ -684,7 +684,7 @@ func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanSte
 	}
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
-	removeEntry(rs.next, step.Address)
+	rs.removeNext(step.Address)
 	_, err = e.persist(rs)
 	return err
 }
@@ -696,7 +696,7 @@ func (e *Executor) applyDestroy(ctx context.Context, rs *runState, step *PlanSte
 func (e *Executor) removeRecord(rs *runState, step *PlanStep) error {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
-	removeEntry(rs.next, step.Address)
+	rs.removeNext(step.Address)
 	_, err := e.persist(rs)
 	return err
 }
@@ -799,7 +799,7 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	} else {
 		seedAddressInstance(prep.parent.Data, prep.node.Address, prep.instKey, attrs)
 	}
-	upsertEntry(rs.next, &state.Entry{
+	rs.upsertNext(&state.Entry{
 		Address:          step.Address,
 		Type:             state.EntryData,
 		Category:         string(prep.node.Kind),

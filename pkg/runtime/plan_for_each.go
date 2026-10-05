@@ -86,7 +86,7 @@ func (e *Executor) planForEachComposite(
 		scope, _ := e.ensureCompositeScope(rs, instAddr)
 		var priorOut map[string]any
 		if rs.prior != nil {
-			if prior := rs.prior.Find(instAddr); prior != nil {
+			if prior := rs.priorEntry(instAddr); prior != nil {
 				priorOut = prior.Outputs
 			}
 		}
@@ -163,7 +163,7 @@ func (e *Executor) planInternalUnder(
 		}
 		var priorOut map[string]any
 		if rs.prior != nil {
-			if prior := rs.prior.Find(addr); prior != nil {
+			if prior := rs.priorEntry(addr); prior != nil {
 				priorOut = prior.Outputs
 			}
 		}

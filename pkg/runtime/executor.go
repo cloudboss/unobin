@@ -754,7 +754,7 @@ func (e *Executor) finalizeComposite(
 	} else {
 		seedAddressInstance(target, n.Address, instKey, outputs)
 	}
-	upsertEntry(rs.next, &state.Entry{
+	rs.upsertNext(&state.Entry{
 		Address:          instAddr,
 		Type:             state.EntryLibraryCall,
 		Category:         string(n.Kind),

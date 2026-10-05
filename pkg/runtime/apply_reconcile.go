@@ -35,7 +35,7 @@ func (e *Executor) reconcileChangedOutputs(ctx context.Context, rs *runState, pf
 	addrs := reconcileTargets(&applied, rs.dependsOn)
 	entries := make([]*state.Entry, 0, len(addrs))
 	for _, addr := range addrs {
-		if ent := rs.next.Find(addr); ent != nil {
+		if ent := rs.nextEntry(addr); ent != nil {
 			entries = append(entries, ent)
 		}
 	}
@@ -68,7 +68,7 @@ func (e *Executor) reconcileChangedOutputs(ctx context.Context, rs *runState, pf
 		if r.err != nil || r.gone {
 			continue
 		}
-		upsertEntry(rs.next, r.ent)
+		rs.upsertNext(r.ent)
 		e.seedReconciled(rs, r.ent)
 	}
 }

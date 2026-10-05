@@ -1206,7 +1206,7 @@ func (e *Executor) planComposite(rs *runState, n *Node) (*PlanStep, error) {
 	}
 	var prior *state.Entry
 	if rs.prior != nil {
-		prior = rs.prior.Find(n.Address)
+		prior = rs.priorEntry(n.Address)
 	}
 	var priorOut map[string]any
 	if prior != nil {
@@ -1256,7 +1256,7 @@ func (e *Executor) planOneAction(
 
 	var prior *state.Entry
 	if rs.prior != nil {
-		prior = rs.prior.Find(addr)
+		prior = rs.priorEntry(addr)
 	}
 	dec := DecisionRerun
 	var priorOut map[string]any
@@ -1324,7 +1324,7 @@ func (e *Executor) planOneResource(
 	}
 	var prior *state.Entry
 	if rs.prior != nil {
-		prior = rs.prior.Find(addr)
+		prior = rs.priorEntry(addr)
 	}
 	step := &PlanStep{
 		Address:          addr,

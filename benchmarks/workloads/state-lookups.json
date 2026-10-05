@@ -1,0 +1,92 @@
+{
+  "work-package": "state-lookups",
+  "description": "Execution-local address lookup, snapshot moves, and ordered state updates",
+  "kind": "micro",
+  "fixtures": [
+    "pkg/runtime/state_lookup_benchmark_test.go",
+    "pkg/runtime/apply_events_test.go",
+    "pkg/runtime/resource_test_helpers_test.go",
+    "pkg/runtime/dag_test.go",
+    "pkg/runtime/nodes_test.go",
+    "pkg/runtime/plan_test.go",
+    "pkg/runtime/apply_schedule_test.go"
+  ],
+  "parameters": {
+    "entry-counts": "100,1000,10000",
+    "changes-per-operation": "one move, update, addition, and removal",
+    "planning-nodes": "300",
+    "scheduler-steps": "1000",
+    "scheduler-parallelism": "32"
+  },
+  "packages": ["./pkg/runtime"],
+  "benchmark": "^(BenchmarkStateLookupDuringPlanning|BenchmarkStateLookupWithChanges|BenchmarkPlanLargeAlreadyCheckedFactory|BenchmarkApplySchedulerLargeIndependentPlan)$",
+  "cases": [
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=100",
+      "units": ["sec/op", "B/op", "allocs/op", "entries", "lookups"],
+      "fixed": {"entries": 100, "lookups": 100}
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=1000",
+      "units": ["sec/op", "B/op", "allocs/op", "entries", "lookups"],
+      "fixed": {"entries": 1000, "lookups": 1000}
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupDuringPlanning/entries=10000",
+      "units": ["sec/op", "B/op", "allocs/op", "entries", "lookups"],
+      "fixed": {"entries": 10000, "lookups": 10000}
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=100",
+      "units": ["sec/op", "B/op", "allocs/op", "entries", "lookups"],
+      "fixed": {"entries": 100, "lookups": 203}
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=1000",
+      "units": ["sec/op", "B/op", "allocs/op", "entries", "lookups"],
+      "fixed": {"entries": 1000, "lookups": 2003}
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkStateLookupWithChanges/entries=10000",
+      "units": ["sec/op", "B/op", "allocs/op", "entries", "lookups"],
+      "fixed": {"entries": 10000, "lookups": 20003}
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkPlanLargeAlreadyCheckedFactory",
+      "units": ["sec/op", "B/op", "allocs/op"]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/independent",
+      "units": ["sec/op", "B/op", "allocs/op"]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/chain",
+      "units": ["sec/op", "B/op", "allocs/op"]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkApplySchedulerLargeIndependentPlan/fan",
+      "units": ["sec/op", "B/op", "allocs/op"]
+    }
+  ],
+  "samples": 10,
+  "benchtime": "2s",
+  "cpus": [1, 4],
+  "setup": "Build valid fixed snapshots and resource metadata outside timing. Each lookup iteration creates a new runState and reads every prior address through the planning lookup method. The changes case first reads one address, applies a real leaf move, replaces both active snapshots, updates one entry, adds one entry, removes one entry, and reads all prior and next entries plus two absent addresses. Include snapshot cloning and any lookup construction or refresh inside timing. Check exact addresses, values, order, absence, and snapshot validity outside timing. These isolate the state lookup stage; retain the existing checked-factory planning and scheduler cases.",
+  "cache-policy": "Symmetric warm Go build cache and one 1x benchmark warmup. Default GC, a fresh execution context per operation, and no unrelated CPU-intensive work during collection.",
+  "primary-unit": "sec/op",
+  "primary-direction": "lower",
+  "tests": [
+    ["go", "test", "-count=1", "./pkg/runtime", "./pkg/sdk/state", "./internal/ubtest"],
+    ["go", "test", "-count=1", "-run", "^TestCompiledCases$/^ub-composite-foreach$", "./tests/e2e"]
+  ]
+}
