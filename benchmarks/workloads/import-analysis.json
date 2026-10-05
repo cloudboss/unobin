@@ -1,0 +1,237 @@
+{
+  "work-package": "import-analysis",
+  "description": "Shared nested import resolution, schema reuse across exports, and schema freshness",
+  "kind": "micro",
+  "fixtures": [
+    "pkg/sourcecheck/analysis_benchmark_test.go",
+    "pkg/sourcecheck/imports_test.go",
+    "pkg/sourcecheck/sourcecheck_test.go",
+    "pkg/sourcecheck/testdata/golibrary/schema/go.mod",
+    "pkg/sourcecheck/testdata/golibrary/schema/library.go",
+    "pkg/sourcecheck/testdata/golibrary/analysis-helper/helper.go",
+    "pkg/sourcecheck/testdata/golibrary/analysis-helper/helper-updated.go.txt",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/benchmark-import-analysis/factory/factory.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/benchmark-import-analysis/inner/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/benchmark-import-analysis/outer/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-2/factory.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-2/level-0/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-2/level-1/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/factory.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-0/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-1/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-2/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-3/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-5/level-4/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/factory.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-0/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-1/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-2/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-3/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-4/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-5/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-6/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-7/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-8/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/nested/depth-10/level-9/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-1/factory.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-1/library/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-10/factory.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-10/library/library.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-100/factory.ub",
+    "pkg/sourcecheck/testdata/ub/sourcecheck/valid/analysis-scaling/exports/count-100/library/library.ub"
+  ],
+  "parameters": {
+    "import-depths": "2,5,10",
+    "exports-sharing-schema": "1,10,100",
+    "unchanged-schema-lookups": "100",
+    "changed-schema-lookups": "2 with one deterministic helper edit",
+    "existing-nested-case": "two UB libraries and one Go schema",
+    "existing-factory-case": "500 resource nodes"
+  },
+  "packages": [
+    "./pkg/sourcecheck"
+  ],
+  "benchmark": "^(BenchmarkAnalyzeNestedLibraries|BenchmarkAnalyzeSharedExports|BenchmarkSchemaCacheReads|BenchmarkImportAnalysisNestedUBLibraries|BenchmarkCheckFactoryBodyLargeGraph)$",
+  "cases": [
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=2",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "libraries",
+        "ub-reads/op",
+        "schema-reads/op",
+        "resolves/op"
+      ],
+      "fixed": {
+        "libraries": 2,
+        "schema-reads/op": 1
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=5",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "libraries",
+        "ub-reads/op",
+        "schema-reads/op",
+        "resolves/op"
+      ],
+      "fixed": {
+        "libraries": 5,
+        "schema-reads/op": 1
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=10",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "libraries",
+        "ub-reads/op",
+        "schema-reads/op",
+        "resolves/op"
+      ],
+      "fixed": {
+        "libraries": 10,
+        "schema-reads/op": 1
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=1",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "exports",
+        "ub-reads/op",
+        "schema-reads/op",
+        "resolves/op"
+      ],
+      "fixed": {
+        "exports": 1,
+        "schema-reads/op": 1
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=10",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "exports",
+        "ub-reads/op",
+        "schema-reads/op",
+        "resolves/op"
+      ],
+      "fixed": {
+        "exports": 10,
+        "schema-reads/op": 1
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=100",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "exports",
+        "ub-reads/op",
+        "schema-reads/op",
+        "resolves/op"
+      ],
+      "fixed": {
+        "exports": 100,
+        "schema-reads/op": 1
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/unchanged",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "lookups",
+        "schema-reads/op"
+      ],
+      "fixed": {
+        "lookups": 100,
+        "schema-reads/op": 0
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/helper-edit",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "lookups",
+        "schema-reads/op"
+      ],
+      "fixed": {
+        "lookups": 2,
+        "schema-reads/op": 2
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkImportAnalysisNestedUBLibraries",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkCheckFactoryBodyLargeGraph",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op"
+      ]
+    }
+  ],
+  "samples": 10,
+  "benchtime": "2s",
+  "cpus": [
+    1,
+    4
+  ],
+  "setup": "Copy committed UB fixtures and Go metadata into temporary source roots outside timing. Each import analysis creates a fresh schema cache and resolves the complete graph. Inject a counted schema reader returning a fixed validated schema. Include metadata checks, source snapshots, UB parsing, resolution, and semantic library construction; count UB opens through the source filesystem. Check exact nested exports, shared schemas, and counted reads after timing. The schema hit case primes one cache before timing and performs 100 unchanged reads per operation. The edit case creates a fresh cache, reads the initial helper, replaces it with the committed variant, and reads again; include file writes, snapshots, and both schema reads. Retain existing source-check and generated-package benchmarks as regression cases.",
+  "cache-policy": "Symmetric warm Go build and module caches, one 1x benchmark warmup, default GC, fresh import analysis per operation, and no unrelated CPU-intensive work during collection.",
+  "primary-unit": "sec/op",
+  "primary-direction": "lower",
+  "tests": [
+    [
+      "go",
+      "test",
+      "-count=1",
+      "./pkg/sourcecheck",
+      "./pkg/resolve",
+      "./pkg/goschema",
+      "./pkg/gopackage",
+      "./internal/ubtest"
+    ],
+    [
+      "go",
+      "test",
+      "-count=1",
+      "-run",
+      "^TestCompiledCases$/^ub-composite-foreach$",
+      "./tests/e2e"
+    ]
+  ]
+}

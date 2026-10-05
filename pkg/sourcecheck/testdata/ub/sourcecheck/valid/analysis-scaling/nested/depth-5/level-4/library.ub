@@ -1,0 +1,7 @@
+box: resource {
+  imports: { std: 'example.com/schema' }
+  library-configs: { std: { region: 'east' } }
+  resources: {
+    file: std.file { path: 'leaf.txt', content: 'leaf' }
+  }
+}

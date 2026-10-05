@@ -1,0 +1,15 @@
+factory: {
+  imports: { shared: 'example.com/analysis' }
+  resources: {
+    node-000: shared.box-000 {}
+    node-001: shared.box-001 {}
+    node-002: shared.box-002 {}
+    node-003: shared.box-003 {}
+    node-004: shared.box-004 {}
+    node-005: shared.box-005 {}
+    node-006: shared.box-006 {}
+    node-007: shared.box-007 {}
+    node-008: shared.box-008 {}
+    node-009: shared.box-009 {}
+  }
+}

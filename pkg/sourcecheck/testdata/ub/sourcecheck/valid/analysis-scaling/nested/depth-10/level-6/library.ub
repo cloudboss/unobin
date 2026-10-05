@@ -1,0 +1,4 @@
+box: resource {
+  imports: { next: 'example.com/analysis-7' }
+  resources: { child: next.box {} }
+}

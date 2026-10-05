@@ -1,0 +1,4 @@
+factory: {
+  imports: { next: 'example.com/analysis-0' }
+  resources: { main: next.box {} }
+}

@@ -1,0 +1,79 @@
+box-000: resource {
+  imports: { std: 'example.com/schema' }
+  library-configs: { std: { region: 'east' } }
+  resources: {
+    file: std.file { path: 'box-000.txt', content: 'box-000' }
+  }
+}
+
+box-001: resource {
+  imports: { std: 'example.com/schema' }
+  library-configs: { std: { region: 'east' } }
+  resources: {
+    file: std.file { path: 'box-001.txt', content: 'box-001' }
+  }
+}
+
+box-002: resource {
+  imports: { std: 'example.com/schema' }
+  library-configs: { std: { region: 'east' } }
+  resources: {
+    file: std.file { path: 'box-002.txt', content: 'box-002' }
+  }
+}
+
+box-003: resource {
+  imports: { std: 'example.com/schema' }
+  library-configs: { std: { region: 'east' } }
+  resources: {
+    file: std.file { path: 'box-003.txt', content: 'box-003' }
+  }
+}
+
+box-004: resource {
+  imports: { std: 'example.com/schema' }
+  library-configs: { std: { region: 'east' } }
+  resources: {
+    file: std.file { path: 'box-004.txt', content: 'box-004' }
+  }
+}
+
+box-005: resource {
+  imports: { std: 'example.com/schema' }
+  library-configs: { std: { region: 'east' } }
+  resources: {
+    file: std.file { path: 'box-005.txt', content: 'box-005' }
+  }
+}
+
+box-006: resource {
+  imports: { std: 'example.com/schema' }
+  library-configs: { std: { region: 'east' } }
+  resources: {
+    file: std.file { path: 'box-006.txt', content: 'box-006' }
+  }
+}
+
+box-007: resource {
+  imports: { std: 'example.com/schema' }
+  library-configs: { std: { region: 'east' } }
+  resources: {
+    file: std.file { path: 'box-007.txt', content: 'box-007' }
+  }
+}
+
+box-008: resource {
+  imports: { std: 'example.com/schema' }
+  library-configs: { std: { region: 'east' } }
+  resources: {
+    file: std.file { path: 'box-008.txt', content: 'box-008' }
+  }
+}
+
+box-009: resource {
+  imports: { std: 'example.com/schema' }
+  library-configs: { std: { region: 'east' } }
+  resources: {
+    file: std.file { path: 'box-009.txt', content: 'box-009' }
+  }
+}

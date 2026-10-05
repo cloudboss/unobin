@@ -1,0 +1,81 @@
+{
+  "work-package": "factory-compile",
+  "description": "Factory analysis, generation, complete builds, and output size",
+  "fixtures": [
+    "pkg/compile/compile_benchmark_test.go",
+    "pkg/compile/testdata/ub/compile-scaling/valid/nodes-10/factory.ub",
+    "pkg/compile/testdata/ub/compile-scaling/valid/nodes-500/factory.ub",
+    "pkg/compile/testdata/ub/compile-scaling/valid/shared/library.ub"
+  ],
+  "parameters": {
+    "factory-composites": "10,500",
+    "exports-per-library": "one data-source composite with one constant output",
+    "generation-mode": "fresh output directory, no Go build",
+    "build-profiles": "default full backend and encryption registries",
+    "linker-policy": "normal Go debug information; identical factory version and no strip flags"
+  },
+  "packages": [
+    "./pkg/compile"
+  ],
+  "cache-policy": "Warm task-owned Go build, toolchain, and module caches. Collector runs a symmetric 1x warmup. Cold build samples use a fresh empty build cache and keep downloaded modules and the toolchain outside timing. No unrelated CPU-intensive work during collection.",
+  "primary-unit": "sec/op",
+  "primary-direction": "lower",
+  "tests": [
+    [
+      "go",
+      "test",
+      "-count=1",
+      "./pkg/compile",
+      "./pkg/sourcecheck",
+      "./pkg/codegen",
+      "./internal/ubtest"
+    ],
+    [
+      "go",
+      "test",
+      "-count=1",
+      "-run",
+      "^TestCompiledCases$/^ub-composite-foreach$",
+      "./tests/e2e"
+    ]
+  ],
+  "kind": "micro",
+  "benchmark": "^BenchmarkCompileFactoryGeneration$",
+  "cases": [
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryGeneration/nodes=10",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "source-bytes",
+        "nodes"
+      ],
+      "fixed": {
+        "nodes": 10
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryGeneration/nodes=500",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "source-bytes",
+        "nodes"
+      ],
+      "fixed": {
+        "nodes": 500
+      }
+    }
+  ],
+  "samples": 10,
+  "benchtime": "2s",
+  "cpus": [
+    1,
+    4
+  ],
+  "setup": "Copy committed small and large factory fixtures outside timing and use a local Unobin replacement. Include source parsing, import resolution, compatibility checks, schema/type checks, UB and main Go emission, and owned output publication. Each operation uses a new output directory. Validate generated Go syntax and exact source file inventory after timing; report emitted source bytes. This mode does not run Go tidying or compilation."
+}

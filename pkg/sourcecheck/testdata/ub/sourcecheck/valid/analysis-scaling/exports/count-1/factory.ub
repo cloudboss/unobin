@@ -1,0 +1,6 @@
+factory: {
+  imports: { shared: 'example.com/analysis' }
+  resources: {
+    node-000: shared.box-000 {}
+  }
+}

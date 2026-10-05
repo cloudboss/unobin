@@ -1,0 +1,18 @@
+factory: {
+  imports: { shared: '../shared' }
+  data-sources: {
+    node-000: shared.box {}
+    node-001: shared.box {}
+    node-002: shared.box {}
+    node-003: shared.box {}
+    node-004: shared.box {}
+    node-005: shared.box {}
+    node-006: shared.box {}
+    node-007: shared.box {}
+    node-008: shared.box {}
+    node-009: shared.box {}
+  }
+  outputs: {
+    value: { value: data-source.node-000.value }
+  }
+}
