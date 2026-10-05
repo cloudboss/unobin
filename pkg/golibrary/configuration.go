@@ -22,6 +22,7 @@ type configurationWalker struct {
 	completed map[string]bool
 	packages  map[string]*parsedPackage
 	metadata  map[string]PackageMetadata
+	failures  map[string]error
 }
 
 func (w *configurationWalker) checkConfigurations(source PackageSource, pkg *parsedPackage) error {
@@ -81,7 +82,7 @@ func (w *configurationWalker) checkPackage(source PackageSource) error {
 	}
 	source.Dir = abs
 	if w.checked[abs] {
-		return nil
+		return w.failures[abs]
 	}
 	inspection, err := w.context.checkPackageDeclaration(source)
 	if inspection == nil {
@@ -91,7 +92,14 @@ func (w *configurationWalker) checkPackage(source PackageSource) error {
 	w.checked[abs] = true
 	w.packages[abs] = inspection.pkg
 	w.metadata[abs] = inspection.metadata
-	return errors.Join(err, w.checkConfigurations(source, inspection.pkg))
+	err = errors.Join(err, w.checkConfigurations(source, inspection.pkg))
+	if err != nil {
+		if w.failures == nil {
+			w.failures = map[string]error{}
+		}
+		w.failures[abs] = err
+	}
+	return err
 }
 
 func (w *configurationWalker) checkValue(

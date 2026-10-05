@@ -126,6 +126,7 @@ func preflightImports(
 	if err != nil {
 		return nil, nil, err
 	}
+	context = context.ForAnalysis()
 	var failures []error
 	for _, source := range packages {
 		deferred, err := deferUncachedMetadata(context.CheckPackage(source))
@@ -256,9 +257,14 @@ func (p *importPreflight) addPackage(record preflightSource, linked bool, label 
 	if err != nil {
 		return err
 	}
-	module, err := golibrary.ModuleSourceAt(dir)
-	if err != nil {
-		return err
+	previous, found := p.packages[dir]
+	module := previous.Module
+	if !found {
+		var err error
+		module, err = golibrary.ModuleSourceAt(dir)
+		if err != nil {
+			return err
+		}
 	}
 	module.Commit = record.source.Commit
 	if ref := record.ref; ref != nil {
@@ -272,7 +278,6 @@ func (p *importPreflight) addPackage(record preflightSource, linked bool, label 
 			module.Replacement = module.Dir
 		}
 	}
-	previous := p.packages[dir]
 	if p.contexts[dir] == "" || linked && !previous.Linked {
 		p.contexts[dir] = label
 	}

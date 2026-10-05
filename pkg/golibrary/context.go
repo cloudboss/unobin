@@ -59,6 +59,7 @@ type CompatibilityContext struct {
 	descriptor libraryapi.Descriptor
 	options    CompatibilityOptions
 	entries    map[string]PackageMetadata
+	analysis   *compatibilityAnalysis
 }
 
 type packageInspection struct {
@@ -154,6 +155,10 @@ func (c *CompatibilityContext) inspectPackage(source PackageSource) (*packageIns
 	source.Module.Dir, source.Dir, err = cleanRoots(source.Module.Dir, source.Dir)
 	if err != nil {
 		return nil, err
+	}
+	if c.analysis != nil {
+		// Metadata errors must precede errors from reachable schema source.
+		_, _ = c.analysisSnapshot(source.Dir)
 	}
 	module, err := readModuleFile(source.Module.Dir)
 	if err != nil {
@@ -264,17 +269,53 @@ func NewCompatibilityContext(options CompatibilityOptions) (*CompatibilityContex
 	return c, nil
 }
 
-// CheckPackage reads current source metadata without deriving schemas or executing Go.
+// CheckPackage validates eligibility and configuration dependencies without executing Go.
 func (c *CompatibilityContext) CheckPackage(source PackageSource) error {
+	if c.analysis == nil {
+		if err := c.checkCoreReplacement(); err != nil {
+			return err
+		}
+		w := &configurationWalker{
+			context: c, checked: map[string]bool{}, active: map[string]bool{},
+			completed: map[string]bool{}, packages: map[string]*parsedPackage{},
+			metadata: map[string]PackageMetadata{},
+		}
+		return w.checkPackage(source)
+	}
+	if source.Dir != "" {
+		abs, err := filepath.Abs(source.Dir)
+		if err != nil {
+			return err
+		}
+		source.Dir = abs
+		if previous, found := c.analysis.checks[abs]; found {
+			if previous.linked == source.Linked || previous.linked && previous.err == nil {
+				return previous.err
+			}
+			if previous.err != nil {
+				c.analysis.walker = nil
+			}
+		}
+		if source.Linked && !c.entries[abs].Source.Linked &&
+			c.analysis.walker != nil && c.analysis.walker.checked[abs] {
+			c.analysis.walker = nil
+		}
+	}
 	if err := c.checkCoreReplacement(); err != nil {
 		return err
 	}
-	w := &configurationWalker{
-		context: c, checked: map[string]bool{}, active: map[string]bool{},
-		completed: map[string]bool{}, packages: map[string]*parsedPackage{},
-		metadata: map[string]PackageMetadata{},
+	w := c.analysis.walker
+	if w == nil {
+		w = &configurationWalker{
+			context: c, checked: map[string]bool{}, active: map[string]bool{},
+			completed: map[string]bool{}, packages: map[string]*parsedPackage{},
+			metadata: map[string]PackageMetadata{},
+		}
 	}
-	return w.checkPackage(source)
+	err := w.checkPackage(source)
+	c.analysis.walker = w
+	c.analysis.checks[source.Dir] = analysisPackageCheck{linked: source.Linked, err: err}
+	return err
 }
 
 func (c *CompatibilityContext) checkPackageDeclaration(

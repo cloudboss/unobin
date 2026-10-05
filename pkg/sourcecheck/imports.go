@@ -78,6 +78,7 @@ func AnalyzeImports(
 	if err != nil {
 		return nil, err
 	}
+	defer compatibility.EndAnalysis()
 	metadata := compatibility.Manifest()
 	schemas.compatibility = compatibility
 	schemas.compatibilityErr = nil
@@ -157,6 +158,10 @@ func AnalyzeImports(
 		analysis.LibraryConfigSchemas = libraryConfigSchemas
 	}
 	if err := preflight.graph.ValidateSources(); err != nil {
+		return nil, err
+	}
+	if err := compatibility.ValidateSources(); err != nil {
+		clear(schemas.entries)
 		return nil, err
 	}
 	return analysis, nil

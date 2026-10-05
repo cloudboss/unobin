@@ -147,6 +147,9 @@ func (s *sourceSnapshot) readImport(importPath string) error {
 }
 
 func (c *CompatibilityContext) SourceSnapshot(dir string) ([32]byte, error) {
+	if c.analysis != nil {
+		return c.analysisSnapshot(dir)
+	}
 	roots := slices.Clone(c.options.Modules)
 	if c.options.CoreReplacement != "" {
 		roots = append(roots, ModuleSource{
@@ -159,6 +162,16 @@ func (c *CompatibilityContext) SourceSnapshot(dir string) ([32]byte, error) {
 func (c *CompatibilityContext) CheckDirectory(dir string, linked bool) error {
 	if dir == "" {
 		return nil
+	}
+	if c.analysis != nil {
+		abs, err := filepath.Abs(dir)
+		if err != nil {
+			return err
+		}
+		if previous, found := c.analysis.checks[abs]; found &&
+			(previous.linked == linked || previous.linked && previous.err == nil) {
+			return previous.err
+		}
 	}
 	if err := c.checkCoreReplacement(); err != nil {
 		return err
