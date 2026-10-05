@@ -337,6 +337,9 @@ type runState struct {
 	next     *state.Snapshot
 	planning bool
 
+	priorEntries *snapshotEntries
+	nextEntries  *snapshotEntries
+
 	// order is the DAG's topological order, computed once per run.
 	// Plan's walk and per-instance composite expansion both follow it.
 	order          []string
@@ -657,26 +660,6 @@ func cloneValue(v any) any {
 		return out
 	default:
 		return v
-	}
-}
-
-func upsertEntry(snap *state.Snapshot, ent *state.Entry) {
-	for i, existing := range snap.Entries {
-		if existing.Address == ent.Address {
-			snap.Entries[i] = ent
-			return
-		}
-	}
-	snap.Entries = append(snap.Entries, ent)
-}
-
-func removeEntry(snap *state.Snapshot, address string) {
-	for i, ent := range snap.Entries {
-		if ent.Address != address {
-			continue
-		}
-		snap.Entries = append(snap.Entries[:i], snap.Entries[i+1:]...)
-		return
 	}
 }
 

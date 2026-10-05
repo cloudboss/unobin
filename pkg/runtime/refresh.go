@@ -110,6 +110,7 @@ func (e *Executor) Refresh(ctx context.Context) (result *RefreshResult, err erro
 		rs.next.Entries = append(rs.next.Entries, r.updated)
 		res.Refreshed++
 	}
+	rs.nextEntries = nil
 	rs.next.Outputs = rs.prior.Outputs
 
 	rev, err := e.persist(rs)
