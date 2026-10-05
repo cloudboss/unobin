@@ -47,6 +47,7 @@ type Run struct {
 	ExitCode  int       `json:"exit-code"`
 	Output    string    `json:"output"`
 	Digest    string    `json:"sha256"`
+	Error     string    `json:"error,omitempty"`
 }
 
 type Record struct {
@@ -54,6 +55,7 @@ type Record struct {
 	Spec            Spec              `json:"workload"`
 	Revision        string            `json:"source-revision"`
 	FixtureRevision string            `json:"fixture-revision"`
+	SpecPath        string            `json:"workload-path"`
 	Repository      string            `json:"repository"`
 	CleanSource     bool              `json:"clean-source"`
 	Fixtures        map[string]string `json:"fixture-digests"`

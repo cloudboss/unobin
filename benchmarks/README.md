@@ -26,6 +26,58 @@ nonparametric comparisons from the raw samples. A missing confidence bound is
 recorded as `null`, with the statistical warning retained. Unit metadata that
 changes these statistical assumptions requires an explicit policy before use.
 
+## Commands
+
+Each benchmark preparation commit includes a workload JSON file under
+`benchmarks/workloads/`. It declares the packages, benchmark expression, exact
+case names and units, fixed workload counts, input paths, correctness commands,
+setup, cache policy, and primary metric. The collector records that file's digest
+as well as the declared inputs. Commands below use a task-owned checkout at the
+same absolute path for both revisions. Replace the uppercase placeholders with
+the committed workload file, full preparation commit ID, and a new result name.
+
+```bash
+go -C benchmarks run ./cmd/benchmarks collect \
+  --repository /path/to/checkout \
+  --spec benchmarks/workloads/WORKLOAD.json \
+  --fixture-revision FULL_B_ID \
+  --out _output/benchmarks/before
+go -C benchmarks run ./cmd/benchmarks validate-record \
+  --repository /path/to/checkout --record _output/benchmarks/before
+```
+
+After checking out the tested implementation commit C, repeat collection with
+the same workload and preparation ID, using `--out _output/benchmarks/after`.
+Then produce and validate the finished comparison:
+
+```bash
+go -C benchmarks run ./cmd/benchmarks compare \
+  --repository /path/to/checkout \
+  --before _output/benchmarks/before --after _output/benchmarks/after \
+  --out benchmarks/results/WORK_PACKAGE/UTC_TIMESTAMP-DESCRIPTION
+go -C benchmarks run ./cmd/benchmarks validate \
+  --repository /path/to/checkout \
+  --comparison benchmarks/results/WORK_PACKAGE/UTC_TIMESTAMP-DESCRIPTION
+```
+
+Run these commands from the tool module with `go -C benchmarks`. When using the
+compiled CLI elsewhere, provide `--tools /path/to/unobin/benchmarks`. The command
+checks the comparison executable's embedded version against the module pin.
+Source and fixture commit IDs must exist in the selected repository.
+
+Collection refuses tracked edits, untracked source or fixture changes, changed
+fixture content, and existing output directories. It runs correctness checks,
+a symmetric one-iteration warmup, and the declared samples in order. Failed runs
+retain raw logs and metadata with their exit status. A source change during
+collection marks the record invalid. Records also include selected non-secret Go
+settings, cache paths, target, CPU, and dependency-lock digests. Set those controls
+before collection and keep them identical for both sides.
+
+The comparison copies both raw sample files, test logs, and warmup logs into its
+new directory. Validation recomputes statistics from those files, checks input
+digests against both commits, and reruns the pinned tool to verify its output.
+It does not change the finished result directory.
+
 ## Result layout
 
 Create a new directory per work package and comparison. Use a UTC timestamp and

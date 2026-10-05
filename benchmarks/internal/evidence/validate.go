@@ -39,6 +39,9 @@ func Validate(record Record, files map[string][]byte) (Measurements, error) {
 	if len(record.Fixtures) == 0 || len(record.Dependencies) == 0 {
 		return nil, fmt.Errorf("measurements require fixture and dependency digests")
 	}
+	if !safePath(record.SpecPath) || !fullDigest(record.Fixtures[record.SpecPath]) {
+		return nil, fmt.Errorf("measurements require the committed workload declaration")
+	}
 	for _, inventory := range []map[string]string{record.Fixtures, record.Dependencies} {
 		for name, digest := range inventory {
 			if !safePath(name) || !fullDigest(digest) {
@@ -109,7 +112,7 @@ func Validate(record Record, files map[string][]byte) (Measurements, error) {
 func validateRun(
 	run Run, args []string, files map[string][]byte, previous time.Time,
 ) ([]byte, error) {
-	if run.ExitCode != 0 || !slices.Equal(run.Args, args) || run.Directory != "." {
+	if run.ExitCode != 0 || run.Error != "" || !slices.Equal(run.Args, args) || run.Directory != "." {
 		return nil, fmt.Errorf("unsuccessful run or mismatched command")
 	}
 	if run.Started.IsZero() || run.Started.Location() != time.UTC ||
@@ -161,7 +164,7 @@ func readMeasurements(record Record, body []byte) (Measurements, float64, error)
 			}
 			if result.GetConfig("goos") != record.Machine.GOOS ||
 				result.GetConfig("goarch") != record.Machine.GOARCH ||
-				result.GetConfig("cpu") != record.Machine.CPUModel {
+				strings.TrimSpace(result.GetConfig("cpu")) != record.Machine.CPUModel {
 				return nil, 0, fmt.Errorf("benchmark %s used a different target or CPU", key)
 			}
 			cpu := 1

@@ -73,7 +73,11 @@ func fixtureRecord(spec Spec, ns float64, revision string) (Record, map[string][
 	return Record{
 		FormatVersion: FormatVersion, Spec: spec, Revision: revision,
 		FixtureRevision: strings.Repeat("a", 40), Repository: "/repo", CleanSource: true,
-		Fixtures:     map[string]string{spec.Fixtures[0]: strings.Repeat("a", 64)},
+		SpecPath: "benchmarks/workloads/fixture.json",
+		Fixtures: map[string]string{
+			spec.Fixtures[0]:                    strings.Repeat("a", 64),
+			"benchmarks/workloads/fixture.json": strings.Repeat("c", 64),
+		},
 		Dependencies: map[string]string{"go.mod": strings.Repeat("b", 64)},
 		Machine: Machine{
 			GoVersion: "go1.26.2", GOOS: "linux", GOARCH: "amd64",
@@ -108,6 +112,17 @@ func TestCompareComputesStatisticsFromRawSamples(t *testing.T) {
 	}
 	require.Equal(t, []int{1, 4}, []int{timeResults[0].CPU, timeResults[1].CPU})
 	_, err = json.Marshal(summary)
+	require.NoError(t, err)
+}
+
+func TestValidateAcceptsCPUDescriptionPadding(t *testing.T) {
+	record, files := fixtureRecord(fixtureSpec(), 100, strings.Repeat("b", 40))
+	for _, run := range []*Run{&record.Warmup, &record.Benchmark} {
+		files[run.Output] = []byte(strings.ReplaceAll(string(files[run.Output]),
+			"cpu: Synthetic CPU\n", "cpu: Synthetic CPU       \n"))
+		run.Digest = digest(files[run.Output])
+	}
+	_, err := Validate(record, files)
 	require.NoError(t, err)
 }
 
