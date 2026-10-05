@@ -27,7 +27,7 @@ Iteration bytes increase from 800/2,400/4,800 to
 stores only iteration boundary memberships, and uses one exact-capacity
 pointer allocation for all result lists. This bounded memory cost enables
 the measured time gain. Acceptance of that tradeoff remains a review item;
-this comparison does not declare the whole F06 work package complete.
+this comparison does not declare all runtime graph and state indexing complete.
 
 Three DAG byte measurements also increase significantly at CPU 4:
 10.5 B/op at 100 composites, 6.5 B/op at 500, and 20.5 B/op at 2,000.

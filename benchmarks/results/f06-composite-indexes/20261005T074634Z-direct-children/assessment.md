@@ -44,7 +44,7 @@ These values are retained without rounding them out of the structured
 summary. This pair changes no capabilities.
 
 Runtime, state, fixture-guard, and compiled nested-composite tests passed.
-The recorded correctness logs accompany each side. The root short suite,
+The correctness logs accompany each side. The root short suite,
 vet, and the affected package's linter passed before the implementation
 commit. The configured container integration gate was unavailable; these
 checks used the host Go 1.26.2 toolchain.

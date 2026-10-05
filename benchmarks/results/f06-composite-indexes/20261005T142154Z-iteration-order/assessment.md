@@ -37,4 +37,4 @@ Capabilities are identical on both sides.
 Runtime, state, fixture-guard, and compiled nested-iteration checks passed
 on both sides. The root short suite, vet, and runtime lint passed before
 the implementation commit. The configured container gate remains
-unavailable; the recorded checks used the host Go 1.26.2 toolchain.
+unavailable; the test logs are from the host Go 1.26.2 toolchain.
