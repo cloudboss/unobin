@@ -1,4 +1,4 @@
-package compile
+package sourcecheck
 
 import (
 	"go/token"
@@ -57,6 +57,38 @@ func TestUBPackageIDsAvoidAliasCollisions(t *testing.T) {
 	again := newUBPackageIDs()
 	for _, tt := range tests {
 		require.Equal(t, gotByKey[tt.key], again.ID(tt.alias, tt.key))
+	}
+}
+
+func TestUBPackageIDsReuseCanonicalKey(t *testing.T) {
+	ids := newUBPackageIDs()
+	key := "local:/tmp/app/library"
+	first := ids.ID("original", key)
+
+	require.Equal(t, "original", first)
+	require.Equal(t, first, ids.ID("renamed", key))
+	require.Equal(t, "renamed", ids.ID("renamed", "local:/tmp/app/other"))
+}
+
+func TestSanitizeGoPackageID(t *testing.T) {
+	tests := []struct {
+		alias string
+		want  string
+	}{
+		{alias: "", want: "x"},
+		{alias: "9cats", want: "_9cats"},
+		{alias: "type", want: "_type"},
+		{alias: "foo-bar", want: "foo_bar"},
+		{alias: "foo.bar", want: "foo_bar"},
+		{alias: "naïve", want: "na_ve"},
+		{alias: "valid_123", want: "valid_123"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.alias, func(t *testing.T) {
+			got := sanitizeGoPackageID(tt.alias)
+			require.Equal(t, tt.want, got)
+			require.True(t, isValidGoPackageIdent(got))
+		})
 	}
 }
 
