@@ -1,0 +1,171 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/runtime
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+                                                 │   before.txt    │              after.txt               │
+                                                 │     sec/op      │    sec/op     vs base                │
+PlanGraphPairedInstances/pairs=100                   5659.6µ ± 16%   107.5µ ± 23%  -98.10% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=100-4                4745.13µ ±  1%   85.95µ ±  1%  -98.19% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=250                  34015.9µ ±  0%   277.6µ ±  1%  -99.18% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=250-4                29304.4µ ±  1%   226.1µ ±  1%  -99.23% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=500                 134380.7µ ±  1%   559.6µ ±  1%  -99.58% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=500-4               113810.1µ ±  1%   476.0µ ±  5%  -99.58% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=1000                 535.500m ±  1%   1.100m ±  2%  -99.79% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=1000-4              452043.5µ ±  1%   950.0µ ±  2%  -99.79% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=2000                2133.381m ±  1%   2.368m ±  1%  -99.89% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=2000-4              1788.760m ±  1%   1.924m ±  3%  -99.89% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=1           5722.9µ ±  1%   110.4µ ±  2%  -98.07% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=1-4        4750.81µ ±  0%   89.29µ ±  1%  -98.12% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=3           9806.5µ ±  1%   194.4µ ±  2%  -98.02% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=3-4         7976.8µ ±  1%   161.3µ ±  2%  -97.98% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=6          23633.8µ ±  1%   318.2µ ±  2%  -98.65% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=6-4        19108.0µ ±  1%   266.5µ ±  2%  -98.61% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=10              70.18µ ±  1%   24.43µ ±  3%  -65.19% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=10-4            57.00µ ±  1%   18.40µ ±  2%  -67.72% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=25              316.7µ ±  1%   100.6µ ±  3%  -68.23% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=25-4           249.95µ ±  1%   74.86µ ±  2%  -70.05% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=50             1104.1µ ±  2%   349.3µ ±  2%  -68.36% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=50-4            869.0µ ±  0%   259.3µ ±  2%  -70.17% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=100             4.197m ±  2%   1.319m ±  3%  -68.59% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=100-4          3315.4µ ±  1%   997.3µ ±  1%  -69.92% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/independent        2.792m ±  1%   2.432m ±  1%  -12.90% (p=0.001 n=10)
+ApplySchedulerLargeIndependentPlan/independent-4      2.019m ±  1%   1.989m ±  2%   -1.51% (p=0.011 n=10)
+ApplySchedulerLargeIndependentPlan/chain              2.419m ±  1%   2.014m ±  2%  -16.75% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/chain-4            2.042m ±  1%   1.823m ±  2%  -10.71% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/fan                3.352m ±  2%   2.767m ±  2%  -17.44% (p=0.001 n=10)
+ApplySchedulerLargeIndependentPlan/fan-4              2.637m ±  3%   2.161m ±  3%  -18.06% (p=0.000 n=10)
+PlanLargeAlreadyCheckedFactory                        733.1µ ±  1%   719.7µ ±  1%   -1.84% (p=0.003 n=10)
+PlanLargeAlreadyCheckedFactory-4                      612.5µ ±  1%   614.1µ ±  1%        ~ (p=0.353 n=10)
+geomean                                               6.602m         408.6µ        -93.81%
+
+                                             │ before.txt  │              after.txt               │
+                                             │    edges    │    edges     vs base                 │
+PlanGraphPairedInstances/pairs=100              100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=100-4            100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=250              250.0 ± 0%    250.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=250-4            250.0 ± 0%    250.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=500              500.0 ± 0%    500.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=500-4            500.0 ± 0%    500.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=1000            1.000k ± 0%   1.000k ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=1000-4          1.000k ± 0%   1.000k ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=2000            2.000k ± 0%   2.000k ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=2000-4          2.000k ± 0%   2.000k ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphNestedInstances/pairs=100/depth=1      100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphNestedInstances/pairs=100/depth=1-4    100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphNestedInstances/pairs=100/depth=3      100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphNestedInstances/pairs=100/depth=3-4    100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphNestedInstances/pairs=100/depth=6      100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphNestedInstances/pairs=100/depth=6-4    100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphCartesianInstances/instances=10        100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphCartesianInstances/instances=10-4      100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphCartesianInstances/instances=25        625.0 ± 0%    625.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphCartesianInstances/instances=25-4      625.0 ± 0%    625.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphCartesianInstances/instances=50       2.500k ± 0%   2.500k ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphCartesianInstances/instances=50-4     2.500k ± 0%   2.500k ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphCartesianInstances/instances=100      10.00k ± 0%   10.00k ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphCartesianInstances/instances=100-4    10.00k ± 0%   10.00k ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                         429.2         429.2       +0.00%
+¹ all samples are equal
+
+                                             │ before.txt  │              after.txt               │
+                                             │    steps    │    steps     vs base                 │
+PlanGraphPairedInstances/pairs=100              200.0 ± 0%    200.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=100-4            200.0 ± 0%    200.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=250              500.0 ± 0%    500.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=250-4            500.0 ± 0%    500.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=500             1.000k ± 0%   1.000k ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=500-4           1.000k ± 0%   1.000k ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=1000            2.000k ± 0%   2.000k ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=1000-4          2.000k ± 0%   2.000k ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=2000            4.000k ± 0%   4.000k ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphPairedInstances/pairs=2000-4          4.000k ± 0%   4.000k ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphNestedInstances/pairs=100/depth=1      200.0 ± 0%    200.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphNestedInstances/pairs=100/depth=1-4    200.0 ± 0%    200.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphNestedInstances/pairs=100/depth=3      200.0 ± 0%    200.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphNestedInstances/pairs=100/depth=3-4    200.0 ± 0%    200.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphNestedInstances/pairs=100/depth=6      200.0 ± 0%    200.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphNestedInstances/pairs=100/depth=6-4    200.0 ± 0%    200.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphCartesianInstances/instances=10        20.00 ± 0%    20.00 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphCartesianInstances/instances=10-4      20.00 ± 0%    20.00 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphCartesianInstances/instances=25        50.00 ± 0%    50.00 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphCartesianInstances/instances=25-4      50.00 ± 0%    50.00 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphCartesianInstances/instances=50        100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphCartesianInstances/instances=50-4      100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphCartesianInstances/instances=100       200.0 ± 0%    200.0 ± 0%       ~ (p=1.000 n=10) ¹
+PlanGraphCartesianInstances/instances=100-4     200.0 ± 0%    200.0 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                         266.4         266.4       +0.00%
+¹ all samples are equal
+
+                                                 │   before.txt    │                after.txt                │
+                                                 │      B/op       │     B/op       vs base                  │
+PlanGraphPairedInstances/pairs=100                   4202.8Ki ± 0%    150.1Ki ± 0%  -96.43% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=100-4                 4202.8Ki ± 0%    150.1Ki ± 0%  -96.43% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=250                  25254.5Ki ± 0%    448.5Ki ± 0%  -98.22% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=250-4                25254.6Ki ± 0%    448.5Ki ± 0%  -98.22% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=500                  99337.9Ki ± 0%    901.9Ki ± 0%  -99.09% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=500-4                99338.2Ki ± 0%    901.9Ki ± 0%  -99.09% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=1000                 384.742Mi ± 0%    1.756Mi ± 0%  -99.54% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=1000-4               384.743Mi ± 0%    1.756Mi ± 0%  -99.54% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=2000                1532.483Mi ± 0%    3.540Mi ± 0%  -99.77% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=2000-4              1532.485Mi ± 0%    3.540Mi ± 0%  -99.77% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=1           4202.8Ki ± 0%    150.1Ki ± 0%  -96.43% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=1-4         4202.8Ki ± 0%    150.1Ki ± 0%  -96.43% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=3           9210.6Ki ± 0%    234.5Ki ± 0%  -97.45% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=3-4         9210.6Ki ± 0%    234.5Ki ± 0%  -97.45% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=6          24684.0Ki ± 0%    372.1Ki ± 0%  -98.49% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=6-4        24684.1Ki ± 0%    372.1Ki ± 0%  -98.49% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=10              57.33Ki ± 0%    25.55Ki ± 0%  -55.44% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=10-4            57.33Ki ± 0%    25.55Ki ± 0%  -55.44% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=25             236.02Ki ± 0%    83.44Ki ± 0%  -64.65% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=25-4           236.02Ki ± 0%    83.44Ki ± 0%  -64.65% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=50              827.6Ki ± 0%    277.1Ki ± 0%  -66.52% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=50-4            827.6Ki ± 0%    277.1Ki ± 0%  -66.52% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=100            3084.8Ki ± 0%   1007.0Ki ± 0%  -67.36% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=100-4          3084.8Ki ± 0%   1007.0Ki ± 0%  -67.36% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/independent        2.235Mi ± 0%    2.073Mi ± 0%   -7.25% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/independent-4      2.235Mi ± 0%    2.073Mi ± 0%   -7.25% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/chain              2.247Mi ± 0%    2.009Mi ± 0%  -10.60% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/chain-4            2.248Mi ± 0%    2.009Mi ± 0%  -10.60% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/fan                2.485Mi ± 0%    2.170Mi ± 0%  -12.65% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/fan-4              2.484Mi ± 0%    2.170Mi ± 0%  -12.65% (p=0.000 n=10)
+PlanLargeAlreadyCheckedFactory                        818.8Ki ± 0%    818.8Ki ± 0%        ~ (p=1.000 n=10) ¹
+PlanLargeAlreadyCheckedFactory-4                      818.8Ki ± 0%    818.8Ki ± 0%        ~ (p=1.000 n=10) ¹
+geomean                                               5.794Mi         515.0Ki       -91.32%
+¹ all samples are equal
+
+                                                 │   before.txt   │               after.txt               │
+                                                 │   allocs/op    │  allocs/op   vs base                  │
+PlanGraphPairedInstances/pairs=100                  167.460k ± 0%   1.763k ± 0%  -98.95% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=100-4                167.460k ± 0%   1.763k ± 0%  -98.95% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=250                 1018.570k ± 0%   4.319k ± 0%  -99.58% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=250-4               1018.570k ± 0%   4.319k ± 0%  -99.58% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=500                 4037.088k ± 0%   8.583k ± 0%  -99.79% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=500-4               4037.088k ± 0%   8.583k ± 0%  -99.79% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=1000                16074.12k ± 0%   17.11k ± 0%  -99.89% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=1000-4              16074.12k ± 0%   17.11k ± 0%  -99.89% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=2000                64148.19k ± 0%   34.16k ± 0%  -99.95% (p=0.000 n=10)
+PlanGraphPairedInstances/pairs=2000-4              64148.20k ± 0%   34.16k ± 0%  -99.95% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=1          167.460k ± 0%   1.763k ± 0%  -98.95% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=1-4        167.460k ± 0%   1.763k ± 0%  -98.95% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=3          248.560k ± 0%   3.164k ± 0%  -98.73% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=3-4        248.560k ± 0%   3.164k ± 0%  -98.73% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=6          585.360k ± 0%   5.364k ± 0%  -99.08% (p=0.000 n=10)
+PlanGraphNestedInstances/pairs=100/depth=6-4        585.360k ± 0%   5.364k ± 0%  -99.08% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=10              1645.0 ± 0%    282.0 ± 0%  -82.86% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=10-4            1645.0 ± 0%    282.0 ± 0%  -82.86% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=25              7112.0 ± 0%    694.0 ± 0%  -90.24% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=25-4            7112.0 ± 0%    694.0 ± 0%  -90.24% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=50             24.289k ± 0%   1.446k ± 0%  -94.05% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=50-4           24.289k ± 0%   1.446k ± 0%  -94.05% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=100            88.741k ± 0%   3.048k ± 0%  -96.57% (p=0.000 n=10)
+PlanGraphCartesianInstances/instances=100-4          88.741k ± 0%   3.048k ± 0%  -96.57% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/independent        29.14k ± 0%   17.16k ± 0%  -41.11% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/independent-4      29.09k ± 0%   17.11k ± 0%  -41.19% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/chain              30.14k ± 0%   15.16k ± 0%  -49.70% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/chain-4            30.14k ± 0%   15.16k ± 0%  -49.69% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/fan                37.14k ± 0%   19.17k ± 0%  -48.38% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/fan-4              37.09k ± 0%   19.12k ± 0%  -48.45% (p=0.000 n=10)
+PlanLargeAlreadyCheckedFactory                        10.69k ± 0%   10.69k ± 0%        ~ (p=1.000 n=10) ¹
+PlanLargeAlreadyCheckedFactory-4                      10.69k ± 0%   10.69k ± 0%        ~ (p=1.000 n=10) ¹
+geomean                                               158.1k        4.677k       -97.04%
+¹ all samples are equal

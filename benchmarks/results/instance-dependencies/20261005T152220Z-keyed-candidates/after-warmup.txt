@@ -1,0 +1,38 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/runtime
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkPlanGraphPairedInstances/pairs=100     	       1	    190508 ns/op	       100.0 edges	       200.0 steps	  153672 B/op	    1763 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100-4   	       1	    197109 ns/op	       100.0 edges	       200.0 steps	  153672 B/op	    1763 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250     	       1	    458721 ns/op	       250.0 edges	       500.0 steps	  459224 B/op	    4319 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250-4   	       1	    421361 ns/op	       250.0 edges	       500.0 steps	  459224 B/op	    4319 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500     	       1	    887636 ns/op	       500.0 edges	      1000 steps	  923504 B/op	    8583 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500-4   	       1	    869512 ns/op	       500.0 edges	      1000 steps	  923504 B/op	    8583 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000    	       1	   2234051 ns/op	      1000 edges	      2000 steps	 1840816 B/op	   17110 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000-4  	       1	   2269037 ns/op	      1000 edges	      2000 steps	 1840832 B/op	   17111 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000    	       1	   4664662 ns/op	      2000 edges	      4000 steps	 3712304 B/op	   34163 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000-4  	       1	   4714435 ns/op	      2000 edges	      4000 steps	 3712304 B/op	   34163 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1           	       1	    173455 ns/op	       100.0 edges	       200.0 steps	  153672 B/op	    1763 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1-4         	       1	    150322 ns/op	       100.0 edges	       200.0 steps	  153672 B/op	    1763 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3           	       1	    415410 ns/op	       100.0 edges	       200.0 steps	  240120 B/op	    3164 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3-4         	       1	    346840 ns/op	       100.0 edges	       200.0 steps	  240120 B/op	    3164 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6           	       1	    555251 ns/op	       100.0 edges	       200.0 steps	  380984 B/op	    5364 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6-4         	       1	    433042 ns/op	       100.0 edges	       200.0 steps	  380984 B/op	    5364 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10             	       1	     41077 ns/op	       100.0 edges	        20.00 steps	   26160 B/op	     282 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10-4           	       1	     40055 ns/op	       100.0 edges	        20.00 steps	   26160 B/op	     282 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25             	       1	    137438 ns/op	       625.0 edges	        50.00 steps	   85440 B/op	     694 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25-4           	       1	    143750 ns/op	       625.0 edges	        50.00 steps	   85440 B/op	     694 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50             	       1	    453410 ns/op	      2500 edges	       100.0 steps	  283760 B/op	    1446 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50-4           	       1	    423755 ns/op	      2500 edges	       100.0 steps	  283760 B/op	    1446 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100            	       1	   1815556 ns/op	     10000 edges	       200.0 steps	 1031120 B/op	    3048 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100-4          	       1	   1618506 ns/op	     10000 edges	       200.0 steps	 1031120 B/op	    3048 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent       	       1	   3617748 ns/op	 2193112 B/op	   17181 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4     	       1	   3533890 ns/op	 2180136 B/op	   17130 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain             	       1	   3080891 ns/op	 2109880 B/op	   15189 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4           	       1	   2748046 ns/op	 2110440 B/op	   15194 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan               	       1	   3712916 ns/op	 2293944 B/op	   19154 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4             	       1	   3574286 ns/op	 2278472 B/op	   19156 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                       	       1	    970901 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                     	       1	   1220891 ns/op	  838424 B/op	   10690 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/runtime	0.196s
