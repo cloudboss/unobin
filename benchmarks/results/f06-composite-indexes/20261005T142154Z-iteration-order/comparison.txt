@@ -1,0 +1,127 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/runtime
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+                                                 │   before.txt   │              after.txt              │
+                                                 │     sec/op     │   sec/op     vs base                │
+BuildSyntaxDAGComposites/n=100                       148.3µ ± 21%   143.7µ ± 1%   -3.11% (p=0.001 n=10)
+BuildSyntaxDAGComposites/n=100-4                     117.7µ ± 56%   112.2µ ± 1%   -4.66% (p=0.000 n=10)
+BuildSyntaxDAGComposites/n=500                       777.5µ ±  1%   758.4µ ± 2%   -2.45% (p=0.001 n=10)
+BuildSyntaxDAGComposites/n=500-4                     637.6µ ±  1%   612.5µ ± 1%   -3.93% (p=0.000 n=10)
+BuildSyntaxDAGComposites/n=1000                      1.597m ±  1%   1.547m ± 1%   -3.11% (p=0.001 n=10)
+BuildSyntaxDAGComposites/n=1000-4                    1.303m ±  0%   1.235m ± 1%   -5.23% (p=0.000 n=10)
+BuildSyntaxDAGComposites/n=2000                      3.324m ±  2%   3.251m ± 2%   -2.18% (p=0.029 n=10)
+BuildSyntaxDAGComposites/n=2000-4                    2.686m ±  0%   2.551m ± 1%   -5.02% (p=0.000 n=10)
+BuildSyntaxDAGComposites/n=4000                      7.104m ±  2%   6.888m ± 1%   -3.03% (p=0.001 n=10)
+BuildSyntaxDAGComposites/n=4000-4                    5.516m ±  1%   5.404m ± 1%   -2.03% (p=0.004 n=10)
+BuildSyntaxDAGComposites/n=8000                      15.21m ±  0%   15.15m ± 1%        ~ (p=0.089 n=10)
+BuildSyntaxDAGComposites/n=8000-4                    11.65m ±  2%   11.37m ± 2%   -2.47% (p=0.000 n=10)
+CompositeInternalsInOrder/branches=100/depth=1      371.30µ ±  1%   28.65µ ± 1%  -92.28% (p=0.000 n=10)
+CompositeInternalsInOrder/branches=100/depth=1-4    370.69µ ±  3%   23.80µ ± 2%  -93.58% (p=0.000 n=10)
+CompositeInternalsInOrder/branches=100/depth=3     1353.84µ ±  1%   70.99µ ± 4%  -94.76% (p=0.000 n=10)
+CompositeInternalsInOrder/branches=100/depth=3-4   1348.92µ ±  1%   60.14µ ± 1%  -95.54% (p=0.000 n=10)
+CompositeInternalsInOrder/branches=100/depth=6      4239.4µ ±  1%   139.6µ ± 2%  -96.71% (p=0.000 n=10)
+CompositeInternalsInOrder/branches=100/depth=6-4    4221.4µ ±  1%   118.6µ ± 1%  -97.19% (p=0.000 n=10)
+geomean                                              1.605m         567.0µ       -64.68%
+
+                                                 │ before.txt  │              after.txt               │
+                                                 │    edges    │    edges     vs base                 │
+BuildSyntaxDAGComposites/n=100                      100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=100-4                    100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=500                      500.0 ± 0%    500.0 ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=500-4                    500.0 ± 0%    500.0 ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=1000                    1.000k ± 0%   1.000k ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=1000-4                  1.000k ± 0%   1.000k ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=2000                    2.000k ± 0%   2.000k ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=2000-4                  2.000k ± 0%   2.000k ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=4000                    4.000k ± 0%   4.000k ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=4000-4                  4.000k ± 0%   4.000k ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=8000                    8.000k ± 0%   8.000k ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=8000-4                  8.000k ± 0%   8.000k ± 0%       ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=1      100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=1-4    100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=3      300.0 ± 0%    300.0 ± 0%       ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=3-4    300.0 ± 0%    300.0 ± 0%       ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=6      600.0 ± 0%    600.0 ± 0%       ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=6-4    600.0 ± 0%    600.0 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                             728.2         728.2       +0.00%
+¹ all samples are equal
+
+                                                 │ before.txt  │              after.txt               │
+                                                 │    nodes    │    nodes     vs base                 │
+BuildSyntaxDAGComposites/n=100                      200.0 ± 0%    200.0 ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=100-4                    200.0 ± 0%    200.0 ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=500                     1.000k ± 0%   1.000k ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=500-4                   1.000k ± 0%   1.000k ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=1000                    2.000k ± 0%   2.000k ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=1000-4                  2.000k ± 0%   2.000k ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=2000                    4.000k ± 0%   4.000k ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=2000-4                  4.000k ± 0%   4.000k ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=4000                    8.000k ± 0%   8.000k ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=4000-4                  8.000k ± 0%   8.000k ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=8000                    16.00k ± 0%   16.00k ± 0%       ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=8000-4                  16.00k ± 0%   16.00k ± 0%       ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=1      200.0 ± 0%    200.0 ± 0%       ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=1-4    200.0 ± 0%    200.0 ± 0%       ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=3      400.0 ± 0%    400.0 ± 0%       ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=3-4    400.0 ± 0%    400.0 ± 0%       ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=6      700.0 ± 0%    700.0 ± 0%       ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=6-4    700.0 ± 0%    700.0 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                            1.311k        1.311k       +0.00%
+¹ all samples are equal
+
+                                                 │  before.txt  │                after.txt                │
+                                                 │     B/op     │     B/op       vs base                  │
+BuildSyntaxDAGComposites/n=100                     161.9Ki ± 0%    161.9Ki ± 0%          ~ (p=1.000 n=10)
+BuildSyntaxDAGComposites/n=100-4                   162.0Ki ± 0%    162.0Ki ± 0%          ~ (p=0.398 n=10)
+BuildSyntaxDAGComposites/n=500                     938.6Ki ± 0%    938.6Ki ± 0%          ~ (p=0.875 n=10)
+BuildSyntaxDAGComposites/n=500-4                   938.9Ki ± 0%    938.9Ki ± 0%          ~ (p=0.981 n=10)
+BuildSyntaxDAGComposites/n=1000                    1.836Mi ± 0%    1.836Mi ± 0%          ~ (p=0.737 n=10)
+BuildSyntaxDAGComposites/n=1000-4                  1.836Mi ± 0%    1.836Mi ± 0%     +0.00% (p=0.024 n=10)
+BuildSyntaxDAGComposites/n=2000                    3.671Mi ± 0%    3.671Mi ± 0%          ~ (p=0.354 n=10)
+BuildSyntaxDAGComposites/n=2000-4                  3.672Mi ± 0%    3.672Mi ± 0%          ~ (p=0.839 n=10)
+BuildSyntaxDAGComposites/n=4000                    7.354Mi ± 0%    7.354Mi ± 0%          ~ (p=0.078 n=10)
+BuildSyntaxDAGComposites/n=4000-4                  7.354Mi ± 0%    7.354Mi ± 0%          ~ (p=0.137 n=10)
+BuildSyntaxDAGComposites/n=8000                    14.81Mi ± 0%    14.81Mi ± 0%          ~ (p=0.398 n=10)
+BuildSyntaxDAGComposites/n=8000-4                  14.81Mi ± 0%    14.81Mi ± 0%          ~ (p=0.315 n=10)
+CompositeInternalsInOrder/branches=100/depth=1       800.0 ± 0%    22488.0 ± 0%  +2711.00% (p=0.000 n=10)
+CompositeInternalsInOrder/branches=100/depth=1-4     800.0 ± 0%    22488.0 ± 0%  +2711.00% (p=0.000 n=10)
+CompositeInternalsInOrder/branches=100/depth=3     2.344Ki ± 0%   51.023Ki ± 0%  +2077.00% (p=0.000 n=10)
+CompositeInternalsInOrder/branches=100/depth=3-4   2.344Ki ± 0%   51.023Ki ± 0%  +2077.00% (p=0.000 n=10)
+CompositeInternalsInOrder/branches=100/depth=6     4.688Ki ± 0%   93.180Ki ± 0%  +1887.83% (p=0.000 n=10)
+CompositeInternalsInOrder/branches=100/depth=6-4   4.688Ki ± 0%   93.180Ki ± 0%  +1887.83% (p=0.000 n=10)
+geomean                                            216.7Ki         616.2Ki        +184.38%
+
+                                                 │ before.txt  │               after.txt               │
+                                                 │  allocs/op  │  allocs/op   vs base                  │
+BuildSyntaxDAGComposites/n=100                     3.233k ± 0%   3.233k ± 0%        ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=100-4                   3.233k ± 0%   3.233k ± 0%        ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=500                     16.05k ± 0%   16.05k ± 0%        ~ (p=1.000 n=10)
+BuildSyntaxDAGComposites/n=500-4                   16.05k ± 0%   16.05k ± 0%        ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=1000                    32.07k ± 0%   32.07k ± 0%        ~ (p=1.000 n=10)
+BuildSyntaxDAGComposites/n=1000-4                  32.07k ± 0%   32.07k ± 0%        ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=2000                    64.10k ± 0%   64.10k ± 0%        ~ (p=1.000 n=10)
+BuildSyntaxDAGComposites/n=2000-4                  64.11k ± 0%   64.11k ± 0%        ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=4000                    128.2k ± 0%   128.2k ± 0%        ~ (p=1.000 n=10)
+BuildSyntaxDAGComposites/n=4000-4                  128.2k ± 0%   128.2k ± 0%        ~ (p=1.000 n=10) ¹
+BuildSyntaxDAGComposites/n=8000                    256.3k ± 0%   256.3k ± 0%        ~ (p=1.000 n=10)
+BuildSyntaxDAGComposites/n=8000-4                  256.3k ± 0%   256.3k ± 0%        ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=1     100.00 ± 0%    27.00 ± 0%  -73.00% (p=0.000 n=10)
+CompositeInternalsInOrder/branches=100/depth=1-4   100.00 ± 0%    27.00 ± 0%  -73.00% (p=0.000 n=10)
+CompositeInternalsInOrder/branches=100/depth=3     100.00 ± 0%    31.00 ± 0%  -69.00% (p=0.000 n=10)
+CompositeInternalsInOrder/branches=100/depth=3-4   100.00 ± 0%    31.00 ± 0%  -69.00% (p=0.000 n=10)
+CompositeInternalsInOrder/branches=100/depth=6     100.00 ± 0%    33.00 ± 0%  -67.00% (p=0.000 n=10)
+CompositeInternalsInOrder/branches=100/depth=6-4   100.00 ± 0%    33.00 ± 0%  -67.00% (p=0.000 n=10)
+geomean                                            5.336k        3.581k       -32.89%
+¹ all samples are equal
+
+                                                 │ before.txt │              after.txt              │
+                                                 │  visited   │  visited    vs base                 │
+CompositeInternalsInOrder/branches=100/depth=1     100.0 ± 0%   100.0 ± 0%       ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=1-4   100.0 ± 0%   100.0 ± 0%       ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=3     300.0 ± 0%   300.0 ± 0%       ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=3-4   300.0 ± 0%   300.0 ± 0%       ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=6     600.0 ± 0%   600.0 ± 0%       ~ (p=1.000 n=10) ¹
+CompositeInternalsInOrder/branches=100/depth=6-4   600.0 ± 0%   600.0 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                            262.1        262.1       +0.00%
+¹ all samples are equal

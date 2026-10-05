@@ -1,0 +1,24 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/runtime
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkBuildSyntaxDAGComposites/n=100           	       1	    198512 ns/op	       100.0 edges	       200.0 nodes	  165792 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100-4         	       1	    194314 ns/op	       100.0 edges	       200.0 nodes	  165792 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500           	       1	    901883 ns/op	       500.0 edges	      1000 nodes	  961136 B/op	   16051 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500-4         	       1	    841449 ns/op	       500.0 edges	      1000 nodes	  961120 B/op	   16051 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000          	       1	   1985475 ns/op	      1000 edges	      2000 nodes	 1925040 B/op	   32068 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000-4        	       1	   2184007 ns/op	      1000 edges	      2000 nodes	 1925040 B/op	   32068 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000          	       1	   4084734 ns/op	      2000 edges	      4000 nodes	 3850184 B/op	   64108 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000-4        	       1	   4171787 ns/op	      2000 edges	      4000 nodes	 3849392 B/op	   64102 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000          	       1	   8596968 ns/op	      4000 edges	      8000 nodes	 7710912 B/op	  128172 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000-4        	       1	   9042665 ns/op	      4000 edges	      8000 nodes	 7711448 B/op	  128175 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000          	       1	  17582276 ns/op	      8000 edges	     16000 nodes	15525808 B/op	  256299 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000-4        	       1	  17680410 ns/op	      8000 edges	     16000 nodes	15526600 B/op	  256305 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1           	       1	     49293 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	   22488 B/op	      27 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1-4         	       1	     79218 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	   22488 B/op	      27 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3           	       1	    100348 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	   52248 B/op	      31 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3-4         	       1	     96831 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	   52248 B/op	      31 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6           	       1	    198353 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	   95416 B/op	      33 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6-4         	       1	    184045 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	   95416 B/op	      33 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/runtime	0.167s

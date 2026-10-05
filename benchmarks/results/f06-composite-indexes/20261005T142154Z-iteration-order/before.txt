@@ -1,0 +1,186 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/runtime
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkBuildSyntaxDAGComposites/n=100           	   13255	    179440 ns/op	       100.0 edges	       200.0 nodes	  165860 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100           	   10000	    208186 ns/op	       100.0 edges	       200.0 nodes	  165802 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100           	   14643	    158623 ns/op	       100.0 edges	       200.0 nodes	  165802 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100           	   16418	    145885 ns/op	       100.0 edges	       200.0 nodes	  165802 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100           	   16198	    147547 ns/op	       100.0 edges	       200.0 nodes	  165802 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100           	   16518	    145785 ns/op	       100.0 edges	       200.0 nodes	  165802 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100           	   16332	    147140 ns/op	       100.0 edges	       200.0 nodes	  165802 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100           	   16111	    149150 ns/op	       100.0 edges	       200.0 nodes	  165802 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100           	   16414	    146550 ns/op	       100.0 edges	       200.0 nodes	  165802 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100           	   15979	    149962 ns/op	       100.0 edges	       200.0 nodes	  165802 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100-4         	   12622	    184856 ns/op	       100.0 edges	       200.0 nodes	  165859 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100-4         	   13182	    183467 ns/op	       100.0 edges	       200.0 nodes	  165859 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100-4         	   20540	    118386 ns/op	       100.0 edges	       200.0 nodes	  165857 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100-4         	   20724	    116633 ns/op	       100.0 edges	       200.0 nodes	  165859 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100-4         	   20634	    116439 ns/op	       100.0 edges	       200.0 nodes	  165859 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100-4         	   20738	    116221 ns/op	       100.0 edges	       200.0 nodes	  165859 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100-4         	   20713	    119894 ns/op	       100.0 edges	       200.0 nodes	  165858 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100-4         	   19987	    117996 ns/op	       100.0 edges	       200.0 nodes	  165859 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100-4         	   20720	    116340 ns/op	       100.0 edges	       200.0 nodes	  165860 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=100-4         	   20391	    117397 ns/op	       100.0 edges	       200.0 nodes	  165860 B/op	    3233 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500           	    3816	    646702 ns/op	       500.0 edges	      1000 nodes	  961453 B/op	   16052 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500           	    3039	    776111 ns/op	       500.0 edges	      1000 nodes	  961112 B/op	   16050 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500           	    3062	    784851 ns/op	       500.0 edges	      1000 nodes	  961112 B/op	   16050 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500           	    3094	    777297 ns/op	       500.0 edges	      1000 nodes	  961113 B/op	   16050 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500           	    3086	    786737 ns/op	       500.0 edges	      1000 nodes	  961112 B/op	   16050 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500           	    3074	    777614 ns/op	       500.0 edges	      1000 nodes	  961113 B/op	   16050 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500           	    3067	    782915 ns/op	       500.0 edges	      1000 nodes	  961113 B/op	   16050 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500           	    3084	    773047 ns/op	       500.0 edges	      1000 nodes	  961113 B/op	   16050 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500           	    3080	    781483 ns/op	       500.0 edges	      1000 nodes	  961113 B/op	   16050 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500           	    3075	    772229 ns/op	       500.0 edges	      1000 nodes	  961112 B/op	   16050 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500-4         	    3762	    636017 ns/op	       500.0 edges	      1000 nodes	  961451 B/op	   16052 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500-4         	    3786	    637191 ns/op	       500.0 edges	      1000 nodes	  961451 B/op	   16052 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500-4         	    3771	    640254 ns/op	       500.0 edges	      1000 nodes	  961451 B/op	   16052 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500-4         	    3795	    636074 ns/op	       500.0 edges	      1000 nodes	  961451 B/op	   16052 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500-4         	    3216	    641802 ns/op	       500.0 edges	      1000 nodes	  961450 B/op	   16052 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500-4         	    3810	    636106 ns/op	       500.0 edges	      1000 nodes	  961450 B/op	   16052 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500-4         	    3816	    634922 ns/op	       500.0 edges	      1000 nodes	  961453 B/op	   16052 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500-4         	    3768	    648313 ns/op	       500.0 edges	      1000 nodes	  961452 B/op	   16052 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500-4         	    3837	    638049 ns/op	       500.0 edges	      1000 nodes	  961447 B/op	   16052 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=500-4         	    3786	    638331 ns/op	       500.0 edges	      1000 nodes	  961448 B/op	   16052 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000          	    1843	   1295289 ns/op	      1000 edges	      2000 nodes	 1925548 B/op	   32071 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000          	    1466	   1615449 ns/op	      1000 edges	      2000 nodes	 1925097 B/op	   32068 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000          	    1480	   1614610 ns/op	      1000 edges	      2000 nodes	 1925097 B/op	   32068 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000          	    1486	   1601433 ns/op	      1000 edges	      2000 nodes	 1925097 B/op	   32068 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000          	    1488	   1610773 ns/op	      1000 edges	      2000 nodes	 1925097 B/op	   32068 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000          	    1524	   1582511 ns/op	      1000 edges	      2000 nodes	 1925097 B/op	   32068 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000          	    1516	   1579977 ns/op	      1000 edges	      2000 nodes	 1925097 B/op	   32068 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000          	    1515	   1591665 ns/op	      1000 edges	      2000 nodes	 1925097 B/op	   32068 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000          	    1524	   1590375 ns/op	      1000 edges	      2000 nodes	 1925097 B/op	   32068 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000          	    1483	   1606377 ns/op	      1000 edges	      2000 nodes	 1925097 B/op	   32068 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000-4        	    1725	   1307296 ns/op	      1000 edges	      2000 nodes	 1925562 B/op	   32071 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000-4        	    1858	   1291377 ns/op	      1000 edges	      2000 nodes	 1925556 B/op	   32071 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000-4        	    1857	   1299554 ns/op	      1000 edges	      2000 nodes	 1925561 B/op	   32071 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000-4        	    1827	   1298838 ns/op	      1000 edges	      2000 nodes	 1925558 B/op	   32071 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000-4        	    1806	   1323756 ns/op	      1000 edges	      2000 nodes	 1925568 B/op	   32071 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000-4        	    1818	   1306887 ns/op	      1000 edges	      2000 nodes	 1925559 B/op	   32071 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000-4        	    1845	   1299546 ns/op	      1000 edges	      2000 nodes	 1925560 B/op	   32071 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000-4        	    1830	   1305982 ns/op	      1000 edges	      2000 nodes	 1925561 B/op	   32071 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000-4        	    1818	   1301830 ns/op	      1000 edges	      2000 nodes	 1925565 B/op	   32071 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=1000-4        	    1849	   1304905 ns/op	      1000 edges	      2000 nodes	 1925563 B/op	   32071 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000          	     890	   2679193 ns/op	      2000 edges	      4000 nodes	 3850058 B/op	   64106 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000          	     708	   3354770 ns/op	      2000 edges	      4000 nodes	 3849461 B/op	   64103 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000          	     726	   3302987 ns/op	      2000 edges	      4000 nodes	 3849462 B/op	   64103 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000          	     708	   3309082 ns/op	      2000 edges	      4000 nodes	 3849462 B/op	   64103 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000          	     722	   3294904 ns/op	      2000 edges	      4000 nodes	 3849463 B/op	   64103 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000          	     709	   3385416 ns/op	      2000 edges	      4000 nodes	 3849463 B/op	   64103 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000          	     705	   3338374 ns/op	      2000 edges	      4000 nodes	 3849461 B/op	   64103 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000          	     717	   3338456 ns/op	      2000 edges	      4000 nodes	 3849461 B/op	   64103 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000          	     711	   3273503 ns/op	      2000 edges	      4000 nodes	 3849463 B/op	   64103 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000          	     715	   3364266 ns/op	      2000 edges	      4000 nodes	 3849461 B/op	   64103 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000-4        	     888	   2677233 ns/op	      2000 edges	      4000 nodes	 3850058 B/op	   64106 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000-4        	     897	   2674068 ns/op	      2000 edges	      4000 nodes	 3850060 B/op	   64106 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000-4        	     903	   2682950 ns/op	      2000 edges	      4000 nodes	 3850067 B/op	   64106 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000-4        	     890	   2675656 ns/op	      2000 edges	      4000 nodes	 3850068 B/op	   64106 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000-4        	     891	   2694500 ns/op	      2000 edges	      4000 nodes	 3850062 B/op	   64106 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000-4        	     898	   2696850 ns/op	      2000 edges	      4000 nodes	 3850050 B/op	   64106 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000-4        	     894	   2689924 ns/op	      2000 edges	      4000 nodes	 3850063 B/op	   64106 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000-4        	     908	   2663262 ns/op	      2000 edges	      4000 nodes	 3850063 B/op	   64106 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000-4        	     891	   2694126 ns/op	      2000 edges	      4000 nodes	 3850057 B/op	   64106 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=2000-4        	     879	   2735963 ns/op	      2000 edges	      4000 nodes	 3850057 B/op	   64106 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000          	     435	   5426720 ns/op	      4000 edges	      8000 nodes	 7711364 B/op	  128173 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000          	     337	   7160049 ns/op	      4000 edges	      8000 nodes	 7710727 B/op	  128169 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000          	     332	   7189474 ns/op	      4000 edges	      8000 nodes	 7710728 B/op	  128169 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000          	     336	   7081853 ns/op	      4000 edges	      8000 nodes	 7710435 B/op	  128169 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000          	     340	   7067301 ns/op	      4000 edges	      8000 nodes	 7710728 B/op	  128169 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000          	     337	   7046776 ns/op	      4000 edges	      8000 nodes	 7710728 B/op	  128169 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000          	     342	   7125493 ns/op	      4000 edges	      8000 nodes	 7710729 B/op	  128169 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000          	     328	   7252940 ns/op	      4000 edges	      8000 nodes	 7710727 B/op	  128169 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000          	     322	   7272537 ns/op	      4000 edges	      8000 nodes	 7710423 B/op	  128169 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000          	     340	   7069769 ns/op	      4000 edges	      8000 nodes	 7710729 B/op	  128169 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000-4        	     428	   5535477 ns/op	      4000 edges	      8000 nodes	 7711408 B/op	  128173 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000-4        	     435	   5433967 ns/op	      4000 edges	      8000 nodes	 7711373 B/op	  128173 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000-4        	     426	   5525272 ns/op	      4000 edges	      8000 nodes	 7711391 B/op	  128173 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000-4        	     426	   5436724 ns/op	      4000 edges	      8000 nodes	 7711261 B/op	  128173 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000-4        	     430	   5418133 ns/op	      4000 edges	      8000 nodes	 7711379 B/op	  128173 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000-4        	     429	   5522160 ns/op	      4000 edges	      8000 nodes	 7711395 B/op	  128173 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000-4        	     428	   5604168 ns/op	      4000 edges	      8000 nodes	 7711421 B/op	  128173 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000-4        	     423	   5571956 ns/op	      4000 edges	      8000 nodes	 7711388 B/op	  128173 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000-4        	     426	   5510524 ns/op	      4000 edges	      8000 nodes	 7711399 B/op	  128173 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=4000-4        	     427	   5463751 ns/op	      4000 edges	      8000 nodes	 7711389 B/op	  128173 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000          	     201	  11775236 ns/op	      8000 edges	     16000 nodes	15526593 B/op	  256304 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000          	     156	  15268877 ns/op	      8000 edges	     16000 nodes	15525910 B/op	  256300 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000          	     157	  15138053 ns/op	      8000 edges	     16000 nodes	15525910 B/op	  256300 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000          	     157	  15145581 ns/op	      8000 edges	     16000 nodes	15524657 B/op	  256300 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000          	     157	  15247784 ns/op	      8000 edges	     16000 nodes	15525911 B/op	  256300 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000          	     153	  15387708 ns/op	      8000 edges	     16000 nodes	15525268 B/op	  256300 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000          	     157	  15206015 ns/op	      8000 edges	     16000 nodes	15524936 B/op	  256300 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000          	     157	  15204248 ns/op	      8000 edges	     16000 nodes	15525911 B/op	  256300 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000          	     157	  15263060 ns/op	      8000 edges	     16000 nodes	15524310 B/op	  256300 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000          	     157	  15200144 ns/op	      8000 edges	     16000 nodes	15525911 B/op	  256300 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000-4        	     205	  11603309 ns/op	      8000 edges	     16000 nodes	15526308 B/op	  256304 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000-4        	     208	  11554154 ns/op	      8000 edges	     16000 nodes	15526102 B/op	  256304 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000-4        	     204	  11625735 ns/op	      8000 edges	     16000 nodes	15526582 B/op	  256304 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000-4        	     205	  11744701 ns/op	      8000 edges	     16000 nodes	15526573 B/op	  256304 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000-4        	     205	  11712419 ns/op	      8000 edges	     16000 nodes	15526597 B/op	  256304 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000-4        	     199	  11848747 ns/op	      8000 edges	     16000 nodes	15526583 B/op	  256304 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000-4        	     205	  11633605 ns/op	      8000 edges	     16000 nodes	15526575 B/op	  256304 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000-4        	     188	  12223935 ns/op	      8000 edges	     16000 nodes	15526565 B/op	  256304 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000-4        	     206	  11613867 ns/op	      8000 edges	     16000 nodes	15526569 B/op	  256304 allocs/op
+BenchmarkBuildSyntaxDAGComposites/n=8000-4        	     206	  11671570 ns/op	      8000 edges	     16000 nodes	15526601 B/op	  256304 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1           	    6177	    375261 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1           	    6463	    378662 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1           	    6307	    369722 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1           	    6351	    372049 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1           	    6529	    367447 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1           	    6369	    373528 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1           	    6441	    375345 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1           	    6240	    370556 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1           	    6602	    366784 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1           	    6534	    365735 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1-4         	    6411	    378560 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1-4         	    6642	    363772 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1-4         	    6800	    356768 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1-4         	    6266	    384455 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1-4         	    6292	    371689 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1-4         	    6405	    358256 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1-4         	    6535	    371891 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1-4         	    6426	    369697 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1-4         	    6460	    374878 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=1-4         	    6770	    359119 ns/op	       100.0 edges	       200.0 nodes	       100.0 visited	     800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3           	    1792	   1333160 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3           	    1788	   1342245 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3           	    1772	   1355841 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3           	    1738	   1369607 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3           	    1767	   1356909 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3           	    1766	   1365222 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3           	    1767	   1357755 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3           	    1772	   1347354 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3           	    1792	   1340462 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3           	    1767	   1351848 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3-4         	    1774	   1348533 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3-4         	    1766	   1354837 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3-4         	    1770	   1347913 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3-4         	    1761	   1349314 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3-4         	    1753	   1362113 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3-4         	    1788	   1334440 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3-4         	    1804	   1338246 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3-4         	    1782	   1350131 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3-4         	    1772	   1350218 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=3-4         	    1791	   1339746 ns/op	       300.0 edges	       400.0 nodes	       300.0 visited	    2400 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6           	     567	   4212281 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6           	     573	   4188936 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6           	     570	   4226245 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6           	     565	   4255165 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6           	     566	   4237020 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6           	     561	   4244486 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6           	     564	   4253716 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6           	     565	   4241744 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6           	     570	   4208389 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6           	     564	   4242536 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6-4         	     566	   4208392 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6-4         	     565	   4234782 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6-4         	     562	   4253369 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6-4         	     567	   4243507 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6-4         	     566	   4202466 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6-4         	     567	   4224632 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6-4         	     566	   4229822 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6-4         	     567	   4216450 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6-4         	     572	   4175157 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+BenchmarkCompositeInternalsInOrder/branches=100/depth=6-4         	     565	   4218211 ns/op	       600.0 edges	       700.0 nodes	       600.0 visited	    4800 B/op	     100 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/runtime	430.311s

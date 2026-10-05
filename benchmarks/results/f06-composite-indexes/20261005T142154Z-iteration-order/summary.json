@@ -1,0 +1,2606 @@
+{
+  "format-version": 1,
+  "work-package": "F06-composite-indexes",
+  "before-revision": "2aa399b7cb8b268c976b192183faed4d753f957d",
+  "after-revision": "c7fc3b8664860232a483d5ab9488439ed8a07f88",
+  "fixture-revision": "313fba37db0044ef179009910f46e4da0a0889ed",
+  "primary-unit": "sec/op",
+  "assessment": "improved",
+  "statistics": [
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=100",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 165802,
+        "low": 165802,
+        "high": 165802,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 165802,
+        "low": 165802,
+        "high": 165802,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=100",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 3233,
+        "low": 3233,
+        "high": 3233,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 3233,
+        "low": 3233,
+        "high": 3233,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=100",
+      "cpu": 1,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=100",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 200,
+        "low": 200,
+        "high": 200,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 200,
+        "low": 200,
+        "high": 200,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=100",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.00014834850000000003,
+        "low": 0.000145885,
+        "high": 0.00017944,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.00014373400000000002,
+        "low": 0.000142872,
+        "high": 0.00014505800000000002,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -3.110580828252396,
+      "p": 0.0007252809110394251,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=100",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 165859,
+        "low": 165858,
+        "high": 165860,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 165858.5,
+        "low": 165858,
+        "high": 165860,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -0.00030146087942606314,
+      "p": 0.3978652926021347,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=100",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 3233,
+        "low": 3233,
+        "high": 3233,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 3233,
+        "low": 3233,
+        "high": 3233,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=100",
+      "cpu": 4,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=100",
+      "cpu": 4,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 200,
+        "low": 200,
+        "high": 200,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 200,
+        "low": 200,
+        "high": 200,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=100",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.00011769650000000001,
+        "low": 0.00011634,
+        "high": 0.000183467,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.00011220850000000002,
+        "low": 0.000111643,
+        "high": 0.000113009,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -4.662840441304539,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=1000",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 1925097,
+        "low": 1925097,
+        "high": 1925097,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1925097,
+        "low": 1925097,
+        "high": 1925098,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 0.7368421052631579,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=1000",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 32068,
+        "low": 32068,
+        "high": 32068,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 32068,
+        "low": 32068,
+        "high": 32068,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=1000",
+      "cpu": 1,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=1000",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 2000,
+        "low": 2000,
+        "high": 2000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2000,
+        "low": 2000,
+        "high": 2000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=1000",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.001596549,
+        "low": 0.0015799770000000002,
+        "high": 0.00161461,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0015468385000000002,
+        "low": 0.0015381370000000002,
+        "high": 0.0015570710000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -3.1136219433290035,
+      "p": 0.0010500335577734961,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=1000",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 1925561,
+        "low": 1925558,
+        "high": 1925565,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1925565.5,
+        "low": 1925562,
+        "high": 1925571,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.00023369812744977736,
+      "p": 0.024367273593279785,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=1000",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 32071,
+        "low": 32071,
+        "high": 32071,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 32071,
+        "low": 32071,
+        "high": 32071,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=1000",
+      "cpu": 4,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=1000",
+      "cpu": 4,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 2000,
+        "low": 2000,
+        "high": 2000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2000,
+        "low": 2000,
+        "high": 2000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=1000",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0013033675,
+        "low": 0.001298838,
+        "high": 0.0013072960000000001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0012352450000000003,
+        "low": 0.001229003,
+        "high": 0.00123897,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -5.226653265483439,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=2000",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 3849462,
+        "low": 3849461,
+        "high": 3849463,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 3849462,
+        "low": 3849462,
+        "high": 3849463,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 0.3540886358223819,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=2000",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 64103,
+        "low": 64103,
+        "high": 64103,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 64103,
+        "low": 64103,
+        "high": 64103,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=2000",
+      "cpu": 1,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 2000,
+        "low": 2000,
+        "high": 2000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2000,
+        "low": 2000,
+        "high": 2000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=2000",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 4000,
+        "low": 4000,
+        "high": 4000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 4000,
+        "low": 4000,
+        "high": 4000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=2000",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.003323728,
+        "low": 0.003273503,
+        "high": 0.0033642660000000003,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0032512855,
+        "low": 0.003196038,
+        "high": 0.003316835,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -2.1795556074383993,
+      "p": 0.028805559765312093,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=2000",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 3850061,
+        "low": 3850057,
+        "high": 3850067,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 3850060,
+        "low": 3850053,
+        "high": 3850064,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -0.000025973614448115967,
+      "p": 0.8394314663664509,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=2000",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 64106,
+        "low": 64106,
+        "high": 64106,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 64106,
+        "low": 64106,
+        "high": 64106,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=2000",
+      "cpu": 4,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 2000,
+        "low": 2000,
+        "high": 2000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2000,
+        "low": 2000,
+        "high": 2000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=2000",
+      "cpu": 4,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 4000,
+        "low": 4000,
+        "high": 4000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 4000,
+        "low": 4000,
+        "high": 4000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=2000",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0026864370000000003,
+        "low": 0.0026740680000000004,
+        "high": 0.00269685,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0025514665000000002,
+        "low": 0.0025290760000000003,
+        "high": 0.002570531,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -5.024145364287347,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=4000",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 7710728,
+        "low": 7710435,
+        "high": 7710729,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 7710729.5,
+        "low": 7710728,
+        "high": 7710731,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.00001945341607800799,
+      "p": 0.07765918292234082,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=4000",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 128169,
+        "low": 128169,
+        "high": 128169,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 128169,
+        "low": 128169,
+        "high": 128169,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=4000",
+      "cpu": 1,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 4000,
+        "low": 4000,
+        "high": 4000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 4000,
+        "low": 4000,
+        "high": 4000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=4000",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 8000,
+        "low": 8000,
+        "high": 8000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 8000,
+        "low": 8000,
+        "high": 8000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=4000",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0071036730000000005,
+        "low": 0.007046776,
+        "high": 0.00725294,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.006888258,
+        "low": 0.006815936000000001,
+        "high": 0.006940156,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -3.032445327931055,
+      "p": 0.0010500335577734961,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=4000",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 7711390,
+        "low": 7711373,
+        "high": 7711408,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 7711408,
+        "low": 7711378,
+        "high": 7711413,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.00023342095263334528,
+      "p": 0.13741366992140985,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=4000",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 128173,
+        "low": 128173,
+        "high": 128173,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 128173,
+        "low": 128173,
+        "high": 128173,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=4000",
+      "cpu": 4,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 4000,
+        "low": 4000,
+        "high": 4000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 4000,
+        "low": 4000,
+        "high": 4000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=4000",
+      "cpu": 4,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 8000,
+        "low": 8000,
+        "high": 8000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 8000,
+        "low": 8000,
+        "high": 8000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=4000",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0055163420000000005,
+        "low": 0.0054339670000000005,
+        "high": 0.005571956,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0054043735,
+        "low": 0.005325799,
+        "high": 0.0054624,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -2.029759938742015,
+      "p": 0.003886206672584383,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=500",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 961113,
+        "low": 961112,
+        "high": 961113,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 961113,
+        "low": 961112,
+        "high": 961113,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 0.8749702310073827,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=500",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 16050,
+        "low": 16050,
+        "high": 16050,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 16050,
+        "low": 16050,
+        "high": 16050,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=500",
+      "cpu": 1,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=500",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=500",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0007774555,
+        "low": 0.000772229,
+        "high": 0.000784851,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0007584445,
+        "low": 0.000746607,
+        "high": 0.000761501,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -2.44528464973236,
+      "p": 0.0010500335577734961,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=500",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 961451,
+        "low": 961448,
+        "high": 961452,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 961450,
+        "low": 961449,
+        "high": 961454,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -0.0001040094606996611,
+      "p": 0.9810993959600771,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=500",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 16052,
+        "low": 16052,
+        "high": 16052,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 16052,
+        "low": 16052,
+        "high": 16052,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=500",
+      "cpu": 4,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=500",
+      "cpu": 4,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=500",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.00063762,
+        "low": 0.000636017,
+        "high": 0.000641802,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0006125475,
+        "low": 0.0006117970000000001,
+        "high": 0.000616661,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -3.932200997459301,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=8000",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 15525910,
+        "low": 15524657,
+        "high": 15525911,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 15525910.5,
+        "low": 15525563,
+        "high": 15525912,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.0000032204231503740743,
+      "p": 0.39756219013184957,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=8000",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 256300,
+        "low": 256300,
+        "high": 256300,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 256300,
+        "low": 256300,
+        "high": 256300,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=8000",
+      "cpu": 1,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 8000,
+        "low": 8000,
+        "high": 8000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 8000,
+        "low": 8000,
+        "high": 8000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=8000",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 16000,
+        "low": 16000,
+        "high": 16000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 16000,
+        "low": 16000,
+        "high": 16000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=8000",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.015205131500000002,
+        "low": 0.015138053,
+        "high": 0.015268877,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.015148195500000001,
+        "low": 0.015040544000000001,
+        "high": 0.015220652000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -0.374452532686087,
+      "p": 0.0892095520578493,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=8000",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 15526574,
+        "low": 15526308,
+        "high": 15526597,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 15526433,
+        "low": 15525848,
+        "high": 15526596,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -0.0009081204907168683,
+      "p": 0.31499924224382436,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=8000",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 256304,
+        "low": 256304,
+        "high": 256304,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 256304,
+        "low": 256304,
+        "high": 256304,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=8000",
+      "cpu": 4,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 8000,
+        "low": 8000,
+        "high": 8000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 8000,
+        "low": 8000,
+        "high": 8000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=8000",
+      "cpu": 4,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 16000,
+        "low": 16000,
+        "high": 16000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 16000,
+        "low": 16000,
+        "high": 16000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=8000",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0116525875,
+        "low": 0.011603309000000001,
+        "high": 0.011848747000000001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.011365065,
+        "low": 0.011338342000000001,
+        "high": 0.011537967000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -2.46745626239665,
+      "p": 0.0002056766762649116,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=1",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 800,
+        "low": 800,
+        "high": 800,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 22488,
+        "low": 22488,
+        "high": 22488,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 2711,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=1",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 27,
+        "low": 27,
+        "high": 27,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -73,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=1",
+      "cpu": 1,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=1",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 200,
+        "low": 200,
+        "high": 200,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 200,
+        "low": 200,
+        "high": 200,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=1",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0003713025,
+        "low": 0.00036678400000000004,
+        "high": 0.000375345,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.000028651,
+        "low": 0.000028391000000000003,
+        "high": 0.000028779000000000003,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -92.28365012355155,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=1",
+      "cpu": 1,
+      "unit": "visited",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=1",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 800,
+        "low": 800,
+        "high": 800,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 22488,
+        "low": 22488,
+        "high": 22488,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 2711,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=1",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 27,
+        "low": 27,
+        "high": 27,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -73,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=1",
+      "cpu": 4,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=1",
+      "cpu": 4,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 200,
+        "low": 200,
+        "high": 200,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 200,
+        "low": 200,
+        "high": 200,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=1",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.00037069300000000006,
+        "low": 0.00035825600000000005,
+        "high": 0.00037856,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.000023797500000000004,
+        "low": 0.000023694,
+        "high": 0.000024196,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -93.58026722921663,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=1",
+      "cpu": 4,
+      "unit": "visited",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=3",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 2400,
+        "low": 2400,
+        "high": 2400,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 52248,
+        "low": 52248,
+        "high": 52248,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 2077,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=3",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 31,
+        "low": 31,
+        "high": 31,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -69,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=3",
+      "cpu": 1,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 300,
+        "low": 300,
+        "high": 300,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 300,
+        "low": 300,
+        "high": 300,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=3",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 400,
+        "low": 400,
+        "high": 400,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 400,
+        "low": 400,
+        "high": 400,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=3",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0013538445,
+        "low": 0.0013404620000000002,
+        "high": 0.0013652220000000001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.00007098600000000001,
+        "low": 0.000069498,
+        "high": 0.00007378,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -94.7567095039349,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=3",
+      "cpu": 1,
+      "unit": "visited",
+      "before": {
+        "samples": 10,
+        "median": 300,
+        "low": 300,
+        "high": 300,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 300,
+        "low": 300,
+        "high": 300,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=3",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 2400,
+        "low": 2400,
+        "high": 2400,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 52248,
+        "low": 52248,
+        "high": 52248,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 2077,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=3",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 31,
+        "low": 31,
+        "high": 31,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -69,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=3",
+      "cpu": 4,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 300,
+        "low": 300,
+        "high": 300,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 300,
+        "low": 300,
+        "high": 300,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=3",
+      "cpu": 4,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 400,
+        "low": 400,
+        "high": 400,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 400,
+        "low": 400,
+        "high": 400,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=3",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0013489235,
+        "low": 0.0013382460000000002,
+        "high": 0.001354837,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.000060138,
+        "low": 0.000059752000000000007,
+        "high": 0.000060839000000000005,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -95.54177831433732,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=3",
+      "cpu": 4,
+      "unit": "visited",
+      "before": {
+        "samples": 10,
+        "median": 300,
+        "low": 300,
+        "high": 300,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 300,
+        "low": 300,
+        "high": 300,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=6",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 4800,
+        "low": 4800,
+        "high": 4800,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 95416,
+        "low": 95416,
+        "high": 95416,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 1887.8333333333335,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=6",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 33,
+        "low": 33,
+        "high": 33,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -67,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=6",
+      "cpu": 1,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 600,
+        "low": 600,
+        "high": 600,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 600,
+        "low": 600,
+        "high": 600,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=6",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 700,
+        "low": 700,
+        "high": 700,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 700,
+        "low": 700,
+        "high": 700,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=6",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.004239382,
+        "low": 0.004208389,
+        "high": 0.004253716,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.000139594,
+        "low": 0.00013704,
+        "high": 0.000140554,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -96.70720873938701,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=6",
+      "cpu": 1,
+      "unit": "visited",
+      "before": {
+        "samples": 10,
+        "median": 600,
+        "low": 600,
+        "high": 600,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 600,
+        "low": 600,
+        "high": 600,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=6",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 4800,
+        "low": 4800,
+        "high": 4800,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 95416,
+        "low": 95416,
+        "high": 95416,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 1887.8333333333335,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=6",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 33,
+        "low": 33,
+        "high": 33,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -67,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=6",
+      "cpu": 4,
+      "unit": "edges",
+      "before": {
+        "samples": 10,
+        "median": 600,
+        "low": 600,
+        "high": 600,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 600,
+        "low": 600,
+        "high": 600,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=6",
+      "cpu": 4,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 700,
+        "low": 700,
+        "high": 700,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 700,
+        "low": 700,
+        "high": 700,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=6",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0042214215,
+        "low": 0.004202466,
+        "high": 0.0042435070000000005,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.000118613,
+        "low": 0.00011714200000000001,
+        "high": 0.00011957700000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -97.19021187531261,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=6",
+      "cpu": 4,
+      "unit": "visited",
+      "before": {
+        "samples": 10,
+        "median": 600,
+        "low": 600,
+        "high": 600,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 600,
+        "low": 600,
+        "high": 600,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    }
+  ],
+  "warnings": []
+}
