@@ -1,0 +1,114 @@
+{
+  "work-package": "go-emission",
+  "description": "Composite emission with imports, source spans, configuration metadata, and a large factory",
+  "kind": "micro",
+  "fixtures": [
+    "pkg/codegen/emission_benchmark_test.go",
+    "pkg/codegen/main_benchmark_test.go",
+    "pkg/codegen/main_test.go",
+    "pkg/codegen/testdata/ub/emission/valid/library.ub",
+    "pkg/codegen/testdata/ub/emission/valid/child/library.ub"
+  ],
+  "parameters": {
+    "composites": "1,10,100",
+    "imports-per-composite": "2",
+    "configuration-fields": "20",
+    "large-factory-actions": "1000"
+  },
+  "packages": [
+    "./pkg/codegen"
+  ],
+  "benchmark": "^(BenchmarkGenerateUBLibraryMetadata|BenchmarkGenerateMainLargeFactory)$",
+  "cases": [
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=1",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "composites",
+        "config-fields",
+        "bytes/output",
+        "library-calls/output"
+      ],
+      "fixed": {
+        "composites": 1,
+        "config-fields": 20
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=10",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "composites",
+        "config-fields",
+        "bytes/output",
+        "library-calls/output"
+      ],
+      "fixed": {
+        "composites": 10,
+        "config-fields": 20
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=100",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "composites",
+        "config-fields",
+        "bytes/output",
+        "library-calls/output"
+      ],
+      "fixed": {
+        "composites": 100,
+        "config-fields": 20
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateMainLargeFactory",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "bytes/output"
+      ]
+    }
+  ],
+  "samples": 10,
+  "benchtime": "2s",
+  "cpus": [
+    1,
+    4
+  ],
+  "setup": "Parse the committed library fixture and construct the fixed typed schema, defaults, constraints, source spans, and resolved imports outside timing. Each operation calls the public UB generation adapter and includes syntax emission, metadata emission, import handling, template expansion, and Go formatting. Validate generated Go syntax and exact ordered exports after timing; count Library calls in the generated AST. Retain the existing 1000-action factory generation workload. Report output bytes and generated library calls.",
+  "cache-policy": "Symmetric warm Go build cache and one 1x benchmark warmup. Default GC, identical parsed inputs, and no unrelated CPU-intensive work during collection.",
+  "primary-unit": "sec/op",
+  "primary-direction": "lower",
+  "tests": [
+    [
+      "go",
+      "test",
+      "-count=1",
+      "./pkg/codegen",
+      "./pkg/sourcecheck",
+      "./pkg/compile",
+      "./internal/ubtest"
+    ],
+    [
+      "go",
+      "test",
+      "-count=1",
+      "-run",
+      "^TestCompiledCases$/^ub-composite-foreach$",
+      "./tests/e2e"
+    ]
+  ]
+}

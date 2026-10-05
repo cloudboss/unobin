@@ -1,0 +1,13 @@
+wrapper: resource {
+  imports: {
+    core: 'example.com/core'
+    child: './child'
+  }
+  library-configs: { core: {} }
+  inputs: { path: { type: string } }
+  resources: {
+    file: core.file { path: input.path, content: 'example' }
+    nested: child.box {}
+  }
+  outputs: { path: { value: resource.file.path } }
+}

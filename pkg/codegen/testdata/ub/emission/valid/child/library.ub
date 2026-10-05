@@ -1,0 +1,7 @@
+box: resource {
+  imports: { core: 'example.com/core' }
+  library-configs: { core: {} }
+  resources: {
+    file: core.file { path: 'nested.txt', content: 'nested' }
+  }
+}
