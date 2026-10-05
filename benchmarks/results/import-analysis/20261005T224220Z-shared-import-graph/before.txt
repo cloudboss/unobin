@@ -1,0 +1,206 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/sourcecheck
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkAnalyzeNestedLibraries/depth=2      	     582	   3983577 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1763398 B/op	   37737 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2      	     532	   4638961 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1755613 B/op	   37726 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2      	     643	   3587334 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1755607 B/op	   37726 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2      	     787	   3037101 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1755335 B/op	   37726 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2      	     793	   3039439 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1755336 B/op	   37726 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2      	     782	   3071473 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1755608 B/op	   37726 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2      	     768	   3090240 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1755608 B/op	   37726 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2      	     771	   3078464 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1755208 B/op	   37726 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2      	     778	   3061015 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1755608 B/op	   37726 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2      	     783	   3084421 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1755608 B/op	   37726 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2-4    	     886	   2591011 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1763555 B/op	   37737 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2-4    	     919	   2588560 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1763915 B/op	   37738 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2-4    	     902	   2562929 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1763588 B/op	   37737 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2-4    	     930	   2556320 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1763795 B/op	   37738 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2-4    	     916	   2555547 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1764017 B/op	   37738 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2-4    	     934	   2568900 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1763854 B/op	   37737 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2-4    	     931	   2572019 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1763696 B/op	   37737 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2-4    	     934	   2562774 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1763834 B/op	   37738 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2-4    	     936	   2562447 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1763728 B/op	   37737 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=2-4    	     924	   2574819 ns/op	         2.000 libraries	         3.000 resolves/op	         1.000 schema-reads/op	        16.00 ub-reads/op	 1763691 B/op	   37737 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5      	     511	   4674721 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3244870 B/op	   68287 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5      	     427	   5659958 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3231054 B/op	   68270 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5      	     418	   5683514 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3231055 B/op	   68270 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5      	     424	   5628100 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3231041 B/op	   68270 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5      	     427	   5635719 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3231040 B/op	   68270 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5      	     423	   5634655 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3231042 B/op	   68270 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5      	     421	   5676002 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3231047 B/op	   68270 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5      	     426	   5649556 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3231065 B/op	   68271 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5      	     424	   5716357 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3231041 B/op	   68270 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5      	     416	   5731308 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3231074 B/op	   68271 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5-4    	     510	   4681202 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3244942 B/op	   68288 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5-4    	     512	   4675653 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3245108 B/op	   68288 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5-4    	     517	   4673506 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3244747 B/op	   68288 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5-4    	     496	   4773115 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3244622 B/op	   68288 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5-4    	     508	   4657352 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3244027 B/op	   68287 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5-4    	     523	   4651159 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3244816 B/op	   68288 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5-4    	     512	   4729305 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3245099 B/op	   68288 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5-4    	     511	   4640159 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3245296 B/op	   68288 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5-4    	     517	   4646131 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3245091 B/op	   68288 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=5-4    	     518	   4695303 ns/op	         5.000 libraries	         6.000 resolves/op	         1.000 schema-reads/op	        34.00 ub-reads/op	 3245217 B/op	   68288 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10     	     286	   8303249 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5728345 B/op	  119396 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10     	     234	  10090258 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5705660 B/op	  119374 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10     	     238	  10050042 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5705004 B/op	  119374 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10     	     238	  10067867 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5705658 B/op	  119374 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10     	     236	  10115227 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5705006 B/op	  119374 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10     	     235	  10419940 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5705009 B/op	  119374 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10     	     241	   9941298 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5705654 B/op	  119374 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10     	     237	  10139076 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5705627 B/op	  119374 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10     	     235	  10160086 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5705653 B/op	  119374 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10     	     230	  10325145 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5705643 B/op	  119374 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10-4   	     292	   8185383 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5728918 B/op	  119398 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10-4   	     294	   8204834 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5729803 B/op	  119397 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10-4   	     286	   8301847 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5729797 B/op	  119397 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10-4   	     295	   8155155 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5730257 B/op	  119397 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10-4   	     295	   8166729 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5730282 B/op	  119397 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10-4   	     291	   8297393 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5730468 B/op	  119398 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10-4   	     290	   8271085 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5730575 B/op	  119398 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10-4   	     294	   8191049 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5730203 B/op	  119398 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10-4   	     294	   8325913 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5730603 B/op	  119398 allocs/op
+BenchmarkAnalyzeNestedLibraries/depth=10-4   	     290	   8274213 ns/op	        10.00 libraries	        11.00 resolves/op	         1.000 schema-reads/op	        64.00 ub-reads/op	 5730017 B/op	  119398 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1      	    1188	   1930269 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1292357 B/op	   28184 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1      	    1008	   2415767 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1285911 B/op	   28175 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1      	     969	   2418990 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1285637 B/op	   28175 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1      	    1005	   2400440 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1285909 B/op	   28175 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1      	    1008	   2454702 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1285909 B/op	   28175 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1      	     996	   2401556 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1285908 B/op	   28175 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1      	    1004	   2409069 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1285637 B/op	   28175 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1      	     992	   2459814 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1285908 B/op	   28175 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1      	     992	   2459286 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1285908 B/op	   28175 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1      	     949	   2450591 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1285908 B/op	   28175 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1-4    	    1228	   1926195 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1292353 B/op	   28184 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1-4    	    1258	   1946873 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1292649 B/op	   28184 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1-4    	    1236	   1908638 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1292448 B/op	   28184 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1-4    	    1261	   1902318 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1292513 B/op	   28184 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1-4    	    1255	   1938722 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1292520 B/op	   28184 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1-4    	    1158	   1924867 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1292145 B/op	   28184 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1-4    	    1251	   1924165 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1292760 B/op	   28184 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1-4    	    1239	   1915651 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1292698 B/op	   28184 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1-4    	    1244	   1924215 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1292479 B/op	   28184 allocs/op
+BenchmarkAnalyzeSharedExports/exports=1-4    	    1261	   1918014 ns/op	         1.000 exports	         2.000 resolves/op	         1.000 schema-reads/op	        10.00 ub-reads/op	 1292363 B/op	   28184 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10     	     174	  13763989 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8920727 B/op	  213078 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10     	     136	  17471916 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8886669 B/op	  213045 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10     	     136	  17538600 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8888628 B/op	  213046 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10     	     135	  17531784 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8888634 B/op	  213046 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10     	     136	  17471431 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8888634 B/op	  213046 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10     	     138	  17341994 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8888633 B/op	  213046 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10     	     135	  17502620 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8886678 B/op	  213046 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10     	     138	  17487348 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8888636 B/op	  213046 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10     	     136	  17643667 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8886674 B/op	  213046 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10     	     138	  17400926 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8888629 B/op	  213046 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10-4   	     169	  14051914 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8920921 B/op	  213080 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10-4   	     175	  13666647 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8920453 B/op	  213079 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10-4   	     175	  13723429 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8921787 B/op	  213080 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10-4   	     175	  13701609 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8920223 B/op	  213078 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10-4   	     174	  13778291 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8921097 B/op	  213079 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10-4   	     175	  13778379 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8921772 B/op	  213080 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10-4   	     170	  14067811 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8921354 B/op	  213081 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10-4   	     174	  13776064 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8921739 B/op	  213081 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10-4   	     170	  13885562 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8922656 B/op	  213081 allocs/op
+BenchmarkAnalyzeSharedExports/exports=10-4   	     174	  13764351 ns/op	        10.00 exports	         2.000 resolves/op	         1.000 schema-reads/op	        28.00 ub-reads/op	 8921024 B/op	  213080 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100    	      16	 134911361 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84860072 B/op	 2060669 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100    	      13	 170910316 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84762212 B/op	 2060367 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100    	      13	 172767931 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84762195 B/op	 2060366 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100    	      13	 170284398 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84762164 B/op	 2060366 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100    	      14	 168983839 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84762168 B/op	 2060366 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100    	      13	 168252124 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84758824 B/op	 2060365 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100    	      13	 170991822 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84761964 B/op	 2060363 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100    	      13	 168866318 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84761973 B/op	 2060364 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100    	      13	 169599943 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84758951 B/op	 2060366 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100    	      13	 170477742 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84762217 B/op	 2060367 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100-4  	      18	 134364327 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84861967 B/op	 2060678 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100-4  	      16	 135724343 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84865852 B/op	 2060669 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100-4  	      16	 136036524 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84867823 B/op	 2060672 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100-4  	      16	 135880236 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84858101 B/op	 2060667 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100-4  	      16	 134234606 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84851216 B/op	 2060690 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100-4  	      16	 134628488 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84862317 B/op	 2060684 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100-4  	      16	 134833328 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84867313 B/op	 2060689 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100-4  	      16	 134737136 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84864702 B/op	 2060680 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100-4  	      18	 134447835 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84865740 B/op	 2060685 allocs/op
+BenchmarkAnalyzeSharedExports/exports=100-4  	      18	 134371874 ns/op	       100.0 exports	         2.000 resolves/op	         1.000 schema-reads/op	       208.0 ub-reads/op	84869839 B/op	 2060678 allocs/op
+BenchmarkSchemaCacheReads/unchanged          	     416	   5765343 ns/op	       100.0 lookups	         0 schema-reads/op	 5703834 B/op	   67344 allocs/op
+BenchmarkSchemaCacheReads/unchanged          	     345	   6901482 ns/op	       100.0 lookups	         0 schema-reads/op	 5674634 B/op	   67314 allocs/op
+BenchmarkSchemaCacheReads/unchanged          	     360	   6853697 ns/op	       100.0 lookups	         0 schema-reads/op	 5674636 B/op	   67314 allocs/op
+BenchmarkSchemaCacheReads/unchanged          	     343	   6820602 ns/op	       100.0 lookups	         0 schema-reads/op	 5674635 B/op	   67314 allocs/op
+BenchmarkSchemaCacheReads/unchanged          	     356	   6713683 ns/op	       100.0 lookups	         0 schema-reads/op	 5674634 B/op	   67314 allocs/op
+BenchmarkSchemaCacheReads/unchanged          	     363	   6645187 ns/op	       100.0 lookups	         0 schema-reads/op	 5674635 B/op	   67314 allocs/op
+BenchmarkSchemaCacheReads/unchanged          	     345	   6916533 ns/op	       100.0 lookups	         0 schema-reads/op	 5674634 B/op	   67314 allocs/op
+BenchmarkSchemaCacheReads/unchanged          	     355	   6743006 ns/op	       100.0 lookups	         0 schema-reads/op	 5674636 B/op	   67314 allocs/op
+BenchmarkSchemaCacheReads/unchanged          	     350	   6874326 ns/op	       100.0 lookups	         0 schema-reads/op	 5674636 B/op	   67314 allocs/op
+BenchmarkSchemaCacheReads/unchanged          	     360	   6783301 ns/op	       100.0 lookups	         0 schema-reads/op	 5668232 B/op	   67314 allocs/op
+BenchmarkSchemaCacheReads/unchanged-4        	     423	   5674992 ns/op	       100.0 lookups	         0 schema-reads/op	 5695921 B/op	   67343 allocs/op
+BenchmarkSchemaCacheReads/unchanged-4        	     414	   5738120 ns/op	       100.0 lookups	         0 schema-reads/op	 5697289 B/op	   67344 allocs/op
+BenchmarkSchemaCacheReads/unchanged-4        	     418	   5729439 ns/op	       100.0 lookups	         0 schema-reads/op	 5696713 B/op	   67343 allocs/op
+BenchmarkSchemaCacheReads/unchanged-4        	     418	   5719280 ns/op	       100.0 lookups	         0 schema-reads/op	 5703675 B/op	   67344 allocs/op
+BenchmarkSchemaCacheReads/unchanged-4        	     427	   5908075 ns/op	       100.0 lookups	         0 schema-reads/op	 5696039 B/op	   67342 allocs/op
+BenchmarkSchemaCacheReads/unchanged-4        	     422	   5682333 ns/op	       100.0 lookups	         0 schema-reads/op	 5703038 B/op	   67343 allocs/op
+BenchmarkSchemaCacheReads/unchanged-4        	     417	   5678181 ns/op	       100.0 lookups	         0 schema-reads/op	 5703820 B/op	   67344 allocs/op
+BenchmarkSchemaCacheReads/unchanged-4        	     424	   5747617 ns/op	       100.0 lookups	         0 schema-reads/op	 5703555 B/op	   67344 allocs/op
+BenchmarkSchemaCacheReads/unchanged-4        	     423	   5698704 ns/op	       100.0 lookups	         0 schema-reads/op	 5704609 B/op	   67344 allocs/op
+BenchmarkSchemaCacheReads/unchanged-4        	     422	   5713833 ns/op	       100.0 lookups	         0 schema-reads/op	 5703776 B/op	   67344 allocs/op
+BenchmarkSchemaCacheReads/helper-edit        	   10000	    249606 ns/op	         2.000 lookups	         2.000 schema-reads/op	  239076 B/op	    2757 allocs/op
+BenchmarkSchemaCacheReads/helper-edit        	    8271	    286305 ns/op	         2.000 lookups	         2.000 schema-reads/op	  237768 B/op	    2755 allocs/op
+BenchmarkSchemaCacheReads/helper-edit        	    8745	    292175 ns/op	         2.000 lookups	         2.000 schema-reads/op	  237768 B/op	    2755 allocs/op
+BenchmarkSchemaCacheReads/helper-edit        	    7812	    289353 ns/op	         2.000 lookups	         2.000 schema-reads/op	  237768 B/op	    2755 allocs/op
+BenchmarkSchemaCacheReads/helper-edit        	    8840	    292134 ns/op	         2.000 lookups	         2.000 schema-reads/op	  237768 B/op	    2755 allocs/op
+BenchmarkSchemaCacheReads/helper-edit        	    8380	    294078 ns/op	         2.000 lookups	         2.000 schema-reads/op	  237768 B/op	    2755 allocs/op
+BenchmarkSchemaCacheReads/helper-edit        	    8190	    297837 ns/op	         2.000 lookups	         2.000 schema-reads/op	  237768 B/op	    2755 allocs/op
+BenchmarkSchemaCacheReads/helper-edit        	    8188	    293132 ns/op	         2.000 lookups	         2.000 schema-reads/op	  237768 B/op	    2755 allocs/op
+BenchmarkSchemaCacheReads/helper-edit        	    8688	    292318 ns/op	         2.000 lookups	         2.000 schema-reads/op	  237384 B/op	    2755 allocs/op
+BenchmarkSchemaCacheReads/helper-edit        	    8540	    288146 ns/op	         2.000 lookups	         2.000 schema-reads/op	  237768 B/op	    2755 allocs/op
+BenchmarkSchemaCacheReads/helper-edit-4      	    9470	    246852 ns/op	         2.000 lookups	         2.000 schema-reads/op	  239049 B/op	    2757 allocs/op
+BenchmarkSchemaCacheReads/helper-edit-4      	    9897	    244008 ns/op	         2.000 lookups	         2.000 schema-reads/op	  239051 B/op	    2757 allocs/op
+BenchmarkSchemaCacheReads/helper-edit-4      	    9980	    245016 ns/op	         2.000 lookups	         2.000 schema-reads/op	  238710 B/op	    2757 allocs/op
+BenchmarkSchemaCacheReads/helper-edit-4      	    9392	    247411 ns/op	         2.000 lookups	         2.000 schema-reads/op	  238703 B/op	    2757 allocs/op
+BenchmarkSchemaCacheReads/helper-edit-4      	   10000	    243783 ns/op	         2.000 lookups	         2.000 schema-reads/op	  239050 B/op	    2757 allocs/op
+BenchmarkSchemaCacheReads/helper-edit-4      	    9279	    244738 ns/op	         2.000 lookups	         2.000 schema-reads/op	  238615 B/op	    2757 allocs/op
+BenchmarkSchemaCacheReads/helper-edit-4      	    8911	    245242 ns/op	         2.000 lookups	         2.000 schema-reads/op	  238617 B/op	    2757 allocs/op
+BenchmarkSchemaCacheReads/helper-edit-4      	   10000	    246212 ns/op	         2.000 lookups	         2.000 schema-reads/op	  239054 B/op	    2757 allocs/op
+BenchmarkSchemaCacheReads/helper-edit-4      	   10000	    244146 ns/op	         2.000 lookups	         2.000 schema-reads/op	  239077 B/op	    2757 allocs/op
+BenchmarkSchemaCacheReads/helper-edit-4      	    9488	    250272 ns/op	         2.000 lookups	         2.000 schema-reads/op	  239100 B/op	    2757 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries     	     421	   5679362 ns/op	 3512607 B/op	   77072 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries     	     328	   7369483 ns/op	 3471465 B/op	   77039 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries     	     327	   7261093 ns/op	 3471041 B/op	   77038 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries     	     327	   7474832 ns/op	 3470799 B/op	   77039 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries     	     315	   7530318 ns/op	 3472705 B/op	   77039 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries     	     319	   7728289 ns/op	 3471535 B/op	   77039 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries     	     321	   7539228 ns/op	 3470316 B/op	   77038 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries     	     316	   7529203 ns/op	 3470952 B/op	   77038 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries     	     322	   7519699 ns/op	 3473597 B/op	   77039 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries     	     304	   7686479 ns/op	 3470713 B/op	   77039 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries-4   	     422	   5744701 ns/op	 3512129 B/op	   77072 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries-4   	     416	   5692933 ns/op	 3510512 B/op	   77072 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries-4   	     410	   5729719 ns/op	 3509647 B/op	   77071 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries-4   	     421	   5707296 ns/op	 3509233 B/op	   77071 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries-4   	     414	   5716790 ns/op	 3512525 B/op	   77073 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries-4   	     414	   5759504 ns/op	 3511490 B/op	   77072 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries-4   	     404	   5820022 ns/op	 3510815 B/op	   77072 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries-4   	     418	   5742508 ns/op	 3513116 B/op	   77073 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries-4   	     421	   5748620 ns/op	 3514661 B/op	   77073 allocs/op
+BenchmarkImportAnalysisNestedUBLibraries-4   	     412	   5951162 ns/op	 3514859 B/op	   77079 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph          	    4179	    566628 ns/op	  719608 B/op	    9791 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph          	    2694	    807024 ns/op	  719389 B/op	    9790 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph          	    3016	    799897 ns/op	  719389 B/op	    9790 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph          	    3026	    803705 ns/op	  719389 B/op	    9790 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph          	    2959	    814371 ns/op	  719389 B/op	    9790 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph          	    3034	    813184 ns/op	  719389 B/op	    9790 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph          	    2913	    806515 ns/op	  719389 B/op	    9790 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph          	    3031	    803889 ns/op	  719389 B/op	    9790 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph          	    2803	    818002 ns/op	  719389 B/op	    9790 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph          	    3022	    833128 ns/op	  719389 B/op	    9790 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph-4        	    4413	    569565 ns/op	  719609 B/op	    9791 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph-4        	    4165	    574954 ns/op	  719609 B/op	    9791 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph-4        	    4274	    565668 ns/op	  719610 B/op	    9791 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph-4        	    4192	    565403 ns/op	  719610 B/op	    9791 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph-4        	    4257	    569376 ns/op	  719609 B/op	    9791 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph-4        	    4299	    570503 ns/op	  719610 B/op	    9791 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph-4        	    4186	    566236 ns/op	  719612 B/op	    9791 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph-4        	    3939	    592706 ns/op	  719613 B/op	    9791 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph-4        	    3748	    571933 ns/op	  719611 B/op	    9791 allocs/op
+BenchmarkCheckFactoryBodyLargeGraph-4        	    4146	    565863 ns/op	  719607 B/op	    9791 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/sourcecheck	475.921s

@@ -1,0 +1,462 @@
+{
+  "format-version": 1,
+  "kind": "benchmark-comparison",
+  "before": {
+    "format-version": 1,
+    "workload": {
+      "work-package": "factory-compile",
+      "description": "Factory analysis, generation, complete builds, and output size",
+      "kind": "micro",
+      "fixtures": [
+        "pkg/compile/compile_benchmark_test.go",
+        "pkg/compile/testdata/ub/compile-scaling/valid/nodes-10/factory.ub",
+        "pkg/compile/testdata/ub/compile-scaling/valid/nodes-500/factory.ub",
+        "pkg/compile/testdata/ub/compile-scaling/valid/shared/library.ub"
+      ],
+      "parameters": {
+        "build-profiles": "default full backend and encryption registries",
+        "exports-per-library": "one data-source composite with one constant output",
+        "factory-composites": "10,500",
+        "generation-mode": "fresh output directory, no Go build",
+        "linker-policy": "normal Go debug information; identical factory version and no strip flags"
+      },
+      "packages": [
+        "./pkg/compile"
+      ],
+      "benchmark": "^BenchmarkCompileFactoryGeneration$",
+      "cases": [
+        {
+          "package": "github.com/cloudboss/unobin/pkg/compile",
+          "name": "BenchmarkCompileFactoryGeneration/nodes=10",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "source-bytes",
+            "nodes"
+          ],
+          "fixed": {
+            "nodes": 10
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/compile",
+          "name": "BenchmarkCompileFactoryGeneration/nodes=500",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "source-bytes",
+            "nodes"
+          ],
+          "fixed": {
+            "nodes": 500
+          }
+        }
+      ],
+      "samples": 10,
+      "benchtime": "2s",
+      "cpus": [
+        1,
+        4
+      ],
+      "setup": "Copy committed small and large factory fixtures outside timing and use a local Unobin replacement. Include source parsing, import resolution, compatibility checks, schema/type checks, UB and main Go emission, and owned output publication. Each operation uses a new output directory. Validate generated Go syntax and exact source file inventory after timing; report emitted source bytes. This mode does not run Go tidying or compilation.",
+      "cache-policy": "Warm task-owned Go build, toolchain, and module caches. Collector runs a symmetric 1x warmup. Cold build samples use a fresh empty build cache and keep downloaded modules and the toolchain outside timing. No unrelated CPU-intensive work during collection.",
+      "primary-unit": "sec/op",
+      "primary-direction": "lower",
+      "tests": [
+        [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/compile",
+          "./pkg/sourcecheck",
+          "./pkg/codegen",
+          "./internal/ubtest"
+        ],
+        [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "^TestCompiledCases$/^ub-composite-foreach$",
+          "./tests/e2e"
+        ]
+      ]
+    },
+    "source-revision": "e87545ab2df76016f3a1372cc2c9be751717d43a",
+    "fixture-revision": "e87545ab2df76016f3a1372cc2c9be751717d43a",
+    "workload-path": "benchmarks/workloads/factory-generation.json",
+    "repository": "/home/joseph/code/unobin",
+    "clean-source": true,
+    "fixture-digests": {
+      "benchmarks/workloads/factory-generation.json": "a00a98f1e86fbf0a67acc78ac865895f41264c4103485157f75467798b44652c",
+      "pkg/compile/compile_benchmark_test.go": "c8b833ff64faa66f9ee91b55f7443c669e87629029a1bbc175b2d75ac9713deb",
+      "pkg/compile/testdata/ub/compile-scaling/valid/nodes-10/factory.ub": "bd456fc0a3efb7d2a864a61d2e430466931d94cf8e00151c810b2817ac82300f",
+      "pkg/compile/testdata/ub/compile-scaling/valid/nodes-500/factory.ub": "94f246c89d40038ea939565ea968f39e5a14bbaeb82a317537ee60c6d88576a2",
+      "pkg/compile/testdata/ub/compile-scaling/valid/shared/library.ub": "9adce99dd84e1babebb96d97a251ede4ad71fb06b65981a93a854ce87f831e3c"
+    },
+    "dependency-locks": {
+      "go.mod": "588dedf3818897394d476ef520f1490eaa0c46084a617876add0bb6645aa162e",
+      "go.sum": "1e1f203654bb19eb6d9c941749ae98c646e73039a7932d3730efd477d542fe45"
+    },
+    "machine": {
+      "go-version": "go1.26.2",
+      "goos": "linux",
+      "goarch": "amd64",
+      "cpu-model": "AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M",
+      "logical-cpus": 24
+    },
+    "environment": {
+      "CC": "",
+      "CGO_CFLAGS": "",
+      "CGO_CPPFLAGS": "",
+      "CGO_CXXFLAGS": "",
+      "CGO_ENABLED": "1",
+      "CGO_LDFLAGS": "",
+      "CXX": "",
+      "GO386": "",
+      "GOAMD64": "v1",
+      "GOARCH": "amd64",
+      "GOARM": "",
+      "GOARM64": "",
+      "GOCACHE": "/home/joseph/code/unobin/_output/remediation/gocache",
+      "GODEBUG": "",
+      "GOEXPERIMENT": "",
+      "GOFLAGS": "",
+      "GOMAXPROCS": "",
+      "GOMIPS": "",
+      "GOMIPS64": "",
+      "GOMODCACHE": "/home/joseph/code/unobin/_output/remediation/gomodcache",
+      "GOOS": "linux",
+      "GOPPC64": "",
+      "GORISCV64": "",
+      "GOROOT": "/home/joseph/.local/go1.26.2",
+      "GOTMPDIR": "",
+      "GOTOOLCHAIN": "auto",
+      "GOVERSION": "go1.26.2",
+      "GOWASM": "",
+      "GOWORK": "",
+      "UNOBIN_BENCH_PROFILE": ""
+    },
+    "benchstat-version": "v0.0.0-20260929162123-406019bb8b68",
+    "tests": [
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/compile",
+          "./pkg/sourcecheck",
+          "./pkg/codegen",
+          "./internal/ubtest"
+        ],
+        "directory": ".",
+        "started": "2026-10-05T17:38:28.287814414Z",
+        "finished": "2026-10-05T17:38:48.603659053Z",
+        "exit-code": 0,
+        "output": "before-test-01.txt",
+        "sha256": "7b38725b1de4c4e0b144a1493acaf275db5e123305c63a561de2d810a6ebcc2d"
+      },
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "^TestCompiledCases$/^ub-composite-foreach$",
+          "./tests/e2e"
+        ],
+        "directory": ".",
+        "started": "2026-10-05T17:38:48.603845964Z",
+        "finished": "2026-10-05T17:38:51.556186672Z",
+        "exit-code": 0,
+        "output": "before-test-02.txt",
+        "sha256": "ea0659832217a536e7452f2f6bf1947f42502d04d84dddacf412230c947d536e"
+      }
+    ],
+    "warmup": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^BenchmarkCompileFactoryGeneration$",
+        "-benchmem",
+        "-benchtime=1x",
+        "-count=1",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/compile"
+      ],
+      "directory": ".",
+      "started": "2026-10-05T17:38:51.556325953Z",
+      "finished": "2026-10-05T17:38:52.246119504Z",
+      "exit-code": 0,
+      "output": "before-warmup.txt",
+      "sha256": "98dffb49e72f9f2d6765b1e08e3f4fcc24ff07c0596868c25e88fd11380e0db1"
+    },
+    "benchmark": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^BenchmarkCompileFactoryGeneration$",
+        "-benchmem",
+        "-benchtime=2s",
+        "-count=10",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/compile"
+      ],
+      "directory": ".",
+      "started": "2026-10-05T17:38:52.246310853Z",
+      "finished": "2026-10-05T22:02:29.051098837Z",
+      "exit-code": 0,
+      "output": "before.txt",
+      "sha256": "b060d20bc5f1013729ba27338a1b25a8d386b06f6fc50259ca75926e31408849"
+    }
+  },
+  "after": {
+    "format-version": 1,
+    "workload": {
+      "work-package": "factory-compile",
+      "description": "Factory analysis, generation, complete builds, and output size",
+      "kind": "micro",
+      "fixtures": [
+        "pkg/compile/compile_benchmark_test.go",
+        "pkg/compile/testdata/ub/compile-scaling/valid/nodes-10/factory.ub",
+        "pkg/compile/testdata/ub/compile-scaling/valid/nodes-500/factory.ub",
+        "pkg/compile/testdata/ub/compile-scaling/valid/shared/library.ub"
+      ],
+      "parameters": {
+        "build-profiles": "default full backend and encryption registries",
+        "exports-per-library": "one data-source composite with one constant output",
+        "factory-composites": "10,500",
+        "generation-mode": "fresh output directory, no Go build",
+        "linker-policy": "normal Go debug information; identical factory version and no strip flags"
+      },
+      "packages": [
+        "./pkg/compile"
+      ],
+      "benchmark": "^BenchmarkCompileFactoryGeneration$",
+      "cases": [
+        {
+          "package": "github.com/cloudboss/unobin/pkg/compile",
+          "name": "BenchmarkCompileFactoryGeneration/nodes=10",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "source-bytes",
+            "nodes"
+          ],
+          "fixed": {
+            "nodes": 10
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/compile",
+          "name": "BenchmarkCompileFactoryGeneration/nodes=500",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "source-bytes",
+            "nodes"
+          ],
+          "fixed": {
+            "nodes": 500
+          }
+        }
+      ],
+      "samples": 10,
+      "benchtime": "2s",
+      "cpus": [
+        1,
+        4
+      ],
+      "setup": "Copy committed small and large factory fixtures outside timing and use a local Unobin replacement. Include source parsing, import resolution, compatibility checks, schema/type checks, UB and main Go emission, and owned output publication. Each operation uses a new output directory. Validate generated Go syntax and exact source file inventory after timing; report emitted source bytes. This mode does not run Go tidying or compilation.",
+      "cache-policy": "Warm task-owned Go build, toolchain, and module caches. Collector runs a symmetric 1x warmup. Cold build samples use a fresh empty build cache and keep downloaded modules and the toolchain outside timing. No unrelated CPU-intensive work during collection.",
+      "primary-unit": "sec/op",
+      "primary-direction": "lower",
+      "tests": [
+        [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/compile",
+          "./pkg/sourcecheck",
+          "./pkg/codegen",
+          "./internal/ubtest"
+        ],
+        [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "^TestCompiledCases$/^ub-composite-foreach$",
+          "./tests/e2e"
+        ]
+      ]
+    },
+    "source-revision": "16537be05d7aa7e7f12c615ea93c2ab636a97d29",
+    "fixture-revision": "e87545ab2df76016f3a1372cc2c9be751717d43a",
+    "workload-path": "benchmarks/workloads/factory-generation.json",
+    "repository": "/home/joseph/code/unobin",
+    "clean-source": true,
+    "fixture-digests": {
+      "benchmarks/workloads/factory-generation.json": "a00a98f1e86fbf0a67acc78ac865895f41264c4103485157f75467798b44652c",
+      "pkg/compile/compile_benchmark_test.go": "c8b833ff64faa66f9ee91b55f7443c669e87629029a1bbc175b2d75ac9713deb",
+      "pkg/compile/testdata/ub/compile-scaling/valid/nodes-10/factory.ub": "bd456fc0a3efb7d2a864a61d2e430466931d94cf8e00151c810b2817ac82300f",
+      "pkg/compile/testdata/ub/compile-scaling/valid/nodes-500/factory.ub": "94f246c89d40038ea939565ea968f39e5a14bbaeb82a317537ee60c6d88576a2",
+      "pkg/compile/testdata/ub/compile-scaling/valid/shared/library.ub": "9adce99dd84e1babebb96d97a251ede4ad71fb06b65981a93a854ce87f831e3c"
+    },
+    "dependency-locks": {
+      "go.mod": "588dedf3818897394d476ef520f1490eaa0c46084a617876add0bb6645aa162e",
+      "go.sum": "1e1f203654bb19eb6d9c941749ae98c646e73039a7932d3730efd477d542fe45"
+    },
+    "machine": {
+      "go-version": "go1.26.2",
+      "goos": "linux",
+      "goarch": "amd64",
+      "cpu-model": "AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M",
+      "logical-cpus": 24
+    },
+    "environment": {
+      "CC": "",
+      "CGO_CFLAGS": "",
+      "CGO_CPPFLAGS": "",
+      "CGO_CXXFLAGS": "",
+      "CGO_ENABLED": "1",
+      "CGO_LDFLAGS": "",
+      "CXX": "",
+      "GO386": "",
+      "GOAMD64": "v1",
+      "GOARCH": "amd64",
+      "GOARM": "",
+      "GOARM64": "",
+      "GOCACHE": "/home/joseph/code/unobin/_output/remediation/gocache",
+      "GODEBUG": "",
+      "GOEXPERIMENT": "",
+      "GOFLAGS": "",
+      "GOMAXPROCS": "",
+      "GOMIPS": "",
+      "GOMIPS64": "",
+      "GOMODCACHE": "/home/joseph/code/unobin/_output/remediation/gomodcache",
+      "GOOS": "linux",
+      "GOPPC64": "",
+      "GORISCV64": "",
+      "GOROOT": "/home/joseph/.local/go1.26.2",
+      "GOTMPDIR": "",
+      "GOTOOLCHAIN": "auto",
+      "GOVERSION": "go1.26.2",
+      "GOWASM": "",
+      "GOWORK": "",
+      "UNOBIN_BENCH_PROFILE": ""
+    },
+    "benchstat-version": "v0.0.0-20260929162123-406019bb8b68",
+    "tests": [
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/compile",
+          "./pkg/sourcecheck",
+          "./pkg/codegen",
+          "./internal/ubtest"
+        ],
+        "directory": ".",
+        "started": "2026-10-05T22:39:30.757171102Z",
+        "finished": "2026-10-05T22:39:52.504528478Z",
+        "exit-code": 0,
+        "output": "after-test-01.txt",
+        "sha256": "e681230314a3ef3c567804ef601713a35c3cbc38ce921b869cbe7e764be798d6"
+      },
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "^TestCompiledCases$/^ub-composite-foreach$",
+          "./tests/e2e"
+        ],
+        "directory": ".",
+        "started": "2026-10-05T22:39:52.504701493Z",
+        "finished": "2026-10-05T22:39:55.66295372Z",
+        "exit-code": 0,
+        "output": "after-test-02.txt",
+        "sha256": "0ff2b4eefb9722ab7f914adf5ad67ead931c3704bfa2ecd2750c58a00fff1e16"
+      }
+    ],
+    "warmup": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^BenchmarkCompileFactoryGeneration$",
+        "-benchmem",
+        "-benchtime=1x",
+        "-count=1",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/compile"
+      ],
+      "directory": ".",
+      "started": "2026-10-05T22:39:55.663134559Z",
+      "finished": "2026-10-05T22:39:56.417240465Z",
+      "exit-code": 0,
+      "output": "after-warmup.txt",
+      "sha256": "190e05b0f5a0ad79872ee1051f644fefc92ba10dcefa537b31bc5b9e346e9c1c"
+    },
+    "benchmark": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^BenchmarkCompileFactoryGeneration$",
+        "-benchmem",
+        "-benchtime=2s",
+        "-count=10",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/compile"
+      ],
+      "directory": ".",
+      "started": "2026-10-05T22:39:56.417387852Z",
+      "finished": "2026-10-05T22:41:33.564550477Z",
+      "exit-code": 0,
+      "output": "after.txt",
+      "sha256": "c93daf2afb06aabc40299dc634152f8f8adaad975dd9145f2d957f68d634a0bd"
+    }
+  },
+  "comparison": {
+    "args": [
+      "go",
+      "tool",
+      "benchstat",
+      "before.txt",
+      "after.txt"
+    ],
+    "directory": ".",
+    "started": "2026-10-05T22:42:19.585367683Z",
+    "finished": "2026-10-05T22:42:19.588713155Z",
+    "exit-code": 0,
+    "output": "comparison.txt",
+    "sha256": "2b1d5594a5faf3a4919f156ced5ffee92763ccba19bd1bc339dbff0c717a1a62"
+  },
+  "summary-sha256": "66b0e9524e67d5277ee5c2964d2fffa1065b7b66027d74bf4853b034de344bc6"
+}
