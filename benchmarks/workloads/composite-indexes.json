@@ -1,5 +1,5 @@
 {
-  "work-package": "F06-composite-indexes",
+  "work-package": "composite-indexes",
   "description": "Sparse composite DAG extraction and ordered iteration internals",
   "kind": "micro",
   "fixtures": [
