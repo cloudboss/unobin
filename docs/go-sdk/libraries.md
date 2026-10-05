@@ -89,3 +89,24 @@ accurate as separate requirements. Dependency-local Go `replace` and `toolchain`
 directives do not select the factory's runtime. If you set
 `SuggestedUnobinVersion`, validate that release in CI. It records a tested
 combination and remains an upgrade hint for users.
+
+## Regenerating provider code
+
+`unobin generate golibrary` records its outputs in `.unobin-generated.json`.
+It owns the resource and data declarations (`*_rsrc.go` and `*_dsrc.go`),
+`library.go`, and generated configuration. These files include a generated-code
+marker. Regeneration rejects edits to them and collisions with files it does
+not own before changing any output.
+
+Implement lifecycle methods in the corresponding `*_impl.go` files. The
+generator creates these files once and preserves their contents on subsequent
+runs. It also creates `go.mod` once; use Go tooling to manage dependencies.
+Other files with distinct paths remain untouched.
+
+When a schema removes a type, regeneration removes its declarations and an
+untouched lifecycle stub. If its lifecycle file contains edits, regeneration
+stops so you can review that implementation before removing it.
+
+For output generated before ownership manifests were introduced, generate into
+a fresh directory with `-o`, then transfer your lifecycle implementations and
+other authored code. Existing directories without a manifest are rejected.

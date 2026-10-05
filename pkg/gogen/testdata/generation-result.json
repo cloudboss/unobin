@@ -7,7 +7,15 @@
       "data-sources": 1,
       "files": [
         {
+          "path": ".unobin-generated.json",
+          "action": "created"
+        },
+        {
           "path": "data/image_dsrc.go",
+          "action": "created"
+        },
+        {
+          "path": "data/image_impl.go",
           "action": "created"
         },
         {
@@ -16,6 +24,10 @@
         },
         {
           "path": "library.go",
+          "action": "created"
+        },
+        {
+          "path": "resources/s3_bucket_impl.go",
           "action": "created"
         },
         {
@@ -31,7 +43,15 @@
       "data-sources": 1,
       "files": [
         {
+          "path": ".unobin-generated.json",
+          "action": "unchanged"
+        },
+        {
           "path": "data/image_dsrc.go",
+          "action": "unchanged"
+        },
+        {
+          "path": "data/image_impl.go",
           "action": "unchanged"
         },
         {
@@ -40,6 +60,10 @@
         },
         {
           "path": "library.go",
+          "action": "unchanged"
+        },
+        {
+          "path": "resources/s3_bucket_impl.go",
           "action": "unchanged"
         },
         {
@@ -55,7 +79,15 @@
       "data-sources": 1,
       "files": [
         {
+          "path": ".unobin-generated.json",
+          "action": "updated"
+        },
+        {
           "path": "data/image_dsrc.go",
+          "action": "unchanged"
+        },
+        {
+          "path": "data/image_impl.go",
           "action": "unchanged"
         },
         {
@@ -67,6 +99,10 @@
           "action": "updated"
         },
         {
+          "path": "resources/s3_bucket_impl.go",
+          "action": "removed"
+        },
+        {
           "path": "resources/s3_bucket_rsrc.go",
           "action": "removed"
         }
@@ -74,22 +110,7 @@
     }
   ],
   "partial": {
-    "output": {
-      "out-dir": "$OUT",
-      "module-path": "example.com/partial",
-      "resources": 1,
-      "data-sources": 0,
-      "files": [
-        {
-          "path": "resources/s3_bucket_rsrc.go",
-          "action": "created"
-        },
-        {
-          "path": "library.go",
-          "action": "created"
-        }
-      ]
-    },
-    "error": "write go.mod: rename $OUT/.go.mod.tmp $OUT/go.mod: file exists"
+    "output": null,
+    "error": "read existing go.mod: read $OUT/go.mod: is a directory"
   }
 }

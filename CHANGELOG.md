@@ -20,6 +20,9 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ### Fixed
 
+- Preserve authored lifecycle implementations when regenerating Go libraries.
+  Validate output ownership before publishing and remove only untouched obsolete
+  lifecycle stubs.
 - Reject saved plans after locally replaced Go implementation code changes.
   Factory identity includes linked source and build settings; replan after the
   first rebuild with this change.

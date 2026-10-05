@@ -3,6 +3,7 @@ package ownedoutput
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -77,6 +78,34 @@ func TestApplyPreservesImplementationEdits(t *testing.T) {
 	body, err = os.ReadFile(path)
 	require.NoError(t, err)
 	require.Equal(t, "implemented lifecycle", string(body))
+}
+
+func TestApplyRemovesOnlyUntouchedScaffolds(t *testing.T) {
+	for _, edited := range []bool{false, true} {
+		t.Run(fmt.Sprint(edited), func(t *testing.T) {
+			dir := t.TempDir()
+			scaffold := File{
+				Path: "implementation.go", Content: []byte("initial"), Mode: 0o644,
+				Preserve: true, RemoveIfUnchanged: true,
+			}
+			_, err := Apply(dir, testGenerator, []File{generatedFile("types.go", "first"), scaffold})
+			require.NoError(t, err)
+			path := filepath.Join(dir, scaffold.Path)
+			if edited {
+				require.NoError(t, os.WriteFile(path, []byte("implemented"), 0o644))
+			}
+			before := outputFiles(t, dir)
+			_, err = Apply(dir, testGenerator, nil)
+			if edited {
+				require.ErrorContains(t, err, "obsolete implementation.go contains edits")
+				require.Equal(t, before, outputFiles(t, dir))
+			} else {
+				require.NoError(t, err)
+				require.NoFileExists(t, path)
+				require.NoFileExists(t, filepath.Join(dir, "types.go"))
+			}
+		})
+	}
 }
 
 func TestApplyRejectsConflictsBeforePublication(t *testing.T) {
