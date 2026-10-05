@@ -1,0 +1,326 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/runtime
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkPlanGraphPairedInstances/pairs=100     	     326	   7259276 ns/op	       100.0 edges	       200.0 steps	 4303668 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100     	     351	   6588715 ns/op	       100.0 edges	       200.0 steps	 4303639 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100     	     424	   5626835 ns/op	       100.0 edges	       200.0 steps	 4303639 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100     	     420	   5644961 ns/op	       100.0 edges	       200.0 steps	 4303639 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100     	     427	   5614365 ns/op	       100.0 edges	       200.0 steps	 4303639 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100     	     430	   5633333 ns/op	       100.0 edges	       200.0 steps	 4303639 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100     	     423	   5629959 ns/op	       100.0 edges	       200.0 steps	 4303639 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100     	     420	   5674208 ns/op	       100.0 edges	       200.0 steps	 4303639 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100     	     415	   5721545 ns/op	       100.0 edges	       200.0 steps	 4303639 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100     	     414	   5720741 ns/op	       100.0 edges	       200.0 steps	 4303639 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100-4   	     494	   4729102 ns/op	       100.0 edges	       200.0 steps	 4303653 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100-4   	     511	   4721379 ns/op	       100.0 edges	       200.0 steps	 4303654 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100-4   	     499	   4784285 ns/op	       100.0 edges	       200.0 steps	 4303652 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100-4   	     500	   4786696 ns/op	       100.0 edges	       200.0 steps	 4303652 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100-4   	     498	   4795488 ns/op	       100.0 edges	       200.0 steps	 4303652 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100-4   	     512	   4734009 ns/op	       100.0 edges	       200.0 steps	 4303650 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100-4   	     501	   4744285 ns/op	       100.0 edges	       200.0 steps	 4303652 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100-4   	     506	   4716315 ns/op	       100.0 edges	       200.0 steps	 4303651 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100-4   	     505	   4745983 ns/op	       100.0 edges	       200.0 steps	 4303651 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=100-4   	     500	   4795537 ns/op	       100.0 edges	       200.0 steps	 4303651 B/op	  167460 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250     	      80	  29210274 ns/op	       250.0 edges	       500.0 steps	25860737 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250     	      68	  34178767 ns/op	       250.0 edges	       500.0 steps	25860628 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250     	      69	  34044900 ns/op	       250.0 edges	       500.0 steps	25860628 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250     	      68	  33964889 ns/op	       250.0 edges	       500.0 steps	25860626 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250     	      70	  34020248 ns/op	       250.0 edges	       500.0 steps	25860624 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250     	      69	  34090308 ns/op	       250.0 edges	       500.0 steps	25860628 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250     	      68	  34234814 ns/op	       250.0 edges	       500.0 steps	25860629 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250     	      68	  33897615 ns/op	       250.0 edges	       500.0 steps	25860629 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250     	      69	  33896840 ns/op	       250.0 edges	       500.0 steps	25860628 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250     	      70	  34011534 ns/op	       250.0 edges	       500.0 steps	25860629 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250-4   	      81	  29021904 ns/op	       250.0 edges	       500.0 steps	25860736 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250-4   	      85	  29007045 ns/op	       250.0 edges	       500.0 steps	25860732 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250-4   	      80	  29621108 ns/op	       250.0 edges	       500.0 steps	25860735 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250-4   	      81	  29386688 ns/op	       250.0 edges	       500.0 steps	25860729 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250-4   	      81	  29493296 ns/op	       250.0 edges	       500.0 steps	25860721 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250-4   	      75	  30126122 ns/op	       250.0 edges	       500.0 steps	25860728 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250-4   	      81	  29172294 ns/op	       250.0 edges	       500.0 steps	25860724 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250-4   	      82	  29076569 ns/op	       250.0 edges	       500.0 steps	25860726 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250-4   	      81	  29505449 ns/op	       250.0 edges	       500.0 steps	25860732 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=250-4   	      80	  29222124 ns/op	       250.0 edges	       500.0 steps	25860724 B/op	 1018570 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500     	      20	 114436814 ns/op	       500.0 edges	      1000 steps	101722340 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500     	      16	 135474176 ns/op	       500.0 edges	      1000 steps	101722038 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500     	      16	 134085228 ns/op	       500.0 edges	      1000 steps	101722023 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500     	      16	 133006048 ns/op	       500.0 edges	      1000 steps	101722037 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500     	      16	 134710705 ns/op	       500.0 edges	      1000 steps	101722021 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500     	      16	 134296007 ns/op	       500.0 edges	      1000 steps	101722038 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500     	      18	 132422690 ns/op	       500.0 edges	      1000 steps	101722044 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500     	      18	 134993441 ns/op	       500.0 edges	      1000 steps	101722037 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500     	      16	 135059347 ns/op	       500.0 edges	      1000 steps	101722030 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500     	      16	 134465366 ns/op	       500.0 edges	      1000 steps	101722030 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500-4   	      20	 112775235 ns/op	       500.0 edges	      1000 steps	101722413 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500-4   	      20	 113658971 ns/op	       500.0 edges	      1000 steps	101722358 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500-4   	      20	 114439060 ns/op	       500.0 edges	      1000 steps	101722350 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500-4   	      21	 114349088 ns/op	       500.0 edges	      1000 steps	101722364 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500-4   	      20	 114235628 ns/op	       500.0 edges	      1000 steps	101722381 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500-4   	      20	 113839733 ns/op	       500.0 edges	      1000 steps	101722358 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500-4   	      20	 114751421 ns/op	       500.0 edges	      1000 steps	101722384 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500-4   	      20	 113482167 ns/op	       500.0 edges	      1000 steps	101722361 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500-4   	      20	 113141806 ns/op	       500.0 edges	      1000 steps	101722366 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=500-4   	      19	 113780422 ns/op	       500.0 edges	      1000 steps	101722405 B/op	 4037088 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000    	       5	 448893373 ns/op	      1000 edges	      2000 steps	403432476 B/op	16074124 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000    	       4	 548096619 ns/op	      1000 edges	      2000 steps	403431620 B/op	16074124 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000    	       4	 538760121 ns/op	      1000 edges	      2000 steps	403431584 B/op	16074124 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000    	       4	 541060190 ns/op	      1000 edges	      2000 steps	403431604 B/op	16074124 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000    	       4	 535493138 ns/op	      1000 edges	      2000 steps	403431612 B/op	16074124 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000    	       4	 539016514 ns/op	      1000 edges	      2000 steps	403431644 B/op	16074124 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000    	       4	 535506949 ns/op	      1000 edges	      2000 steps	403431620 B/op	16074124 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000    	       4	 532047976 ns/op	      1000 edges	      2000 steps	403431628 B/op	16074124 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000    	       4	 531081115 ns/op	      1000 edges	      2000 steps	403431608 B/op	16074124 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000    	       4	 530754740 ns/op	      1000 edges	      2000 steps	403431632 B/op	16074124 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000-4  	       5	 447005913 ns/op	      1000 edges	      2000 steps	403432576 B/op	16074124 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000-4  	       5	 447349095 ns/op	      1000 edges	      2000 steps	403432624 B/op	16074125 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000-4  	       5	 450546759 ns/op	      1000 edges	      2000 steps	403432624 B/op	16074126 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000-4  	       5	 460306030 ns/op	      1000 edges	      2000 steps	403432582 B/op	16074124 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000-4  	       5	 452663180 ns/op	      1000 edges	      2000 steps	403432739 B/op	16074125 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000-4  	       5	 452317630 ns/op	      1000 edges	      2000 steps	403432515 B/op	16074124 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000-4  	       5	 450996691 ns/op	      1000 edges	      2000 steps	403432662 B/op	16074125 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000-4  	       5	 451769334 ns/op	      1000 edges	      2000 steps	403432492 B/op	16074124 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000-4  	       5	 453706383 ns/op	      1000 edges	      2000 steps	403432473 B/op	16074124 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=1000-4  	       5	 453500244 ns/op	      1000 edges	      2000 steps	403432796 B/op	16074125 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000    	       2	1782044595 ns/op	      2000 edges	      4000 steps	1606926976 B/op	64148196 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000    	       1	2114175903 ns/op	      2000 edges	      4000 steps	1606924640 B/op	64148194 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000    	       1	2129162494 ns/op	      2000 edges	      4000 steps	1606924624 B/op	64148194 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000    	       1	2153831497 ns/op	      2000 edges	      4000 steps	1606924672 B/op	64148194 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000    	       1	2130042224 ns/op	      2000 edges	      4000 steps	1606924592 B/op	64148194 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000    	       1	2136719900 ns/op	      2000 edges	      4000 steps	1606924640 B/op	64148194 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000    	       1	2144744672 ns/op	      2000 edges	      4000 steps	1606924656 B/op	64148194 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000    	       1	2144759351 ns/op	      2000 edges	      4000 steps	1606924704 B/op	64148194 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000    	       1	2136951505 ns/op	      2000 edges	      4000 steps	1606924672 B/op	64148194 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000    	       1	2128977908 ns/op	      2000 edges	      4000 steps	1606924688 B/op	64148194 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000-4  	       2	1784364636 ns/op	      2000 edges	      4000 steps	1606926920 B/op	64148195 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000-4  	       2	1785190136 ns/op	      2000 edges	      4000 steps	1606926936 B/op	64148196 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000-4  	       2	1787062933 ns/op	      2000 edges	      4000 steps	1606926664 B/op	64148194 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000-4  	       2	1780326658 ns/op	      2000 edges	      4000 steps	1606926832 B/op	64148195 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000-4  	       2	1854567860 ns/op	      2000 edges	      4000 steps	1606926976 B/op	64148196 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000-4  	       2	1799508864 ns/op	      2000 edges	      4000 steps	1606926904 B/op	64148195 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000-4  	       2	1787797546 ns/op	      2000 edges	      4000 steps	1606926920 B/op	64148195 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000-4  	       2	1792588448 ns/op	      2000 edges	      4000 steps	1606926736 B/op	64148196 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000-4  	       2	1790724857 ns/op	      2000 edges	      4000 steps	1606926752 B/op	64148196 allocs/op
+BenchmarkPlanGraphPairedInstances/pairs=2000-4  	       2	1789721796 ns/op	      2000 edges	      4000 steps	1606926992 B/op	64148196 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1           	     496	   4787835 ns/op	       100.0 edges	       200.0 steps	 4303653 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1           	     417	   5732071 ns/op	       100.0 edges	       200.0 steps	 4303638 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1           	     411	   5823800 ns/op	       100.0 edges	       200.0 steps	 4303639 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1           	     415	   5760187 ns/op	       100.0 edges	       200.0 steps	 4303639 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1           	     421	   5676211 ns/op	       100.0 edges	       200.0 steps	 4303639 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1           	     420	   5685502 ns/op	       100.0 edges	       200.0 steps	 4303638 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1           	     418	   5691113 ns/op	       100.0 edges	       200.0 steps	 4303638 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1           	     421	   5720266 ns/op	       100.0 edges	       200.0 steps	 4303639 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1           	     420	   5767413 ns/op	       100.0 edges	       200.0 steps	 4303639 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1           	     416	   5725440 ns/op	       100.0 edges	       200.0 steps	 4303639 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1-4         	     501	   4753390 ns/op	       100.0 edges	       200.0 steps	 4303654 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1-4         	     500	   4768426 ns/op	       100.0 edges	       200.0 steps	 4303652 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1-4         	     507	   4743128 ns/op	       100.0 edges	       200.0 steps	 4303653 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1-4         	     510	   4752386 ns/op	       100.0 edges	       200.0 steps	 4303652 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1-4         	     502	   4760408 ns/op	       100.0 edges	       200.0 steps	 4303664 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1-4         	     508	   4744263 ns/op	       100.0 edges	       200.0 steps	 4303653 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1-4         	     508	   4741344 ns/op	       100.0 edges	       200.0 steps	 4303652 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1-4         	     501	   4749236 ns/op	       100.0 edges	       200.0 steps	 4303655 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1-4         	     506	   4722960 ns/op	       100.0 edges	       200.0 steps	 4303654 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=1-4         	     504	   4770793 ns/op	       100.0 edges	       200.0 steps	 4303652 B/op	  167460 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3           	     301	   8056072 ns/op	       100.0 edges	       200.0 steps	 9431677 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3           	     243	   9808895 ns/op	       100.0 edges	       200.0 steps	 9431646 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3           	     240	   9985922 ns/op	       100.0 edges	       200.0 steps	 9431647 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3           	     241	   9869693 ns/op	       100.0 edges	       200.0 steps	 9431648 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3           	     243	   9804014 ns/op	       100.0 edges	       200.0 steps	 9431647 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3           	     242	   9782682 ns/op	       100.0 edges	       200.0 steps	 9431647 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3           	     243	   9771983 ns/op	       100.0 edges	       200.0 steps	 9431648 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3           	     246	   9758540 ns/op	       100.0 edges	       200.0 steps	 9431647 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3           	     244	   9902817 ns/op	       100.0 edges	       200.0 steps	 9431648 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3           	     241	   9915112 ns/op	       100.0 edges	       200.0 steps	 9431648 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3-4         	     300	   7996006 ns/op	       100.0 edges	       200.0 steps	 9431679 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3-4         	     298	   7967222 ns/op	       100.0 edges	       200.0 steps	 9431679 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3-4         	     302	   7945746 ns/op	       100.0 edges	       200.0 steps	 9431677 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3-4         	     304	   7986354 ns/op	       100.0 edges	       200.0 steps	 9431677 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3-4         	     300	   7951067 ns/op	       100.0 edges	       200.0 steps	 9431678 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3-4         	     301	   7932411 ns/op	       100.0 edges	       200.0 steps	 9431679 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3-4         	     302	   7923631 ns/op	       100.0 edges	       200.0 steps	 9431677 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3-4         	     300	   7991351 ns/op	       100.0 edges	       200.0 steps	 9431680 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3-4         	     300	   8017825 ns/op	       100.0 edges	       200.0 steps	 9431679 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=3-4         	     296	   8051469 ns/op	       100.0 edges	       200.0 steps	 9431679 B/op	  248560 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6           	     124	  19094843 ns/op	       100.0 edges	       200.0 steps	25276507 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6           	     100	  23816651 ns/op	       100.0 edges	       200.0 steps	25276442 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6           	     100	  23704438 ns/op	       100.0 edges	       200.0 steps	25276441 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6           	      98	  23683323 ns/op	       100.0 edges	       200.0 steps	25276440 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6           	     100	  23745808 ns/op	       100.0 edges	       200.0 steps	25276443 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6           	      96	  23581062 ns/op	       100.0 edges	       200.0 steps	25276442 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6           	      96	  23584189 ns/op	       100.0 edges	       200.0 steps	25276442 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6           	     100	  23724527 ns/op	       100.0 edges	       200.0 steps	25276442 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6           	      99	  23402168 ns/op	       100.0 edges	       200.0 steps	25276441 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6           	     100	  23549196 ns/op	       100.0 edges	       200.0 steps	25276439 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6-4         	     126	  18977382 ns/op	       100.0 edges	       200.0 steps	25276513 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6-4         	     123	  19189662 ns/op	       100.0 edges	       200.0 steps	25276505 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6-4         	     124	  19097101 ns/op	       100.0 edges	       200.0 steps	25276505 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6-4         	     124	  19068902 ns/op	       100.0 edges	       200.0 steps	25276513 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6-4         	     123	  19194054 ns/op	       100.0 edges	       200.0 steps	25276501 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6-4         	     126	  18923502 ns/op	       100.0 edges	       200.0 steps	25276506 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6-4         	     124	  19109480 ns/op	       100.0 edges	       200.0 steps	25276511 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6-4         	     124	  19167593 ns/op	       100.0 edges	       200.0 steps	25276503 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6-4         	     123	  19354845 ns/op	       100.0 edges	       200.0 steps	25276504 B/op	  585360 allocs/op
+BenchmarkPlanGraphNestedInstances/pairs=100/depth=6-4         	     124	  19106486 ns/op	       100.0 edges	       200.0 steps	25276507 B/op	  585360 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10             	   41834	     57645 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10             	   33571	     71460 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10             	   33788	     71086 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10             	   33792	     71176 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10             	   33727	     70465 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10             	   34341	     69677 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10             	   34063	     70031 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10             	   33864	     70319 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10             	   34552	     69430 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10             	   34585	     69623 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10-4           	   41829	     57376 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10-4           	   41895	     57019 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10-4           	   41959	     56961 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10-4           	   41785	     56976 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10-4           	   42332	     57015 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10-4           	   42393	     56608 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10-4           	   42843	     56603 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10-4           	   42219	     56914 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10-4           	   41335	     57581 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=10-4           	   41757	     57311 ns/op	       100.0 edges	        20.00 steps	   58704 B/op	    1645 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25             	    9538	    251555 ns/op	       625.0 edges	        50.00 steps	  241689 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25             	    7636	    317831 ns/op	       625.0 edges	        50.00 steps	  241688 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25             	    7735	    319949 ns/op	       625.0 edges	        50.00 steps	  241688 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25             	    7800	    313289 ns/op	       625.0 edges	        50.00 steps	  241688 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25             	    7742	    313127 ns/op	       625.0 edges	        50.00 steps	  241688 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25             	    7815	    314758 ns/op	       625.0 edges	        50.00 steps	  241688 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25             	    7597	    317836 ns/op	       625.0 edges	        50.00 steps	  241688 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25             	    7802	    318115 ns/op	       625.0 edges	        50.00 steps	  241688 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25             	    7716	    317368 ns/op	       625.0 edges	        50.00 steps	  241688 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25             	    7626	    316029 ns/op	       625.0 edges	        50.00 steps	  241688 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25-4           	    9668	    247288 ns/op	       625.0 edges	        50.00 steps	  241689 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25-4           	    9270	    250512 ns/op	       625.0 edges	        50.00 steps	  241689 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25-4           	    9562	    248431 ns/op	       625.0 edges	        50.00 steps	  241689 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25-4           	    9926	    249746 ns/op	       625.0 edges	        50.00 steps	  241689 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25-4           	    9384	    248630 ns/op	       625.0 edges	        50.00 steps	  241689 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25-4           	    9254	    250228 ns/op	       625.0 edges	        50.00 steps	  241689 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25-4           	   10000	    247779 ns/op	       625.0 edges	        50.00 steps	  241689 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25-4           	    9836	    252139 ns/op	       625.0 edges	        50.00 steps	  241689 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25-4           	    9708	    251971 ns/op	       625.0 edges	        50.00 steps	  241689 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=25-4           	    8962	    250147 ns/op	       625.0 edges	        50.00 steps	  241689 B/op	    7112 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50             	    2826	    869303 ns/op	      2500 edges	       100.0 steps	  847508 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50             	    2186	   1094573 ns/op	      2500 edges	       100.0 steps	  847505 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50             	    2199	   1110430 ns/op	      2500 edges	       100.0 steps	  847505 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50             	    2181	   1104850 ns/op	      2500 edges	       100.0 steps	  847505 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50             	    2133	   1113856 ns/op	      2500 edges	       100.0 steps	  847505 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50             	    2151	   1128078 ns/op	      2500 edges	       100.0 steps	  847505 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50             	    2196	   1096749 ns/op	      2500 edges	       100.0 steps	  847505 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50             	    2154	   1103380 ns/op	      2500 edges	       100.0 steps	  847505 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50             	    2161	   1128790 ns/op	      2500 edges	       100.0 steps	  847505 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50             	    2186	   1089434 ns/op	      2500 edges	       100.0 steps	  847505 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50-4           	    2763	    867008 ns/op	      2500 edges	       100.0 steps	  847508 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50-4           	    2755	    870314 ns/op	      2500 edges	       100.0 steps	  847508 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50-4           	    2775	    868637 ns/op	      2500 edges	       100.0 steps	  847508 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50-4           	    2690	    869051 ns/op	      2500 edges	       100.0 steps	  847508 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50-4           	    2704	    869001 ns/op	      2500 edges	       100.0 steps	  847508 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50-4           	    2763	    864589 ns/op	      2500 edges	       100.0 steps	  847508 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50-4           	    2766	    868196 ns/op	      2500 edges	       100.0 steps	  847508 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50-4           	    2727	    872651 ns/op	      2500 edges	       100.0 steps	  847508 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50-4           	    2714	    877488 ns/op	      2500 edges	       100.0 steps	  847508 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=50-4           	    2740	    872923 ns/op	      2500 edges	       100.0 steps	  847508 B/op	   24289 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100            	     721	   3342537 ns/op	     10000 edges	       200.0 steps	 3158849 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100            	     562	   4193844 ns/op	     10000 edges	       200.0 steps	 3158835 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100            	     574	   4187789 ns/op	     10000 edges	       200.0 steps	 3158836 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100            	     565	   4239856 ns/op	     10000 edges	       200.0 steps	 3158836 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100            	     566	   4206336 ns/op	     10000 edges	       200.0 steps	 3158835 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100            	     562	   4184278 ns/op	     10000 edges	       200.0 steps	 3158835 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100            	     588	   4124226 ns/op	     10000 edges	       200.0 steps	 3158835 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100            	     578	   4201569 ns/op	     10000 edges	       200.0 steps	 3158836 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100            	     572	   4207722 ns/op	     10000 edges	       200.0 steps	 3158836 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100            	     566	   4200654 ns/op	     10000 edges	       200.0 steps	 3158835 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100-4          	     732	   3303505 ns/op	     10000 edges	       200.0 steps	 3158850 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100-4          	     729	   3313554 ns/op	     10000 edges	       200.0 steps	 3158849 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100-4          	     733	   3288502 ns/op	     10000 edges	       200.0 steps	 3158849 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100-4          	     722	   3366587 ns/op	     10000 edges	       200.0 steps	 3158849 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100-4          	     727	   3289944 ns/op	     10000 edges	       200.0 steps	 3158849 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100-4          	     726	   3325730 ns/op	     10000 edges	       200.0 steps	 3158848 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100-4          	     716	   3310491 ns/op	     10000 edges	       200.0 steps	 3158849 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100-4          	     729	   3317269 ns/op	     10000 edges	       200.0 steps	 3158849 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100-4          	     724	   3322552 ns/op	     10000 edges	       200.0 steps	 3158850 B/op	   88741 allocs/op
+BenchmarkPlanGraphCartesianInstances/instances=100-4          	     720	   3327716 ns/op	     10000 edges	       200.0 steps	 3158849 B/op	   88741 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent       	    1216	   2008927 ns/op	 2343232 B/op	   29092 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent       	     852	   2792652 ns/op	 2343567 B/op	   29145 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent       	     838	   2793346 ns/op	 2343551 B/op	   29144 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent       	     866	   2790384 ns/op	 2343568 B/op	   29145 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent       	     860	   2794254 ns/op	 2343533 B/op	   29143 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent       	     806	   2845553 ns/op	 2343539 B/op	   29143 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent       	     846	   2816802 ns/op	 2343577 B/op	   29146 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent       	     861	   2770667 ns/op	 2343561 B/op	   29145 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent       	     864	   2783865 ns/op	 2343531 B/op	   29143 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent       	     867	   2769805 ns/op	 2343545 B/op	   29144 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4     	    1177	   1991379 ns/op	 2343196 B/op	   29093 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4     	    1174	   2037391 ns/op	 2343082 B/op	   29090 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4     	    1179	   2015346 ns/op	 2343112 B/op	   29091 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4     	    1192	   2017162 ns/op	 2343217 B/op	   29092 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4     	    1195	   2009146 ns/op	 2343144 B/op	   29091 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4     	    1186	   2027014 ns/op	 2343116 B/op	   29091 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4     	    1200	   2011415 ns/op	 2343128 B/op	   29091 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4     	    1195	   2021373 ns/op	 2343133 B/op	   29091 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4     	    1156	   2070154 ns/op	 2343164 B/op	   29092 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4     	    1183	   2035080 ns/op	 2343122 B/op	   29091 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain             	    1166	   2028773 ns/op	 2356939 B/op	   30143 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain             	     997	   2411272 ns/op	 2356424 B/op	   30139 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain             	     998	   2450361 ns/op	 2356424 B/op	   30139 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain             	     996	   2442012 ns/op	 2356424 B/op	   30139 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain             	     981	   2461275 ns/op	 2356424 B/op	   30139 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain             	     979	   2421223 ns/op	 2356424 B/op	   30139 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain             	     988	   2428521 ns/op	 2356424 B/op	   30139 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain             	     993	   2409068 ns/op	 2356424 B/op	   30139 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain             	     998	   2410260 ns/op	 2356424 B/op	   30139 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain             	     964	   2416097 ns/op	 2356424 B/op	   30139 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4           	    1179	   2022119 ns/op	 2356933 B/op	   30143 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4           	    1191	   2040601 ns/op	 2356946 B/op	   30143 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4           	    1176	   2037187 ns/op	 2356973 B/op	   30143 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4           	    1178	   2043529 ns/op	 2356947 B/op	   30143 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4           	    1204	   2042045 ns/op	 2356975 B/op	   30143 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4           	    1105	   2041561 ns/op	 2356888 B/op	   30143 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4           	    1196	   2034126 ns/op	 2356931 B/op	   30143 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4           	    1204	   2051402 ns/op	 2356919 B/op	   30143 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4           	    1150	   2056410 ns/op	 2356990 B/op	   30144 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4           	    1165	   2062224 ns/op	 2356905 B/op	   30143 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan               	     944	   2486999 ns/op	 2604993 B/op	   37090 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan               	     708	   3360641 ns/op	 2605414 B/op	   37142 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan               	     720	   3359585 ns/op	 2605396 B/op	   37141 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan               	     699	   3447182 ns/op	 2605413 B/op	   37142 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan               	     688	   3400862 ns/op	 2605412 B/op	   37142 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan               	     718	   3335279 ns/op	 2605404 B/op	   37142 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan               	     726	   3322424 ns/op	 2605407 B/op	   37142 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan               	     708	   3343738 ns/op	 2605409 B/op	   37142 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan               	     723	   3343115 ns/op	 2605426 B/op	   37143 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan               	     698	   3415511 ns/op	 2605426 B/op	   37143 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4             	     968	   2511934 ns/op	 2605083 B/op	   37091 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4             	     866	   2612797 ns/op	 2605082 B/op	   37090 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4             	     828	   2683082 ns/op	 2605017 B/op	   37089 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4             	     925	   2688616 ns/op	 2604974 B/op	   37088 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4             	     916	   2629743 ns/op	 2604998 B/op	   37089 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4             	     910	   2552479 ns/op	 2605052 B/op	   37090 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4             	     757	   2809873 ns/op	 2604926 B/op	   37088 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4             	     948	   2644306 ns/op	 2604971 B/op	   37088 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4             	     964	   2673690 ns/op	 2605034 B/op	   37089 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4             	     906	   2610544 ns/op	 2605005 B/op	   37089 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                       	    3280	    735696 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                       	    3045	    731911 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                       	    3300	    741317 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                       	    3296	    728105 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                       	    3291	    724850 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                       	    3322	    722476 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                       	    3230	    739074 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                       	    3172	    724989 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                       	    3206	    739752 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                       	    3204	    734309 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                     	    4014	    604423 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                     	    3981	    610423 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                     	    3952	    609972 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                     	    3903	    616413 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                     	    3951	    615863 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                     	    3975	    613460 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                     	    3909	    614281 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                     	    3896	    611094 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                     	    3913	    613959 ns/op	  838424 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                     	    3925	    611635 ns/op	  838424 B/op	   10690 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/runtime	771.949s
