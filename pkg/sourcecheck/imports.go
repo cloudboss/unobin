@@ -84,9 +84,8 @@ func AnalyzeImports(
 	resolver = preflight
 	visitorOpts.Resolver = resolver
 	visitor := newImportVisitor(visitorOpts, schemas)
-	top, err := resolve.WalkUBFrom(refs, resolver, visitor, opts.Versions,
-		importSourceForOptions(opts))
-	if err != nil {
+	top := preflight.graph.Top
+	if err := preflight.graph.Visit(visitor); err != nil {
 		return nil, err
 	}
 	for _, metadata := range compatibility.Manifest() {
@@ -156,6 +155,9 @@ func AnalyzeImports(
 	}
 	if libraryConfigSchemas != nil {
 		analysis.LibraryConfigSchemas = libraryConfigSchemas
+	}
+	if err := preflight.graph.ValidateSources(); err != nil {
+		return nil, err
 	}
 	return analysis, nil
 }

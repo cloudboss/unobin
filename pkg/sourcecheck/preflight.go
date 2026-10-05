@@ -21,6 +21,7 @@ type preflightSource struct {
 type importPreflight struct {
 	resolver resolve.Resolver
 	versions map[string]string
+	graph    *resolve.ImportGraph
 	sources  map[resolve.RemoteImport]*resolve.Source
 	imports  map[string]preflightSource
 	packages map[string]golibrary.PackageSource
@@ -78,11 +79,13 @@ func preflightImports(
 		imports: map[string]preflightSource{}, packages: map[string]golibrary.PackageSource{},
 		contexts: map[string]string{}, deferred: map[string]bool{},
 	}
-	if _, err := resolve.WalkUBFrom(
+	graph, err := resolve.ResolveUBGraph(
 		refs, p, p, opts.Versions, importSourceForOptions(opts),
-	); err != nil {
+	)
+	if err != nil {
 		return nil, nil, err
 	}
+	p.graph = graph
 	configDeps, err := bodyLibraryConfigDeps(opts.Body)
 	if err != nil {
 		return nil, nil, err
@@ -136,7 +139,42 @@ func preflightImports(
 	if err := errors.Join(failures...); err != nil {
 		return nil, nil, err
 	}
+	if len(p.deferred) > 0 {
+		for i, res := range graph.Top {
+			graph.Top[i] = p.deferredResolution(res)
+		}
+		for _, lib := range graph.Libraries {
+			for _, exports := range lib.BodyImports {
+				for _, imports := range exports {
+					for i, res := range imports {
+						imports[i] = p.deferredResolution(res)
+					}
+				}
+			}
+		}
+	}
 	return p, context, nil
+}
+
+func (p *importPreflight) deferredResolution(res resolve.Resolution) resolve.Resolution {
+	if res.Kind != resolve.ResolutionGo || res.SourcePath == "" {
+		return res
+	}
+	dir, err := filepath.Abs(res.SourcePath)
+	if err != nil || !p.deferred[dir] {
+		return res
+	}
+	remote, ok := res.Ref.(*resolve.RemoteImport)
+	if !ok {
+		return res
+	}
+	path := remote.URL
+	if remote.Subdir != "" {
+		path += "/" + remote.Subdir
+	}
+	res.Path, res.GoImportPath, res.ModulePath = path, path, path
+	res.SourcePath, res.ModuleRootPath = "", ""
+	return res
 }
 
 func (p *importPreflight) Resolve(ref resolve.ImportRef) (*resolve.Source, error) {

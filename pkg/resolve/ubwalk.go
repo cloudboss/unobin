@@ -11,12 +11,13 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/mod/modfile"
+	"golang.org/x/mod/semver"
+
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/projectmarker"
-	"golang.org/x/mod/modfile"
-	"golang.org/x/mod/semver"
 )
 
 // UBKey is the dedup key for a UB-library import. Remote imports key on
@@ -166,6 +167,7 @@ type ubWalker struct {
 	inProgress       map[string]bool
 	goModuleProjects map[string]string
 	goPackageModules map[string]string
+	sourceRevisions  map[*Source][32]byte
 }
 
 // ProjectLockVersion returns ref with a selected project-lock version when
@@ -413,8 +415,10 @@ func (w *ubWalker) handleGoImport(
 	if err := w.checkGoImportConflict(r, path, modulePath); err != nil {
 		return Resolution{}, err
 	}
-	if err := w.visitor.OnGoImport(alias, path, modulePath, r.Version); err != nil {
-		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
+	if w.visitor != nil {
+		if err := w.visitor.OnGoImport(alias, path, modulePath, r.Version); err != nil {
+			return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
+		}
 	}
 	return Resolution{
 		Kind:           ResolutionGo,
@@ -666,8 +670,10 @@ func (w *ubWalker) handleUBImport(
 		lib.BodyImports[entry.Kind][entry.Name] = resols
 	}
 	w.parsed[key] = lib
-	if err := w.visitor.OnUBLibrary(alias, key, ref, lib); err != nil {
-		return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
+	if w.visitor != nil {
+		if err := w.visitor.OnUBLibrary(alias, key, ref, lib); err != nil {
+			return Resolution{}, fmt.Errorf("import %q: %w", alias, err)
+		}
 	}
 	return Resolution{
 		Kind:         ResolutionUB,
@@ -695,6 +701,10 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 		return nil, err
 	}
 	slices.Sort(matches)
+	var files map[string][]byte
+	if w.sourceRevisions != nil {
+		files = make(map[string][]byte, len(matches))
+	}
 	syntaxBodies := make(map[string]map[string]syntax.FactoryBody, len(matches))
 	sourceFiles := make(map[string]syntax.SourceFileSpec, len(matches))
 	var entries []CompositeEntry
@@ -702,6 +712,9 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 		b, err := readSourceFile(source, filename)
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", filename, err)
+		}
+		if files != nil {
+			files[filename] = b
 		}
 		sourceFile := librarySourceFileSpec(source, filename, b)
 		added, err := addSourceDeclaredLibraryFile(
@@ -717,6 +730,13 @@ func (w *ubWalker) parseLibrary(source *Source) (*UBLibrary, error) {
 		if added {
 			sourceFiles[filename] = sourceFile
 		}
+	}
+	if w.sourceRevisions != nil {
+		digest := sourceDigest(files)
+		if previous, found := w.sourceRevisions[source]; found && previous != digest {
+			return nil, fmt.Errorf("UB source changed while resolving imports: %s", source.Path)
+		}
+		w.sourceRevisions[source] = digest
 	}
 	return &UBLibrary{
 		SyntaxBodies: syntaxBodies,
