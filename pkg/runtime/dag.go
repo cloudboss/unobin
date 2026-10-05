@@ -33,10 +33,18 @@ func buildDAG(nodes []*Node, rootLocals map[string]lang.Expr) *DAG {
 	for _, n := range nodes {
 		g.Nodes[n.Address] = n
 	}
+	for _, n := range g.Nodes {
+		if g.Nodes[n.Composite].IsComposite() {
+			g.Edges[n.Composite] = append(g.Edges[n.Composite], n.Address)
+		}
+	}
 	sl := newScopeLocals(rootLocals, g.Nodes)
 	boundaryRefs := map[string][]string{}
 	for _, n := range nodes {
-		g.Edges[n.Address] = computeDeps(n, g.Nodes, sl, boundaryRefs)
+		if n.IsComposite() {
+			slices.Sort(g.Edges[n.Address])
+		}
+		g.Edges[n.Address] = computeDeps(n, g.Nodes, sl, boundaryRefs, g.Edges[n.Address])
 	}
 	return g
 }
@@ -163,9 +171,10 @@ func (g *DAG) TopologicalOrder() ([]string, error) {
 // entries.
 func computeDeps(
 	n *Node, nodes map[string]*Node, sl *scopeLocals, boundaryRefs map[string][]string,
+	directChildren []string,
 ) []string {
 	if n.IsComposite() {
-		return internalsOf(n.Address, nodes)
+		return directChildren
 	}
 	deps := bodyDeps(n.Body, sl.forScope(n.Composite), nodes, n.Composite)
 	if n.Composite != "" {
@@ -232,17 +241,6 @@ func configurationDep(n *Node, nodes map[string]*Node) (string, bool) {
 		return "", false
 	}
 	return libraryConfigNode(nodes, n.Composite, n.Alias)
-}
-
-func internalsOf(callSite string, nodes map[string]*Node) []string {
-	var out []string
-	for _, m := range nodes {
-		if m.Composite == callSite {
-			out = append(out, m.Address)
-		}
-	}
-	slices.Sort(out)
-	return out
 }
 
 // scopeRef rewrites a reference into a composite internal address.
