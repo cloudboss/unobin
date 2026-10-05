@@ -1,0 +1,323 @@
+{
+  "format-version": 1,
+  "workload": {
+    "work-package": "state-lookups",
+    "description": "Execution-local address lookup, snapshot moves, and ordered state updates",
+    "kind": "micro",
+    "fixtures": [
+      "pkg/runtime/state_lookup_benchmark_test.go",
+      "pkg/runtime/apply_events_test.go",
+      "pkg/runtime/resource_test_helpers_test.go",
+      "pkg/runtime/dag_test.go",
+      "pkg/runtime/nodes_test.go",
+      "pkg/runtime/plan_test.go",
+      "pkg/runtime/apply_schedule_test.go"
+    ],
+    "parameters": {
+      "changes-per-operation": "one move, update, addition, and removal",
+      "entry-counts": "100,1000,10000",
+      "planning-nodes": "300",
+      "scheduler-parallelism": "32",
+      "scheduler-steps": "1000"
+    },
+    "packages": [
+      "./pkg/runtime"
+    ],
+    "benchmark": "^(BenchmarkStateLookupDuringPlanning|BenchmarkStateLookupWithChanges|BenchmarkPlanLargeAlreadyCheckedFactory|BenchmarkApplySchedulerLargeIndependentPlan)$",
+    "cases": [
+      {
+        "package": "github.com/cloudboss/unobin/pkg/runtime",
+        "name": "BenchmarkStateLookupDuringPlanning/entries=100",
+        "units": [
+          "sec/op",
+          "B/op",
+          "allocs/op",
+          "entries",
+          "lookups"
+        ],
+        "fixed": {
+          "entries": 100,
+          "lookups": 100
+        }
+      },
+      {
+        "package": "github.com/cloudboss/unobin/pkg/runtime",
+        "name": "BenchmarkStateLookupDuringPlanning/entries=1000",
+        "units": [
+          "sec/op",
+          "B/op",
+          "allocs/op",
+          "entries",
+          "lookups"
+        ],
+        "fixed": {
+          "entries": 1000,
+          "lookups": 1000
+        }
+      },
+      {
+        "package": "github.com/cloudboss/unobin/pkg/runtime",
+        "name": "BenchmarkStateLookupDuringPlanning/entries=10000",
+        "units": [
+          "sec/op",
+          "B/op",
+          "allocs/op",
+          "entries",
+          "lookups"
+        ],
+        "fixed": {
+          "entries": 10000,
+          "lookups": 10000
+        }
+      },
+      {
+        "package": "github.com/cloudboss/unobin/pkg/runtime",
+        "name": "BenchmarkStateLookupWithChanges/entries=100",
+        "units": [
+          "sec/op",
+          "B/op",
+          "allocs/op",
+          "entries",
+          "lookups"
+        ],
+        "fixed": {
+          "entries": 100,
+          "lookups": 203
+        }
+      },
+      {
+        "package": "github.com/cloudboss/unobin/pkg/runtime",
+        "name": "BenchmarkStateLookupWithChanges/entries=1000",
+        "units": [
+          "sec/op",
+          "B/op",
+          "allocs/op",
+          "entries",
+          "lookups"
+        ],
+        "fixed": {
+          "entries": 1000,
+          "lookups": 2003
+        }
+      },
+      {
+        "package": "github.com/cloudboss/unobin/pkg/runtime",
+        "name": "BenchmarkStateLookupWithChanges/entries=10000",
+        "units": [
+          "sec/op",
+          "B/op",
+          "allocs/op",
+          "entries",
+          "lookups"
+        ],
+        "fixed": {
+          "entries": 10000,
+          "lookups": 20003
+        }
+      },
+      {
+        "package": "github.com/cloudboss/unobin/pkg/runtime",
+        "name": "BenchmarkPlanLargeAlreadyCheckedFactory",
+        "units": [
+          "sec/op",
+          "B/op",
+          "allocs/op"
+        ]
+      },
+      {
+        "package": "github.com/cloudboss/unobin/pkg/runtime",
+        "name": "BenchmarkApplySchedulerLargeIndependentPlan/independent",
+        "units": [
+          "sec/op",
+          "B/op",
+          "allocs/op"
+        ]
+      },
+      {
+        "package": "github.com/cloudboss/unobin/pkg/runtime",
+        "name": "BenchmarkApplySchedulerLargeIndependentPlan/chain",
+        "units": [
+          "sec/op",
+          "B/op",
+          "allocs/op"
+        ]
+      },
+      {
+        "package": "github.com/cloudboss/unobin/pkg/runtime",
+        "name": "BenchmarkApplySchedulerLargeIndependentPlan/fan",
+        "units": [
+          "sec/op",
+          "B/op",
+          "allocs/op"
+        ]
+      }
+    ],
+    "samples": 10,
+    "benchtime": "2s",
+    "cpus": [
+      1,
+      4
+    ],
+    "setup": "Build valid fixed snapshots and resource metadata outside timing. Each lookup iteration creates a new runState and reads every prior address through the planning lookup method. The changes case first reads one address, applies a real leaf move, replaces both active snapshots, updates one entry, adds one entry, removes one entry, and reads all prior and next entries plus two absent addresses. Include snapshot cloning and any lookup construction or refresh inside timing. Check exact addresses, values, order, absence, and snapshot validity outside timing. These isolate the state lookup stage; retain the existing checked-factory planning and scheduler cases.",
+    "cache-policy": "Symmetric warm Go build cache and one 1x benchmark warmup. Default GC, a fresh execution context per operation, and no unrelated CPU-intensive work during collection.",
+    "primary-unit": "sec/op",
+    "primary-direction": "lower",
+    "tests": [
+      [
+        "go",
+        "test",
+        "-count=1",
+        "./pkg/runtime",
+        "./pkg/sdk/state",
+        "./internal/ubtest"
+      ],
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-run",
+        "^TestCompiledCases$/^ub-composite-foreach$",
+        "./tests/e2e"
+      ]
+    ]
+  },
+  "source-revision": "f34c2f4c8b606ee7184aa52598a35c7ffa9ddee2",
+  "fixture-revision": "f34c2f4c8b606ee7184aa52598a35c7ffa9ddee2",
+  "workload-path": "benchmarks/workloads/state-lookups.json",
+  "repository": "/home/joseph/code/unobin",
+  "clean-source": true,
+  "fixture-digests": {
+    "benchmarks/workloads/state-lookups.json": "436fee80502be6b380cde608f5752ba934d2d40d1c8375d49032ee818847a02b",
+    "pkg/runtime/apply_events_test.go": "66eb5e6aba4d3d42467bae3bcd3e3359536c20afa09c54ac414ae25661970fe1",
+    "pkg/runtime/apply_schedule_test.go": "a7aa36ad68d412813f1573fb1efe7f96a4d9c65508b33798735e2b71cb70afef",
+    "pkg/runtime/dag_test.go": "d0d4c0cfc3ca5324fdd1de64cf7d7ccff113726ad790a7c38947163a0ec77c05",
+    "pkg/runtime/nodes_test.go": "5293a2938d4b45c30dbd3d96b4e3834c283278a6e46aac8834627f953eb52721",
+    "pkg/runtime/plan_test.go": "c50679957fa324819be5202bf8c684cd722cefa7dbf054bd221fe330341a08c2",
+    "pkg/runtime/resource_test_helpers_test.go": "92c3d2c48c78674023c88cb2911eef081f5ab1f60df2e5ea3f44263c43338c52",
+    "pkg/runtime/state_lookup_benchmark_test.go": "85cc8b600fdc46ec5942e00300874b5ea3755fbeb9bb0bd714a15b20bf794032"
+  },
+  "dependency-locks": {
+    "go.mod": "588dedf3818897394d476ef520f1490eaa0c46084a617876add0bb6645aa162e",
+    "go.sum": "1e1f203654bb19eb6d9c941749ae98c646e73039a7932d3730efd477d542fe45"
+  },
+  "machine": {
+    "go-version": "go1.26.2",
+    "goos": "linux",
+    "goarch": "amd64",
+    "cpu-model": "AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M",
+    "logical-cpus": 24
+  },
+  "environment": {
+    "CC": "",
+    "CGO_CFLAGS": "",
+    "CGO_CPPFLAGS": "",
+    "CGO_CXXFLAGS": "",
+    "CGO_ENABLED": "1",
+    "CGO_LDFLAGS": "",
+    "CXX": "",
+    "GO386": "",
+    "GOAMD64": "v1",
+    "GOARCH": "amd64",
+    "GOARM": "",
+    "GOARM64": "",
+    "GOCACHE": "/home/joseph/code/unobin/_output/remediation/gocache",
+    "GODEBUG": "",
+    "GOEXPERIMENT": "",
+    "GOFLAGS": "",
+    "GOMAXPROCS": "",
+    "GOMIPS": "",
+    "GOMIPS64": "",
+    "GOMODCACHE": "/home/joseph/code/unobin/_output/remediation/gomodcache",
+    "GOOS": "linux",
+    "GOPPC64": "",
+    "GORISCV64": "",
+    "GOROOT": "/home/joseph/.local/go1.26.2",
+    "GOTMPDIR": "",
+    "GOTOOLCHAIN": "auto",
+    "GOVERSION": "go1.26.2",
+    "GOWASM": "",
+    "GOWORK": "",
+    "UNOBIN_BENCH_PROFILE": ""
+  },
+  "benchstat-version": "v0.0.0-20260929162123-406019bb8b68",
+  "tests": [
+    {
+      "args": [
+        "go",
+        "test",
+        "-count=1",
+        "./pkg/runtime",
+        "./pkg/sdk/state",
+        "./internal/ubtest"
+      ],
+      "directory": ".",
+      "started": "2026-10-05T15:28:53.942072783Z",
+      "finished": "2026-10-05T15:29:12.125669274Z",
+      "exit-code": 0,
+      "output": "test-01.txt",
+      "sha256": "80bab48b980ce654fa74ab3a9f6950917acd02bd6f4f2a0d9eabadc464ffa59d"
+    },
+    {
+      "args": [
+        "go",
+        "test",
+        "-count=1",
+        "-run",
+        "^TestCompiledCases$/^ub-composite-foreach$",
+        "./tests/e2e"
+      ],
+      "directory": ".",
+      "started": "2026-10-05T15:29:12.125813776Z",
+      "finished": "2026-10-05T15:29:15.029278908Z",
+      "exit-code": 0,
+      "output": "test-02.txt",
+      "sha256": "dff126369fe9a0ba7ec9b9609eba46c1118d8cf373fa65f759f48ae21b829509"
+    }
+  ],
+  "warmup": {
+    "args": [
+      "go",
+      "test",
+      "-run",
+      "^$",
+      "-bench",
+      "^(BenchmarkStateLookupDuringPlanning|BenchmarkStateLookupWithChanges|BenchmarkPlanLargeAlreadyCheckedFactory|BenchmarkApplySchedulerLargeIndependentPlan)$",
+      "-benchmem",
+      "-benchtime=1x",
+      "-count=1",
+      "-cpu=1,4",
+      "-p=1",
+      "-timeout=30m",
+      "./pkg/runtime"
+    ],
+    "directory": ".",
+    "started": "2026-10-05T15:29:15.029420474Z",
+    "finished": "2026-10-05T15:29:17.228628149Z",
+    "exit-code": 0,
+    "output": "warmup.txt",
+    "sha256": "f5567607c5f7c32b7e9b088c128d3e6b9c77c57db7d5da27fc43836e142dfac7"
+  },
+  "benchmark": {
+    "args": [
+      "go",
+      "test",
+      "-run",
+      "^$",
+      "-bench",
+      "^(BenchmarkStateLookupDuringPlanning|BenchmarkStateLookupWithChanges|BenchmarkPlanLargeAlreadyCheckedFactory|BenchmarkApplySchedulerLargeIndependentPlan)$",
+      "-benchmem",
+      "-benchtime=2s",
+      "-count=10",
+      "-cpu=1,4",
+      "-p=1",
+      "-timeout=30m",
+      "./pkg/runtime"
+    ],
+    "directory": ".",
+    "started": "2026-10-05T15:29:17.228759045Z",
+    "finished": "2026-10-05T15:37:18.722185339Z",
+    "exit-code": 0,
+    "output": "benchmarks.txt",
+    "sha256": "f0c1cd7d38138ac1ebc5cde01ed9b04a17275dca22c55dd5bfa39e585cd5409f"
+  }
+}
