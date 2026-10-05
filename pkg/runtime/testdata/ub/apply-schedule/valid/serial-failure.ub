@@ -1,0 +1,5 @@
+imports: { slow: 'example.com/slow' }
+resources: {
+  a-fail: slow.fail { name: 'failure', delay-ms: 0 }
+  b-next: slow.r { name: 'next', delay-ms: 0 }
+}

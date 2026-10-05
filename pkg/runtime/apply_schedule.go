@@ -241,7 +241,7 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 		}
 		var next applyReadyItem
 		hasNext := false
-		if !halted {
+		if !halted && inFlight < parallelism {
 			next, hasNext = nextReady()
 		}
 		if hasNext {
