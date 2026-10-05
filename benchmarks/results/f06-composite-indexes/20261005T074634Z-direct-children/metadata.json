@@ -1,0 +1,686 @@
+{
+  "format-version": 1,
+  "kind": "benchmark-comparison",
+  "before": {
+    "format-version": 1,
+    "workload": {
+      "work-package": "F06-composite-indexes",
+      "description": "Sparse composite DAG extraction and ordered iteration internals",
+      "kind": "micro",
+      "fixtures": [
+        "pkg/runtime/composite_benchmark_test.go",
+        "pkg/runtime/testdata/ub/composite-benchmark",
+        "pkg/runtime/nodes_test.go"
+      ],
+      "parameters": {
+        "children-per-composite": "1",
+        "composite-counts": "100,500,1000,2000,4000,8000",
+        "iteration-branches": "100",
+        "iteration-keys": "a",
+        "nested-depths": "1,3,6"
+      },
+      "packages": [
+        "./pkg/runtime"
+      ],
+      "benchmark": "^(BenchmarkBuildSyntaxDAGComposites|BenchmarkCompositeInternalsInOrder)$",
+      "cases": [
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkBuildSyntaxDAGComposites/n=100",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges"
+          ],
+          "fixed": {
+            "edges": 100,
+            "nodes": 200
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkBuildSyntaxDAGComposites/n=500",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges"
+          ],
+          "fixed": {
+            "edges": 500,
+            "nodes": 1000
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkBuildSyntaxDAGComposites/n=1000",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges"
+          ],
+          "fixed": {
+            "edges": 1000,
+            "nodes": 2000
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkBuildSyntaxDAGComposites/n=2000",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges"
+          ],
+          "fixed": {
+            "edges": 2000,
+            "nodes": 4000
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkBuildSyntaxDAGComposites/n=4000",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges"
+          ],
+          "fixed": {
+            "edges": 4000,
+            "nodes": 8000
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkBuildSyntaxDAGComposites/n=8000",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges"
+          ],
+          "fixed": {
+            "edges": 8000,
+            "nodes": 16000
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=1",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges",
+            "visited"
+          ],
+          "fixed": {
+            "edges": 100,
+            "nodes": 200,
+            "visited": 100
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=3",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges",
+            "visited"
+          ],
+          "fixed": {
+            "edges": 300,
+            "nodes": 400,
+            "visited": 300
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=6",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges",
+            "visited"
+          ],
+          "fixed": {
+            "edges": 600,
+            "nodes": 700,
+            "visited": 600
+          }
+        }
+      ],
+      "samples": 10,
+      "benchtime": "2s",
+      "cpus": [
+        1,
+        4
+      ],
+      "setup": "Parse fixed UB bodies, duplicate root declarations, and resolve composite registrations outside timing. DAG benchmark includes extraction and dependency construction. Iteration benchmark includes fresh operation state and all root-boundary queries, with DAG extraction and topological ordering excluded. Assert the last graph and exact descendant order outside timing.",
+      "cache-policy": "Symmetric warm Go build cache and one 1x benchmark warmup. Default GC, no persistent runtime graph cache, no unrelated CPU-intensive work during collection.",
+      "primary-unit": "sec/op",
+      "primary-direction": "lower",
+      "tests": [
+        [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/runtime",
+          "./pkg/sdk/state",
+          "./internal/ubtest"
+        ],
+        [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "^TestCompiledCases$/^ub-composite-foreach$",
+          "./tests/e2e"
+        ]
+      ]
+    },
+    "source-revision": "313fba37db0044ef179009910f46e4da0a0889ed",
+    "fixture-revision": "313fba37db0044ef179009910f46e4da0a0889ed",
+    "workload-path": "benchmarks/workloads/f06-composites.json",
+    "repository": "/home/joseph/code/unobin",
+    "clean-source": true,
+    "fixture-digests": {
+      "benchmarks/workloads/f06-composites.json": "d0b7e2f8fb2297223ae32da307bca99614327bf523ca238c59092e90a41b2fef",
+      "pkg/runtime/composite_benchmark_test.go": "6c32305d6cb57d7aee7b4e15d264e1aef3e2b055bff90d1ae4c073c22510b947",
+      "pkg/runtime/nodes_test.go": "5293a2938d4b45c30dbd3d96b4e3834c283278a6e46aac8834627f953eb52721",
+      "pkg/runtime/testdata/ub/composite-benchmark/valid/factory-each.ub": "6b93bb625ddc29bce5c1ff3507a8da8108d7f77110fc9549df7f495bacabdf88",
+      "pkg/runtime/testdata/ub/composite-benchmark/valid/factory.ub": "5a5b87d2c3e57a7660e7a698905bd9074c983d0d27f8c67a95737e2eb2d496c9",
+      "pkg/runtime/testdata/ub/composite-benchmark/valid/leaf.ub": "6feaace82d6e850c4867a4322f6c38311016b816b3291e84753a1dffdc489500",
+      "pkg/runtime/testdata/ub/composite-benchmark/valid/nested.ub": "82e93fec2787a130d96096744e09462d9c3edde3eed20ed57700f0eb2576ca59"
+    },
+    "dependency-locks": {
+      "go.mod": "588dedf3818897394d476ef520f1490eaa0c46084a617876add0bb6645aa162e",
+      "go.sum": "1e1f203654bb19eb6d9c941749ae98c646e73039a7932d3730efd477d542fe45"
+    },
+    "machine": {
+      "go-version": "go1.26.2",
+      "goos": "linux",
+      "goarch": "amd64",
+      "cpu-model": "AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M",
+      "logical-cpus": 24
+    },
+    "environment": {
+      "CC": "",
+      "CGO_CFLAGS": "",
+      "CGO_CPPFLAGS": "",
+      "CGO_CXXFLAGS": "",
+      "CGO_ENABLED": "1",
+      "CGO_LDFLAGS": "",
+      "CXX": "",
+      "GO386": "",
+      "GOAMD64": "v1",
+      "GOARCH": "amd64",
+      "GOARM": "",
+      "GOARM64": "",
+      "GOCACHE": "/home/joseph/code/unobin/_output/remediation/gocache",
+      "GODEBUG": "",
+      "GOEXPERIMENT": "",
+      "GOFLAGS": "",
+      "GOMAXPROCS": "",
+      "GOMIPS": "",
+      "GOMIPS64": "",
+      "GOMODCACHE": "/home/joseph/code/unobin/_output/remediation/gomodcache",
+      "GOOS": "linux",
+      "GOPPC64": "",
+      "GORISCV64": "",
+      "GOROOT": "/home/joseph/.local/go1.26.2",
+      "GOTMPDIR": "",
+      "GOTOOLCHAIN": "auto",
+      "GOVERSION": "go1.26.2",
+      "GOWASM": "",
+      "GOWORK": "",
+      "UNOBIN_BENCH_PROFILE": ""
+    },
+    "benchstat-version": "v0.0.0-20260929162123-406019bb8b68",
+    "tests": [
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/runtime",
+          "./pkg/sdk/state",
+          "./internal/ubtest"
+        ],
+        "directory": ".",
+        "started": "2026-10-05T07:20:50.305828285Z",
+        "finished": "2026-10-05T07:21:07.509695709Z",
+        "exit-code": 0,
+        "output": "before-test-01.txt",
+        "sha256": "17f50e664c04741ccd2164ce2699f2d3c621b50547a0d8bd43ba0392fff762b1"
+      },
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "^TestCompiledCases$/^ub-composite-foreach$",
+          "./tests/e2e"
+        ],
+        "directory": ".",
+        "started": "2026-10-05T07:21:07.509934978Z",
+        "finished": "2026-10-05T07:21:10.412314846Z",
+        "exit-code": 0,
+        "output": "before-test-02.txt",
+        "sha256": "eb535d6a12f250d21e413ee7a8e1e3b8f7301ccdb143f899bd903737a39a1bc0"
+      }
+    ],
+    "warmup": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkBuildSyntaxDAGComposites|BenchmarkCompositeInternalsInOrder)$",
+        "-benchmem",
+        "-benchtime=1x",
+        "-count=1",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/runtime"
+      ],
+      "directory": ".",
+      "started": "2026-10-05T07:21:10.412431716Z",
+      "finished": "2026-10-05T07:21:17.249857525Z",
+      "exit-code": 0,
+      "output": "before-warmup.txt",
+      "sha256": "d7b1cb5856131182d7e47d45acd8f1dac4ed0f6dd79e086a79becfa916214a3a"
+    },
+    "benchmark": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkBuildSyntaxDAGComposites|BenchmarkCompositeInternalsInOrder)$",
+        "-benchmem",
+        "-benchtime=2s",
+        "-count=10",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/runtime"
+      ],
+      "directory": ".",
+      "started": "2026-10-05T07:21:17.250032193Z",
+      "finished": "2026-10-05T07:28:47.139961012Z",
+      "exit-code": 0,
+      "output": "before.txt",
+      "sha256": "018cc1aee7ccaa5199ea0c63474ee22bc71c9ccbb39e13128b5c2bbe55ec8b2c"
+    }
+  },
+  "after": {
+    "format-version": 1,
+    "workload": {
+      "work-package": "F06-composite-indexes",
+      "description": "Sparse composite DAG extraction and ordered iteration internals",
+      "kind": "micro",
+      "fixtures": [
+        "pkg/runtime/composite_benchmark_test.go",
+        "pkg/runtime/testdata/ub/composite-benchmark",
+        "pkg/runtime/nodes_test.go"
+      ],
+      "parameters": {
+        "children-per-composite": "1",
+        "composite-counts": "100,500,1000,2000,4000,8000",
+        "iteration-branches": "100",
+        "iteration-keys": "a",
+        "nested-depths": "1,3,6"
+      },
+      "packages": [
+        "./pkg/runtime"
+      ],
+      "benchmark": "^(BenchmarkBuildSyntaxDAGComposites|BenchmarkCompositeInternalsInOrder)$",
+      "cases": [
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkBuildSyntaxDAGComposites/n=100",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges"
+          ],
+          "fixed": {
+            "edges": 100,
+            "nodes": 200
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkBuildSyntaxDAGComposites/n=500",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges"
+          ],
+          "fixed": {
+            "edges": 500,
+            "nodes": 1000
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkBuildSyntaxDAGComposites/n=1000",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges"
+          ],
+          "fixed": {
+            "edges": 1000,
+            "nodes": 2000
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkBuildSyntaxDAGComposites/n=2000",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges"
+          ],
+          "fixed": {
+            "edges": 2000,
+            "nodes": 4000
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkBuildSyntaxDAGComposites/n=4000",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges"
+          ],
+          "fixed": {
+            "edges": 4000,
+            "nodes": 8000
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkBuildSyntaxDAGComposites/n=8000",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges"
+          ],
+          "fixed": {
+            "edges": 8000,
+            "nodes": 16000
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=1",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges",
+            "visited"
+          ],
+          "fixed": {
+            "edges": 100,
+            "nodes": 200,
+            "visited": 100
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=3",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges",
+            "visited"
+          ],
+          "fixed": {
+            "edges": 300,
+            "nodes": 400,
+            "visited": 300
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/runtime",
+          "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=6",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edges",
+            "visited"
+          ],
+          "fixed": {
+            "edges": 600,
+            "nodes": 700,
+            "visited": 600
+          }
+        }
+      ],
+      "samples": 10,
+      "benchtime": "2s",
+      "cpus": [
+        1,
+        4
+      ],
+      "setup": "Parse fixed UB bodies, duplicate root declarations, and resolve composite registrations outside timing. DAG benchmark includes extraction and dependency construction. Iteration benchmark includes fresh operation state and all root-boundary queries, with DAG extraction and topological ordering excluded. Assert the last graph and exact descendant order outside timing.",
+      "cache-policy": "Symmetric warm Go build cache and one 1x benchmark warmup. Default GC, no persistent runtime graph cache, no unrelated CPU-intensive work during collection.",
+      "primary-unit": "sec/op",
+      "primary-direction": "lower",
+      "tests": [
+        [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/runtime",
+          "./pkg/sdk/state",
+          "./internal/ubtest"
+        ],
+        [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "^TestCompiledCases$/^ub-composite-foreach$",
+          "./tests/e2e"
+        ]
+      ]
+    },
+    "source-revision": "2aa399b7cb8b268c976b192183faed4d753f957d",
+    "fixture-revision": "313fba37db0044ef179009910f46e4da0a0889ed",
+    "workload-path": "benchmarks/workloads/f06-composites.json",
+    "repository": "/home/joseph/code/unobin",
+    "clean-source": true,
+    "fixture-digests": {
+      "benchmarks/workloads/f06-composites.json": "d0b7e2f8fb2297223ae32da307bca99614327bf523ca238c59092e90a41b2fef",
+      "pkg/runtime/composite_benchmark_test.go": "6c32305d6cb57d7aee7b4e15d264e1aef3e2b055bff90d1ae4c073c22510b947",
+      "pkg/runtime/nodes_test.go": "5293a2938d4b45c30dbd3d96b4e3834c283278a6e46aac8834627f953eb52721",
+      "pkg/runtime/testdata/ub/composite-benchmark/valid/factory-each.ub": "6b93bb625ddc29bce5c1ff3507a8da8108d7f77110fc9549df7f495bacabdf88",
+      "pkg/runtime/testdata/ub/composite-benchmark/valid/factory.ub": "5a5b87d2c3e57a7660e7a698905bd9074c983d0d27f8c67a95737e2eb2d496c9",
+      "pkg/runtime/testdata/ub/composite-benchmark/valid/leaf.ub": "6feaace82d6e850c4867a4322f6c38311016b816b3291e84753a1dffdc489500",
+      "pkg/runtime/testdata/ub/composite-benchmark/valid/nested.ub": "82e93fec2787a130d96096744e09462d9c3edde3eed20ed57700f0eb2576ca59"
+    },
+    "dependency-locks": {
+      "go.mod": "588dedf3818897394d476ef520f1490eaa0c46084a617876add0bb6645aa162e",
+      "go.sum": "1e1f203654bb19eb6d9c941749ae98c646e73039a7932d3730efd477d542fe45"
+    },
+    "machine": {
+      "go-version": "go1.26.2",
+      "goos": "linux",
+      "goarch": "amd64",
+      "cpu-model": "AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M",
+      "logical-cpus": 24
+    },
+    "environment": {
+      "CC": "",
+      "CGO_CFLAGS": "",
+      "CGO_CPPFLAGS": "",
+      "CGO_CXXFLAGS": "",
+      "CGO_ENABLED": "1",
+      "CGO_LDFLAGS": "",
+      "CXX": "",
+      "GO386": "",
+      "GOAMD64": "v1",
+      "GOARCH": "amd64",
+      "GOARM": "",
+      "GOARM64": "",
+      "GOCACHE": "/home/joseph/code/unobin/_output/remediation/gocache",
+      "GODEBUG": "",
+      "GOEXPERIMENT": "",
+      "GOFLAGS": "",
+      "GOMAXPROCS": "",
+      "GOMIPS": "",
+      "GOMIPS64": "",
+      "GOMODCACHE": "/home/joseph/code/unobin/_output/remediation/gomodcache",
+      "GOOS": "linux",
+      "GOPPC64": "",
+      "GORISCV64": "",
+      "GOROOT": "/home/joseph/.local/go1.26.2",
+      "GOTMPDIR": "",
+      "GOTOOLCHAIN": "auto",
+      "GOVERSION": "go1.26.2",
+      "GOWASM": "",
+      "GOWORK": "",
+      "UNOBIN_BENCH_PROFILE": ""
+    },
+    "benchstat-version": "v0.0.0-20260929162123-406019bb8b68",
+    "tests": [
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/runtime",
+          "./pkg/sdk/state",
+          "./internal/ubtest"
+        ],
+        "directory": ".",
+        "started": "2026-10-05T07:38:48.751534561Z",
+        "finished": "2026-10-05T07:39:06.2265316Z",
+        "exit-code": 0,
+        "output": "after-test-01.txt",
+        "sha256": "5f2c4ae703ec7a00a492e463544f0e5d0bf7b6c7fcd436e144f059649b98ef05"
+      },
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "^TestCompiledCases$/^ub-composite-foreach$",
+          "./tests/e2e"
+        ],
+        "directory": ".",
+        "started": "2026-10-05T07:39:06.22671297Z",
+        "finished": "2026-10-05T07:39:09.307755176Z",
+        "exit-code": 0,
+        "output": "after-test-02.txt",
+        "sha256": "e5185de9a52bb07b92ad8b9e550e9f469bc721b38385da9b8d51adcd3c5f99c5"
+      }
+    ],
+    "warmup": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkBuildSyntaxDAGComposites|BenchmarkCompositeInternalsInOrder)$",
+        "-benchmem",
+        "-benchtime=1x",
+        "-count=1",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/runtime"
+      ],
+      "directory": ".",
+      "started": "2026-10-05T07:39:09.307885922Z",
+      "finished": "2026-10-05T07:39:10.304262027Z",
+      "exit-code": 0,
+      "output": "after-warmup.txt",
+      "sha256": "fe1def35cea048ca97d7229b094cb20aba7174fdb576985b2e04c3a4ffb8e056"
+    },
+    "benchmark": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkBuildSyntaxDAGComposites|BenchmarkCompositeInternalsInOrder)$",
+        "-benchmem",
+        "-benchtime=2s",
+        "-count=10",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/runtime"
+      ],
+      "directory": ".",
+      "started": "2026-10-05T07:39:10.30445573Z",
+      "finished": "2026-10-05T07:46:21.442408912Z",
+      "exit-code": 0,
+      "output": "after.txt",
+      "sha256": "021b2067335bc30a05df6b24e0955734870e4b04f44d8bdbd93563f175924555"
+    }
+  },
+  "comparison": {
+    "args": [
+      "go",
+      "tool",
+      "benchstat",
+      "before.txt",
+      "after.txt"
+    ],
+    "directory": ".",
+    "started": "2026-10-05T07:47:27.500813673Z",
+    "finished": "2026-10-05T07:47:27.506766506Z",
+    "exit-code": 0,
+    "output": "comparison.txt",
+    "sha256": "fc43ef3c20fa770cacad6db8299a0b8dcdbee701d3310bc051ced8a71e7684fb"
+  },
+  "summary-sha256": "58c55c461f5bf2c9a6ba330bd7ec2e26fadf9de87e71cfe0cd0f78ba82cdf96e"
+}
