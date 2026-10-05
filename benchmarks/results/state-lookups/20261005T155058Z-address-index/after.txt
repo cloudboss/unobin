@@ -1,0 +1,206 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/runtime
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkApplySchedulerLargeIndependentPlan/independent           	     907	   2882760 ns/op	 2173267 B/op	   17107 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent           	     625	   3805610 ns/op	 2173688 B/op	   17162 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent           	     632	   3205300 ns/op	 2173689 B/op	   17162 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent           	     962	   2508099 ns/op	 2173700 B/op	   17162 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent           	     979	   2569718 ns/op	 2173676 B/op	   17161 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent           	     910	   2565888 ns/op	 2173700 B/op	   17162 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent           	     944	   2519100 ns/op	 2173692 B/op	   17162 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent           	     968	   2488126 ns/op	 2173684 B/op	   17161 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent           	     966	   2485034 ns/op	 2173681 B/op	   17161 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent           	     962	   2488260 ns/op	 2173674 B/op	   17161 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4         	     702	   3528885 ns/op	 2173156 B/op	   17105 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4         	     715	   2843426 ns/op	 2173274 B/op	   17108 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4         	     904	   2843577 ns/op	 2173146 B/op	   17107 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4         	     748	   2962889 ns/op	 2173262 B/op	   17107 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4         	     918	   2685179 ns/op	 2173190 B/op	   17107 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4         	     886	   2677067 ns/op	 2173159 B/op	   17107 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4         	     937	   2748448 ns/op	 2173213 B/op	   17108 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4         	     921	   2738139 ns/op	 2173142 B/op	   17106 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4         	     922	   2713728 ns/op	 2173264 B/op	   17109 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4         	    1162	   1992413 ns/op	 2173225 B/op	   17108 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain                 	    1383	   1731682 ns/op	 2107175 B/op	   15164 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain                 	    1190	   2057406 ns/op	 2106648 B/op	   15160 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain                 	    1132	   2082066 ns/op	 2106648 B/op	   15160 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain                 	    1164	   2062308 ns/op	 2106648 B/op	   15160 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain                 	    1168	   2068818 ns/op	 2106648 B/op	   15160 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain                 	    1171	   2070680 ns/op	 2106648 B/op	   15160 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain                 	    1167	   2071571 ns/op	 2106648 B/op	   15160 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain                 	    1177	   2053497 ns/op	 2106648 B/op	   15160 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain                 	    1161	   2054294 ns/op	 2106648 B/op	   15160 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain                 	    1182	   2055626 ns/op	 2106648 B/op	   15160 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4               	    1395	   1731646 ns/op	 2107204 B/op	   15164 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4               	    1372	   1744118 ns/op	 2107155 B/op	   15164 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4               	    1363	   1742930 ns/op	 2107179 B/op	   15164 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4               	    1386	   1730824 ns/op	 2107176 B/op	   15164 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4               	    1371	   1743849 ns/op	 2107137 B/op	   15164 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4               	    1381	   1746430 ns/op	 2107195 B/op	   15164 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4               	    1378	   1737260 ns/op	 2107201 B/op	   15164 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4               	    1365	   1747936 ns/op	 2107138 B/op	   15164 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4               	    1311	   1811281 ns/op	 2107175 B/op	   15164 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4               	    1388	   1726788 ns/op	 2107191 B/op	   15164 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan                   	    1098	   2181845 ns/op	 2275378 B/op	   19118 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan                   	     804	   3014366 ns/op	 2275880 B/op	   19173 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan                   	     764	   3044904 ns/op	 2275890 B/op	   19173 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan                   	     795	   3010603 ns/op	 2275867 B/op	   19172 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan                   	     799	   2982420 ns/op	 2275851 B/op	   19171 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan                   	     817	   2912757 ns/op	 2275860 B/op	   19171 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan                   	     828	   2931692 ns/op	 2275882 B/op	   19173 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan                   	     810	   2975630 ns/op	 2275874 B/op	   19172 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan                   	     823	   3001382 ns/op	 2275887 B/op	   19173 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan                   	     802	   2951318 ns/op	 2275888 B/op	   19173 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4                 	    1111	   2181367 ns/op	 2275445 B/op	   19118 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4                 	    1045	   2200934 ns/op	 2275360 B/op	   19118 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4                 	    1098	   2179451 ns/op	 2275441 B/op	   19119 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4                 	    1088	   2184735 ns/op	 2275410 B/op	   19118 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4                 	    1119	   2274624 ns/op	 2275405 B/op	   19118 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4                 	    1042	   2300697 ns/op	 2275347 B/op	   19118 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4                 	    1064	   2257286 ns/op	 2275425 B/op	   19119 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4                 	    1042	   2272085 ns/op	 2275386 B/op	   19118 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4                 	    1058	   2241729 ns/op	 2275394 B/op	   19118 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4                 	    1095	   2181504 ns/op	 2275353 B/op	   19117 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                           	    3141	    738210 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                           	    3240	    741618 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                           	    3176	    737015 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                           	    3252	    736823 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                           	    3180	    748999 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                           	    3216	    746763 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                           	    3183	    748167 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                           	    3186	    737366 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                           	    3306	    738900 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                           	    3242	    720367 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                         	    3919	    628176 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                         	    3943	    630087 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                         	    3901	    641510 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                         	    3892	    634313 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                         	    3885	    644560 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                         	    3778	    637979 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                         	    3816	    635212 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                         	    3736	    634257 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                         	    3693	    637183 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                         	    3685	    631518 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100                    	  977380	      2472 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100                    	  741427	      3162 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100                    	  757947	      3188 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100                    	  766941	      3127 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100                    	  772722	      3152 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100                    	  775212	      3129 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100                    	  766032	      3141 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100                    	  777704	      3138 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100                    	  766490	      3123 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100                    	  780823	      3097 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100-4                  	  973717	      2448 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100-4                  	 1000000	      2425 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100-4                  	 1000000	      2444 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100-4                  	  956683	      2435 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100-4                  	  997221	      2470 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100-4                  	  907993	      2446 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100-4                  	  997261	      2456 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100-4                  	  948780	      2460 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100-4                  	  967495	      2465 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100-4                  	  933996	      2470 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000                   	   94884	     26016 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000                   	   75141	     31978 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000                   	   75459	     32283 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000                   	   75548	     32170 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000                   	   72074	     32633 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000                   	   75544	     31656 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000                   	   75777	     31571 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000                   	   76290	     32431 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000                   	   74241	     32276 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000                   	   68598	     35409 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000-4                 	   79635	     29370 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000-4                 	   87272	     28852 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000-4                 	   79197	     29776 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000-4                 	   82790	     29384 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000-4                 	   80848	     29685 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000-4                 	   80185	     27604 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000-4                 	   95680	     25249 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000-4                 	   94946	     25343 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000-4                 	   95480	     25314 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000-4                 	   93820	     25118 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000                  	    8185	    288604 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000                  	    6165	    363662 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000                  	    6385	    363591 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000                  	    6484	    367373 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000                  	    6607	    357408 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000                  	    6637	    364307 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000                  	    6368	    359622 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000                  	    6348	    369736 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000                  	    6030	    369751 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000                  	    6338	    364252 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000-4                	    8259	    281480 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000-4                	    8516	    281119 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000-4                	    8362	    286038 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000-4                	    8538	    285299 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000-4                	    8163	    285041 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000-4                	    8212	    285024 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000-4                	    8004	    285341 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000-4                	    7965	    297753 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000-4                	    8466	    286489 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000-4                	    7953	    283941 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupWithChanges/entries=100                       	   24951	     96208 ns/op	       100.0 entries	       203.0 lookups	  165321 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100                       	   18787	    127502 ns/op	       100.0 entries	       203.0 lookups	  165320 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100                       	   18813	    127748 ns/op	       100.0 entries	       203.0 lookups	  165320 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100                       	   19137	    124977 ns/op	       100.0 entries	       203.0 lookups	  165320 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100                       	   19420	    122869 ns/op	       100.0 entries	       203.0 lookups	  165320 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100                       	   19815	    123706 ns/op	       100.0 entries	       203.0 lookups	  165320 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100                       	   19599	    121980 ns/op	       100.0 entries	       203.0 lookups	  165320 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100                       	   19742	    121589 ns/op	       100.0 entries	       203.0 lookups	  165320 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100                       	   19761	    120616 ns/op	       100.0 entries	       203.0 lookups	  165320 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100                       	   19798	    123941 ns/op	       100.0 entries	       203.0 lookups	  165320 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100-4                     	   25222	     95275 ns/op	       100.0 entries	       203.0 lookups	  165321 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100-4                     	   24790	     96280 ns/op	       100.0 entries	       203.0 lookups	  165321 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100-4                     	   24998	     96031 ns/op	       100.0 entries	       203.0 lookups	  165321 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100-4                     	   25050	     97443 ns/op	       100.0 entries	       203.0 lookups	  165321 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100-4                     	   24948	     96478 ns/op	       100.0 entries	       203.0 lookups	  165321 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100-4                     	   24602	     97162 ns/op	       100.0 entries	       203.0 lookups	  165321 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100-4                     	   24787	     96845 ns/op	       100.0 entries	       203.0 lookups	  165321 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100-4                     	   25171	     96187 ns/op	       100.0 entries	       203.0 lookups	  165321 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100-4                     	   25032	     96070 ns/op	       100.0 entries	       203.0 lookups	  165321 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100-4                     	   24670	     96807 ns/op	       100.0 entries	       203.0 lookups	  165321 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000                      	    2461	    976501 ns/op	      1000 entries	      2003 lookups	 1799333 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000                      	    1848	   1256609 ns/op	      1000 entries	      2003 lookups	 1799330 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000                      	    1935	   1247130 ns/op	      1000 entries	      2003 lookups	 1799330 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000                      	    1929	   1242533 ns/op	      1000 entries	      2003 lookups	 1799330 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000                      	    1902	   1270362 ns/op	      1000 entries	      2003 lookups	 1799330 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000                      	    1971	   1228019 ns/op	      1000 entries	      2003 lookups	 1799330 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000                      	    1939	   1257561 ns/op	      1000 entries	      2003 lookups	 1799330 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000                      	    1880	   1254187 ns/op	      1000 entries	      2003 lookups	 1799330 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000                      	    1903	   1249540 ns/op	      1000 entries	      2003 lookups	 1799330 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000                      	    1915	   1245714 ns/op	      1000 entries	      2003 lookups	 1799330 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000-4                    	    2524	    945091 ns/op	      1000 entries	      2003 lookups	 1799333 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000-4                    	    2595	    954889 ns/op	      1000 entries	      2003 lookups	 1799333 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000-4                    	    2404	    985709 ns/op	      1000 entries	      2003 lookups	 1799333 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000-4                    	    2526	    956529 ns/op	      1000 entries	      2003 lookups	 1799333 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000-4                    	    2502	    970194 ns/op	      1000 entries	      2003 lookups	 1799333 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000-4                    	    2415	    961341 ns/op	      1000 entries	      2003 lookups	 1799335 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000-4                    	    2530	    963412 ns/op	      1000 entries	      2003 lookups	 1799333 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000-4                    	    2582	    951399 ns/op	      1000 entries	      2003 lookups	 1799333 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000-4                    	    2535	    958263 ns/op	      1000 entries	      2003 lookups	 1799333 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000-4                    	    2488	    960484 ns/op	      1000 entries	      2003 lookups	 1799333 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000                     	     220	  10820196 ns/op	     10000 entries	     20003 lookups	17124281 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000                     	     168	  14180211 ns/op	     10000 entries	     20003 lookups	17124275 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000                     	     170	  14288556 ns/op	     10000 entries	     20003 lookups	17124275 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000                     	     168	  14345869 ns/op	     10000 entries	     20003 lookups	17124275 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000                     	     169	  14213997 ns/op	     10000 entries	     20003 lookups	17124275 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000                     	     168	  14323607 ns/op	     10000 entries	     20003 lookups	17124274 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000                     	     169	  14152177 ns/op	     10000 entries	     20003 lookups	17124275 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000                     	     169	  14050421 ns/op	     10000 entries	     20003 lookups	17124275 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000                     	     168	  14277840 ns/op	     10000 entries	     20003 lookups	17124274 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000                     	     170	  14072766 ns/op	     10000 entries	     20003 lookups	17124275 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000-4                   	     223	  10719060 ns/op	     10000 entries	     20003 lookups	17124280 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000-4                   	     220	  10803144 ns/op	     10000 entries	     20003 lookups	17124280 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000-4                   	     220	  10779931 ns/op	     10000 entries	     20003 lookups	17124279 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000-4                   	     223	  10710629 ns/op	     10000 entries	     20003 lookups	17124279 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000-4                   	     219	  10843457 ns/op	     10000 entries	     20003 lookups	17124280 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000-4                   	     219	  10828222 ns/op	     10000 entries	     20003 lookups	17124279 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000-4                   	     222	  10859772 ns/op	     10000 entries	     20003 lookups	17124279 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000-4                   	     219	  10818651 ns/op	     10000 entries	     20003 lookups	17124280 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000-4                   	     222	  10884059 ns/op	     10000 entries	     20003 lookups	17124280 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000-4                   	     219	  10914490 ns/op	     10000 entries	     20003 lookups	17124280 B/op	  210276 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/runtime	482.585s

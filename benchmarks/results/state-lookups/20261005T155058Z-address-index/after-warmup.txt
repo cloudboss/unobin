@@ -1,0 +1,26 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/runtime
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkApplySchedulerLargeIndependentPlan/independent           	       1	   3110657 ns/op	 2193688 B/op	   17210 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/independent-4         	       1	   2607252 ns/op	 2193160 B/op	   17181 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain                 	       1	   2559283 ns/op	 2116760 B/op	   15201 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/chain-4               	       1	   2508978 ns/op	 2110584 B/op	   15196 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan                   	       1	   2894311 ns/op	 2278280 B/op	   19149 allocs/op
+BenchmarkApplySchedulerLargeIndependentPlan/fan-4                 	       1	   2929718 ns/op	 2278728 B/op	   19141 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory                           	       1	   1188521 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkPlanLargeAlreadyCheckedFactory-4                         	       1	    869222 ns/op	  838440 B/op	   10690 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100                    	       1	      4999 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=100-4                  	       1	      4458 ns/op	       100.0 entries	       100.0 lookups	    3720 B/op	       6 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000                   	       1	     59502 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=1000-4                 	       1	     30156 ns/op	      1000 entries	      1000 lookups	   54832 B/op	       8 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000                  	       1	    459142 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupDuringPlanning/entries=10000-4                	       1	    475061 ns/op	     10000 entries	     10000 lookups	  437088 B/op	      36 allocs/op
+BenchmarkStateLookupWithChanges/entries=100                       	       1	    237436 ns/op	       100.0 entries	       203.0 lookups	  165328 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=100-4                     	       1	    139372 ns/op	       100.0 entries	       203.0 lookups	  165328 B/op	    2156 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000                      	       1	   1756997 ns/op	      1000 entries	      2003 lookups	 1799336 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=1000-4                    	       1	   1440985 ns/op	      1000 entries	      2003 lookups	 1799336 B/op	   21077 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000                     	       1	  16853888 ns/op	     10000 entries	     20003 lookups	17124280 B/op	  210276 allocs/op
+BenchmarkStateLookupWithChanges/entries=10000-4                   	       1	  15410360 ns/op	     10000 entries	     20003 lookups	17124296 B/op	  210276 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/runtime	0.273s
