@@ -82,12 +82,16 @@ $(HAS_IMAGE_LOCAL): Containerfile.build | $(DIR_OUT) $(HAS_COMMAND_DOCKER)
 	@touch ${@}
 
 test: | $(HAS_IMAGE_LOCAL)
-	@$(CTR_RUN) $(CTR_IMAGE_LOCAL) sh -c 'go vet ./... && go test -timeout 30m ./...'
+	@$(CTR_RUN) $(CTR_IMAGE_LOCAL) sh -c \
+		'go vet ./... && go test -timeout 30m ./... && \
+		go -C benchmarks vet ./... && go -C benchmarks test ./...'
 
 lint: | $(DIR_OUT) $(HAS_COMMAND_DOCKER)
 	@$(CTR_RUN) -u $(USER_ID):$(GROUP_ID) \
 		-e GOLANGCI_LINT_CACHE=$(DIR_OUT_ABS)/cache/golangci-lint \
-		$(CTR_IMAGE_GOLANGCI) golangci-lint run --timeout 5m ./...
+		$(CTR_IMAGE_GOLANGCI) sh -c \
+		'golangci-lint run --timeout 5m ./... && \
+		cd benchmarks && golangci-lint run --timeout 5m ./...'
 
 check-version:
 	@number='(0|[1-9][0-9]*)'; \
