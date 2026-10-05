@@ -4,22 +4,27 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
-	"go/parser"
-	"go/token"
 	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/cloudboss/unobin/pkg/gopackage"
 )
 
 type sourceSnapshot struct {
-	roots []ModuleSource
-	files map[string][]byte
-	seen  map[string]bool
+	roots  []ModuleSource
+	files  map[string][]byte
+	seen   map[string]bool
+	target gopackage.Context
 }
 
 func SourceSnapshot(dir string, roots []ModuleSource) ([32]byte, error) {
+	target, err := gopackage.CurrentContext()
+	if err != nil {
+		return [32]byte{}, err
+	}
 	moduleRoot, err := FindModuleRoot(dir)
 	if err != nil {
 		return [32]byte{}, err
@@ -31,6 +36,7 @@ func SourceSnapshot(dir string, roots []ModuleSource) ([32]byte, error) {
 	s := &sourceSnapshot{
 		roots: []ModuleSource{{Path: modulePath, Dir: moduleRoot}},
 		files: map[string][]byte{}, seen: map[string]bool{},
+		target: target,
 	}
 	for _, root := range roots {
 		if root.Dir == "" || root.Path == "" {
@@ -51,6 +57,8 @@ func SourceSnapshot(dir string, roots []ModuleSource) ([32]byte, error) {
 	}
 	slices.Sort(names)
 	hash := sha256.New()
+	contextDigest := target.Digest()
+	_, _ = hash.Write(contextDigest[:])
 	for _, name := range names {
 		body := s.files[name]
 		_, _ = hash.Write([]byte(name))
@@ -74,7 +82,7 @@ func (s *sourceSnapshot) readPackage(dir string) error {
 		return nil
 	}
 	s.seen[dir] = true
-	entries, err := os.ReadDir(dir)
+	pkg, err := gopackage.Read(dir, s.target)
 	if err != nil {
 		return err
 	}
@@ -90,22 +98,12 @@ func (s *sourceSnapshot) readPackage(dir string) error {
 		}
 		s.files[moduleFile] = body
 	}
-	for _, entry := range entries {
-		name := entry.Name()
-		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+	for _, file := range pkg.Files {
+		s.files[filepath.Join(dir, file.Name)] = file.Source
+		if !file.Active {
 			continue
 		}
-		filename := filepath.Join(dir, name)
-		body, err := os.ReadFile(filename)
-		if err != nil {
-			return err
-		}
-		s.files[filename] = body
-		file, err := parser.ParseFile(token.NewFileSet(), filename, body, parser.ImportsOnly)
-		if err != nil {
-			return err
-		}
-		for _, spec := range file.Imports {
+		for _, spec := range file.Syntax.Imports {
 			importPath, err := strconv.Unquote(spec.Path.Value)
 			if err != nil {
 				return err

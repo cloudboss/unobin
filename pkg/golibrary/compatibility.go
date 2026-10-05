@@ -66,7 +66,7 @@ func readCompatibilityPackage(pkg *parsedPackage) (*CompatibilityDeclaration, er
 		return nil, compatibilityFailure(pkg, pkg.Files[0].Name, kind, err.Error())
 	}
 	var file *ast.File
-	for _, candidate := range pkg.Files {
+	for _, candidate := range pkg.declarationFiles() {
 		if candidate.Pos() <= fn.Pos() && fn.End() <= candidate.End() {
 			file = candidate
 			break

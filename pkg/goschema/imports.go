@@ -2,24 +2,28 @@ package goschema
 
 import (
 	"go/ast"
-	"go/parser"
 	"go/token"
-	"os"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/cloudboss/unobin/pkg/gopackage"
 )
 
-func buildImportMaps(files []*ast.File, roots ...ModuleRoot) map[*ast.File]map[string]string {
+func buildImportMaps(
+	files []*ast.File, target gopackage.Context, roots ...ModuleRoot,
+) map[*ast.File]map[string]string {
 	imports := make(map[*ast.File]map[string]string, len(files))
 	for _, file := range files {
-		imports[file] = buildImportMap(file, roots...)
+		imports[file] = buildImportMap(file, target, roots...)
 	}
 	return imports
 }
 
-func buildImportMap(file *ast.File, roots ...ModuleRoot) map[string]string {
+func buildImportMap(
+	file *ast.File, target gopackage.Context, roots ...ModuleRoot,
+) map[string]string {
 	imports := make(map[string]string, len(file.Imports))
 	for _, spec := range file.Imports {
 		importPath, err := strconv.Unquote(spec.Path.Value)
@@ -33,14 +37,14 @@ func buildImportMap(file *ast.File, roots ...ModuleRoot) map[string]string {
 				continue
 			}
 		} else {
-			name = declaredImportName(importPath, roots)
+			name = declaredImportName(importPath, target, roots)
 		}
 		imports[name] = importPath
 	}
 	return imports
 }
 
-func declaredImportName(importPath string, roots []ModuleRoot) string {
+func declaredImportName(importPath string, target gopackage.Context, roots []ModuleRoot) string {
 	var selected ModuleRoot
 	for _, root := range roots {
 		if importPath != root.Path && !strings.HasPrefix(importPath, root.Path+"/") {
@@ -53,20 +57,9 @@ func declaredImportName(importPath string, roots []ModuleRoot) string {
 	if selected.Dir != "" {
 		rel := strings.TrimPrefix(strings.TrimPrefix(importPath, selected.Path), "/")
 		dir := filepath.Join(selected.Dir, filepath.FromSlash(rel))
-		entries, err := os.ReadDir(dir)
+		pkg, err := gopackage.Load(dir, target)
 		if err == nil {
-			for _, entry := range entries {
-				name := entry.Name()
-				if entry.IsDir() || !strings.HasSuffix(name, ".go") ||
-					strings.HasSuffix(name, "_test.go") {
-					continue
-				}
-				file, err := parser.ParseFile(token.NewFileSet(),
-					filepath.Join(dir, name), nil, parser.PackageClauseOnly)
-				if err == nil {
-					return file.Name.Name
-				}
-			}
+			return pkg.Name
 		}
 	}
 	return path.Base(importPath)

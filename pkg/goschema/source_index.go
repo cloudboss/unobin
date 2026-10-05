@@ -3,13 +3,12 @@ package goschema
 import (
 	"fmt"
 	"go/ast"
-	"go/parser"
 	"go/token"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/golibrary"
+	"github.com/cloudboss/unobin/pkg/gopackage"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
@@ -279,13 +278,14 @@ type indexedPackage struct {
 	dir        string
 	importPath string
 	imports    map[*ast.File]map[string]string
+	target     gopackage.Context
 }
 
 func (p *indexedPackage) location(pos token.Pos) GoLocation {
 	if p == nil || !pos.IsValid() {
 		return GoLocation{}
 	}
-	position := p.fset.Position(pos)
+	position := p.fset.PositionFor(pos, false)
 	return GoLocation{
 		Path:   position.Filename,
 		Line:   position.Line,
@@ -324,7 +324,8 @@ func (i *sourceIndexer) loadPackage(importPath string) (*indexedPackage, bool) {
 		return nil, false
 	}
 	rel := strings.TrimPrefix(strings.TrimPrefix(importPath, root.Path), "/")
-	pkg, err := parseIndexedPackageDir(filepath.Join(root.Dir, rel), importPath, i.roots...)
+	pkg, err := parseIndexedPackageWithContext(
+		filepath.Join(root.Dir, rel), importPath, i.root.target, i.roots...)
 	if err != nil {
 		return nil, false
 	}
@@ -623,39 +624,32 @@ func sourceIndexKind(field string) (string, bool) {
 func parseIndexedPackageDir(
 	dir string, importPath string, roots ...ModuleRoot,
 ) (*indexedPackage, error) {
-	fset := token.NewFileSet()
-	entries, err := os.ReadDir(dir)
+	target, err := gopackage.CurrentContext()
 	if err != nil {
-		return nil, fmt.Errorf("parse %s: %w", dir, err)
+		return nil, err
 	}
-	var packageName string
+	return parseIndexedPackageWithContext(dir, importPath, target, roots...)
+}
+
+func parseIndexedPackageWithContext(
+	dir, importPath string, target gopackage.Context, roots ...ModuleRoot,
+) (*indexedPackage, error) {
+	pkg, err := gopackage.Load(dir, target)
+	if err != nil {
+		return nil, err
+	}
 	var files []*ast.File
-	for _, entry := range entries {
-		name := entry.Name()
-		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
-			continue
+	for _, file := range pkg.Files {
+		if file.Active {
+			files = append(files, file.Syntax)
 		}
-		path := filepath.Join(dir, name)
-		file, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
-		if err != nil {
-			return nil, fmt.Errorf("parse %s: %w", dir, err)
-		}
-		if packageName == "" {
-			packageName = file.Name.Name
-		}
-		if file.Name.Name != packageName {
-			return nil, fmt.Errorf("more than one Go package found in %s", dir)
-		}
-		files = append(files, file)
-	}
-	if len(files) == 0 {
-		return nil, fmt.Errorf("no Go package found in %s", dir)
 	}
 	return &indexedPackage{
-		fset:       fset,
+		fset:       pkg.FSet,
 		files:      files,
 		dir:        dir,
 		importPath: importPath,
-		imports:    buildImportMaps(files, roots...),
+		imports:    buildImportMaps(files, target, roots...),
+		target:     target,
 	}, nil
 }

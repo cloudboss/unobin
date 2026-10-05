@@ -3,7 +3,6 @@ package golibrary
 import (
 	"fmt"
 	"go/ast"
-	"go/parser"
 	"go/token"
 	"os"
 	"path/filepath"
@@ -11,6 +10,8 @@ import (
 	"strings"
 
 	"golang.org/x/mod/modfile"
+
+	"github.com/cloudboss/unobin/pkg/gopackage"
 )
 
 const runtimeImportPath = "github.com/cloudboss/unobin/pkg/runtime"
@@ -57,11 +58,18 @@ func ValidatePackage(moduleRoot, packageDir string) (*Validation, error) {
 	if err != nil {
 		return nil, err
 	}
-	runtimeAliases, err := runtimeImportAliases(pkg)
+	fn, err := libraryFunction(pkg)
 	if err != nil {
 		return nil, err
 	}
-	fn, err := libraryFunction(pkg)
+	var declaringFile *ast.File
+	for _, file := range pkg.declarationFiles() {
+		if file.Pos() <= fn.Pos() && fn.End() <= file.End() {
+			declaringFile = file
+			break
+		}
+	}
+	runtimeAliases, err := runtimeImportAliases(&parsedPackage{Files: []*ast.File{declaringFile}})
 	if err != nil {
 		return nil, err
 	}
@@ -110,39 +118,37 @@ func readModulePath(moduleRoot string) (string, error) {
 }
 
 type parsedPackage struct {
-	Name  string
-	Files []*ast.File
-	FSet  *token.FileSet
+	Name         string
+	Files        []*ast.File
+	Declarations []*ast.File
+	FSet         *token.FileSet
+	target       gopackage.Context
 }
 
 func parsePackage(packageDir string) (*parsedPackage, error) {
-	fset := token.NewFileSet()
-	entries, err := os.ReadDir(packageDir)
+	target, err := gopackage.CurrentContext()
 	if err != nil {
 		return nil, err
 	}
-	filesByPackage := map[string][]*ast.File{}
-	for _, entry := range entries {
-		name := entry.Name()
-		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
-			continue
+	inventory, err := gopackage.Load(packageDir, target)
+	if err != nil {
+		return nil, err
+	}
+	pkg := &parsedPackage{Name: inventory.Name, FSet: inventory.FSet, target: target}
+	for _, file := range inventory.Files {
+		pkg.Declarations = append(pkg.Declarations, file.Syntax)
+		if file.Active {
+			pkg.Files = append(pkg.Files, file.Syntax)
 		}
-		file, err := parser.ParseFile(fset, filepath.Join(packageDir, name), nil, 0)
-		if err != nil {
-			return nil, err
-		}
-		filesByPackage[file.Name.Name] = append(filesByPackage[file.Name.Name], file)
 	}
-	if len(filesByPackage) == 0 {
-		return nil, fmt.Errorf("no Go package in %s", packageDir)
+	return pkg, nil
+}
+
+func (p *parsedPackage) declarationFiles() []*ast.File {
+	if p.Declarations != nil {
+		return p.Declarations
 	}
-	if len(filesByPackage) > 1 {
-		return nil, fmt.Errorf("more than one Go package in %s", packageDir)
-	}
-	for name, files := range filesByPackage {
-		return &parsedPackage{Name: name, Files: files, FSet: fset}, nil
-	}
-	panic("unreachable")
+	return p.Files
 }
 
 func runtimeImportAliases(pkg *parsedPackage) (map[string]bool, error) {
@@ -174,7 +180,7 @@ func runtimeImportAliases(pkg *parsedPackage) (map[string]bool, error) {
 
 func libraryFunction(pkg *parsedPackage) (*ast.FuncDecl, error) {
 	var found []*ast.FuncDecl
-	for _, file := range pkg.Files {
+	for _, file := range pkg.declarationFiles() {
 		for _, decl := range file.Decls {
 			fn, ok := decl.(*ast.FuncDecl)
 			if !ok || fn.Name.Name != "Library" || fn.Recv != nil {

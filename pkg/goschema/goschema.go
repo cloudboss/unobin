@@ -526,7 +526,8 @@ func (w *walker) loadPackage(importPath string) ([]*ast.File, bool) {
 		return nil, false
 	}
 	rel := strings.TrimPrefix(strings.TrimPrefix(importPath, root.Path), "/")
-	pkg, err := parseIndexedPackageDir(filepath.Join(root.Dir, rel), importPath, w.roots...)
+	pkg, err := parseIndexedPackageWithContext(
+		filepath.Join(root.Dir, rel), importPath, w.pkg.target, w.roots...)
 	if err != nil {
 		return nil, false
 	}

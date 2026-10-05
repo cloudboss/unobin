@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cloudboss/unobin/pkg/gopackage"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
@@ -21,11 +22,15 @@ import (
 const nestedSelfWarning = `resource "db" output: field self: Go type *DBOutput does not ` +
 	`fully map to language types, so reads of it are unchecked`
 
-func testIndexedPackage(fset *token.FileSet, files ...*ast.File) *indexedPackage {
+func testIndexedPackage(t *testing.T, fset *token.FileSet, files ...*ast.File) *indexedPackage {
+	t.Helper()
+	target, err := gopackage.CurrentContext()
+	require.NoError(t, err)
 	return &indexedPackage{
 		fset:    fset,
 		files:   files,
-		imports: buildImportMaps(files),
+		imports: buildImportMaps(files, target),
+		target:  target,
 	}
 }
 
@@ -577,7 +582,7 @@ func (v T) Constraints() []constraint.Constraint {
 	f, err := parser.ParseFile(fset, "x.go", src, 0)
 	require.NoError(t, err)
 	errs := &[]error{}
-	rootPkg := testIndexedPackage(fset, f)
+	rootPkg := testIndexedPackage(t, fset, f)
 	w := newWalker([]ModuleRoot{{}}, rootPkg, map[string]*indexedPackage{}, errs, nil)
 	specs := w.constraintsFromType("T")
 	require.Empty(t, specs)
@@ -646,7 +651,7 @@ type Item struct {
 			f, err := parser.ParseFile(fset, "x.go", src, 0)
 			require.NoError(t, err)
 			errs := &[]error{}
-			rootPkg := testIndexedPackage(fset, f)
+			rootPkg := testIndexedPackage(t, fset, f)
 			w := newWalker([]ModuleRoot{{}}, rootPkg, map[string]*indexedPackage{}, errs, nil)
 			specs := w.constraintsFromType("T")
 			require.Empty(t, specs)

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/cloudboss/unobin/pkg/diagnostic"
+	"github.com/cloudboss/unobin/pkg/gopackage"
 )
 
 type configurationWalker struct {
@@ -158,25 +159,24 @@ func (w *configurationWalker) importedPackage(
 		return PackageSource{}, w.failure(source, pkg, selector,
 			"configuration package alias is unreadable", nil)
 	}
-	importPath := packageImportPath(pkg, selector, alias.Name)
-	var selected ModuleSource
 	roots := append([]ModuleSource{source.Module}, w.context.options.Modules...)
 	if core := w.context.options.CoreReplacement; core != "" {
 		roots = append(roots, ModuleSource{
 			Path: "github.com/cloudboss/unobin", Dir: core, Replacement: core,
 		})
 	}
-	for _, root := range roots {
-		if root.Path == "" || root.Dir == "" {
-			continue
+	importPath := packageImportPath(pkg, selector, alias.Name, func(importPath string) string {
+		root := selectedSourceModule(roots, importPath)
+		if root.Dir != "" {
+			rel := strings.TrimPrefix(strings.TrimPrefix(importPath, root.Path), "/")
+			target, err := gopackage.Load(filepath.Join(root.Dir, filepath.FromSlash(rel)), pkg.target)
+			if err == nil {
+				return target.Name
+			}
 		}
-		if importPath != root.Path && !strings.HasPrefix(importPath, root.Path+"/") {
-			continue
-		}
-		if len(root.Path) > len(selected.Path) {
-			selected = root
-		}
-	}
+		return path.Base(importPath)
+	})
+	selected := selectedSourceModule(roots, importPath)
 	lookupModule := selected.Dir == ""
 	if selected.Dir != "" && w.context.options.ResolveModule != nil {
 		abs, err := filepath.Abs(selected.Dir)
@@ -260,7 +260,23 @@ func functionReturn(fn *ast.FuncDecl) ast.Expr {
 	return nil
 }
 
-func packageImportPath(pkg *parsedPackage, node ast.Node, alias string) string {
+func selectedSourceModule(roots []ModuleSource, importPath string) ModuleSource {
+	var selected ModuleSource
+	for _, root := range roots {
+		if root.Path == "" || root.Dir == "" ||
+			(importPath != root.Path && !strings.HasPrefix(importPath, root.Path+"/")) {
+			continue
+		}
+		if len(root.Path) > len(selected.Path) {
+			selected = root
+		}
+	}
+	return selected
+}
+
+func packageImportPath(
+	pkg *parsedPackage, node ast.Node, alias string, implicitName func(string) string,
+) string {
 	for _, file := range pkg.Files {
 		if node.Pos() < file.Pos() || node.End() > file.End() {
 			continue
@@ -270,9 +286,11 @@ func packageImportPath(pkg *parsedPackage, node ast.Node, alias string) string {
 			if err != nil {
 				continue
 			}
-			name := path.Base(importPath)
+			name := ""
 			if spec.Name != nil {
 				name = spec.Name.Name
+			} else {
+				name = implicitName(importPath)
 			}
 			if name != "_" && name != "." && name == alias {
 				return importPath
