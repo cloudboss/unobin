@@ -1,0 +1,11 @@
+factory: {
+  imports: {
+    library: 'example.com/identity/library'
+  }
+
+  resources: {
+    marker: library.marker {
+      path: 'lifecycle.txt'
+    }
+  }
+}

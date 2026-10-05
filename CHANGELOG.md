@@ -20,6 +20,9 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ### Fixed
 
+- Reject saved plans after locally replaced Go implementation code changes.
+  Factory identity includes linked source and build settings; replan after the
+  first rebuild with this change.
 - Keep sensitive values masked in destroy plans, including resources removed from configuration.
 - Resolve resource decisions during apply when replacement or configuration rules depend on values that were unknown during planning.
 - Keep dependent values pending until those resource decisions are resolved, including resources with empty outputs.

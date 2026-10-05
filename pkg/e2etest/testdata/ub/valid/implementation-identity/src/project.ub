@@ -1,0 +1,10 @@
+project: {
+  requires: {
+    'example.com/identity/library': { version: 'v0.1.0' }
+    'example.com/identity/helper': { version: 'v0.1.0' }
+  }
+  replace: {
+    'example.com/identity/library': './modules/library'
+    'example.com/identity/helper': './modules/helper'
+  }
+}

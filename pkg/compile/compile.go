@@ -668,26 +668,30 @@ func runGoBuild(
 		return result, err
 	}
 
-	revision, err := codegen.ContentRevision(dir)
+	inputs, err := readBuildInputs(goBin, dir)
 	if err != nil {
 		return result, err
 	}
+	revision := inputs.Revision
 	result.ContentRevision = revision
 
 	ldflags := fmt.Sprintf(
 		"-X main.factoryVersion=%s -X main.contentRevision=%s -X main.unobinVersion=%s",
 		version, revision, expectedUnobin)
-	build := exec.Command(
-		goBin, "build", "-buildvcs=false", "-ldflags", ldflags, "-o", binaryName, ".")
-	build.Dir = dir
-	build.Stdout = stdout
-	build.Stderr = stderr
-	changes, err = filechange.Observe(
-		[]string{filepath.Join(dir, binaryName)}, build.Run,
-	)
+	changes, err = publishCheckedBinary(dir, binaryName, func(staged string) error {
+		build := exec.Command(
+			goBin, "build", "-buildvcs=false", "-ldflags", ldflags, "-o", staged, ".")
+		build.Dir = dir
+		build.Stdout = stdout
+		build.Stderr = stderr
+		if err := build.Run(); err != nil {
+			return diagnostic.Context("go build failed", err)
+		}
+		return nil
+	}, func() error { return inputs.verify(goBin, dir) })
 	result.Files = append(result.Files, changes...)
 	if err != nil {
-		return result, diagnostic.Context("go build failed", err)
+		return result, err
 	}
 	diagnostic.Report(reporter, diagnostic.Diagnostic{
 		Code:     "unobin.compile.built",

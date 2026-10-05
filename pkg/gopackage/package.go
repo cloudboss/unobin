@@ -37,6 +37,10 @@ type Package struct {
 	Files []File
 }
 
+func (c Context) Flags() ([]string, error) {
+	return splitGoFlags(c.GOFLAGS)
+}
+
 func CurrentContext() (Context, error) {
 	context := Context{
 		Build: build.Default, GoVersion: runtime.Version(),
