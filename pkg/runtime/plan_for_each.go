@@ -11,8 +11,11 @@ import (
 // insideForEachComposite reports whether any composite call site in
 // n's ancestry is itself a `@for-each` template. Such nodes are
 // planned per-instance by their boundary's planner, not on their own.
-func (e *Executor) insideForEachComposite(n *Node) bool {
-	return e.DAG.UnderForEachComposite(n)
+func (e *Executor) insideForEachComposite(rs *runState, n *Node) bool {
+	if n.Composite == "" {
+		return false
+	}
+	return e.compositeOrder(rs).owners[n.Composite] != ""
 }
 
 // planForEachLeaf plans one step per iterable key of a leaf node.
@@ -97,32 +100,36 @@ func (e *Executor) planForEachComposite(
 // chain transitively contains the named boundary, in the run's
 // topological order. Nested composites are included.
 func (e *Executor) compositeInternalsInOrder(rs *runState, boundary string) []*Node {
-	included := map[string]bool{}
+	index := e.compositeOrder(rs)
+	if node := e.DAG.Nodes[boundary]; node != nil && node.IsComposite() && node.ForEach != nil {
+		return index.internals[boundary]
+	}
+	var out []*Node
 	for _, addr := range rs.order {
-		n := e.DAG.Nodes[addr]
-		if n == nil {
+		node := e.DAG.Nodes[addr]
+		if node == nil {
 			continue
 		}
-		cur := n.Composite
-		for cur != "" {
-			if cur == boundary {
-				included[addr] = true
+		for parent := node.Composite; parent != ""; {
+			if parent == boundary {
+				out = append(out, node)
 				break
 			}
-			b, ok := e.DAG.Nodes[cur]
-			if !ok {
+			ancestor := e.DAG.Nodes[parent]
+			if ancestor == nil {
 				break
 			}
-			cur = b.Composite
-		}
-	}
-	out := make([]*Node, 0, len(included))
-	for _, addr := range rs.order {
-		if included[addr] {
-			out = append(out, e.DAG.Nodes[addr])
+			parent = ancestor.Composite
 		}
 	}
 	return out
+}
+
+func (e *Executor) compositeOrder(rs *runState) *compositeOrder {
+	if rs.compositeOrder == nil {
+		rs.compositeOrder = buildCompositeOrder(e.DAG.Nodes, rs.order)
+	}
+	return rs.compositeOrder
 }
 
 // rewriteAddress substitutes the for-each boundary's template address

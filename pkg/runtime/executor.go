@@ -339,7 +339,8 @@ type runState struct {
 
 	// order is the DAG's topological order, computed once per run.
 	// Plan's walk and per-instance composite expansion both follow it.
-	order []string
+	order          []string
+	compositeOrder *compositeOrder
 
 	// composites holds one EvalContext per composite call site. Lazily
 	// built when a node inside a composite first needs evaluation. Inputs

@@ -705,7 +705,7 @@ func (e *Executor) readDestroyTarget(ctx context.Context, step *PlanStep) (bool,
 func (e *Executor) planNodeSteps(
 	ctx context.Context, rs *runState, n *Node,
 ) ([]*PlanStep, error) {
-	if e.insideForEachComposite(n) {
+	if e.insideForEachComposite(rs, n) {
 		return nil, nil
 	}
 	if n.ForEach != nil {
