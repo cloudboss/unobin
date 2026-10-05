@@ -406,13 +406,12 @@ func run(opts Options, resultOut **Result) error {
 	if opts.OutDir != "-" {
 		generatedOutputPath = opts.OutDir
 	}
-	analysis, err := sourcecheck.AnalyzeImports(refs, sourcecheck.ImportAnalysisOptions{
+	analysis, err := sourcecheck.AnalyzeProgram(refs, sourcecheck.ImportAnalysisOptions{
 		Resolver:                resolver,
 		Versions:                repoVersions,
 		SchemaCache:             schemas,
 		Reporter:                opts.reporter(),
 		StackName:               name,
-		GeneratePackages:        true,
 		ValidateCompositeBodies: true,
 		Body:                    &sf.Factory.Body,
 		Source:                  rootSource,
@@ -424,13 +423,6 @@ func run(opts Options, resultOut **Result) error {
 	}
 	assetCatalog := analysis.Assets.Catalog()
 	hasAssets := len(assetCatalog.Sets()) > 0
-	var assetBundle []byte
-	if hasAssets {
-		assetBundle, err = analysis.Assets.Encode()
-		if err != nil {
-			return err
-		}
-	}
 
 	goConstraints := make(map[string]map[string][]lang.ConstraintSpec, len(analysis.Top))
 	goDefaults := make(map[string]map[string][]lang.DefaultSpec, len(analysis.Top))
@@ -473,6 +465,18 @@ func run(opts Options, resultOut **Result) error {
 		return errs.Err()
 	}
 
+	generatedImports, err := codegen.GenerateImports(analysis, name)
+	if err != nil {
+		return err
+	}
+	var assetBundle []byte
+	if hasAssets {
+		assetBundle, err = analysis.Assets.Encode()
+		if err != nil {
+			return err
+		}
+	}
+
 	generatedFactoryBody := sf.Factory.Body
 	generatedFactoryBody.Assets = nil
 	in := codegen.Input{
@@ -483,10 +487,10 @@ func run(opts Options, resultOut **Result) error {
 		AssetBundle:    assetBundle,
 		HasAssets:      hasAssets,
 		RootAssetSetID: analysis.RootAssetSetID,
-		GoImports:      analysis.GoImports,
+		GoImports:      generatedImports.GoImports,
 		GoModules:      analysis.GoModules,
-		UBImports:      analysis.UBImports,
-		UBPackages:     analysis.UBPackages,
+		UBImports:      generatedImports.UBImports,
+		UBPackages:     generatedImports.UBPackages,
 		GoConstraints:  goConstraints,
 		GoDefaults:     goDefaults,
 		GoSchemas:      goSchemas,
@@ -514,7 +518,7 @@ func run(opts Options, resultOut **Result) error {
 			return errors.New(
 				"compile: cannot stream generated source to stdout when assets are declared")
 		}
-		if len(analysis.UBPackages) > 0 {
+		if len(generatedImports.UBPackages) > 0 {
 			return errors.New("compile: cannot stream to stdout when UB libraries are imported")
 		}
 		out, err := codegen.Generate(in)

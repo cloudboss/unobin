@@ -8,6 +8,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/check"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/program"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
@@ -134,8 +135,8 @@ func analyzeFactoryImports(
 	body syntax.FactoryBody,
 	refs map[string]resolve.ImportRef,
 	opts Options,
-) (*ImportAnalysis, error) {
-	return AnalyzeImports(refs, ImportAnalysisOptions{
+) (*program.Imports, error) {
+	return AnalyzeProgram(refs, ImportAnalysisOptions{
 		ProjectDir:     opts.ProjectDir,
 		Source:         opts.Source,
 		Resolver:       opts.Resolver,

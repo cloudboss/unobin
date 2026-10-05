@@ -12,6 +12,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/program"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
@@ -311,7 +312,7 @@ func libraryConfigSchemasNeedTypecheck(m map[string]runtime.LibraryConfigSchema)
 }
 
 func schemaHasRuntimeData(schema *runtime.LibrarySchema) bool {
-	return schemaHasSensitivity(schema) || schemaHasConfigurationData(schema)
+	return !(program.LibrarySpec{Schema: schema}).Empty()
 }
 
 func schemaHasConfigurationData(schema *runtime.LibrarySchema) bool {
@@ -328,15 +329,6 @@ func schemaNeedsLang(schema *runtime.LibrarySchema) bool {
 
 func schemaNeedsTypecheck(schema *runtime.LibrarySchema) bool {
 	return schema != nil && len(schema.ConfigurationFields) > 0
-}
-
-func schemaHasSensitivity(schema *runtime.LibrarySchema) bool {
-	if schema == nil {
-		return false
-	}
-	return schemaTypesHaveSensitivity(schema.Resources) ||
-		schemaTypesHaveSensitivity(schema.DataSources) ||
-		schemaTypesHaveSensitivity(schema.Actions)
 }
 
 func schemaTypesHaveSensitivity(types map[string]*runtime.TypeSchema) bool {

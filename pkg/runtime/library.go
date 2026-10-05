@@ -32,10 +32,8 @@ type Library struct {
 	DataComposites     map[string]*CompositeType
 	ActionComposites   map[string]*CompositeType
 	Functions          map[string]FunctionType
-	// Schema carries the library's resource, data source, and action
-	// output field sets. Populated by the dev CLI from a fetched Go
-	// library's source for compile-time reference checking; nil at
-	// runtime since the generated binary does not need it.
+	// Schema contains field types for compile-time checks. Generated libraries
+	// retain sensitivity and configuration metadata for plan and apply.
 	Schema *LibrarySchema
 
 	// Constraints holds each Go type's cross-field constraints in the

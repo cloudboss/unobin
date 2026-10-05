@@ -1,4 +1,4 @@
-package sourcecheck
+package codegen
 
 import (
 	"crypto/sha256"

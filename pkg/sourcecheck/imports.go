@@ -14,6 +14,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/golibrary"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/program"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
@@ -52,119 +53,38 @@ type ImportAnalysisOptions struct {
 	Compatibility           *golibrary.CompatibilityContext
 }
 
-// AnalyzeImports resolves refs once and builds the data each caller needs.
 func AnalyzeImports(
 	refs map[string]resolve.ImportRef,
 	opts ImportAnalysisOptions,
 ) (*ImportAnalysis, error) {
-	resolver := opts.Resolver
-	if opts.Mode == ModeNoFetch {
-		resolver = noFetchResolver{wrapped: resolver}
-	}
-	schemas := opts.SchemaCache
-	if schemas == nil {
-		schemas = NewSchemaCache()
-	}
-	rootConfigDeps, err := bodyLibraryConfigDeps(opts.Body)
+	checked, err := AnalyzeProgram(refs, opts)
 	if err != nil {
 		return nil, err
 	}
-	if len(refs)+len(rootConfigDeps) > 0 && opts.Resolver == nil {
-		return nil, errors.New("sourcecheck: resolver is required when dependencies are present")
+	generated := &codegen.GeneratedImports{
+		GoImports: map[string]string{}, UBImports: map[string]string{},
+		UBPackages: map[string][]byte{},
 	}
-	visitorOpts := opts
-	visitorOpts.Resolver = resolver
-	preflight, compatibility, err := preflightImports(refs, visitorOpts, schemas)
-	if err != nil {
-		return nil, err
-	}
-	defer compatibility.EndAnalysis()
-	metadata := compatibility.Manifest()
-	schemas.compatibility = compatibility
-	schemas.compatibilityErr = nil
-	resolver = preflight
-	visitorOpts.Resolver = resolver
-	visitor := newImportVisitor(visitorOpts, schemas)
-	top := preflight.graph.Top
-	if err := preflight.graph.Visit(visitor); err != nil {
-		return nil, err
-	}
-	for _, metadata := range compatibility.Manifest() {
-		module := metadata.Source.Module
-		if metadata.Source.Linked && module.Version != "" {
-			if err := visitor.OnGoImport("", "", module.Path, module.Version); err != nil {
-				return nil, err
+	if opts.GeneratePackages {
+		generated, err = codegen.GenerateImports(checked, opts.StackName)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		for _, imported := range checked.Top {
+			if imported.Kind == resolve.ResolutionGo {
+				generated.GoImports[imported.LocalAlias] = imported.Path
 			}
 		}
 	}
-	rootSet, err := asset.Capture(
-		opts.Source,
-		opts.RootSourceFile,
-		factoryBodyAssets(opts.Body),
-		opts.GeneratedOutputPath,
-	)
-	if err != nil {
-		return nil, err
-	}
-	if err := visitor.assets.Add(rootSet); err != nil {
-		return nil, err
-	}
-	analysis := &ImportAnalysis{
-		Top:                  top,
-		Libraries:            make(map[string]*runtime.Library, len(top)),
-		LibraryConfigSchemas: map[string]runtime.LibraryConfigSchema{},
-		GoImports:            map[string]string{},
-		GoModules:            visitor.goModules,
-		UBImports:            map[string]string{},
-		UBPackages:           visitor.packages,
-		Assets:               visitor.assets,
-		Compatibility:        compatibility,
-		LibraryMetadata:      metadata,
-	}
-	if rootSet != nil {
-		analysis.RootAssetSetID = rootSet.ID
-	}
-	for _, res := range top {
-		switch res.Kind {
-		case resolve.ResolutionGo:
-			schema, warnings, err := schemas.Read(res.SourcePath)
-			if err != nil {
-				return nil, diagnostic.Context(
-					fmt.Sprintf("import %q", res.LocalAlias), err,
-				)
-			}
-			reportSchemaWarnings(opts.Reporter, res.LocalAlias, warnings)
-			analysis.GoImports[res.LocalAlias] = res.Path
-			analysis.Libraries[res.LocalAlias] = &runtime.Library{Schema: schema}
-		case resolve.ResolutionUB:
-			analysis.Libraries[res.LocalAlias] = visitor.runtimeLibraries[res.CanonicalKey]
-			if opts.GeneratePackages {
-				importPath, err := visitor.ubImportPath(res.CanonicalKey)
-				if err != nil {
-					return nil, err
-				}
-				analysis.UBImports[res.LocalAlias] = importPath
-			}
-		}
-	}
-	libraryConfigSchemas, err := visitor.resolveLibraryConfigDeps(
-		rootConfigDeps,
-		importSourceForOptions(opts),
-	)
-	if err != nil {
-		return nil, err
-	}
-	if libraryConfigSchemas != nil {
-		analysis.LibraryConfigSchemas = libraryConfigSchemas
-	}
-	if err := preflight.graph.ValidateSources(); err != nil {
-		return nil, err
-	}
-	if err := compatibility.ValidateSources(); err != nil {
-		clear(schemas.entries)
-		return nil, err
-	}
-	return analysis, nil
+	return &ImportAnalysis{
+		Top: checked.Top, Libraries: checked.Libraries,
+		LibraryConfigSchemas: checked.LibraryConfigSchemas,
+		GoImports:            generated.GoImports, GoModules: checked.GoModules,
+		UBImports: generated.UBImports, UBPackages: generated.UBPackages,
+		Assets: checked.Assets, RootAssetSetID: checked.RootAssetSetID,
+		Compatibility: checked.Compatibility, LibraryMetadata: checked.LibraryMetadata,
+	}, nil
 }
 
 func factoryBodyAssets(body *syntax.FactoryBody) []syntax.AssetDecl {
@@ -201,13 +121,9 @@ type importVisitor struct {
 	resolver                resolve.Resolver
 	mode                    Mode
 	versions                map[string]string
-	stackName               string
-	generatePackages        bool
 	validateCompositeBodies bool
-	packageIDs              *ubPackageIDs
-	packageIDByKey          map[string]string
-	packages                map[string][]byte
 	goModules               map[string]string
+	ubLibraries             []program.Library
 	runtimeLibraries        map[string]*runtime.Library
 	reporter                diagnostic.Reporter
 	schemas                 *SchemaCache
@@ -216,27 +132,11 @@ type importVisitor struct {
 }
 
 func newImportVisitor(opts ImportAnalysisOptions, schemas *SchemaCache) *importVisitor {
-	stackName := opts.StackName
-	if stackName == "" {
-		stackName = "stack"
-	}
-	packages := map[string][]byte{}
-	var ids *ubPackageIDs
-	var packageIDByKey map[string]string
-	if opts.GeneratePackages {
-		ids = newUBPackageIDs()
-		packageIDByKey = ids.byKey
-	}
 	return &importVisitor{
 		resolver:                opts.Resolver,
 		mode:                    opts.Mode,
 		versions:                opts.Versions,
-		stackName:               stackName,
-		generatePackages:        opts.GeneratePackages,
 		validateCompositeBodies: opts.ValidateCompositeBodies,
-		packageIDs:              ids,
-		packageIDByKey:          packageIDByKey,
-		packages:                packages,
 		goModules:               map[string]string{},
 		runtimeLibraries:        map[string]*runtime.Library{},
 		reporter:                opts.Reporter,
@@ -362,14 +262,6 @@ func libraryConfigSourceError(
 	}
 }
 
-func (v *importVisitor) ubImportPath(canonicalKey string) (string, error) {
-	packageID, ok := v.packageIDByKey[canonicalKey]
-	if !ok {
-		return "", fmt.Errorf("compile: missing generated package ID for %s", canonicalKey)
-	}
-	return v.stackName + "/internal/" + packageID, nil
-}
-
 func (v *importVisitor) OnUBLibrary(
 	alias, canonicalKey string, _ resolve.ImportRef, lib *resolve.UBLibrary,
 ) error {
@@ -385,42 +277,20 @@ func (v *importVisitor) OnUBLibrary(
 		}
 	}
 
-	packageID := ""
-	if v.generatePackages {
-		packageID = v.packageIDs.ID(alias, canonicalKey)
-	}
 	composites, err := v.buildCompiledComposites(entries, lib.BodyImports, lib.Source)
 	if err != nil {
 		return err
 	}
 	runtimeLib := runtimeLibraryForCompiledComposites(alias, composites)
-	if v.generatePackages {
-		src, err := codegen.GenerateUBLibraryPackageWithAssetsAndConfigSchemas(
-			packageID,
-			alias,
-			syntaxBodiesForCompiledComposites(composites),
-			codegenImportsForCompiledComposites(composites),
-			goSpecsForCompiledComposites(composites),
-			lib.SourceFiles,
-			assetSetIDsForCompiledComposites(composites),
-			libraryConfigSchemasForCompiledComposites(composites),
-		)
-		if err != nil {
-			return err
-		}
-		v.packages[packageID] = src
-	}
+	library := libraryForCompiledComposites(alias, canonicalKey, composites, lib.SourceFiles)
+	v.ubLibraries = append(v.ubLibraries, library)
 	v.runtimeLibraries[canonicalKey] = runtimeLib
 	return nil
 }
 
 type compiledComposite struct {
-	entry                resolve.CompositeEntry
-	bodyLibs             map[string]*runtime.Library
-	libraryConfigSchemas map[string]runtime.LibraryConfigSchema
-	codegenImports       map[string]string
-	goSpecs              map[string]codegen.GoLibrarySpecs
-	assetSetID           string
+	data    program.Composite
+	goSpecs map[string]program.LibrarySpec
 }
 
 func (v *importVisitor) buildCompiledComposites(
@@ -446,16 +316,12 @@ func (v *importVisitor) buildCompiledComposites(
 			return nil, err
 		}
 		resols := bodyImports[entry.Kind][entry.Name]
-		composite := compiledComposite{
-			entry:    entry,
-			bodyLibs: make(map[string]*runtime.Library, len(resols)),
-		}
+		composite := compiledComposite{data: program.Composite{
+			Category: entry.Kind, Export: entry.Name, Body: entry.SyntaxBody,
+			Imports: resols, Libraries: make(map[string]*runtime.Library, len(resols)),
+		}}
 		if set != nil {
-			composite.assetSetID = set.ID
-		}
-		if v.generatePackages {
-			composite.codegenImports = make(map[string]string, len(resols))
-			composite.goSpecs = map[string]codegen.GoLibrarySpecs{}
+			composite.data.AssetSetID = set.ID
 		}
 		bodyUsed := usedSyntaxLibraryTypes(entry.SyntaxBody)
 		for _, res := range resols {
@@ -479,10 +345,7 @@ func (v *importVisitor) buildCompiledComposites(
 				fmt.Sprintf("%s composite %q", entry.Kind, entry.Name), err,
 			)
 		}
-		composite.libraryConfigSchemas = libraryConfigSchemas
-		if len(composite.codegenImports) == 0 {
-			composite.codegenImports = nil
-		}
+		composite.data.LibraryConfigSchemas = libraryConfigSchemas
 		if len(composite.goSpecs) == 0 {
 			composite.goSpecs = nil
 		}
@@ -504,18 +367,22 @@ func (v *importVisitor) addCompiledGoImport(
 		), err)
 	}
 	reportSchemaWarnings(v.reporter, res.LocalAlias, warnings)
-	composite.bodyLibs[res.LocalAlias] = &runtime.Library{Schema: schema}
-	if !v.generatePackages {
+	composite.data.Libraries[res.LocalAlias] = &runtime.Library{Schema: schema}
+	specs := program.LibrarySpec{
+		Constraints: constraintsFromSchema(schema), Defaults: defaultsFromSchema(schema),
+		Schema: schema,
+	}
+	if specs.Empty() {
 		return nil
 	}
-	composite.codegenImports[res.LocalAlias] = res.Path
 	used := bodyUsed[res.LocalAlias]
-	specs := codegen.GoLibrarySpecs{
-		Constraints: keepUsedTypes(constraintsFromSchema(schema), used),
-		Defaults:    keepUsedTypes(defaultsFromSchema(schema), used),
-		Schema:      keepUsedSchema(schema, used),
-	}
+	specs.Constraints = keepUsedTypes(specs.Constraints, used)
+	specs.Defaults = keepUsedTypes(specs.Defaults, used)
+	specs.Schema = keepUsedSchema(schema, used)
 	if !specs.Empty() {
+		if composite.goSpecs == nil {
+			composite.goSpecs = map[string]program.LibrarySpec{}
+		}
 		composite.goSpecs[res.Path] = specs
 	}
 	return nil
@@ -525,15 +392,7 @@ func (v *importVisitor) addCompiledUBImport(
 	composite *compiledComposite,
 	res resolve.Resolution,
 ) error {
-	composite.bodyLibs[res.LocalAlias] = v.runtimeLibraries[res.CanonicalKey]
-	if !v.generatePackages {
-		return nil
-	}
-	importPath, err := v.ubImportPath(res.CanonicalKey)
-	if err != nil {
-		return err
-	}
-	composite.codegenImports[res.LocalAlias] = importPath
+	composite.data.Libraries[res.LocalAlias] = v.runtimeLibraries[res.CanonicalKey]
 	return nil
 }
 
@@ -543,109 +402,39 @@ func runtimeLibraryForCompiledComposites(
 ) *runtime.Library {
 	lib := &runtime.Library{Name: name}
 	for _, composite := range composites {
-		syntaxBody := composite.entry.SyntaxBody
+		syntaxBody := composite.data.Body
 		lib.AddComposite(&runtime.CompositeType{
-			Name:                 composite.entry.Name,
-			Kind:                 runtime.NodeKind(composite.entry.Kind),
+			Name:                 composite.data.Export,
+			Kind:                 runtime.NodeKind(composite.data.Category),
 			SyntaxBody:           &syntaxBody,
-			Libraries:            composite.bodyLibs,
-			LibraryConfigSchemas: composite.libraryConfigSchemas,
-			AssetSetID:           composite.assetSetID,
+			Libraries:            composite.data.Libraries,
+			LibraryConfigSchemas: composite.data.LibraryConfigSchemas,
+			AssetSetID:           composite.data.AssetSetID,
 		})
 	}
 	return lib
 }
 
-func syntaxBodiesForCompiledComposites(
+func libraryForCompiledComposites(
+	name, canonicalKey string,
 	composites []compiledComposite,
-) map[string]map[string]syntax.FactoryBody {
-	out := map[string]map[string]syntax.FactoryBody{}
+	sourceFiles map[string]syntax.SourceFileSpec,
+) program.Library {
+	library := program.Library{
+		Name: name, CanonicalKey: canonicalKey, SourceFiles: sourceFiles,
+		Composites: make([]program.Composite, 0, len(composites)),
+		Specs:      goSpecsForCompiledComposites(composites),
+	}
 	for _, composite := range composites {
-		kind := composite.entry.Kind
-		if out[kind] == nil {
-			out[kind] = map[string]syntax.FactoryBody{}
-		}
-		body := composite.entry.SyntaxBody
-		body.Assets = nil
-		out[kind][composite.entry.Name] = body
+		library.Composites = append(library.Composites, composite.data)
 	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func assetSetIDsForCompiledComposites(
-	composites []compiledComposite,
-) map[string]map[string]string {
-	out := map[string]map[string]string{}
-	for _, composite := range composites {
-		if composite.assetSetID == "" {
-			continue
-		}
-		kind := composite.entry.Kind
-		if out[kind] == nil {
-			out[kind] = map[string]string{}
-		}
-		out[kind][composite.entry.Name] = composite.assetSetID
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func libraryConfigSchemasForCompiledComposites(
-	composites []compiledComposite,
-) map[string]map[string]map[string]runtime.LibraryConfigSchema {
-	out := map[string]map[string]map[string]runtime.LibraryConfigSchema{}
-	for _, composite := range composites {
-		if len(composite.libraryConfigSchemas) == 0 {
-			continue
-		}
-		kind := composite.entry.Kind
-		if out[kind] == nil {
-			out[kind] = map[string]map[string]runtime.LibraryConfigSchema{}
-		}
-		schemas := make(
-			map[string]runtime.LibraryConfigSchema,
-			len(composite.libraryConfigSchemas),
-		)
-		maps.Copy(schemas, composite.libraryConfigSchemas)
-		out[kind][composite.entry.Name] = schemas
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func codegenImportsForCompiledComposites(
-	composites []compiledComposite,
-) map[string]map[string]map[string]string {
-	out := map[string]map[string]map[string]string{}
-	for _, composite := range composites {
-		if len(composite.codegenImports) == 0 {
-			continue
-		}
-		kind := composite.entry.Kind
-		if out[kind] == nil {
-			out[kind] = map[string]map[string]string{}
-		}
-		imports := make(map[string]string, len(composite.codegenImports))
-		maps.Copy(imports, composite.codegenImports)
-		out[kind][composite.entry.Name] = imports
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
+	return library
 }
 
 func goSpecsForCompiledComposites(
 	composites []compiledComposite,
-) map[string]codegen.GoLibrarySpecs {
-	out := map[string]codegen.GoLibrarySpecs{}
+) map[string]program.LibrarySpec {
+	out := map[string]program.LibrarySpec{}
 	for _, composite := range composites {
 		for importPath, specs := range composite.goSpecs {
 			mergeGoLibrarySpecs(out, importPath, specs)
@@ -658,9 +447,9 @@ func goSpecsForCompiledComposites(
 }
 
 func mergeGoLibrarySpecs(
-	out map[string]codegen.GoLibrarySpecs,
+	out map[string]program.LibrarySpec,
 	importPath string,
-	specs codegen.GoLibrarySpecs,
+	specs program.LibrarySpec,
 ) {
 	if specs.Empty() {
 		return

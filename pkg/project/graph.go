@@ -86,7 +86,7 @@ func SourceGraph(
 		repoVersions, options.ReplaceUnobin != "", replaceMap)
 	schemaRoots := compile.UnobinSchemaRoots(
 		options.toolOutput(), replaceUnobin, options.UnobinVersion)
-	analysis, err := sourcecheck.AnalyzeImports(refs, sourcecheck.ImportAnalysisOptions{
+	analysis, err := sourcecheck.AnalyzeProgram(refs, sourcecheck.ImportAnalysisOptions{
 		Resolver:       resolver,
 		Versions:       repoVersions,
 		Reporter:       reporter,

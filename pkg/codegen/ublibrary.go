@@ -1,9 +1,7 @@
 package codegen
 
 import (
-	"bytes"
 	"fmt"
-	"go/format"
 	"go/token"
 	"path"
 	"slices"
@@ -11,10 +9,10 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
-	"github.com/cloudboss/unobin/pkg/libraryapi"
+	"github.com/cloudboss/unobin/pkg/program"
+	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
@@ -22,16 +20,7 @@ import (
 // keyed by "<kind>.<type>" the way runtime.Library stores it. The dev
 // CLI gathers it from the library's source; codegen embeds it in
 // generated code so the runtime can look it up at plan and apply.
-type GoLibrarySpecs struct {
-	Constraints map[string][]lang.ConstraintSpec
-	Defaults    map[string][]lang.DefaultSpec
-	Schema      *runtime.LibrarySchema
-}
-
-// Empty reports whether the specs hold no data at all.
-func (s GoLibrarySpecs) Empty() bool {
-	return len(s.Constraints) == 0 && len(s.Defaults) == 0 && !schemaHasRuntimeData(s.Schema)
-}
+type GoLibrarySpecs = program.LibrarySpec
 
 // GenerateUBLibrary produces the Go source for a UB library's
 // generated package. The package's name is alias; it exports a
@@ -147,108 +136,29 @@ func generateUBLibraryPackage(
 	if libraryName == "" {
 		return nil, fmt.Errorf("ublibrary: library name is required")
 	}
-
-	idents := newIdentTable()
-	sourceHelpers, sourceHelperByFile := sourceHelpersFor(sourceFiles)
-	hasConfigSchemaLang := false
-	hasConfigSchemaTypecheck := false
-	groups := map[string]*compositeGroup{}
-	for _, c := range compositeKinds {
-		groups[c.kind] = &compositeGroup{MapField: c.mapField, Symbol: c.symbol}
-	}
-	for _, kind := range compositeKindNames(syntaxBodies) {
-		group, ok := groups[kind]
-		if !ok {
-			return nil, fmt.Errorf("ublibrary %q: unknown kind %q", libraryName, kind)
+	library := program.Library{Name: libraryName, Specs: goSpecs, SourceFiles: sourceFiles}
+	for _, category := range compositeKindNames(syntaxBodies) {
+		switch category {
+		case "resource", "data-source", "action":
+		default:
+			return nil, fmt.Errorf("ublibrary %q: unknown kind %q", libraryName, category)
 		}
-		for _, name := range compositeNames(syntaxBodies[kind]) {
-			configSchemas := libraryConfigSchemas[kind][name]
-			entry := compositeEntry{
-				Name:       name,
-				Symbol:     group.Symbol,
-				AssetSetID: assetSetIDs[kind][name],
+		for _, name := range compositeNames(syntaxBodies[category]) {
+			composite := program.Composite{
+				Category: category, Export: name, Body: syntaxBodies[category][name],
+				AssetSetID:           assetSetIDs[category][name],
+				LibraryConfigSchemas: libraryConfigSchemas[category][name],
 			}
-			if len(configSchemas) > 0 {
-				entry.LibraryConfigSchemas = libraryConfigSchemasLiteral(configSchemas)
-				hasConfigSchemaLang = hasConfigSchemaLang ||
-					libraryConfigSchemasNeedLang(configSchemas)
-				hasConfigSchemaTypecheck = hasConfigSchemaTypecheck ||
-					libraryConfigSchemasNeedTypecheck(configSchemas)
-			}
-			encoded, err := encodeSyntaxBodyWithSourceHelpers(
-				syntaxBodies[kind][name], sourceHelperByFile)
-			if err != nil {
-				return nil, fmt.Errorf("ublibrary %q: encode %s %q syntax body: %w",
-					libraryName, kind, name, err)
-			}
-			entry.SyntaxBody = "&" + encoded
-			for _, localAlias := range sortedAliases(imports[kind][name]) {
-				p := imports[kind][name][localAlias]
-				entry.Libraries = append(entry.Libraries, libraryBinding{
-					LocalAlias: localAlias,
-					Path:       p,
-					GoIdent:    idents.identFor(p),
+			for _, alias := range sortedAliases(imports[category][name]) {
+				composite.Imports = append(composite.Imports, resolve.Resolution{
+					Kind: resolve.ResolutionGo, LocalAlias: alias,
+					Path: imports[category][name][alias],
 				})
 			}
-			group.Entries = append(group.Entries, entry)
+			library.Composites = append(library.Composites, composite)
 		}
 	}
-
-	orderedGroups := make([]*compositeGroup, 0, len(compositeKinds))
-	for _, c := range compositeKinds {
-		if g := groups[c.kind]; len(g.Entries) > 0 {
-			orderedGroups = append(orderedGroups, g)
-		}
-	}
-
-	specVars, varOf := specVarsFor(idents, goSpecs)
-	for _, g := range orderedGroups {
-		for _, entry := range g.Entries {
-			for i, b := range entry.Libraries {
-				if name, ok := varOf[b.Path]; ok {
-					entry.Libraries[i].Value = name
-				} else {
-					entry.Libraries[i].Value = b.GoIdent + ".Library()"
-				}
-			}
-		}
-	}
-
-	var buf bytes.Buffer
-	data := struct {
-		PackageName      string
-		LibraryName      string
-		RequiredAPI      string
-		SpecVars         []specVar
-		Groups           []*compositeGroup
-		GoImports        []goImport
-		SourceHelpers    []sourceHelper
-		HasLang          bool
-		HasTypecheck     bool
-		HasSyntaxBodies  bool
-		HasSourceHelpers bool
-	}{
-		PackageName:   sanitizeIdent(packageID),
-		LibraryName:   libraryName,
-		RequiredAPI:   libraryapi.Current().GeneratorAPI,
-		SpecVars:      specVars,
-		Groups:        orderedGroups,
-		GoImports:     idents.imports(),
-		SourceHelpers: sourceHelpers,
-		HasLang: specVarsNeedLang(specVars) || hasSyntaxBodies(orderedGroups) ||
-			hasConfigSchemaLang,
-		HasTypecheck:     specVarsNeedTypecheck(specVars) || hasConfigSchemaTypecheck,
-		HasSyntaxBodies:  hasSyntaxBodies(orderedGroups),
-		HasSourceHelpers: len(sourceHelpers) > 0,
-	}
-	if err := ubLibraryTemplate.Execute(&buf, data); err != nil {
-		return nil, fmt.Errorf("ublibrary: %w", err)
-	}
-	out, err := format.Source(buf.Bytes())
-	if err != nil {
-		return nil, fmt.Errorf("ublibrary: format generated source: %w", err)
-	}
-	return out, nil
+	return GenerateLibrary(packageID, library, nil)
 }
 
 // compositeKinds lists the kinds in the order the generated Library()

@@ -5,13 +5,15 @@ import (
 	"go/token"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cloudboss/unobin/pkg/codegen"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/program"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/cloudboss/unobin/pkg/runtime"
 	"github.com/cloudboss/unobin/pkg/typecheck"
-	"github.com/stretchr/testify/require"
 )
 
 func TestImportVisitorBuildsCompositeArtifactsTogether(t *testing.T) {
@@ -22,13 +24,9 @@ func TestImportVisitorBuildsCompositeArtifactsTogether(t *testing.T) {
 			return compositeArtifactSchema(), nil, nil
 		},
 	)
-	visitor := newImportVisitor(ImportAnalysisOptions{
-		GeneratePackages: true,
-		StackName:        "demo",
-	}, schemas)
+	visitor := newImportVisitor(ImportAnalysisOptions{}, schemas)
 	nestedLib := &runtime.Library{Name: "leaf"}
 	visitor.runtimeLibraries["local:/leaf"] = nestedLib
-	require.Equal(t, "leaf", visitor.packageIDs.ID("leaf", "local:/leaf"))
 
 	lib := compositeArtifactLibrary(goSourcePath)
 	composites, err := visitor.buildCompiledComposites(lib.CompositeEntries(), lib.BodyImports, nil)
@@ -37,21 +35,16 @@ func TestImportVisitorBuildsCompositeArtifactsTogether(t *testing.T) {
 
 	byName := map[string]compiledComposite{}
 	for _, composite := range composites {
-		byName[composite.entry.Name] = composite
+		byName[composite.data.Export] = composite
 	}
 
 	archive := byName["archive"]
-	require.Equal(t, resolve.CompositeEntry{
-		Kind:       "resource",
-		Name:       "archive",
-		SyntaxBody: lib.SyntaxBodies["resource"]["archive"],
-	}, archive.entry)
-	require.Same(t, nestedLib, archive.bodyLibs["leaf"])
-	require.NotNil(t, archive.bodyLibs["std"].Schema)
-	require.Equal(t, map[string]string{
-		"leaf": "demo/internal/leaf",
-		"std":  "example.com/std",
-	}, archive.codegenImports)
+	require.Equal(t, "resource", archive.data.Category)
+	require.Equal(t, "archive", archive.data.Export)
+	require.Equal(t, lib.SyntaxBodies["resource"]["archive"], archive.data.Body)
+	require.Same(t, nestedLib, archive.data.Libraries["leaf"])
+	require.NotNil(t, archive.data.Libraries["std"].Schema)
+	require.Equal(t, lib.BodyImports["resource"]["archive"], archive.data.Imports)
 	require.Contains(t, archive.goSpecs["example.com/std"].Constraints, "resource.file")
 	require.Contains(t, archive.goSpecs["example.com/std"].Defaults, "resource.file")
 	require.Contains(t, archive.goSpecs["example.com/std"].Schema.Resources, "file")
@@ -61,7 +54,7 @@ func TestImportVisitorBuildsCompositeArtifactsTogether(t *testing.T) {
 	require.NotContains(t, archive.goSpecs["example.com/std"].Defaults, "data-source.query")
 
 	lookup := byName["lookup"]
-	require.Equal(t, map[string]string{"std": "example.com/std"}, lookup.codegenImports)
+	require.Equal(t, lib.BodyImports["data-source"]["lookup"], lookup.data.Imports)
 	require.Contains(t, lookup.goSpecs["example.com/std"].Constraints, "data-source.query")
 	require.Contains(t, lookup.goSpecs["example.com/std"].Defaults, "data-source.query")
 	require.Contains(t, lookup.goSpecs["example.com/std"].Schema.DataSources, "query")
@@ -70,22 +63,12 @@ func TestImportVisitorBuildsCompositeArtifactsTogether(t *testing.T) {
 	runtimeLib := runtimeLibraryForCompiledComposites("bundle", composites)
 	require.Same(t, nestedLib,
 		runtimeLib.Composite(runtime.NodeResource, "archive").Libraries["leaf"])
-	require.NotNil(t, runtimeLib.Composite(runtime.NodeDataSource, "lookup").Libraries["std"].Schema)
+	require.NotNil(t,
+		runtimeLib.Composite(runtime.NodeDataSource, "lookup").Libraries["std"].Schema)
 
-	imports := codegenImportsForCompiledComposites(composites)
-	require.Equal(t, map[string]map[string]map[string]string{
-		"resource": {
-			"archive": {
-				"leaf": "demo/internal/leaf",
-				"std":  "example.com/std",
-			},
-		},
-		"data-source": {
-			"lookup": {"std": "example.com/std"},
-		},
-	}, imports)
-
-	goSpecs := goSpecsForCompiledComposites(composites)
+	library := libraryForCompiledComposites("bundle", "local:/bundle", composites, nil)
+	require.Equal(t, []program.Composite{archive.data, lookup.data}, library.Composites)
+	goSpecs := library.Specs
 	require.Contains(t, goSpecs["example.com/std"].Constraints, "resource.file")
 	require.Contains(t, goSpecs["example.com/std"].Constraints, "data-source.query")
 	require.Contains(t, goSpecs["example.com/std"].Defaults, "resource.file")
@@ -94,14 +77,8 @@ func TestImportVisitorBuildsCompositeArtifactsTogether(t *testing.T) {
 	require.Contains(t, goSpecs["example.com/std"].Schema.DataSources, "query")
 	require.NotContains(t, goSpecs["example.com/std"].Schema.Resources, "unused")
 
-	generated, err := codegen.GenerateUBLibraryPackage(
-		"bundle",
-		"bundle",
-		syntaxBodiesForCompiledComposites(composites),
-		imports,
-		goSpecs,
-		nil,
-	)
+	generated, err := codegen.GenerateLibrary("bundle", library,
+		map[string]string{"local:/leaf": "demo/internal/leaf"})
 	require.NoError(t, err)
 	_, err = parser.ParseFile(token.NewFileSet(), "bundle.go", generated, parser.AllErrors)
 	require.NoError(t, err, "generated source should parse:\n%s", generated)
