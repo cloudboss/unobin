@@ -26,8 +26,8 @@ Iteration bytes increase from 800/2,400/4,800 to
 100 to 27/31/33. The index is rebuilt inside every measured operation,
 stores only iteration boundary memberships, and uses one exact-capacity
 pointer allocation for all result lists. This bounded memory cost enables
-the measured time gain. Acceptance of that tradeoff remains a review item;
-this comparison does not declare all runtime graph and state indexing complete.
+the measured time gain. Instance dependency and state lookup indexing
+remain separate work.
 
 Three DAG byte measurements also increase significantly at CPU 4:
 10.5 B/op at 100 composites, 6.5 B/op at 500, and 20.5 B/op at 2,000.

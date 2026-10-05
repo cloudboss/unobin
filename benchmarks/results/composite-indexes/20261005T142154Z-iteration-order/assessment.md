@@ -24,8 +24,8 @@ memory proportional to the composite ancestors and stored memberships;
 its lists use one pointer allocation with exact capacities. This is the
 cost of replacing repeated whole-graph ancestry scans with indexed queries.
 The absolute increase is 21,688, 49,848, and 90,616 bytes per operation.
-Allocation counts fall by 73%, 69%, and 67%. The evidence establishes the
-time gain; acceptance of this time/memory tradeoff remains a review item.
+Allocation counts fall by 73%, 69%, and 67%. The additional memory funds
+the lookup tables and descendant lists that produce the measured time gain.
 
 DAG construction has no implementation change in this pair. Its time
 measurements improve or are inconclusive; do not attribute those changes
