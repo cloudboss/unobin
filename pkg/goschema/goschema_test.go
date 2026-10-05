@@ -25,7 +25,7 @@ func testIndexedPackage(fset *token.FileSet, files ...*ast.File) *indexedPackage
 	return &indexedPackage{
 		fset:    fset,
 		files:   files,
-		imports: buildImportMap(files),
+		imports: buildImportMaps(files),
 	}
 }
 

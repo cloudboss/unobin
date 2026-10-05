@@ -96,13 +96,13 @@ type analysisContext struct {
 
 func newAnalysisContext(dir string, extra ...ModuleRoot) (*analysisContext, error) {
 	root, importPath := packageModuleRoot(dir)
-	rootPkg, err := parseIndexedPackageDir(dir, importPath)
-	if err != nil {
-		return nil, err
-	}
 	roots := make([]ModuleRoot, 0, 1+len(extra))
 	roots = append(roots, root)
 	roots = append(roots, extra...)
+	rootPkg, err := parseIndexedPackageDir(dir, importPath, roots...)
+	if err != nil {
+		return nil, err
+	}
 	packages := map[string]*indexedPackage{}
 	if rootPkg.importPath != "" {
 		packages[rootPkg.importPath] = rootPkg
@@ -328,7 +328,7 @@ func (c *analysisContext) configurationIdentity(ref typeRef) string {
 		importPath = c.root.importPath
 	}
 	if ref.PkgAlias != "" {
-		importPath = c.root.imports[ref.PkgAlias]
+		importPath = c.root.importPathFor(ref.PkgAlias, ref.Pos)
 	}
 	if importPath == "" {
 		return ref.String()
@@ -363,29 +363,21 @@ func (c *analysisContext) buildLibraryConfigurationSourceIndex(
 func (c *analysisContext) loadImportedPackage(
 	from *indexedPackage,
 	alias string,
+	pos token.Pos,
 ) (*indexedPackage, bool) {
 	if from == nil {
 		return nil, false
 	}
-	importPath, ok := from.imports[alias]
-	if !ok {
+	importPath := from.importPathFor(alias, pos)
+	if importPath == "" {
 		return nil, false
 	}
 	w := c.newWalker()
-	files, ok := w.loadPackage(importPath)
+	_, ok := w.loadPackage(importPath)
 	if !ok {
 		return nil, false
 	}
-	pkg := c.packages[importPath]
-	if pkg == nil {
-		pkg = &indexedPackage{
-			files:      files,
-			importPath: importPath,
-			imports:    buildImportMap(files),
-		}
-		c.packages[importPath] = pkg
-	}
-	return pkg, true
+	return c.packages[importPath], true
 }
 
 func sortedKeys(m map[string]bool) []string {
@@ -430,6 +422,7 @@ type typeRef struct {
 	PkgAlias   string
 	ImportPath string
 	TypeName   string
+	Pos        token.Pos
 }
 
 // String renders the ref with a qualifier when the type lives in another
@@ -457,7 +450,7 @@ type ModuleRoot struct {
 // a typecheck.Type, including the cross-package recursion that follows
 // selector types into other packages under the walker's module roots.
 //
-// Per-package fields (importPath, files, imports) describe the
+// Per-package fields (importPath, files, pkg) describe the
 // package the walker is currently resolving inside. Cross-package
 // recursion clones the walker via sub(), swapping these fields to
 // point at the target package while keeping the shared fields
@@ -477,7 +470,7 @@ type walker struct {
 
 	importPath string
 	files      []*ast.File
-	imports    map[string]string
+	pkg        *indexedPackage
 }
 
 // newWalker positions a walker at the package being read. Packages under the
@@ -500,7 +493,7 @@ func newWalker(
 		warns:        warns,
 		importPath:   rootPkg.importPath,
 		files:        rootPkg.files,
-		imports:      buildImportMap(rootPkg.files),
+		pkg:          rootPkg,
 	}
 }
 
@@ -517,7 +510,7 @@ func (w *walker) sub(importPath string) *walker {
 	cp := *w
 	cp.importPath = importPath
 	cp.files = files
-	cp.imports = buildImportMap(files)
+	cp.pkg = w.packageCache[importPath]
 	return &cp
 }
 
@@ -533,7 +526,7 @@ func (w *walker) loadPackage(importPath string) ([]*ast.File, bool) {
 		return nil, false
 	}
 	rel := strings.TrimPrefix(strings.TrimPrefix(importPath, root.Path), "/")
-	pkg, err := parseIndexedPackageDir(filepath.Join(root.Dir, rel), importPath)
+	pkg, err := parseIndexedPackageDir(filepath.Join(root.Dir, rel), importPath, w.roots...)
 	if err != nil {
 		return nil, false
 	}
@@ -585,9 +578,8 @@ func (w *walker) lookupObjectFields(ref typeRef) ([]typecheck.ObjectField, map[s
 func (w *walker) walkerForRef(ref typeRef) *walker {
 	importPath := ref.ImportPath
 	if ref.PkgAlias != "" {
-		var ok bool
-		importPath, ok = w.imports[ref.PkgAlias]
-		if !ok {
+		importPath = w.importPathFor(ref.PkgAlias, ref.Pos)
+		if importPath == "" {
 			return nil
 		}
 	}
@@ -617,8 +609,8 @@ func (w *walker) objectFieldsFromPackage(
 			if !ok {
 				return nil, nil
 			}
-			importPath, ok := w.imports[pkg]
-			if !ok {
+			importPath := w.importPathFor(pkg, t.Pos())
+			if importPath == "" {
 				return nil, nil
 			}
 			sub := w.sub(importPath)
@@ -733,12 +725,12 @@ func (w *walker) typeFromAST(e ast.Expr) typecheck.Type {
 		if !ok {
 			return typecheck.TUnknown()
 		}
-		if pkg == "time" && v.Sel.Name == "Duration" {
-			return typecheck.TInteger()
-		}
-		importPath, ok := w.imports[pkg]
-		if !ok {
+		importPath := w.importPathFor(pkg, v.Pos())
+		if importPath == "" {
 			return typecheck.TUnknown()
+		}
+		if importPath == "time" && v.Sel.Name == "Duration" {
+			return typecheck.TInteger()
 		}
 		if importPath == cfgPkgPath {
 			if t, ok := cfgScalarType(v.Sel.Name); ok {
@@ -808,7 +800,7 @@ func (w *walker) genericTypeFromAST(fn ast.Expr, arg ast.Expr) typecheck.Type {
 		return typecheck.TUnknown()
 	}
 	pkg, ok := identName(sel.X)
-	if !ok || w.imports[pkg] != cfgPkgPath {
+	if !ok || w.importPathFor(pkg, sel.Pos()) != cfgPkgPath {
 		return typecheck.TUnknown()
 	}
 	switch sel.Sel.Name {
@@ -967,7 +959,9 @@ func extractRegistrations(fn *ast.FuncDecl) []registration {
 // Configuration at all; ok reports whether the struct type could be
 // read from source, which requires the direct form
 // `New: func() any { return &T{} }` (a `&pkg.T{}` works too).
-type importedPackageLoader func(from *indexedPackage, alias string) (*indexedPackage, bool)
+type importedPackageLoader func(
+	from *indexedPackage, alias string, pos token.Pos,
+) (*indexedPackage, bool)
 
 func extractConfigurationRef(
 	fn *ast.FuncDecl,
@@ -1031,7 +1025,7 @@ func configurationCallRef(
 	if !aliasOk || load == nil {
 		return typeRef{}, nil, true, false
 	}
-	targetPkg, targetOk := load(pkg, alias)
+	targetPkg, targetOk := load(pkg, alias, selector.Pos())
 	if !targetOk {
 		return typeRef{}, nil, true, false
 	}
@@ -1071,7 +1065,7 @@ func qualifyTypeRef(ref typeRef, pkg *indexedPackage) typeRef {
 		return ref
 	}
 	if ref.PkgAlias != "" {
-		if importPath := pkg.imports[ref.PkgAlias]; importPath != "" {
+		if importPath := pkg.importPathFor(ref.PkgAlias, ref.Pos); importPath != "" {
 			ref.ImportPath = importPath
 			ref.PkgAlias = ""
 		}
@@ -1458,13 +1452,13 @@ func outputTypeRef(e ast.Expr) (typeRef, bool) {
 	}
 	switch v := e.(type) {
 	case *ast.Ident:
-		return typeRef{TypeName: v.Name}, true
+		return typeRef{TypeName: v.Name, Pos: v.Pos()}, true
 	case *ast.SelectorExpr:
 		pkg, ok := identName(v.X)
 		if !ok {
 			return typeRef{}, false
 		}
-		return typeRef{PkgAlias: pkg, TypeName: v.Sel.Name}, true
+		return typeRef{PkgAlias: pkg, TypeName: v.Sel.Name, Pos: v.Pos()}, true
 	}
 	return typeRef{}, false
 }
@@ -1503,35 +1497,6 @@ func findTypeSpec(files []*ast.File, name string) *ast.TypeSpec {
 		}
 	}
 	return nil
-}
-
-// buildImportMap returns alias -> import path for a package's files.
-// Aliases default to the last segment of the import path; an
-// explicit `import x "..."` overrides. Dot and blank imports are
-// skipped. When the same alias is bound to multiple paths across
-// files (rare but legal at the Go level), the first binding wins;
-// this is a pragmatic simplification rather than a per-file map.
-func buildImportMap(files []*ast.File) map[string]string {
-	out := map[string]string{}
-	for _, f := range files {
-		for _, imp := range f.Imports {
-			path := strings.Trim(imp.Path.Value, `"`)
-			alias := ""
-			if imp.Name != nil {
-				if imp.Name.Name == "." || imp.Name.Name == "_" {
-					continue
-				}
-				alias = imp.Name.Name
-			} else {
-				alias = path[strings.LastIndex(path, "/")+1:]
-			}
-			if _, exists := out[alias]; exists {
-				continue
-			}
-			out[alias] = path
-		}
-	}
-	return out
 }
 
 // parseUBFieldTag reads a field's `ub` struct tag from its source

@@ -61,8 +61,8 @@ func (w *walker) configDefaultsFromPackage(
 			if !ok {
 				return nil
 			}
-			importPath, ok := w.imports[pkg]
-			if !ok {
+			importPath := w.importPathFor(pkg, t.Pos())
+			if importPath == "" {
 				return nil
 			}
 			sub := w.sub(importPath)
@@ -131,8 +131,8 @@ func (w *walker) configDefaultsForField(
 	if ref.PkgAlias == "" {
 		return w.configDefaultsFromPackage(ref.TypeName, init, fieldPath)
 	}
-	importPath, ok := w.imports[ref.PkgAlias]
-	if !ok {
+	importPath := w.importPathFor(ref.PkgAlias, ref.Pos)
+	if importPath == "" {
 		return nil
 	}
 	sub := w.sub(importPath)
@@ -159,7 +159,7 @@ func (w *walker) cfgWrapperRef(e ast.Expr) (cfgWrapperRef, bool) {
 	switch v := e.(type) {
 	case *ast.SelectorExpr:
 		pkg, ok := identName(v.X)
-		if !ok || w.imports[pkg] != cfgPkgPath {
+		if !ok || w.importPathFor(pkg, v.Pos()) != cfgPkgPath {
 			return cfgWrapperRef{}, false
 		}
 		return cfgWrapperRef{name: v.Sel.Name}, true
@@ -226,8 +226,8 @@ func (w *walker) configDefaultsForObjectWrapper(
 	if ref.PkgAlias == "" {
 		return w.configDefaultsFromPackage(ref.TypeName, valueInit, path)
 	}
-	importPath, ok := w.imports[ref.PkgAlias]
-	if !ok {
+	importPath := w.importPathFor(ref.PkgAlias, ref.Pos)
+	if importPath == "" {
 		return nil
 	}
 	sub := w.sub(importPath)

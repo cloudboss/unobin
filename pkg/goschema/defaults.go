@@ -66,7 +66,7 @@ func (w *walker) defaultFromCall(
 		return lang.DefaultSpec{}, false
 	}
 	pkg, ok := identName(sel.X)
-	if !ok || w.imports[pkg] != defaultsPkgPath {
+	if !ok || w.importPathFor(pkg, sel.Pos()) != defaultsPkgPath {
 		w.addWarnf("a default must be a pkg/defaults constructor call, got %s", renderExpr(call))
 		return lang.DefaultSpec{}, false
 	}
@@ -295,7 +295,7 @@ func (w *walker) defaultConversion(fun ast.Expr) bool {
 		}
 	case *ast.SelectorExpr:
 		pkg, ok := identName(v.X)
-		return ok && w.imports[pkg] == "time" && v.Sel.Name == "Duration"
+		return ok && w.importPathFor(pkg, v.Pos()) == "time" && v.Sel.Name == "Duration"
 	}
 	return false
 }
@@ -320,7 +320,7 @@ func (w *walker) foldDuration(e ast.Expr) (int64, bool) {
 		return w.foldDuration(v.X)
 	case *ast.SelectorExpr:
 		pkg, ok := identName(v.X)
-		if !ok || w.imports[pkg] != "time" {
+		if !ok || w.importPathFor(pkg, v.Pos()) != "time" {
 			return 0, false
 		}
 		ns, ok := durationConsts[v.Sel.Name]

@@ -278,7 +278,7 @@ type indexedPackage struct {
 	files      []*ast.File
 	dir        string
 	importPath string
-	imports    map[string]string
+	imports    map[*ast.File]map[string]string
 }
 
 func (p *indexedPackage) location(pos token.Pos) GoLocation {
@@ -303,12 +303,13 @@ type sourceIndexer struct {
 func (i *sourceIndexer) loadImportedPackage(
 	from *indexedPackage,
 	alias string,
+	pos token.Pos,
 ) (*indexedPackage, bool) {
 	if from == nil {
 		return nil, false
 	}
-	importPath, ok := from.imports[alias]
-	if !ok {
+	importPath := from.importPathFor(alias, pos)
+	if importPath == "" {
 		return nil, false
 	}
 	return i.loadPackage(importPath)
@@ -323,7 +324,7 @@ func (i *sourceIndexer) loadPackage(importPath string) (*indexedPackage, bool) {
 		return nil, false
 	}
 	rel := strings.TrimPrefix(strings.TrimPrefix(importPath, root.Path), "/")
-	pkg, err := parseIndexedPackageDir(filepath.Join(root.Dir, rel), importPath)
+	pkg, err := parseIndexedPackageDir(filepath.Join(root.Dir, rel), importPath, i.roots...)
 	if err != nil {
 		return nil, false
 	}
@@ -359,9 +360,8 @@ func (i *sourceIndexer) resolveType(
 	typePkg := pkg
 	importPath := ref.ImportPath
 	if ref.PkgAlias != "" {
-		var ok bool
-		importPath, ok = pkg.imports[ref.PkgAlias]
-		if !ok {
+		importPath = pkg.importPathFor(ref.PkgAlias, ref.Pos)
+		if importPath == "" {
 			return nil, nil, false
 		}
 	}
@@ -437,8 +437,8 @@ func (i *sourceIndexer) collectFieldsFromExpr(
 		if !ok {
 			return
 		}
-		importPath, ok := pkg.imports[alias]
-		if !ok {
+		importPath := pkg.importPathFor(alias, t.Pos())
+		if importPath == "" {
 			return
 		}
 		sub, ok := i.loadPackage(importPath)
@@ -620,7 +620,9 @@ func sourceIndexKind(field string) (string, bool) {
 	}
 }
 
-func parseIndexedPackageDir(dir string, importPath string) (*indexedPackage, error) {
+func parseIndexedPackageDir(
+	dir string, importPath string, roots ...ModuleRoot,
+) (*indexedPackage, error) {
 	fset := token.NewFileSet()
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -654,6 +656,6 @@ func parseIndexedPackageDir(dir string, importPath string) (*indexedPackage, err
 		files:      files,
 		dir:        dir,
 		importPath: importPath,
-		imports:    buildImportMap(files),
+		imports:    buildImportMaps(files, roots...),
 	}, nil
 }

@@ -3,13 +3,14 @@ package goschema
 import (
 	"errors"
 	"fmt"
+	"go/token"
 	"slices"
 )
 
 func (c *analysisContext) loadConfigurationPackage(
-	from *indexedPackage, alias string,
+	from *indexedPackage, alias string, pos token.Pos,
 ) (*indexedPackage, bool) {
-	pkg, found := c.loadImportedPackage(from, alias)
+	pkg, found := c.loadImportedPackage(from, alias, pos)
 	if found {
 		c.configurationPackages[pkg.importPath] = pkg
 	}

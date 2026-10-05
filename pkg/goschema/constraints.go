@@ -259,7 +259,7 @@ func (w *walker) isForEachCall(call *ast.CallExpr) bool {
 		return false
 	}
 	pkg, ok := identName(sel.X)
-	return ok && w.imports[pkg] == constraintPkgPath
+	return ok && w.importPathFor(pkg, sel.Pos()) == constraintPkgPath
 }
 
 // forEachSpecs renders a constraint.ForEach call into the specs of its
@@ -535,7 +535,7 @@ func (w *walker) specFromCall(
 		return w.predicateSpec(whenStr, base.Args, message, scope.withNonNullFacts(facts))
 	}
 	pkg, ok := identName(sel.X)
-	if !ok || w.imports[pkg] != constraintPkgPath {
+	if !ok || w.importPathFor(pkg, sel.Pos()) != constraintPkgPath {
 		w.addWarnf("a constraint must be a pkg/constraint constructor call, got %s",
 			renderExpr(base))
 		return lang.ConstraintSpec{}, false
@@ -571,7 +571,7 @@ func (w *walker) whenCondition(
 		return "", nil, false
 	}
 	pkg, ok := identName(sel.X)
-	if !ok || w.imports[pkg] != constraintPkgPath || sel.Sel.Name != "When" {
+	if !ok || w.importPathFor(pkg, sel.Pos()) != constraintPkgPath || sel.Sel.Name != "When" {
 		w.addWarnf("a Require chain must start with constraint.When, got %s", renderExpr(when))
 		return "", nil, false
 	}
@@ -596,7 +596,7 @@ func (w *walker) nonNullFactsFromCond(arg ast.Expr, scope constraintScope) map[s
 		return nil
 	}
 	pkg, ok := identName(sel.X)
-	if !ok || w.imports[pkg] != constraintPkgPath {
+	if !ok || w.importPathFor(pkg, sel.Pos()) != constraintPkgPath {
 		return nil
 	}
 	switch sel.Sel.Name {
@@ -627,7 +627,7 @@ func (w *walker) nonNullFactsFromNegatedCond(arg ast.Expr, scope constraintScope
 		return nil
 	}
 	pkg, ok := identName(sel.X)
-	if !ok || w.imports[pkg] != constraintPkgPath || sel.Sel.Name != "Absent" {
+	if !ok || w.importPathFor(pkg, sel.Pos()) != constraintPkgPath || sel.Sel.Name != "Absent" {
 		return nil
 	}
 	return w.nonNullFactsFromPresent(call, scope)
@@ -690,7 +690,7 @@ func (w *walker) condString(arg ast.Expr, scope constraintScope) (string, bool) 
 		return "", false
 	}
 	pkg, ok := identName(sel.X)
-	if !ok || w.imports[pkg] != constraintPkgPath {
+	if !ok || w.importPathFor(pkg, sel.Pos()) != constraintPkgPath {
 		w.addWarnf("a condition must be a pkg/constraint condition call, got %s",
 			renderExpr(arg))
 		return "", false
@@ -1308,8 +1308,8 @@ func (ref sourceTypeRef) selectorWalker(sel *ast.SelectorExpr) (*walker, bool) {
 	if !ok {
 		return nil, false
 	}
-	importPath, ok := ref.w.imports[pkg]
-	if !ok {
+	importPath := ref.w.importPathFor(pkg, sel.Pos())
+	if importPath == "" {
 		return nil, false
 	}
 	sub := ref.w.sub(importPath)
@@ -1380,8 +1380,8 @@ func sourceTypeKey(ref sourceTypeRef) (string, bool) {
 		if !ok {
 			return "", false
 		}
-		importPath, ok := ref.w.imports[pkg]
-		if !ok {
+		importPath := ref.w.importPathFor(pkg, t.Pos())
+		if importPath == "" {
 			return "", false
 		}
 		sub := ref.w.sub(importPath)
@@ -1549,7 +1549,7 @@ func (w *walker) nestedStruct(typeName string, hop selectorHop) (*walker, string
 		if !ok {
 			return nil, "", false
 		}
-		sub := w.sub(w.imports[pkg])
+		sub := w.sub(w.importPathFor(pkg, t.Pos()))
 		if sub == nil {
 			return nil, "", false
 		}
