@@ -1,0 +1,192 @@
+{
+  "work-package": "F06-composite-indexes",
+  "description": "Sparse composite DAG extraction and ordered iteration internals",
+  "kind": "micro",
+  "fixtures": [
+    "pkg/runtime/composite_benchmark_test.go",
+    "pkg/runtime/testdata/ub/composite-benchmark",
+    "pkg/runtime/nodes_test.go"
+  ],
+  "parameters": {
+    "composite-counts": "100,500,1000,2000,4000,8000",
+    "children-per-composite": "1",
+    "iteration-branches": "100",
+    "nested-depths": "1,3,6",
+    "iteration-keys": "a"
+  },
+  "packages": [
+    "./pkg/runtime"
+  ],
+  "benchmark": "^(BenchmarkBuildSyntaxDAGComposites|BenchmarkCompositeInternalsInOrder)$",
+  "cases": [
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=100",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "nodes",
+        "edges"
+      ],
+      "fixed": {
+        "nodes": 200,
+        "edges": 100
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=500",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "nodes",
+        "edges"
+      ],
+      "fixed": {
+        "nodes": 1000,
+        "edges": 500
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=1000",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "nodes",
+        "edges"
+      ],
+      "fixed": {
+        "nodes": 2000,
+        "edges": 1000
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=2000",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "nodes",
+        "edges"
+      ],
+      "fixed": {
+        "nodes": 4000,
+        "edges": 2000
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=4000",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "nodes",
+        "edges"
+      ],
+      "fixed": {
+        "nodes": 8000,
+        "edges": 4000
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkBuildSyntaxDAGComposites/n=8000",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "nodes",
+        "edges"
+      ],
+      "fixed": {
+        "nodes": 16000,
+        "edges": 8000
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=1",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "nodes",
+        "edges",
+        "visited"
+      ],
+      "fixed": {
+        "nodes": 200,
+        "edges": 100,
+        "visited": 100
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=3",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "nodes",
+        "edges",
+        "visited"
+      ],
+      "fixed": {
+        "nodes": 400,
+        "edges": 300,
+        "visited": 300
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/runtime",
+      "name": "BenchmarkCompositeInternalsInOrder/branches=100/depth=6",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "nodes",
+        "edges",
+        "visited"
+      ],
+      "fixed": {
+        "nodes": 700,
+        "edges": 600,
+        "visited": 600
+      }
+    }
+  ],
+  "samples": 10,
+  "benchtime": "2s",
+  "cpus": [
+    1,
+    4
+  ],
+  "setup": "Parse fixed UB bodies, duplicate root declarations, and resolve composite registrations outside timing. DAG benchmark includes extraction and dependency construction. Iteration benchmark includes fresh operation state and all root-boundary queries, with DAG extraction and topological ordering excluded. Assert the last graph and exact descendant order outside timing.",
+  "cache-policy": "Symmetric warm Go build cache and one 1x benchmark warmup. Default GC, no persistent runtime graph cache, no unrelated CPU-intensive work during collection.",
+  "primary-unit": "sec/op",
+  "primary-direction": "lower",
+  "tests": [
+    [
+      "go",
+      "test",
+      "-count=1",
+      "./pkg/runtime",
+      "./pkg/sdk/state",
+      "./internal/ubtest"
+    ],
+    [
+      "go",
+      "test",
+      "-count=1",
+      "-run",
+      "^TestCompiledCases$/^ub-composite-foreach$",
+      "./tests/e2e"
+    ]
+  ]
+}

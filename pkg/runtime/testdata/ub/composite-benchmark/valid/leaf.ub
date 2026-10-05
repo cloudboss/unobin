@@ -1,0 +1,5 @@
+box: resource {
+  resources: {
+    leaf: core.leaf {}
+  }
+}
