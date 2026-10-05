@@ -38,7 +38,7 @@ func (c *CompatibilityContext) ForAnalysis() *CompatibilityContext {
 
 // ValidateSources checks the source revisions used by this analysis.
 func (c *CompatibilityContext) ValidateSources() error {
-	if c.analysis == nil {
+	if c.analysis == nil || len(c.analysis.sources) == 0 {
 		return nil
 	}
 	if err := c.checkCoreReplacement(); err != nil {
