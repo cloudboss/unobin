@@ -6,6 +6,7 @@ Usage:
 
 Available Commands:
   show        Print the factory's input declarations
+  state       Print available state backends and encryption types
   template    Print a starter stack file for this factory
 
 Flags:
