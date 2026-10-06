@@ -1,0 +1,5 @@
+factory: {
+  imports: { shared: './shared' }
+  data-sources: { box: shared.box {} }
+  outputs: { value: { value: data-source.box.value } }
+}

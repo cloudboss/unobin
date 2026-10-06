@@ -1,0 +1,4 @@
+stack: {
+  state: local { path: '.unsupported-state' }
+  encryption: kms { key-id: 'unused' }
+}

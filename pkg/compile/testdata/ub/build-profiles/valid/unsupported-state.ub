@@ -1,0 +1,4 @@
+stack: {
+  state: s3 { bucket: 'unused' }
+  encryption: noop {}
+}

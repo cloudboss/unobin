@@ -41,6 +41,7 @@ type Input struct {
 	Body           string
 	LibraryPath    string
 	FactoryName    string
+	BuildProfile   program.BuildProfile
 	AssetBundle    []byte
 	HasAssets      bool
 	RootAssetSetID string
@@ -72,6 +73,14 @@ type Input struct {
 func Generate(in Input) ([]byte, error) {
 	if in.FactoryName == "" {
 		return nil, fmt.Errorf("codegen: FactoryName is required")
+	}
+	profile, err := program.ParseBuildProfile(string(in.BuildProfile))
+	if err != nil {
+		return nil, fmt.Errorf("codegen: %w", err)
+	}
+	runnerPackage := "runner"
+	if profile == program.BuildProfileLocal {
+		runnerPackage = "factorycli"
 	}
 	if err := validateAssetInput(in); err != nil {
 		return nil, err
@@ -116,6 +125,8 @@ func Generate(in Input) ([]byte, error) {
 		hasTypecheck = hasTypecheck || libraryConfigSchemasNeedTypecheck(in.LibraryConfigSchemas)
 	}
 	data := struct {
+		RunnerImport           string
+		RunnerPackage          string
 		FactoryBodyLiteral     string
 		FactorySourcePath      string
 		FactoryLineStarts      string
@@ -131,6 +142,8 @@ func Generate(in Input) ([]byte, error) {
 		HasAssets              bool
 		RootAssetSetID         string
 	}{
+		RunnerImport:           "github.com/cloudboss/unobin/pkg/" + runnerPackage,
+		RunnerPackage:          runnerPackage,
 		FactoryBodyLiteral:     factoryBody.Literal,
 		FactorySourcePath:      factorySourceDisplayPath(source),
 		FactoryLineStarts:      intSliceLiteral(source.LineStarts),
@@ -688,7 +701,7 @@ import (
 {{if .HasLang}}	"github.com/cloudboss/unobin/pkg/lang"
 {{end}}	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
-	"github.com/cloudboss/unobin/pkg/runner"
+	{{quote .RunnerImport}}
 	"github.com/cloudboss/unobin/pkg/runtime"
 {{if .HasTypecheck}}	"github.com/cloudboss/unobin/pkg/typecheck"
 {{end}}{{range .GoImports}}	{{.GoIdent}} {{quote .Path}}
@@ -737,7 +750,7 @@ func main() {
 		),
 {{end}}	}
 {{range .LibraryAssignments}}	{{.}}
-{{end}}	runner.Run(runner.Info{
+{{end}}	{{.RunnerPackage}}.Run({{.RunnerPackage}}.Info{
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,

@@ -15,6 +15,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/compile"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/filechange"
+	"github.com/cloudboss/unobin/pkg/program"
 )
 
 var (
@@ -39,9 +40,12 @@ type compileConfig struct {
 	replaceUnobin   string
 	replaceGoModule []string
 	build           bool
+	profile         string
 }
 
 func init() {
+	CompileCmd.Flags().StringVar(&compileCfg.profile, "profile", "full",
+		"State and encryption implementations to include: full, local.")
 	CompileCmd.Flags().String("format", "text", cmdout.FormatHelp())
 	CompileCmd.Flags().StringVarP(&compileCfg.factoryPath, "path", "p", ".",
 		"Path to the factory source file or directory.")
@@ -83,6 +87,16 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 	if err != nil {
 		return err
 	}
+	profile, err := program.ParseBuildProfile(cfg.profile)
+	if err != nil {
+		if format.Machine() {
+			return writeCompileCommandFailure(
+				cmd, format, &diagnostic.Collector{}, nil,
+				compilePathMapper(cfg, nil), cmdout.CodeInvalidArgs, err,
+			)
+		}
+		return err
+	}
 	replaceGoModules, err := parseReplaceFlags(cfg.replaceGoModule)
 	if err != nil {
 		if format.Machine() {
@@ -94,6 +108,7 @@ func runCompile(cmd *cobra.Command, cfg *compileConfig) error {
 		return err
 	}
 	options := compile.Options{
+		BuildProfile:         profile,
 		FactoryPath:          cfg.factoryPath,
 		OutDir:               cfg.outDir,
 		StackName:            cfg.stackName,

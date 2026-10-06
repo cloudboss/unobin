@@ -12,5 +12,6 @@
 // Companion packages:
 //   - pkg/sdk/state - Backend contract that provider libraries implement
 //   - pkg/state/local and pkg/state/s3 - the filesystem and S3 backends
-//   - pkg/runner - the factory CLI that invokes runtime entry points
+//   - pkg/factorycli - the factory CLI that invokes runtime entry points
+//   - pkg/runner - the entry point with all built-in state and encryption types
 package runtime

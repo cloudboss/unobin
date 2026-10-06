@@ -1017,7 +1017,7 @@ func SplitInstanceAddress(addr string) (template, key string) {
 
 // splitInstanceAddress is the package-internal version used by Plan
 // and ApplyPlan. It is also exposed via SplitInstanceAddress for the
-// renderer in `pkg/runner`.
+// renderer in `pkg/factorycli`.
 func splitInstanceAddress(addr string) (template, key string) {
 	if template, key, ok := splitEntryKey(addr); ok {
 		return template, key

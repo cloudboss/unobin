@@ -29,6 +29,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang/parse"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/libraryapi"
+	"github.com/cloudboss/unobin/pkg/program"
 	"github.com/cloudboss/unobin/pkg/projectmarker"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	ubruntime "github.com/cloudboss/unobin/pkg/runtime"
@@ -65,7 +66,8 @@ type Options struct {
 	// serves it, for both the import resolver and the generated go.mod.
 	ReplaceGoModules map[string]string
 	// Build runs `go build` in OutDir after writing the source.
-	Build bool
+	Build        bool
+	BuildProfile program.BuildProfile
 	// NewResolver constructs the import resolver for a project root;
 	// nil uses NewProjectResolver.
 	NewResolver func(projectDir string) (resolve.Resolver, error)
@@ -248,6 +250,11 @@ func run(opts Options, resultOut **Result) error {
 	if opts.OutDir == "" {
 		return errors.New("--out is required (use `-` for stdout)")
 	}
+	profile, err := program.ParseBuildProfile(string(opts.BuildProfile))
+	if err != nil {
+		return fmt.Errorf("compile: %w", err)
+	}
+	opts.BuildProfile = profile
 	factoryPath, err := FactorySourcePath(opts.FactoryPath)
 	if err != nil {
 		return err
@@ -480,6 +487,7 @@ func run(opts Options, resultOut **Result) error {
 	generatedFactoryBody := sf.Factory.Body
 	generatedFactoryBody.Assets = nil
 	in := codegen.Input{
+		BuildProfile:   opts.BuildProfile,
 		FactoryBody:    generatedFactoryBody,
 		FactorySource:  factorySource,
 		LibraryPath:    opts.LibraryPath,

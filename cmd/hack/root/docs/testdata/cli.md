@@ -37,6 +37,7 @@ unobin compile [flags]
 | `--name string` |  | Stack name. Defaults to the parent directory's basename. |
 | `-o, --out string` |  | Directory to write main.go and go.mod into, or `-` to print main.go to stdout. |
 | `-p, --path string` | `.` | Path to the factory source file or directory. |
+| `--profile string` | `full` | State and encryption implementations to include: full, local. |
 | `--replace-go-module stringArray` | `[]` | Local replace for a Go module, repeatable. Format: `module-path=local-path`. Both the import resolver and the generated go.mod use the substitution. |
 | `--replace-unobin string` |  | Local path to substitute for github.com/cloudboss/unobin via a go.mod replace directive. |
 | `--version string` | `v0.0.0` | Release version to stamp into the built binary. |

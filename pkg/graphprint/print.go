@@ -1,6 +1,6 @@
 // Package graphprint renders a runtime DAG as either a human-readable
 // indented listing or a Graphviz DOT document. Both unobin's stack
-// binaries (via pkg/runner) and the dev CLI (cmd/unobin/root/print-graph)
+// binaries (via pkg/factorycli) and the dev CLI (cmd/unobin/root/print-graph)
 // share these renderers so the two paths produce identical output for
 // the same graph.
 package graphprint

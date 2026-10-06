@@ -24,6 +24,28 @@ unobin compile \
   --library-path github.com/example/appdeploy
 ```
 
+`--profile full` is the default. `--profile local` includes local state and
+environment-key encryption without the built-in cloud state and encryption SDKs:
+
+| Profile | State backends | Encryption types |
+| --- | --- | --- |
+| `full` | `local`, `s3`, `gcs` | `env-key`, `kms`, `gcp-kms`, `noop` |
+| `local` | `local` | `env-key`, `noop` |
+
+The profile selects built-in state and encryption implementations. Imported
+provider libraries retain their own dependencies. Stack files select among the
+implementations included in the binary; unavailable selections fail before state
+access. Use `schema state` to inspect the available types and configuration fields:
+
+```
+unobin compile --profile local -o ./build --build
+./build/appdeploy schema state
+./build/appdeploy schema state --format json
+```
+
+The linked factory revision includes the generated entry point and its selected
+dependencies, so changing profiles changes the verified revision.
+
 The output directory contains an executable named after the factory directory:
 
 ```
