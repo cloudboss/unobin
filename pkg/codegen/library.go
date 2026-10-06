@@ -33,13 +33,17 @@ func GenerateLibrary(
 	for _, c := range compositeKinds {
 		groups[c.kind] = &compositeGroup{MapField: c.mapField, Symbol: c.symbol}
 	}
-	composites := slices.Clone(library.Composites)
-	slices.SortFunc(composites, func(a, b program.Composite) int {
+	compositeOrder := func(a, b program.Composite) int {
 		if category := strings.Compare(a.Category, b.Category); category != 0 {
 			return category
 		}
 		return strings.Compare(a.Export, b.Export)
-	})
+	}
+	composites := library.Composites
+	if !slices.IsSortedFunc(composites, compositeOrder) {
+		composites = slices.Clone(composites)
+		slices.SortFunc(composites, compositeOrder)
+	}
 	for i, composite := range composites {
 		category, name := composite.Category, composite.Export
 		group, ok := groups[category]
@@ -65,10 +69,14 @@ func GenerateLibrary(
 		}
 		entry.SyntaxBody = "&" + encoded.Literal
 		hasBodyLang = hasBodyLang || encoded.UsesLang
-		imports := slices.Clone(composite.Imports)
-		slices.SortFunc(imports, func(a, b resolve.Resolution) int {
+		importOrder := func(a, b resolve.Resolution) int {
 			return strings.Compare(a.LocalAlias, b.LocalAlias)
-		})
+		}
+		imports := composite.Imports
+		if !slices.IsSortedFunc(imports, importOrder) {
+			imports = slices.Clone(imports)
+			slices.SortFunc(imports, importOrder)
+		}
 		for j, imported := range imports {
 			if j > 0 && imports[j-1].LocalAlias == imported.LocalAlias {
 				return nil, fmt.Errorf("ublibrary %q: %s export %q: duplicate import alias %q",

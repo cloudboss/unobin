@@ -137,6 +137,11 @@ func generateUBLibraryPackage(
 		return nil, fmt.Errorf("ublibrary: library name is required")
 	}
 	library := program.Library{Name: libraryName, Specs: goSpecs, SourceFiles: sourceFiles}
+	count := 0
+	for _, composites := range syntaxBodies {
+		count += len(composites)
+	}
+	library.Composites = make([]program.Composite, 0, count)
 	for _, category := range compositeKindNames(syntaxBodies) {
 		switch category {
 		case "resource", "data-source", "action":
@@ -149,7 +154,9 @@ func generateUBLibraryPackage(
 				AssetSetID:           assetSetIDs[category][name],
 				LibraryConfigSchemas: libraryConfigSchemas[category][name],
 			}
-			for _, alias := range sortedAliases(imports[category][name]) {
+			aliases := sortedAliases(imports[category][name])
+			composite.Imports = make([]resolve.Resolution, 0, len(aliases))
+			for _, alias := range aliases {
 				composite.Imports = append(composite.Imports, resolve.Resolution{
 					Kind: resolve.ResolutionGo, LocalAlias: alias,
 					Path: imports[category][name][alias],
