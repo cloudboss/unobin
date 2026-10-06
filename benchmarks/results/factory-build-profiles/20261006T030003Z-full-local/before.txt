@@ -1,0 +1,26 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/compile
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkCompileFactoryProfile/nodes=10/cache=warm         	       1	1574920737 ns/op	  48857399 binary-bytes	        10.00 nodes	       718.0 packages	      6296 source-bytes	84092488 B/op	  163021 allocs/op
+BenchmarkCompileFactoryProfile/nodes=10/cache=warm         	       1	1620411568 ns/op	  48857439 binary-bytes	        10.00 nodes	       718.0 packages	      6295 source-bytes	84055344 B/op	  162546 allocs/op
+BenchmarkCompileFactoryProfile/nodes=10/cache=warm         	       1	1545337576 ns/op	  48857399 binary-bytes	        10.00 nodes	       718.0 packages	      6296 source-bytes	84055280 B/op	  162544 allocs/op
+BenchmarkCompileFactoryProfile/nodes=10/cache=warm         	       1	1522202564 ns/op	  48857399 binary-bytes	        10.00 nodes	       718.0 packages	      6296 source-bytes	84055312 B/op	  162545 allocs/op
+BenchmarkCompileFactoryProfile/nodes=10/cache=warm         	       1	1687310238 ns/op	  48857391 binary-bytes	        10.00 nodes	       718.0 packages	      6296 source-bytes	84055312 B/op	  162545 allocs/op
+BenchmarkCompileFactoryProfile/nodes=10/cache=cold         	       1	10959197938 ns/op	  48857399 binary-bytes	        10.00 nodes	       718.0 packages	      6296 source-bytes	84055360 B/op	  162547 allocs/op
+BenchmarkCompileFactoryProfile/nodes=10/cache=cold         	       1	11058486756 ns/op	  48857399 binary-bytes	        10.00 nodes	       718.0 packages	      6296 source-bytes	84055408 B/op	  162547 allocs/op
+BenchmarkCompileFactoryProfile/nodes=10/cache=cold         	       1	11097057973 ns/op	  48857399 binary-bytes	        10.00 nodes	       718.0 packages	      6296 source-bytes	84055408 B/op	  162547 allocs/op
+BenchmarkCompileFactoryProfile/nodes=10/cache=cold         	       1	11189015755 ns/op	  48857399 binary-bytes	        10.00 nodes	       718.0 packages	      6296 source-bytes	84055456 B/op	  162548 allocs/op
+BenchmarkCompileFactoryProfile/nodes=10/cache=cold         	       1	11016264018 ns/op	  48857439 binary-bytes	        10.00 nodes	       718.0 packages	      6295 source-bytes	84055376 B/op	  162547 allocs/op
+BenchmarkCompileFactoryProfile/nodes=500/cache=warm        	       1	1896380405 ns/op	  49657904 binary-bytes	       500.0 nodes	       718.0 packages	    177337 source-bytes	105233152 B/op	  526427 allocs/op
+BenchmarkCompileFactoryProfile/nodes=500/cache=warm        	       1	1847287386 ns/op	  49657896 binary-bytes	       500.0 nodes	       718.0 packages	    177337 source-bytes	105283472 B/op	  526433 allocs/op
+BenchmarkCompileFactoryProfile/nodes=500/cache=warm        	       1	1831481466 ns/op	  49657904 binary-bytes	       500.0 nodes	       718.0 packages	    177337 source-bytes	105230384 B/op	  526408 allocs/op
+BenchmarkCompileFactoryProfile/nodes=500/cache=warm        	       1	1905956344 ns/op	  49657896 binary-bytes	       500.0 nodes	       718.0 packages	    177337 source-bytes	105283024 B/op	  526428 allocs/op
+BenchmarkCompileFactoryProfile/nodes=500/cache=warm        	       1	1837984970 ns/op	  49657896 binary-bytes	       500.0 nodes	       718.0 packages	    177337 source-bytes	105283096 B/op	  526429 allocs/op
+BenchmarkCompileFactoryProfile/nodes=500/cache=cold        	       1	11194472314 ns/op	  49657896 binary-bytes	       500.0 nodes	       718.0 packages	    177337 source-bytes	105233256 B/op	  526430 allocs/op
+BenchmarkCompileFactoryProfile/nodes=500/cache=cold        	       1	11639670931 ns/op	  49657896 binary-bytes	       500.0 nodes	       718.0 packages	    177337 source-bytes	105283152 B/op	  526431 allocs/op
+BenchmarkCompileFactoryProfile/nodes=500/cache=cold        	       1	11315409014 ns/op	  49657896 binary-bytes	       500.0 nodes	       718.0 packages	    177337 source-bytes	105283696 B/op	  526438 allocs/op
+BenchmarkCompileFactoryProfile/nodes=500/cache=cold        	       1	11588135879 ns/op	  49657904 binary-bytes	       500.0 nodes	       718.0 packages	    177337 source-bytes	105233104 B/op	  526427 allocs/op
+BenchmarkCompileFactoryProfile/nodes=500/cache=cold        	       1	11409603014 ns/op	  49657896 binary-bytes	       500.0 nodes	       718.0 packages	    177337 source-bytes	105283480 B/op	  526437 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/compile	131.866s

@@ -1,0 +1,802 @@
+{
+  "format-version": 1,
+  "work-package": "factory-build-profiles",
+  "before-revision": "c844a810d636068ba1512f3a5154539424421901",
+  "after-revision": "c844a810d636068ba1512f3a5154539424421901",
+  "fixture-revision": "c844a810d636068ba1512f3a5154539424421901",
+  "primary-unit": "sec/op",
+  "assessment": "improved",
+  "statistics": [
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=10/cache=cold",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 5,
+        "median": 84055408,
+        "low": null,
+        "high": 84055456,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 38180552,
+        "low": null,
+        "high": 38180712,
+        "confidence": 0.96875
+      },
+      "delta-percent": -54.57692383100443,
+      "p": 0.007936507936507936,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=10/cache=cold",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 5,
+        "median": 162547,
+        "low": null,
+        "high": 162548,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 115597,
+        "low": null,
+        "high": 115599,
+        "confidence": 0.96875
+      },
+      "delta-percent": -28.883953564199892,
+      "p": 0.007936507936507936,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=10/cache=cold",
+      "cpu": 1,
+      "unit": "binary-bytes",
+      "before": {
+        "samples": 5,
+        "median": 48857399,
+        "low": null,
+        "high": 48857439,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 16022688,
+        "low": null,
+        "high": 16022712,
+        "confidence": 0.96875
+      },
+      "delta-percent": -67.20519649439382,
+      "p": 0.007936507936507936,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=10/cache=cold",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 5,
+        "median": 10,
+        "low": null,
+        "high": 10,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 10,
+        "low": null,
+        "high": 10,
+        "confidence": 0.96875
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95",
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=10/cache=cold",
+      "cpu": 1,
+      "unit": "packages",
+      "before": {
+        "samples": 5,
+        "median": 718,
+        "low": null,
+        "high": 718,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 380,
+        "low": null,
+        "high": 380,
+        "confidence": 0.96875
+      },
+      "delta-percent": -47.07520891364902,
+      "p": 0.007936507936507936,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=10/cache=cold",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 5,
+        "median": 11.058486756,
+        "low": null,
+        "high": 11.189015755000002,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 6.984189110000001,
+        "low": null,
+        "high": 7.003790380000001,
+        "confidence": 0.96875
+      },
+      "delta-percent": -36.84317516399257,
+      "p": 0.007936507936507938,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=10/cache=cold",
+      "cpu": 1,
+      "unit": "source-bytes",
+      "before": {
+        "samples": 5,
+        "median": 6296,
+        "low": null,
+        "high": 6296,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 6308,
+        "low": null,
+        "high": 6308,
+        "confidence": 0.96875
+      },
+      "delta-percent": 0.1905972045743276,
+      "p": 0.007936507936507936,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=10/cache=warm",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 5,
+        "median": 84055312,
+        "low": null,
+        "high": 84092488,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 38180472,
+        "low": null,
+        "high": 38217808,
+        "confidence": 0.96875
+      },
+      "delta-percent": -54.57696712850224,
+      "p": 0.007936507936507936,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=10/cache=warm",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 5,
+        "median": 162545,
+        "low": null,
+        "high": 163021,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 115595,
+        "low": null,
+        "high": 116074,
+        "confidence": 0.96875
+      },
+      "delta-percent": -28.88430896059553,
+      "p": 0.007936507936507936,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=10/cache=warm",
+      "cpu": 1,
+      "unit": "binary-bytes",
+      "before": {
+        "samples": 5,
+        "median": 48857399,
+        "low": null,
+        "high": 48857439,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 16022712,
+        "low": null,
+        "high": 16022712,
+        "confidence": 0.96875
+      },
+      "delta-percent": -67.20514737184433,
+      "p": 0.007936507936507936,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=10/cache=warm",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 5,
+        "median": 10,
+        "low": null,
+        "high": 10,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 10,
+        "low": null,
+        "high": 10,
+        "confidence": 0.96875
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95",
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=10/cache=warm",
+      "cpu": 1,
+      "unit": "packages",
+      "before": {
+        "samples": 5,
+        "median": 718,
+        "low": null,
+        "high": 718,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 380,
+        "low": null,
+        "high": 380,
+        "confidence": 0.96875
+      },
+      "delta-percent": -47.07520891364902,
+      "p": 0.007936507936507936,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=10/cache=warm",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 5,
+        "median": 1.574920737,
+        "low": null,
+        "high": 1.687310238,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 0.795516034,
+        "low": null,
+        "high": 0.8067012830000001,
+        "confidence": 0.96875
+      },
+      "delta-percent": -49.48850343317309,
+      "p": 0.007936507936507938,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=10/cache=warm",
+      "cpu": 1,
+      "unit": "source-bytes",
+      "before": {
+        "samples": 5,
+        "median": 6296,
+        "low": null,
+        "high": 6296,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 6307,
+        "low": null,
+        "high": 6308,
+        "confidence": 0.96875
+      },
+      "delta-percent": 0.17471410419314104,
+      "p": 0.007936507936507936,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=500/cache=cold",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 5,
+        "median": 105283152,
+        "low": null,
+        "high": 105283696,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 59422136,
+        "low": null,
+        "high": 59423616,
+        "confidence": 0.96875
+      },
+      "delta-percent": -43.559691297996096,
+      "p": 0.007936507936507938,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=500/cache=cold",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 5,
+        "median": 526431,
+        "low": null,
+        "high": 526438,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 479473,
+        "low": null,
+        "high": 479485,
+        "confidence": 0.96875
+      },
+      "delta-percent": -8.920067397246745,
+      "p": 0.007936507936507938,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=500/cache=cold",
+      "cpu": 1,
+      "unit": "binary-bytes",
+      "before": {
+        "samples": 5,
+        "median": 49657896,
+        "low": null,
+        "high": 49657904,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 16827553,
+        "low": null,
+        "high": 16827561,
+        "confidence": 0.96875
+      },
+      "delta-percent": -66.11303668604889,
+      "p": 0.007936507936507936,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=500/cache=cold",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 5,
+        "median": 500,
+        "low": null,
+        "high": 500,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 500,
+        "low": null,
+        "high": 500,
+        "confidence": 0.96875
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95",
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=500/cache=cold",
+      "cpu": 1,
+      "unit": "packages",
+      "before": {
+        "samples": 5,
+        "median": 718,
+        "low": null,
+        "high": 718,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 380,
+        "low": null,
+        "high": 380,
+        "confidence": 0.96875
+      },
+      "delta-percent": -47.07520891364902,
+      "p": 0.007936507936507936,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=500/cache=cold",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 5,
+        "median": 11.409603014,
+        "low": null,
+        "high": 11.639670931000001,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 7.051736909000001,
+        "low": null,
+        "high": 7.209073481000001,
+        "confidence": 0.96875
+      },
+      "delta-percent": -38.19472158367595,
+      "p": 0.007936507936507938,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=500/cache=cold",
+      "cpu": 1,
+      "unit": "source-bytes",
+      "before": {
+        "samples": 5,
+        "median": 177337,
+        "low": null,
+        "high": 177337,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 177349,
+        "low": null,
+        "high": 177349,
+        "confidence": 0.96875
+      },
+      "delta-percent": 0.006766777378652833,
+      "p": 0.007936507936507936,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=500/cache=warm",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 5,
+        "median": 105283024,
+        "low": null,
+        "high": 105283472,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 59422392,
+        "low": null,
+        "high": 59423256,
+        "confidence": 0.96875
+      },
+      "delta-percent": -43.55937952542093,
+      "p": 0.007936507936507938,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=500/cache=warm",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 5,
+        "median": 526428,
+        "low": null,
+        "high": 526433,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 479474,
+        "low": null,
+        "high": 479478,
+        "confidence": 0.96875
+      },
+      "delta-percent": -8.919358392790656,
+      "p": 0.007936507936507938,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=500/cache=warm",
+      "cpu": 1,
+      "unit": "binary-bytes",
+      "before": {
+        "samples": 5,
+        "median": 49657896,
+        "low": null,
+        "high": 49657904,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 16827561,
+        "low": null,
+        "high": 16827561,
+        "confidence": 0.96875
+      },
+      "delta-percent": -66.11302057582142,
+      "p": 0.007936507936507936,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=500/cache=warm",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 5,
+        "median": 500,
+        "low": null,
+        "high": 500,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 500,
+        "low": null,
+        "high": 500,
+        "confidence": 0.96875
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95",
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=500/cache=warm",
+      "cpu": 1,
+      "unit": "packages",
+      "before": {
+        "samples": 5,
+        "median": 718,
+        "low": null,
+        "high": 718,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 380,
+        "low": null,
+        "high": 380,
+        "confidence": 0.96875
+      },
+      "delta-percent": -47.07520891364902,
+      "p": 0.007936507936507936,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=500/cache=warm",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 5,
+        "median": 1.847287386,
+        "low": null,
+        "high": 1.905956344,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 1.079509529,
+        "low": null,
+        "high": 1.159867597,
+        "confidence": 0.96875
+      },
+      "delta-percent": -41.56244787999651,
+      "p": 0.007936507936507938,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=500/cache=warm",
+      "cpu": 1,
+      "unit": "source-bytes",
+      "before": {
+        "samples": 5,
+        "median": 177337,
+        "low": null,
+        "high": 177337,
+        "confidence": 0.96875
+      },
+      "after": {
+        "samples": 5,
+        "median": 177349,
+        "low": null,
+        "high": 177349,
+        "confidence": 0.96875
+      },
+      "delta-percent": 0.006766777378652833,
+      "p": 0.007936507936507936,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": [
+        "need \u003e= 6 samples for confidence interval at level 0.95"
+      ]
+    }
+  ],
+  "warnings": [
+    "Capability sets differ; assess the profile tradeoff separately from default performance."
+  ]
+}

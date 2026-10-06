@@ -1,0 +1,10 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/compile
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkCompileFactoryProfile/nodes=10/cache=warm         	       1	 795236620 ns/op	  16022688 binary-bytes	        10.00 nodes	       380.0 packages	      6308 source-bytes	38217992 B/op	  116075 allocs/op
+BenchmarkCompileFactoryProfile/nodes=10/cache=cold         	       1	6730752513 ns/op	  16022680 binary-bytes	        10.00 nodes	       380.0 packages	      6308 source-bytes	38180416 B/op	  115595 allocs/op
+BenchmarkCompileFactoryProfile/nodes=500/cache=warm        	       1	1028269712 ns/op	  16827561 binary-bytes	       500.0 nodes	       380.0 packages	    177349 source-bytes	59372320 B/op	  479463 allocs/op
+BenchmarkCompileFactoryProfile/nodes=500/cache=cold        	       1	7262555437 ns/op	  16827561 binary-bytes	       500.0 nodes	       380.0 packages	    177349 source-bytes	59375264 B/op	  479485 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/compile	16.053s

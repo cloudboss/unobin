@@ -1,0 +1,67 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/compile
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+                                         │ before.txt  │             after.txt             │
+                                         │   sec/op    │   sec/op     vs base              │
+CompileFactoryBuild/nodes=10/cache=warm    1.528 ± ∞ ¹   1.603 ± ∞ ¹       ~ (p=0.841 n=5)
+CompileFactoryBuild/nodes=10/cache=cold    11.05 ± ∞ ¹   11.04 ± ∞ ¹       ~ (p=0.421 n=5)
+CompileFactoryBuild/nodes=500/cache=warm   1.815 ± ∞ ¹   1.908 ± ∞ ¹       ~ (p=0.421 n=5)
+CompileFactoryBuild/nodes=500/cache=cold   11.47 ± ∞ ¹   11.24 ± ∞ ¹       ~ (p=0.095 n=5)
+geomean                                    4.331         4.414        +1.92%
+¹ need >= 6 samples for confidence interval at level 0.95
+
+                                         │  before.txt   │              after.txt              │
+                                         │ binary-bytes  │ binary-bytes   vs base              │
+CompileFactoryBuild/nodes=10/cache=warm    46.54Mi ± ∞ ¹   46.59Mi ± ∞ ¹  +0.12% (p=0.008 n=5)
+CompileFactoryBuild/nodes=10/cache=cold    46.54Mi ± ∞ ¹   46.59Mi ± ∞ ¹  +0.12% (p=0.008 n=5)
+CompileFactoryBuild/nodes=500/cache=warm   47.30Mi ± ∞ ¹   47.36Mi ± ∞ ¹  +0.12% (p=0.008 n=5)
+CompileFactoryBuild/nodes=500/cache=cold   47.30Mi ± ∞ ¹   47.36Mi ± ∞ ¹  +0.12% (p=0.008 n=5)
+geomean                                    46.92Mi         46.97Mi        +0.12%
+¹ need >= 6 samples for confidence interval at level 0.95
+
+                                         │ before.txt  │              after.txt              │
+                                         │    nodes    │    nodes     vs base                │
+CompileFactoryBuild/nodes=10/cache=warm    10.00 ± ∞ ¹   10.00 ± ∞ ¹       ~ (p=1.000 n=5) ²
+CompileFactoryBuild/nodes=10/cache=cold    10.00 ± ∞ ¹   10.00 ± ∞ ¹       ~ (p=1.000 n=5) ²
+CompileFactoryBuild/nodes=500/cache=warm   500.0 ± ∞ ¹   500.0 ± ∞ ¹       ~ (p=1.000 n=5) ²
+CompileFactoryBuild/nodes=500/cache=cold   500.0 ± ∞ ¹   500.0 ± ∞ ¹       ~ (p=1.000 n=5) ²
+geomean                                    70.71         70.71        +0.00%
+¹ need >= 6 samples for confidence interval at level 0.95
+² all samples are equal
+
+                                         │ before.txt  │             after.txt             │
+                                         │  packages   │  packages    vs base              │
+CompileFactoryBuild/nodes=10/cache=warm    715.0 ± ∞ ¹   718.0 ± ∞ ¹  +0.42% (p=0.008 n=5)
+CompileFactoryBuild/nodes=10/cache=cold    715.0 ± ∞ ¹   718.0 ± ∞ ¹  +0.42% (p=0.008 n=5)
+CompileFactoryBuild/nodes=500/cache=warm   715.0 ± ∞ ¹   718.0 ± ∞ ¹  +0.42% (p=0.008 n=5)
+CompileFactoryBuild/nodes=500/cache=cold   715.0 ± ∞ ¹   718.0 ± ∞ ¹  +0.42% (p=0.008 n=5)
+geomean                                    715.0         718.0        +0.42%
+¹ need >= 6 samples for confidence interval at level 0.95
+
+                                         │  before.txt   │              after.txt              │
+                                         │ source-bytes  │ source-bytes   vs base              │
+CompileFactoryBuild/nodes=10/cache=warm    6.120Ki ± ∞ ¹   6.146Ki ± ∞ ¹  +0.43% (p=0.008 n=5)
+CompileFactoryBuild/nodes=10/cache=cold    6.120Ki ± ∞ ¹   6.146Ki ± ∞ ¹  +0.43% (p=0.008 n=5)
+CompileFactoryBuild/nodes=500/cache=warm   173.2Ki ± ∞ ¹   173.2Ki ± ∞ ¹  +0.02% (p=0.008 n=5)
+CompileFactoryBuild/nodes=500/cache=cold   173.2Ki ± ∞ ¹   173.2Ki ± ∞ ¹  +0.01% (p=0.008 n=5)
+geomean                                    32.55Ki         32.63Ki        +0.22%
+¹ need >= 6 samples for confidence interval at level 0.95
+
+                                         │  before.txt   │              after.txt              │
+                                         │     B/op      │     B/op       vs base              │
+CompileFactoryBuild/nodes=10/cache=warm    80.18Mi ± ∞ ¹   80.16Mi ± ∞ ¹  -0.02% (p=0.040 n=5)
+CompileFactoryBuild/nodes=10/cache=cold    80.18Mi ± ∞ ¹   80.16Mi ± ∞ ¹  -0.02% (p=0.008 n=5)
+CompileFactoryBuild/nodes=500/cache=warm   105.6Mi ± ∞ ¹   100.4Mi ± ∞ ¹  -4.99% (p=0.008 n=5)
+CompileFactoryBuild/nodes=500/cache=cold   105.6Mi ± ∞ ¹   100.4Mi ± ∞ ¹  -4.99% (p=0.008 n=5)
+geomean                                    92.03Mi         89.69Mi        -2.54%
+¹ need >= 6 samples for confidence interval at level 0.95
+
+                                         │  before.txt  │              after.txt              │
+                                         │  allocs/op   │  allocs/op    vs base               │
+CompileFactoryBuild/nodes=10/cache=warm    167.7k ± ∞ ¹   162.5k ± ∞ ¹   -3.10% (p=0.008 n=5)
+CompileFactoryBuild/nodes=10/cache=cold    167.7k ± ∞ ¹   162.5k ± ∞ ¹   -3.10% (p=0.008 n=5)
+CompileFactoryBuild/nodes=500/cache=warm   658.6k ± ∞ ¹   526.4k ± ∞ ¹  -20.06% (p=0.008 n=5)
+CompileFactoryBuild/nodes=500/cache=cold   658.6k ± ∞ ¹   526.4k ± ∞ ¹  -20.06% (p=0.008 n=5)
+geomean                                    332.4k         292.5k        -11.99%
+¹ need >= 6 samples for confidence interval at level 0.95
