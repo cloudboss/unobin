@@ -47,6 +47,7 @@ func completeForText(
 	}
 	var file *syntax.File
 	var err error
+	analysis.prepareSyntax()
 	if analysis != nil && analysis.parseErr == nil {
 		file = analysis.file
 	} else {

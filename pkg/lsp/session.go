@@ -3,7 +3,10 @@ package lsp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"runtime"
+	"sync"
 
 	"github.com/cloudboss/unobin/pkg/lsp/protocol"
 )
@@ -17,6 +20,7 @@ type Options struct {
 
 // Session owns the state for one LSP client connection.
 type Session struct {
+	mu                sync.Mutex
 	version           string
 	documents         *DocumentStore
 	projects          *ProjectCache
@@ -26,6 +30,9 @@ type Session struct {
 	analyses          map[string]*documentAnalysis
 	dependencyVersion uint64
 	analyzeDocument   func(*Document) *documentAnalysis
+	workers           *diagnosticWorkers
+	diagnosticsErr    error
+	diagnosticsCancel context.CancelCauseFunc
 }
 
 // NewSession returns a new LSP session.
@@ -45,32 +52,50 @@ func Serve(ctx context.Context, in io.Reader, out io.Writer, version string) err
 }
 
 // ServeWithOptions runs an LSP session over stdio-compatible streams.
-func ServeWithOptions(ctx context.Context, in io.Reader, out io.Writer, options Options) error {
+func ServeWithOptions(
+	ctx context.Context,
+	in io.Reader,
+	out io.Writer,
+	options Options,
+) (serveErr error) {
 	session := NewSession(options.Version)
+	sessionCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+	session.diagnosticsCancel = cancel
+	session.startDiagnosticWorkers(sessionCtx, min(2, runtime.GOMAXPROCS(0)))
+	defer func() {
+		serveErr = errors.Join(serveErr, session.closeDiagnosticWorkers())
+	}()
 	server := protocol.NewServerWithOptions(in, out, session, protocol.ServerOptions{
 		Trace: options.Trace,
 		Log:   options.Log,
 	})
-	return server.Serve(ctx)
+	return server.Serve(sessionCtx)
 }
 
 // Shutdown reports whether the client has requested shutdown.
 func (s *Session) Shutdown() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.shutdown
 }
 
 // Exit reports whether the client has requested exit.
 func (s *Session) Exit() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.exiting
 }
 
 // StopRequested reports whether the protocol server should stop serving.
 func (s *Session) StopRequested() bool {
-	return s.exiting
+	return s.Exit()
 }
 
 // SetSender sets the server-to-client notification sender.
 func (s *Session) SetSender(sender protocol.Sender) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.sender = sender
 }
 
@@ -79,24 +104,37 @@ func (s *Session) HandleRequest(
 	ctx context.Context,
 	req *protocol.RequestMessage,
 ) (any, *protocol.ResponseError) {
-	_ = ctx
-	if s.shutdown && req.Method != "exit" {
-		return nil, &protocol.ResponseError{
-			Code:    protocol.ErrorCodeInvalidRequest,
-			Message: "server is shut down",
+	s.mu.Lock()
+	if req.Method != "exit" {
+		if err := s.requestStateError(ctx); err != nil {
+			s.mu.Unlock()
+			return nil, err
 		}
+	}
+	s.mu.Unlock()
+	switch req.Method {
+	case "shutdown", "exit":
+		return s.handleStop(req.Method)
+	case "textDocument/formatting":
+		return s.handleFormatting(ctx, req.Params)
+	case "textDocument/documentSymbol":
+		return s.handleDocumentSymbols(ctx, req.Params)
+	case "textDocument/definition":
+		return s.handleDefinition(ctx, req.Params)
+	case "textDocument/completion":
+		return s.handleCompletion(ctx, req.Params)
+	case "textDocument/hover":
+		return s.handleHover(ctx, req.Params)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.requestStateError(ctx); err != nil {
+		return nil, err
 	}
 	switch req.Method {
 	case "initialize":
 		return s.handleInitialize(req.Params)
 	case "initialized":
-		return nil, nil
-	case "shutdown":
-		s.shutdown = true
-		clear(s.analyses)
-		return nil, nil
-	case "exit":
-		s.exiting = true
 		return nil, nil
 	case "textDocument/didOpen":
 		return nil, s.handleDidOpen(req.Params)
@@ -108,16 +146,6 @@ func (s *Session) HandleRequest(
 		return nil, s.handleDidClose(req.Params)
 	case "workspace/didChangeWatchedFiles":
 		return nil, s.handleDidChangeWatchedFiles(req.Params)
-	case "textDocument/formatting":
-		return s.handleFormatting(req.Params)
-	case "textDocument/documentSymbol":
-		return s.handleDocumentSymbols(req.Params)
-	case "textDocument/definition":
-		return s.handleDefinition(req.Params)
-	case "textDocument/completion":
-		return s.handleCompletion(req.Params)
-	case "textDocument/hover":
-		return s.handleHover(req.Params)
 	default:
 		return nil, protocol.MethodNotFound(req.Method)
 	}
@@ -132,7 +160,7 @@ func (s *Session) handleInitialize(params json.RawMessage) (any, *protocol.Respo
 	if err != nil {
 		return nil, protocol.InvalidParams(err.Error())
 	}
-	s.projects.SetWorkspaceRoots(roots)
+	s.projects = s.projects.nextRevision(roots)
 	s.dependencyVersion++
 	clear(s.analyses)
 	return protocol.InitializeResult{
@@ -197,10 +225,7 @@ func (s *Session) handleDidSave(params json.RawMessage) *protocol.ResponseError 
 	if err := s.invalidateURI(save.TextDocument.URI); err != nil {
 		return protocol.InvalidParams(err.Error())
 	}
-	if doc, ok := s.documents.Get(save.TextDocument.URI); ok {
-		return s.publishDiagnostics(doc)
-	}
-	return nil
+	return s.publishOpenDiagnostics()
 }
 
 func (s *Session) handleDidChangeWatchedFiles(params json.RawMessage) *protocol.ResponseError {
@@ -213,6 +238,9 @@ func (s *Session) handleDidChangeWatchedFiles(params json.RawMessage) *protocol.
 			return protocol.InvalidParams(err.Error())
 		}
 	}
+	if len(watched.Changes) > 0 {
+		return s.publishOpenDiagnostics()
+	}
 	return nil
 }
 
@@ -221,80 +249,104 @@ func (s *Session) handleDidClose(params json.RawMessage) *protocol.ResponseError
 	if err := decodeParams(params, &close); err != nil {
 		return err
 	}
-	if err := s.publishEmptyDiagnostics(close.TextDocument.URI); err != nil {
-		return err
-	}
 	s.documents.Close(close.TextDocument.URI)
 	delete(s.analyses, close.TextDocument.URI)
-	return nil
+	if s.workers != nil {
+		s.workers.cancelDocument(close.TextDocument.URI)
+	}
+	return s.publishEmptyDiagnostics(close.TextDocument.URI)
 }
 
-func (s *Session) handleFormatting(params json.RawMessage) (any, *protocol.ResponseError) {
+func (s *Session) handleFormatting(
+	ctx context.Context, params json.RawMessage,
+) (any, *protocol.ResponseError) {
 	var formatting protocol.DocumentFormattingParams
 	if err := decodeParams(params, &formatting); err != nil {
 		return nil, err
 	}
-	doc, ok := s.documents.Get(formatting.TextDocument.URI)
-	if !ok {
-		return nil, protocol.InvalidParams("document is not open: " + formatting.TextDocument.URI)
+	doc, _, _, err := s.documentSnapshot(ctx, formatting.TextDocument.URI)
+	if err != nil {
+		return nil, err
 	}
 	return FormatText(doc.Path, doc.Text)
 }
 
-func (s *Session) handleDocumentSymbols(params json.RawMessage) (any, *protocol.ResponseError) {
+func (s *Session) handleDocumentSymbols(
+	ctx context.Context, params json.RawMessage,
+) (any, *protocol.ResponseError) {
 	var documentSymbols protocol.DocumentSymbolParams
 	if err := decodeParams(params, &documentSymbols); err != nil {
 		return nil, err
 	}
-	doc, ok := s.documents.Get(documentSymbols.TextDocument.URI)
-	if !ok {
-		return nil, protocol.InvalidParams("document is not open: " + documentSymbols.TextDocument.URI)
+	_, analysis, _, err := s.documentSnapshot(ctx, documentSymbols.TextDocument.URI)
+	if err != nil {
+		return nil, err
 	}
-	return cloneDocumentSymbols(s.analysisFor(doc).documentSymbols()), nil
+	return cloneDocumentSymbols(analysis.documentSymbols()), nil
 }
 
-func (s *Session) handleDefinition(params json.RawMessage) (any, *protocol.ResponseError) {
+func (s *Session) handleDefinition(
+	ctx context.Context, params json.RawMessage,
+) (any, *protocol.ResponseError) {
 	var definition protocol.DefinitionParams
 	if err := decodeParams(params, &definition); err != nil {
 		return nil, err
 	}
-	doc, ok := s.documents.Get(definition.TextDocument.URI)
-	if !ok {
-		return nil, protocol.InvalidParams("document is not open: " + definition.TextDocument.URI)
+	doc, analysis, projects, err := s.documentSnapshot(ctx, definition.TextDocument.URI)
+	if err != nil {
+		return nil, err
 	}
-	return definitionForText(doc.Path, doc.Text, definition.Position, s.projects, s.analysisFor(doc))
+	analysis.prepareSyntax()
+	if !projects.acquireAnalysis(ctx) {
+		return nil, requestCanceled()
+	}
+	defer projects.releaseAnalysis()
+	return definitionForText(doc.Path, doc.Text, definition.Position, projects, analysis)
 }
 
-func (s *Session) handleCompletion(params json.RawMessage) (any, *protocol.ResponseError) {
+func (s *Session) handleCompletion(
+	ctx context.Context, params json.RawMessage,
+) (any, *protocol.ResponseError) {
 	var completion protocol.CompletionParams
 	if err := decodeParams(params, &completion); err != nil {
 		return nil, err
 	}
-	doc, ok := s.documents.Get(completion.TextDocument.URI)
-	if !ok {
-		return nil, protocol.InvalidParams("document is not open: " + completion.TextDocument.URI)
+	doc, analysis, projects, err := s.documentSnapshot(ctx, completion.TextDocument.URI)
+	if err != nil {
+		return nil, err
 	}
-	return completeForText(doc.Path, doc.Text, completion.Position, s.projects, s.analysisFor(doc))
+	analysis.prepareSyntax()
+	if !projects.acquireAnalysis(ctx) {
+		return nil, requestCanceled()
+	}
+	defer projects.releaseAnalysis()
+	return completeForText(doc.Path, doc.Text, completion.Position, projects, analysis)
 }
 
-func (s *Session) handleHover(params json.RawMessage) (any, *protocol.ResponseError) {
+func (s *Session) handleHover(
+	ctx context.Context, params json.RawMessage,
+) (any, *protocol.ResponseError) {
 	var hover protocol.HoverParams
 	if err := decodeParams(params, &hover); err != nil {
 		return nil, err
 	}
-	doc, ok := s.documents.Get(hover.TextDocument.URI)
-	if !ok {
-		return nil, protocol.InvalidParams("document is not open: " + hover.TextDocument.URI)
+	doc, analysis, projects, err := s.documentSnapshot(ctx, hover.TextDocument.URI)
+	if err != nil {
+		return nil, err
 	}
-	return hoverForText(doc.Path, doc.Text, hover.Position, s.projects, s.analysisFor(doc))
+	analysis.prepareSyntax()
+	if !projects.acquireAnalysis(ctx) {
+		return nil, requestCanceled()
+	}
+	defer projects.releaseAnalysis()
+	return hoverForText(doc.Path, doc.Text, hover.Position, projects, analysis)
 }
 
 func (s *Session) invalidateURI(uri string) error {
-	path, err := FileURIToPath(uri)
-	if err != nil {
+	if _, err := FileURIToPath(uri); err != nil {
 		return err
 	}
-	s.projects.InvalidatePath(path)
+	s.projects = s.projects.nextRevision(s.projects.workspaceRoots)
 	s.dependencyVersion++
 	clear(s.analyses)
 	return nil
@@ -326,17 +378,15 @@ func (s *Session) publishDiagnostics(doc *Document) *protocol.ResponseError {
 	if s.sender == nil {
 		return nil
 	}
+	if s.workers != nil {
+		s.workers.submit(doc, s.dependencyVersion)
+		return nil
+	}
 	version := doc.Version
-	analysis := s.analysisFor(doc)
-	var diagnostics []protocol.Diagnostic
-	if analysis.parseErr != nil {
-		diagnostics = diagnosticsForParseFailure(doc.Text, analysis.parseErr)
-	} else {
-		diagnostics = diagnosticsForFile(doc.Path, doc.Text, analysis.file, s.projects)
-	}
-	if diagnostics == nil {
-		diagnostics = []protocol.Diagnostic{}
-	}
+	analysis := s.cachedAnalysisFor(doc)
+	s.projects.acquireAnalysis(context.Background())
+	diagnostics := analysis.documentDiagnostics(s.projects)
+	s.projects.releaseAnalysis()
 	err := s.sender("textDocument/publishDiagnostics", protocol.PublishDiagnosticsParams{
 		URI:         doc.URI,
 		Version:     &version,

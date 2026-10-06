@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"context"
 	"errors"
 	"io/fs"
 	"os"
@@ -37,6 +38,7 @@ type ProjectCache struct {
 	remoteFactory  func() (cachedRemoteSource, error)
 	schemaRoots    []goschema.ModuleRoot
 	assetSets      map[string]*asset.Set
+	analysisGate   chan struct{}
 }
 
 // NewProjectCache returns an empty project cache.
@@ -80,9 +82,36 @@ func newProjectCacheWithRemoteAndSchemaRoots(
 		remoteFactory: remoteFactory,
 		schemaRoots:   uniqueModuleRoots(schemaRoots),
 		assetSets:     map[string]*asset.Set{},
+		analysisGate:  make(chan struct{}, 1),
 	}
 	cache.SetWorkspaceRoots(singleWorkspaceRoot(workspaceRoot))
 	return cache
+}
+
+func (c *ProjectCache) nextRevision(roots []string) *ProjectCache {
+	next := newProjectCacheWithRemoteAndSchemaRoots("", c.remoteFactory, c.schemaRoots)
+	next.SetWorkspaceRoots(roots)
+	return next
+}
+
+func (c *ProjectCache) acquireAnalysis(ctx context.Context) bool {
+	if ctx.Err() != nil {
+		return false
+	}
+	select {
+	case c.analysisGate <- struct{}{}:
+		if ctx.Err() != nil {
+			c.releaseAnalysis()
+			return false
+		}
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+func (c *ProjectCache) releaseAnalysis() {
+	<-c.analysisGate
 }
 
 // SetWorkspaceRoots sets weak roots used for loose files without project markers.
