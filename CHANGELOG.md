@@ -21,6 +21,7 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ### Fixed
 
+- Avoid a panic when scanning object types with absent field declaration bodies.
 - Remove obsolete owned UB packages and captured assets before building a factory. Reused output now resolves the same dependencies and factory identity as clean output. Earlier output directories require a fresh compilation destination.
 - Preserve authored lifecycle implementations when regenerating Go libraries. Validate output ownership before publishing and remove only untouched obsolete lifecycle stubs.
 - Reject saved plans after locally replaced Go implementation code changes. Factory identity includes linked source and build settings; replan after the first rebuild with this change.

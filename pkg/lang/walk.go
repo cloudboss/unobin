@@ -7,67 +7,83 @@ package lang
 // and interpolated-string slots. A nil expression is a no-op so callers
 // can recurse through optional fields without guarding first.
 func Walk(e Expr, visit func(Expr)) {
+	walkExpr(e, visit, nil)
+}
+
+func walkExpr(e Expr, visit func(Expr), scanner *exprScanner) {
 	if e == nil {
 		return
 	}
-	visit(e)
+	if scanner == nil {
+		visit(e)
+	} else if scanner.stopped || scanner.visit(e) == ScanSkipChildren || scanner.stopped {
+		return
+	}
 	switch v := e.(type) {
 	case *ObjectLit:
 		for _, fld := range v.Fields {
 			if fld.Decl != nil {
-				Walk(fld.Decl.Body, visit)
+				walkExpr(fld.Decl.Body, visit, scanner)
 				continue
 			}
-			Walk(fld.Value, visit)
+			walkExpr(fld.Value, visit, scanner)
 		}
 	case *ArrayLit:
 		for _, el := range v.Elements {
-			Walk(el, visit)
+			walkExpr(el, visit, scanner)
 		}
 	case *Call:
 		for _, a := range v.Args {
-			Walk(a, visit)
+			walkExpr(a, visit, scanner)
 		}
 	case *Infix:
-		Walk(v.Left, visit)
-		Walk(v.Right, visit)
+		walkExpr(v.Left, visit, scanner)
+		walkExpr(v.Right, visit, scanner)
 	case *Prefix:
-		Walk(v.Expr, visit)
+		walkExpr(v.Expr, visit, scanner)
 	case *DotPath:
 		for _, seg := range v.Segments {
-			Walk(seg.Index, visit)
+			walkExpr(seg.Index, visit, scanner)
 		}
 	case *Conditional:
-		Walk(v.Cond, visit)
-		Walk(v.Then, visit)
-		Walk(v.Else, visit)
+		walkExpr(v.Cond, visit, scanner)
+		walkExpr(v.Then, visit, scanner)
+		walkExpr(v.Else, visit, scanner)
 	case *Comprehension:
-		Walk(v.Source, visit)
-		Walk(v.Key, visit)
-		Walk(v.Value, visit)
-		Walk(v.Filter, visit)
+		walkExpr(v.Source, visit, scanner)
+		base := 0
+		if scanner != nil {
+			base = len(scanner.bindings)
+			scanner.bindings = append(scanner.bindings, v.Names...)
+		}
+		walkExpr(v.Key, visit, scanner)
+		walkExpr(v.Value, visit, scanner)
+		walkExpr(v.Filter, visit, scanner)
+		if scanner != nil {
+			scanner.bindings = scanner.bindings[:base]
+		}
 	case *InterpolatedString:
 		for _, part := range v.Parts {
-			Walk(part.Expr, visit)
+			walkExpr(part.Expr, visit, scanner)
 		}
 	case *TypeList:
-		Walk(v.Elem, visit)
+		walkExpr(v.Elem, visit, scanner)
 	case *TypeMap:
-		Walk(v.Elem, visit)
+		walkExpr(v.Elem, visit, scanner)
 	case *TypeObject:
 		for _, field := range v.Fields {
 			if field.Type != nil {
-				Walk(field.Type, visit)
+				walkExpr(field.Type, visit, scanner)
 			}
 			if field.Decl != nil {
-				Walk(field.Decl, visit)
+				walkExpr(field.Decl, visit, scanner)
 			}
 		}
 	case *TypeTuple:
 		for _, elem := range v.Elements {
-			Walk(elem, visit)
+			walkExpr(elem, visit, scanner)
 		}
 	case *TypeOptional:
-		Walk(v.Elem, visit)
+		walkExpr(v.Elem, visit, scanner)
 	}
 }
