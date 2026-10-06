@@ -11,19 +11,6 @@ import (
 // for snapshots. Older versions error on read.
 const CurrentFormatVersion = 2
 
-// EntryType discriminates the records a snapshot can hold.
-type EntryType string
-
-const (
-	EntryLeaf        EntryType = "leaf"
-	EntryLibraryCall EntryType = "library-call"
-	EntryAction      EntryType = "action"
-	// EntryData records what a data source read during the last
-	// apply. Nothing in the world belongs to it, so removing the node
-	// removes the record without a destroy.
-	EntryData EntryType = "data-source"
-)
-
 // Binding identifies the implementation selected for an entry.
 type Binding struct {
 	Alias       string `json:"alias"`
@@ -31,19 +18,18 @@ type Binding struct {
 	Export      string `json:"kind,omitempty"`
 }
 
-// Entry is one record in a snapshot. Type is the entry discriminator.
-// Category names the state address category for resource, data-source,
-// action, and composite entries. Binding names the implementation used by
-// that entry.
+// Entry describes a resource, data observation, action, or composite call.
+// Category identifies the address namespace. Composite marks a call boundary
+// independently of its category. Binding identifies its implementation.
 //
 // SensitiveInputs and SensitiveOutputs name the kebab-case fields whose
 // values came from a sensitive source. Renderers mask the matching
 // entries when printing.
 type Entry struct {
-	Address string    `json:"address"`
-	Type    EntryType `json:"entry-kind"`
+	Address   string `json:"address"`
+	Category  string `json:"category"`
+	Composite bool   `json:"composite"`
 
-	Category         string   `json:"category,omitempty"`
 	Binding          *Binding `json:"binding,omitempty"`
 	SchemaVersion    int      `json:"schema-version,omitempty"`
 	SensitiveInputs  []string `json:"sensitive-inputs,omitempty"`
@@ -54,7 +40,7 @@ type Entry struct {
 	Inputs  map[string]any `json:"inputs,omitempty"`
 	Outputs map[string]any `json:"outputs,omitempty"`
 
-	// Configuration records the library settings reviewed for this resource.
+	// Configuration contains the library settings reviewed for this resource.
 	// The current configuration supplies access settings; this value identifies
 	// the target that was managed when the entry was written.
 	Configuration map[string]any `json:"configuration,omitempty"`
@@ -63,8 +49,8 @@ type Entry struct {
 
 type entryJSON struct {
 	Address          string         `json:"address"`
-	Type             EntryType      `json:"entry-kind"`
-	Category         string         `json:"category,omitempty"`
+	Category         string         `json:"category"`
+	Composite        bool           `json:"composite"`
 	Binding          *Binding       `json:"binding,omitempty"`
 	SchemaVersion    int            `json:"schema-version,omitempty"`
 	SensitiveInputs  []string       `json:"sensitive-inputs,omitempty"`
@@ -79,8 +65,8 @@ type entryJSON struct {
 func (e *Entry) MarshalJSON() ([]byte, error) {
 	return json.Marshal(entryJSON{
 		Address:          e.Address,
-		Type:             e.Type,
 		Category:         e.Category,
+		Composite:        e.Composite,
 		Binding:          e.Binding,
 		SchemaVersion:    e.SchemaVersion,
 		SensitiveInputs:  e.SensitiveInputs,
@@ -94,11 +80,18 @@ func (e *Entry) MarshalJSON() ([]byte, error) {
 }
 
 func (e *Entry) UnmarshalJSON(b []byte) error {
-	var raw entryJSON
+	var raw struct {
+		entryJSON
+		Composite *bool `json:"composite"`
+	}
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return err
 	}
-	*e = Entry(raw)
+	if raw.Composite == nil {
+		return fmt.Errorf("entry %q missing composite", raw.Address)
+	}
+	raw.entryJSON.Composite = *raw.Composite
+	*e = Entry(raw.entryJSON)
 	return nil
 }
 
@@ -110,7 +103,7 @@ type FactoryInfo struct {
 	ContentRevision string `json:"content-revision"`
 }
 
-// Snapshot is the in-memory record of one state file. The runtime reads
+// Snapshot is the in-memory contents of one state file. The runtime reads
 // the current snapshot at the start of plan or apply, and writes a fresh
 // one after each successful resource action.
 type Snapshot struct {
@@ -159,16 +152,22 @@ func EncodeSnapshot(s *Snapshot) ([]byte, error) {
 
 // DecodeSnapshot parses a snapshot from JSON bytes.
 func DecodeSnapshot(b []byte) (*Snapshot, error) {
+	var header struct {
+		FormatVersion int `json:"format-version"`
+	}
+	if err := json.Unmarshal(b, &header); err != nil {
+		return nil, fmt.Errorf("snapshot: %w", err)
+	}
+	if header.FormatVersion != CurrentFormatVersion {
+		return nil, fmt.Errorf(
+			"snapshot: unsupported format-version %d (this build expects %d); recreate the state",
+			header.FormatVersion,
+			CurrentFormatVersion,
+		)
+	}
 	var s Snapshot
 	if err := json.Unmarshal(b, &s); err != nil {
 		return nil, fmt.Errorf("snapshot: %w", err)
-	}
-	if s.FormatVersion != CurrentFormatVersion {
-		return nil, fmt.Errorf(
-			"snapshot: unsupported format-version %d (this build expects %d); recreate the state",
-			s.FormatVersion,
-			CurrentFormatVersion,
-		)
 	}
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -176,7 +175,7 @@ func DecodeSnapshot(b []byte) (*Snapshot, error) {
 	return &s, nil
 }
 
-// Validate checks every entry's discriminator and required fields, and
+// Validate checks every entry's category and required fields, and
 // rejects duplicate addresses within a snapshot.
 func (s *Snapshot) Validate() error {
 	if s.FormatVersion != CurrentFormatVersion {
@@ -203,41 +202,10 @@ func (s *Snapshot) Validate() error {
 }
 
 func (e *Entry) validate() error {
-	switch e.Type {
-	case EntryLeaf:
-		if err := e.validateCategory("resource"); err != nil {
-			return err
-		}
-		if err := e.validateGraphBinding(); err != nil {
-			return err
-		}
-	case EntryLibraryCall:
-		if err := e.validateCategory("resource", "data-source", "action"); err != nil {
-			return err
-		}
-		if err := e.validateGraphBinding(); err != nil {
-			return err
-		}
-	case EntryAction:
-		if err := e.validateCategory("action"); err != nil {
-			return err
-		}
-		if err := e.validateGraphBinding(); err != nil {
-			return err
-		}
-	case EntryData:
-		if err := e.validateCategory("data-source"); err != nil {
-			return err
-		}
-		if err := e.validateGraphBinding(); err != nil {
-			return err
-		}
-	case "":
-		return fmt.Errorf("snapshot: entry %q missing entry-kind", e.Address)
-	default:
-		return fmt.Errorf("snapshot: entry %q has unknown entry-kind %q", e.Address, e.Type)
+	if err := e.validateCategory("resource", "data-source", "action"); err != nil {
+		return err
 	}
-	return nil
+	return e.validateGraphBinding()
 }
 
 func (e *Entry) validateCategory(allowed ...string) error {

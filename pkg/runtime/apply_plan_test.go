@@ -713,7 +713,7 @@ func incrementalModules(c *incrementalResourceCounters) map[string]*Library {
 func incrementalEntry(address, name string, size int64) *state.Entry {
 	return &state.Entry{
 		Address:       address,
-		Type:          state.EntryLeaf,
+		Composite:     false,
 		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "inc"},
 		SchemaVersion: 1,
@@ -1300,14 +1300,16 @@ func TestApplyPlanForEachComposite(t *testing.T) {
 
 	snap, err := store.Current()
 	require.NoError(t, err)
-	addrs := map[string]state.EntryType{}
+	addrs := map[string]bool{}
 	for _, ent := range snap.Entries {
-		addrs[ent.Address] = ent.Type
+		addrs[ent.Address] = ent.Composite
 	}
-	require.Equal(t, state.EntryLibraryCall, addrs["resource.many['alpha']"])
-	require.Equal(t, state.EntryLibraryCall, addrs["resource.many['beta']"])
-	require.Equal(t, state.EntryLeaf, addrs["resource.many['alpha']/resource.only"])
-	require.Equal(t, state.EntryLeaf, addrs["resource.many['beta']/resource.only"])
+	require.Equal(t, map[string]bool{
+		"resource.many['alpha']":               true,
+		"resource.many['beta']":                true,
+		"resource.many['alpha']/resource.only": false,
+		"resource.many['beta']/resource.only":  false,
+	}, addrs)
 }
 
 func TestApplyPlanForEachCompositeOrphan(t *testing.T) {
@@ -1384,13 +1386,13 @@ func TestApplyPlanCompositeUsesSyntaxBody(t *testing.T) {
 	snap, err := store.Current()
 	require.NoError(t, err)
 	addresses := make([]string, len(snap.Entries))
-	types := make([]state.EntryType, len(snap.Entries))
+	composites := make([]bool, len(snap.Entries))
 	for i, e := range snap.Entries {
 		addresses[i] = e.Address
-		types[i] = e.Type
+		composites[i] = e.Composite
 	}
 	require.ElementsMatch(t, []string{"resource.x", "resource.x/resource.one"}, addresses)
-	require.ElementsMatch(t, []state.EntryType{state.EntryLibraryCall, state.EntryLeaf}, types)
+	require.ElementsMatch(t, []bool{true, false}, composites)
 }
 
 func TestApplyPlanComposite(t *testing.T) {
@@ -1422,16 +1424,16 @@ func TestApplyPlanComposite(t *testing.T) {
 	snap, err := store.Current()
 	require.NoError(t, err)
 	addresses := make([]string, len(snap.Entries))
-	types := make([]state.EntryType, len(snap.Entries))
+	composites := make([]bool, len(snap.Entries))
 	for i, e := range snap.Entries {
 		addresses[i] = e.Address
-		types[i] = e.Type
+		composites[i] = e.Composite
 	}
 	require.ElementsMatch(t,
 		[]string{"resource.x", "resource.x/resource.one"},
 		addresses)
-	require.Contains(t, types, state.EntryLibraryCall)
-	require.Contains(t, types, state.EntryLeaf)
+	require.Contains(t, composites, true)
+	require.Contains(t, composites, false)
 }
 
 func TestApplyPlanNestedComposite(t *testing.T) {

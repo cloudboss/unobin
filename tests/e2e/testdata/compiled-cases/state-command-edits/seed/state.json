@@ -10,8 +10,8 @@
   "entries": [
     {
       "address": "action.old",
-      "entry-kind": "action",
       "category": "action",
+      "composite": false,
       "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "echo" },
       "inputs": {
         "text": "hello",
@@ -25,8 +25,8 @@
     },
     {
       "address": "action.bye",
-      "entry-kind": "action",
       "category": "action",
+      "composite": false,
       "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "echo" },
       "inputs": {
         "text": "bye",
@@ -40,8 +40,8 @@
     },
     {
       "address": "action.temp",
-      "entry-kind": "action",
       "category": "action",
+      "composite": false,
       "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "echo" },
       "inputs": {
         "text": "temporary",

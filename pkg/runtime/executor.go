@@ -708,7 +708,7 @@ func scopeMapForKind(scope *EvalContext, kind NodeKind) map[string]any {
 // has one instance, addressed at the template address itself),
 // exposes those outputs at the call site address in the boundary's
 // enclosing scope so its parent can reach them, and writes one
-// EntryLibraryCall record. instAddr is the address actually being
+// composite entry. instAddr is the address actually being
 // finalized: equal to n.Address for a plain composite, with a
 // trailing `['key']` for a `@for-each` instance. The scope's Inputs
 // are the call site arguments evaluated for this instance.
@@ -739,7 +739,7 @@ func (e *Executor) finalizeComposite(
 	}
 	rs.upsertNext(&state.Entry{
 		Address:          instAddr,
-		Type:             state.EntryLibraryCall,
+		Composite:        true,
 		Category:         string(n.Kind),
 		Binding:          bindingForNode(n),
 		Inputs:           scope.Inputs,

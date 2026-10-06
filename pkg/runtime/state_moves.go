@@ -66,7 +66,7 @@ func ApplyEntryMoves(
 	for i := range moves {
 		fromEntry := stateRefs[moves[i].From.String()]
 		toNode := targetNodes[moves[i].To.String()]
-		moves[i].Prefix = fromEntry != nil && fromEntry.Type == state.EntryLibraryCall
+		moves[i].Prefix = fromEntry != nil && fromEntry.Composite
 		moves[i].Prefix = moves[i].Prefix || toNode.IsComposite()
 	}
 	if mode == EntryMoveStrict {
@@ -331,25 +331,17 @@ func entryMoveNodeMatchesRef(n *Node, ref EntryRef) bool {
 }
 
 func validateEntryMoveTarget(ent *state.Entry, n *Node) error {
-	switch ent.Type {
-	case state.EntryLeaf:
-		if n.Kind != NodeResource || n.IsComposite() {
-			return fmt.Errorf("leaf entry cannot move to %s", n.Kind)
-		}
-	case state.EntryData:
-		if n.Kind != NodeDataSource || n.IsComposite() {
-			return fmt.Errorf("data entry cannot move to %s", n.Kind)
-		}
-	case state.EntryAction:
-		if n.Kind != NodeAction || n.IsComposite() {
-			return fmt.Errorf("action entry cannot move to %s", n.Kind)
-		}
-	case state.EntryLibraryCall:
-		if !n.IsComposite() {
-			return fmt.Errorf("library-call entry cannot move to primitive %s", n.Kind)
-		}
+	switch NodeKind(ent.Category) {
+	case NodeResource, NodeDataSource, NodeAction:
 	default:
-		return fmt.Errorf("unsupported state entry kind %s", ent.Type)
+		return fmt.Errorf("unsupported state category %s", ent.Category)
+	}
+	if !ent.Composite && NodeKind(ent.Category) != n.Kind {
+		return fmt.Errorf("%s entry cannot move to %s", ent.Category, n.Kind)
+	}
+	if ent.Composite != n.IsComposite() {
+		return fmt.Errorf(
+			"%s entry cannot move between primitive and composite declarations", ent.Category)
 	}
 	if ent.Binding == nil {
 		return nil
@@ -382,7 +374,7 @@ func migrateMovedEntry(
 	libs map[string]*Library,
 	to EntryRef,
 ) error {
-	if ent.Type != state.EntryLeaf {
+	if ent.Composite || ent.Category != string(NodeResource) {
 		return nil
 	}
 	n, err := entryMoveTargetNode(dag, to)

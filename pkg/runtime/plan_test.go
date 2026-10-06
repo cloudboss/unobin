@@ -1054,7 +1054,7 @@ func TestPlanMigratesPriorOutputsOnSchemaBump(t *testing.T) {
 	prior := state.NewSnapshot(stack, store.Stack())
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.one",
-		Type:          state.EntryLeaf,
+		Composite:     false,
 		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
@@ -1114,7 +1114,7 @@ func TestPlanErrorsWhenSchemaBumpHasNoMigrate(t *testing.T) {
 	prior := state.NewSnapshot(stack, store.Stack())
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.one",
-		Type:          state.EntryLeaf,
+		Composite:     false,
 		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
@@ -1161,7 +1161,7 @@ func TestPlanMigratesPriorInputsOnSchemaBump(t *testing.T) {
 	prior := state.NewSnapshot(stack, store.Stack())
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.one",
-		Type:          state.EntryLeaf,
+		Composite:     false,
 		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
@@ -1196,7 +1196,7 @@ func TestApplyUpdateReceivesMigratedPriorInputs(t *testing.T) {
 	prior := state.NewSnapshot(stack, store.Stack())
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.one",
-		Type:          state.EntryLeaf,
+		Composite:     false,
 		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
@@ -1254,7 +1254,7 @@ func TestPlanDefaultsOverlayPreventsSpuriousUpdate(t *testing.T) {
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, &state.Entry{
 		Address:       "resource.one",
-		Type:          state.EntryLeaf,
+		Composite:     false,
 		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
@@ -1281,7 +1281,7 @@ func TestPlanDefaultsOverlayKeepsExplicitPriorValue(t *testing.T) {
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, &state.Entry{
 		Address:       "resource.one",
-		Type:          state.EntryLeaf,
+		Composite:     false,
 		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
@@ -1308,7 +1308,7 @@ func TestApplyDefaultsOverlayAdditiveFieldMakesNoCloudUpdate(t *testing.T) {
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, &state.Entry{
 		Address:       "resource.one",
-		Type:          state.EntryLeaf,
+		Composite:     false,
 		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
@@ -1344,7 +1344,7 @@ func TestApplyDefaultsOverlayUpdateSeesFilledPriorDefault(t *testing.T) {
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, &state.Entry{
 		Address:       "resource.one",
-		Type:          state.EntryLeaf,
+		Composite:     false,
 		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
@@ -1378,7 +1378,7 @@ func TestApplyDefaultsOverlayForEachIsNoOp(t *testing.T) {
 	seedPrior(t, store, stack,
 		&state.Entry{
 			Address:       "resource.many['alpha']",
-			Type:          state.EntryLeaf,
+			Composite:     false,
 			Category:      "resource",
 			Binding:       &state.Binding{Alias: "core", Export: "thing"},
 			SchemaVersion: 1,
@@ -1389,7 +1389,7 @@ func TestApplyDefaultsOverlayForEachIsNoOp(t *testing.T) {
 		},
 		&state.Entry{
 			Address:       "resource.many['beta']",
-			Type:          state.EntryLeaf,
+			Composite:     false,
 			Category:      "resource",
 			Binding:       &state.Binding{Alias: "core", Export: "thing"},
 			SchemaVersion: 1,
@@ -1538,7 +1538,7 @@ func seedPendingPlanKnownOutput(
 	t.Helper()
 	seedPrior(t, store, factory, &state.Entry{
 		Address:       "resource.one",
-		Type:          state.EntryLeaf,
+		Composite:     false,
 		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,

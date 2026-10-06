@@ -222,7 +222,7 @@ func newStateMutationStore(t *testing.T, address string) (*local.Store, string) 
 		"dev",
 	)
 	snapshot.Entries = []*state.Entry{{
-		Address: address, Type: state.EntryAction, Category: "action",
+		Address: address, Composite: false, Category: "action",
 		Binding: &state.Binding{
 			Alias: "core", LibraryPath: "example.com/core", Export: "record",
 		},

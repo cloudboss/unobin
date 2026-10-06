@@ -154,7 +154,7 @@ func (e *Executor) compositeEntryMovePrefixes(
 	}
 	binding := bindingForNode(n)
 	for _, ent := range prior.Entries {
-		if ent.Type != state.EntryLibraryCall {
+		if !ent.Composite {
 			continue
 		}
 		if templateAddress(ent.Address) != n.Address || !sameBinding(ent.Binding, binding) {
@@ -204,7 +204,7 @@ func priorCompositeEntryHasBinding(
 	binding *state.Binding,
 ) bool {
 	for _, ent := range prior.Entries {
-		if ent.Type != state.EntryLibraryCall {
+		if !ent.Composite {
 			continue
 		}
 		if ent.Address == address && sameBinding(ent.Binding, binding) {

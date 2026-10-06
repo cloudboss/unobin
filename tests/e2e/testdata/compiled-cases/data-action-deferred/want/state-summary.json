@@ -9,8 +9,8 @@
   "entries": [
     {
       "address": "action.capture",
-      "entry-kind": "action",
       "category": "action",
+      "composite": false,
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
@@ -31,8 +31,8 @@
     },
     {
       "address": "data-source.read-back",
-      "entry-kind": "data-source",
       "category": "data-source",
+      "composite": false,
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
@@ -52,8 +52,8 @@
     },
     {
       "address": "resource.doc",
-      "entry-kind": "leaf",
       "category": "resource",
+      "composite": false,
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",

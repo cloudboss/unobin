@@ -37,7 +37,7 @@ func TestRunStateEntriesKeepSnapshotOrder(t *testing.T) {
 }
 
 func TestRunStateEntriesFollowSnapshotMoves(t *testing.T) {
-	prior := moveSnapshot(moveEntry(t, "resource.old", state.EntryLeaf, "resource"))
+	prior := moveSnapshot(moveEntry(t, "resource.old", false, "resource"))
 	rs := &runState{prior: prior, next: cloneSnapshot(prior)}
 	require.Same(t, prior.Entries[0], rs.priorEntry("resource.old"))
 	require.Same(t, rs.next.Entries[0], rs.nextEntry("resource.old"))

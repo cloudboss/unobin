@@ -509,10 +509,10 @@ func stateMoveBoundaryEntry(binding, address string) *state.Entry {
 		panic("invalid test binding")
 	}
 	return &state.Entry{
-		Address:  address,
-		Type:     state.EntryLibraryCall,
-		Category: "resource",
-		Binding:  &state.Binding{Alias: alias, Export: export},
+		Address:   address,
+		Composite: true,
+		Category:  "resource",
+		Binding:   &state.Binding{Alias: alias, Export: export},
 	}
 }
 
@@ -581,7 +581,7 @@ func stateMoveUpdateFailureLibs() map[string]*Library {
 func stateMoveUpdateFailureEntry() *state.Entry {
 	return &state.Entry{
 		Address:       "resource.fail",
-		Type:          state.EntryLeaf,
+		Composite:     false,
 		Category:      "resource",
 		Binding:       &state.Binding{Alias: "bad", Export: "thing"},
 		SchemaVersion: 1,
@@ -602,7 +602,7 @@ func stateMovePlanEntry(address string) *state.Entry {
 func stateMovePlanEntryWithBinding(alias, export, address string) *state.Entry {
 	return &state.Entry{
 		Address:       address,
-		Type:          state.EntryLeaf,
+		Composite:     false,
 		Category:      "resource",
 		Binding:       &state.Binding{Alias: alias, Export: export},
 		SchemaVersion: 1,

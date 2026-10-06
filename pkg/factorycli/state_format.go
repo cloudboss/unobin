@@ -13,8 +13,8 @@ import (
 
 type stateEntrySummary struct {
 	Address   string             `json:"address"    ub:"address"`
-	EntryType string             `json:"entry-type" ub:"entry-type"`
 	Category  string             `json:"category"   ub:"category"`
+	Composite bool               `json:"composite"  ub:"composite"`
 	Binding   graphprint.Binding `json:"binding"    ub:"binding"`
 }
 
@@ -30,8 +30,8 @@ type stateListResult struct {
 
 type stateEntryDetail struct {
 	Address          string             `json:"address"           ub:"address"`
-	EntryType        string             `json:"entry-type"        ub:"entry-type"`
 	Category         string             `json:"category"          ub:"category"`
+	Composite        bool               `json:"composite"         ub:"composite"`
 	Binding          graphprint.Binding `json:"binding"           ub:"binding"`
 	SchemaVersion    int                `json:"schema-version"     ub:"schema-version"`
 	TriggerHash      *string            `json:"trigger-hash"       ub:"trigger-hash"`
@@ -144,7 +144,7 @@ func buildStateListResult(
 ) (stateListResult, error) {
 	result := stateListResult{
 		Kind:          "state-list",
-		FormatVersion: 1,
+		FormatVersion: 2,
 		Factory:       factoryIdentityFor(info),
 		Stack:         stack,
 		StateRev:      copyOptionalString(revision),
@@ -184,7 +184,7 @@ func buildStateEntryResult(
 	}
 	return stateEntryResult{
 		Kind:          "state-entry",
-		FormatVersion: 1,
+		FormatVersion: 2,
 		Factory:       factoryIdentityFor(info),
 		Stack:         stack,
 		StateRev:      revision,
@@ -365,8 +365,8 @@ func buildStateEntrySummary(entry *state.Entry) (stateEntrySummary, error) {
 	}
 	return stateEntrySummary{
 		Address:   entry.Address,
-		EntryType: string(entry.Type),
 		Category:  entry.Category,
+		Composite: entry.Composite,
 		Binding:   binding,
 	}, nil
 }
@@ -388,8 +388,8 @@ func buildStateEntryDetail(entry *state.Entry) (stateEntryDetail, error) {
 	}
 	return stateEntryDetail{
 		Address:          summary.Address,
-		EntryType:        summary.EntryType,
 		Category:         summary.Category,
+		Composite:        summary.Composite,
 		Binding:          summary.Binding,
 		SchemaVersion:    entry.SchemaVersion,
 		TriggerHash:      triggerHash,

@@ -37,7 +37,7 @@ func sampleSnapshot() *sdkstate.Snapshot {
 		Entries: []*sdkstate.Entry{
 			{
 				Address:       "resource.main",
-				Type:          sdkstate.EntryLeaf,
+				Composite:     false,
 				Category:      "resource",
 				Binding:       &sdkstate.Binding{Alias: "gcp", Export: "network"},
 				SchemaVersion: 1,

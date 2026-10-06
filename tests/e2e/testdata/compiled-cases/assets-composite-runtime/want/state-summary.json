@@ -9,8 +9,8 @@
   "entries": [
     {
       "address": "resource.first",
-      "entry-kind": "library-call",
       "category": "resource",
+      "composite": true,
       "binding": {
         "alias": "archives",
         "library-path": "assets-composite-runtime/internal/archives",
@@ -37,8 +37,8 @@
     },
     {
       "address": "resource.first/resource.zippy",
-      "entry-kind": "leaf",
       "category": "resource",
+      "composite": false,
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
@@ -82,8 +82,8 @@
     },
     {
       "address": "resource.second",
-      "entry-kind": "library-call",
       "category": "resource",
+      "composite": true,
       "binding": {
         "alias": "archives",
         "library-path": "assets-composite-runtime/internal/archives",
@@ -110,8 +110,8 @@
     },
     {
       "address": "resource.second/resource.zippy",
-      "entry-kind": "leaf",
       "category": "resource",
+      "composite": false,
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",

@@ -22,16 +22,16 @@ type stateSummary struct {
 }
 
 type stateEntrySummary struct {
-	Address          string             `json:"address"`
-	Type             sdkstate.EntryType `json:"entry-kind"`
-	Category         string             `json:"category,omitempty"`
-	Binding          *sdkstate.Binding  `json:"binding,omitempty"`
-	SchemaVersion    int                `json:"schema-version,omitempty"`
-	SensitiveInputs  []string           `json:"sensitive-inputs,omitempty"`
-	SensitiveOutputs []string           `json:"sensitive-outputs,omitempty"`
-	Inputs           map[string]any     `json:"inputs,omitempty"`
-	Outputs          map[string]any     `json:"outputs,omitempty"`
-	DependsOn        []string           `json:"depends-on,omitempty"`
+	Address          string            `json:"address"`
+	Category         string            `json:"category"`
+	Composite        bool              `json:"composite"`
+	Binding          *sdkstate.Binding `json:"binding,omitempty"`
+	SchemaVersion    int               `json:"schema-version,omitempty"`
+	SensitiveInputs  []string          `json:"sensitive-inputs,omitempty"`
+	SensitiveOutputs []string          `json:"sensitive-outputs,omitempty"`
+	Inputs           map[string]any    `json:"inputs,omitempty"`
+	Outputs          map[string]any    `json:"outputs,omitempty"`
+	DependsOn        []string          `json:"depends-on,omitempty"`
 }
 
 func compareStateSummary(
@@ -98,8 +98,8 @@ func summarizeSnapshot(snap *sdkstate.Snapshot) stateSummary {
 func summarizeEntry(entry *sdkstate.Entry) stateEntrySummary {
 	return stateEntrySummary{
 		Address:          entry.Address,
-		Type:             entry.Type,
 		Category:         entry.Category,
+		Composite:        entry.Composite,
 		Binding:          entry.Binding,
 		SchemaVersion:    entry.SchemaVersion,
 		SensitiveInputs:  sortedCopy(entry.SensitiveInputs),

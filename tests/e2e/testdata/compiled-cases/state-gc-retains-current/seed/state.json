@@ -10,8 +10,8 @@
   "entries": [
     {
       "address": "action.hi",
-      "entry-kind": "action",
       "category": "action",
+      "composite": false,
       "binding": { "alias": "e2e", "library-path": "example.com/unobin/e2elib", "kind": "echo" },
       "inputs": {
         "text": "gc",

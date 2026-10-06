@@ -9,8 +9,8 @@
   "entries": [
     {
       "address": "resource.archived",
-      "entry-kind": "library-call",
       "category": "resource",
+      "composite": true,
       "binding": {
         "alias": "files",
         "library-path": "config-defaults-constraints/internal/files",
@@ -39,8 +39,8 @@
     },
     {
       "address": "resource.archived/resource.member",
-      "entry-kind": "leaf",
       "category": "resource",
+      "composite": false,
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
@@ -63,8 +63,8 @@
     },
     {
       "address": "resource.direct",
-      "entry-kind": "leaf",
       "category": "resource",
+      "composite": false,
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",

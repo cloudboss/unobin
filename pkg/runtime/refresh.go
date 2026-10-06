@@ -21,11 +21,9 @@ type RefreshResult struct {
 }
 
 // Refresh reads every resource recorded in prior state and writes a
-// fresh snapshot whose leaf outputs reflect the observation. Resources
-// that are no longer present are dropped. Action and library-call
-// entries, plus stack-level outputs, carry forward unchanged. No
-// resource writes happen. The stack's lock is held for the
-// duration.
+// fresh snapshot whose resource outputs reflect the observation. Missing
+// resources are removed. Other entries and stack outputs stay unchanged.
+// The stack lock covers the operation; refresh does not write resources.
 func (e *Executor) Refresh(ctx context.Context) (result *RefreshResult, err error) {
 	if e.Store == nil {
 		return nil, errors.New("executor: Store is required")
@@ -73,10 +71,10 @@ func (e *Executor) Refresh(ctx context.Context) (result *RefreshResult, err erro
 		err     error
 	}
 	leaves := []*state.Entry{}
-	carry := []*state.Entry{}
+	preserved := []*state.Entry{}
 	for _, ent := range rs.prior.Entries {
-		if ent.Type != state.EntryLeaf {
-			carry = append(carry, ent)
+		if ent.Composite || ent.Category != string(NodeResource) {
+			preserved = append(preserved, ent)
 			continue
 		}
 		leaves = append(leaves, ent)
@@ -98,7 +96,7 @@ func (e *Executor) Refresh(ctx context.Context) (result *RefreshResult, err erro
 		})
 	}
 	wg.Wait()
-	rs.next.Entries = append(rs.next.Entries, carry...)
+	rs.next.Entries = append(rs.next.Entries, preserved...)
 	for _, r := range results {
 		if r.err != nil {
 			return nil, diagnostic.Context(leaves[r.idx].Address, r.err)
@@ -159,7 +157,7 @@ func (e *Executor) refreshLeaf(
 	}
 	return &state.Entry{
 		Address:          ent.Address,
-		Type:             state.EntryLeaf,
+		Composite:        false,
 		Category:         string(NodeResource),
 		Binding:          bindingFromEntry(ent),
 		SchemaVersion:    rt.SchemaVersion(),

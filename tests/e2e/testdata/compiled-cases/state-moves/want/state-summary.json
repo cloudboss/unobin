@@ -9,8 +9,8 @@
   "entries": [
     {
       "address": "resource.bad",
-      "entry-kind": "leaf",
       "category": "resource",
+      "composite": false,
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
@@ -33,8 +33,8 @@
     },
     {
       "address": "resource.direct",
-      "entry-kind": "leaf",
       "category": "resource",
+      "composite": false,
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
@@ -57,8 +57,8 @@
     },
     {
       "address": "resource.group",
-      "entry-kind": "library-call",
       "category": "resource",
+      "composite": true,
       "binding": {
         "alias": "groups",
         "library-path": "state-moves/internal/groups",
@@ -89,8 +89,8 @@
     },
     {
       "address": "resource.group/resource.file",
-      "entry-kind": "leaf",
       "category": "resource",
+      "composite": false,
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
@@ -113,8 +113,8 @@
     },
     {
       "address": "resource.group/resource.single",
-      "entry-kind": "library-call",
       "category": "resource",
+      "composite": true,
       "binding": {
         "alias": "items",
         "library-path": "state-moves/internal/items",
@@ -143,8 +143,8 @@
     },
     {
       "address": "resource.group/resource.single/resource.file",
-      "entry-kind": "leaf",
       "category": "resource",
+      "composite": false,
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
@@ -167,8 +167,8 @@
     },
     {
       "address": "resource.items['blue']",
-      "entry-kind": "leaf",
       "category": "resource",
+      "composite": false,
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",

@@ -34,7 +34,7 @@ func benchmarkStateLookup(b *testing.B, count int, changes bool) {
 	for i := range count {
 		addresses[i] = instanceAddress("resource.nodes", fmt.Sprintf("node-%05d", i))
 		prior.Entries[i] = &state.Entry{
-			Address: addresses[i], Type: state.EntryLeaf, Category: "resource", Binding: binding,
+			Address: addresses[i], Composite: false, Category: "resource", Binding: binding,
 			SchemaVersion: 1, Outputs: map[string]any{"id": i},
 		}
 	}

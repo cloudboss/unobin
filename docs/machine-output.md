@@ -434,11 +434,13 @@ Pin action is `added-factory-block`, `added-pin-block`,
 `added-supported-versions`, `appended-entry`, or `already-pinned`. The last action
 uses an `unchanged` file change.
 
-`state-list.state-rev` and `state-snapshots.current` are string or null. A state
-entry summary has required `address`, `entry-type`, `category`, and `binding`.
-Entry type is `leaf`, `library-call`, `action`, or `data-source`. State category is
-`resource`, `data-source`, or `action`. Binding is required for valid current
-entries.
+`state-list` and `state-entry` use format version 2. Their entries have required
+`address`, `category`, `composite`, and `binding` fields. Category is `resource`,
+`data-source`, or `action`; `composite` is a boolean that marks a call boundary
+independently of category. Version 1 used `entry-type` for this distinction.
+Binding is required for valid current entries. `state-list.state-rev` and
+`state-snapshots.current` are string or null. `state-snapshots` remains at
+format version 1.
 
 A detailed `state-entry.entry` adds required `schema-version`, `trigger-hash`,
 `inputs`, `outputs`, `depends-on`, `sensitive-inputs`, and `sensitive-outputs`.

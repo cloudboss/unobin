@@ -553,21 +553,18 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 		return nil, errors.Join(constraintErrs...)
 	}
 
-	// Orphans: prior entries with no live address in this plan become
-	// destroy steps. A normal plan only destroys orphaned leaf
-	// resources; action and library-call records are cleaned up by
-	// pruning. A destroy plan removes every record, so it emits a step
-	// for each entry type.
+	// A normal plan deletes only orphaned primitive resources. Other orphaned
+	// entries are pruned. A destroy plan removes every entry.
 	if rs.prior != nil {
 		for _, prior := range rs.prior.Entries {
 			if liveAddresses[prior.Address] {
 				continue
 			}
-			kind, composite, ok := destroyEntryKind(prior.Type)
+			kind, composite, ok := destroyEntryClassification(prior)
 			if !ok {
 				continue
 			}
-			if !e.Destroy && prior.Type != state.EntryLeaf {
+			if !e.Destroy && (prior.Composite || prior.Category != string(NodeResource)) {
 				continue
 			}
 			plan.Steps = append(plan.Steps, &PlanStep{
@@ -592,23 +589,15 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	return plan, nil
 }
 
-// destroyEntryKind maps a state entry type to the node kind its destroy
-// step takes and whether that step is a composite boundary. Leaf
-// entries delete a real resource; action and library-call records have
-// no external lifecycle and are only removed from state. A library-call
-// record does not remember its resource/data/action kind, but a
-// destroy boundary never reads its kind (it is only removed), so the
-// kind is left empty and the composite bit alone routes it.
-func destroyEntryKind(t state.EntryType) (kind NodeKind, composite, ok bool) {
-	switch t {
-	case state.EntryLeaf:
-		return NodeResource, false, true
-	case state.EntryAction:
-		return NodeAction, false, true
-	case state.EntryData:
-		return NodeDataSource, false, true
-	case state.EntryLibraryCall:
-		return "", true, true
+// Composite destroy steps retain an empty node kind in the plan encoding.
+// Their composite marker selects state removal without a provider lifecycle.
+func destroyEntryClassification(entry *state.Entry) (kind NodeKind, composite, ok bool) {
+	switch NodeKind(entry.Category) {
+	case NodeResource, NodeAction, NodeDataSource:
+		if entry.Composite {
+			return "", true, true
+		}
+		return NodeKind(entry.Category), false, true
 	}
 	return "", false, false
 }
@@ -797,8 +786,11 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 		return nil
 	}
 	for _, ent := range rs.prior.Entries {
-		switch ent.Type {
-		case state.EntryAction:
+		if ent.Composite {
+			continue
+		}
+		switch NodeKind(ent.Category) {
+		case NodeAction:
 			scope, err := e.scopeForAddress(rs, ent.Address)
 			if errors.Is(err, ErrEvalNotFound) {
 				continue
@@ -815,7 +807,7 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 			} else {
 				seedAddressInstance(scope.Actions, tmpl, instKey, ent.Outputs)
 			}
-		case state.EntryLeaf:
+		case NodeResource:
 			scope, err := e.scopeForAddress(rs, ent.Address)
 			if errors.Is(err, ErrEvalNotFound) {
 				continue

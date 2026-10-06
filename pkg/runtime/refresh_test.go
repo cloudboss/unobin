@@ -141,7 +141,8 @@ func TestRefreshPreservesActionEntries(t *testing.T) {
 	snap, err := store.Current()
 	require.NoError(t, err)
 	require.Len(t, snap.Entries, 1)
-	require.Equal(t, state.EntryAction, snap.Entries[0].Type)
+	require.False(t, snap.Entries[0].Composite)
+	require.Equal(t, "action", snap.Entries[0].Category)
 }
 
 func TestRefreshWaitsForLock(t *testing.T) {
@@ -275,7 +276,7 @@ func TestRefreshMigratesPriorEntry(t *testing.T) {
 	prior := state.NewSnapshot(stack, store.Stack())
 	prior.Entries = []*state.Entry{{
 		Address:       "resource.one",
-		Type:          state.EntryLeaf,
+		Composite:     false,
 		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
@@ -313,7 +314,7 @@ func TestRefreshDoesNotInventDefaults(t *testing.T) {
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	seedPrior(t, store, stack, &state.Entry{
 		Address:       "resource.one",
-		Type:          state.EntryLeaf,
+		Composite:     false,
 		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,

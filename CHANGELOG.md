@@ -13,6 +13,10 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ### Changed
 
+- Use snapshot format 2 with required `category` and boolean `composite` fields
+  instead of `entry-kind`. Earlier snapshots are rejected and state must be
+  recreated. State list/show output uses format version 2 with the same
+  classification. Backend storage and encryption envelopes are unchanged.
 - Move the `internal/e2etest` framework into `pkg/` for external library tests.
 - Libraries now register typed resource definitions and receive prior target data through `runtime.Prior`. Existing libraries must be updated to include this change.
 - Go library and configuration packages must declare their minimum implementation API in `Library().Compatibility`. Existing libraries must be updated to include this change.

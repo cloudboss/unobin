@@ -9,8 +9,8 @@
   "entries": [
     {
       "address": "resource.legacy",
-      "entry-kind": "leaf",
       "category": "resource",
+      "composite": false,
       "binding": {
         "alias": "old",
         "library-path": "example.com/unobin/e2elib",

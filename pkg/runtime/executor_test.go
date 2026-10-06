@@ -569,10 +569,10 @@ func TestExecutorRunsComposite(t *testing.T) {
 
 	var leaf, libCall *state.Entry
 	for _, e := range snap.Entries {
-		switch e.Type {
-		case state.EntryLeaf:
+		switch e.Composite {
+		case false:
 			leaf = e
-		case state.EntryLibraryCall:
+		case true:
 			libCall = e
 		}
 	}
@@ -611,7 +611,7 @@ func TestExecutorAppliesDataComposite(t *testing.T) {
 	require.NoError(t, err)
 	var libCall *state.Entry
 	for _, e := range snap.Entries {
-		if e.Type == state.EntryLibraryCall {
+		if e.Composite {
 			libCall = e
 		}
 	}
@@ -650,13 +650,14 @@ func TestExecutorAppliesActionComposite(t *testing.T) {
 	require.NoError(t, err)
 	var libCall *state.Entry
 	for _, e := range snap.Entries {
-		if e.Type == state.EntryLibraryCall {
+		if e.Composite {
 			libCall = e
 		}
 	}
 	require.NotNil(t, libCall, "the action composite call records a library-call entry")
 	require.Equal(t, "action.hello", libCall.Address,
 		"the boundary address has the action kind root")
+	require.Equal(t, "action", libCall.Category)
 	require.Equal(t, "hi", libCall.Outputs["said"])
 }
 
@@ -827,19 +828,19 @@ func TestExecutorRunsNestedComposite(t *testing.T) {
 	leafAddr := "resource.mine/resource.only/resource.x"
 	leaf := byAddr[leafAddr]
 	require.NotNil(t, leaf, "deepest leaf persists at fully chained address")
-	require.Equal(t, state.EntryLeaf, leaf.Type)
+	require.False(t, leaf.Composite)
 
 	innerAddr := "resource.mine/resource.only"
 	inner := byAddr[innerAddr]
 	require.NotNil(t, inner)
-	require.Equal(t, state.EntryLibraryCall, inner.Type)
+	require.True(t, inner.Composite)
 	require.Equal(t, "resource", inner.Category)
 	require.Equal(t, &state.Binding{Alias: "inner-lib", Export: "cluster"}, inner.Binding)
 
 	outerAddr := "resource.mine"
 	outer := byAddr[outerAddr]
 	require.NotNil(t, outer)
-	require.Equal(t, state.EntryLibraryCall, outer.Type)
+	require.True(t, outer.Composite)
 	require.Equal(t, "resource", outer.Category)
 	require.Equal(t, &state.Binding{Alias: "outer-lib", Export: "layer"}, outer.Binding)
 }
@@ -939,7 +940,8 @@ func TestExecutorCompositeInternalDataAndAction(t *testing.T) {
 	}
 	require.NotNil(t, actionEntry,
 		"internal action should be persisted under composite-prefixed address")
-	require.Equal(t, state.EntryAction, actionEntry.Type)
+	require.False(t, actionEntry.Composite)
+	require.Equal(t, "action", actionEntry.Category)
 	require.Equal(t, "looked-up:banana", actionEntry.Outputs["echo"])
 
 	require.NotNil(t, libCall)
@@ -1019,7 +1021,7 @@ func TestExecutorOrphanResourceDeleted(t *testing.T) {
 	require.NoError(t, err)
 	addresses := []string{}
 	for _, e := range snap.Entries {
-		if e.Type == state.EntryLeaf {
+		if !e.Composite && e.Category == "resource" {
 			addresses = append(addresses, e.Address)
 		}
 	}
@@ -1116,7 +1118,8 @@ func TestExecutorPersistsSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, snap.Entries, 1)
 	require.Equal(t, "action.hi", snap.Entries[0].Address)
-	require.Equal(t, state.EntryAction, snap.Entries[0].Type)
+	require.False(t, snap.Entries[0].Composite)
+	require.Equal(t, "action", snap.Entries[0].Category)
 	require.NotEmpty(t, snap.Entries[0].TriggerHash)
 }
 

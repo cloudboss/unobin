@@ -9,8 +9,8 @@
   "entries": [
     {
       "address": "resource.group",
-      "entry-kind": "library-call",
       "category": "resource",
+      "composite": true,
       "binding": {
         "alias": "groups",
         "library-path": "ub-composite-foreach/internal/groups",
@@ -50,8 +50,8 @@
     },
     {
       "address": "resource.group/resource.file['one']",
-      "entry-kind": "leaf",
       "category": "resource",
+      "composite": false,
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
@@ -74,8 +74,8 @@
     },
     {
       "address": "resource.group/resource.file['two']",
-      "entry-kind": "leaf",
       "category": "resource",
+      "composite": false,
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",
@@ -98,8 +98,8 @@
     },
     {
       "address": "resource.group/resource.single",
-      "entry-kind": "library-call",
       "category": "resource",
+      "composite": true,
       "binding": {
         "alias": "items",
         "library-path": "ub-composite-foreach/internal/items",
@@ -128,8 +128,8 @@
     },
     {
       "address": "resource.group/resource.single/resource.file",
-      "entry-kind": "leaf",
       "category": "resource",
+      "composite": false,
       "binding": {
         "alias": "e2e",
         "library-path": "example.com/unobin/e2elib",

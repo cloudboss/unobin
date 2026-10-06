@@ -21,7 +21,7 @@ func sampleSnapshot() *Snapshot {
 		Entries: []*Entry{
 			{
 				Address:       "resource.main",
-				Type:          EntryLeaf,
+				Composite:     false,
 				Category:      "resource",
 				Binding:       &Binding{Alias: "aws", LibraryPath: "example.com/aws", Export: "vpc"},
 				SchemaVersion: 1,
@@ -31,7 +31,7 @@ func sampleSnapshot() *Snapshot {
 			},
 			{
 				Address:   "resource.web",
-				Type:      EntryLibraryCall,
+				Composite: true,
 				Category:  "resource",
 				Binding:   &Binding{Alias: "net", LibraryPath: "example.com/net", Export: "cluster"},
 				Inputs:    map[string]any{"name": "web", "size": float64(5)},
@@ -94,12 +94,12 @@ func TestSnapshotRejectsLibraryCallWithoutBinding(t *testing.T) {
 	require.Contains(t, err.Error(), "binding missing")
 }
 
-func TestSnapshotRejectsUnknownType(t *testing.T) {
+func TestSnapshotRejectsUnknownCategory(t *testing.T) {
 	s := sampleSnapshot()
-	s.Entries[0].Type = "weird"
+	s.Entries[0].Category = "weird"
 	_, err := EncodeSnapshot(s)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "unknown entry-kind")
+	require.Contains(t, err.Error(), `has category "weird"`)
 }
 
 func TestSnapshotRejectsNodeKindJSON(t *testing.T) {
@@ -111,7 +111,7 @@ func TestSnapshotRejectsNodeKindJSON(t *testing.T) {
   "entries": [
     {
       "address": "resource.main",
-      "entry-kind": "leaf",
+      "composite": false,
       "node-kind": "resource",
       "binding": { "alias": "aws", "library-path": "example.com/aws", "kind": "vpc" }
     }
@@ -126,10 +126,10 @@ func TestSnapshotRejectsNodeKindJSON(t *testing.T) {
 func TestSnapshotRejectsDuplicateAddresses(t *testing.T) {
 	s := sampleSnapshot()
 	s.Entries = append(s.Entries, &Entry{
-		Address:  "resource.main",
-		Type:     EntryLeaf,
-		Category: "resource",
-		Binding:  &Binding{Alias: "aws", LibraryPath: "example.com/aws", Export: "vpc"},
+		Address:   "resource.main",
+		Composite: false,
+		Category:  "resource",
+		Binding:   &Binding{Alias: "aws", LibraryPath: "example.com/aws", Export: "vpc"},
 	})
 	_, err := EncodeSnapshot(s)
 	require.Error(t, err)
@@ -160,7 +160,9 @@ func TestSnapshotJSONShape(t *testing.T) {
 	require.True(t, strings.HasSuffix(out, "\n"))
 	require.Contains(t, out, `"format-version": 2`)
 	require.Contains(t, out, `"address": "resource.main"`)
-	require.Contains(t, out, `"entry-kind": "leaf"`)
+	require.Contains(t, out, `"composite": false`)
+	require.Contains(t, out, `"composite": true`)
+	require.NotContains(t, out, `"entry-kind"`)
 	require.Contains(t, out, `"category": "resource"`)
 	require.Contains(t, out, `"binding": {`)
 	require.Contains(t, out, `"alias": "aws"`)
@@ -185,7 +187,7 @@ func TestSnapshotActionEntry(t *testing.T) {
 		Entries: []*Entry{
 			{
 				Address:     "action.smoke-test",
-				Type:        EntryAction,
+				Composite:   false,
 				Category:    "action",
 				Binding:     &Binding{Alias: "core", LibraryPath: "example.com/core", Export: "command"},
 				TriggerHash: "sha256:deadbeef",
@@ -222,12 +224,12 @@ func TestSnapshotDataSourceEntry(t *testing.T) {
 		GeneratedAt:   time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
 		Entries: []*Entry{
 			{
-				Address:  "data-source.image",
-				Type:     EntryData,
-				Category: "data-source",
-				Binding:  &Binding{Alias: "aws", LibraryPath: "example.com/aws", Export: "ami"},
-				Inputs:   map[string]any{"name": "ubuntu"},
-				Outputs:  map[string]any{"id": "ami-abc"},
+				Address:   "data-source.image",
+				Composite: false,
+				Category:  "data-source",
+				Binding:   &Binding{Alias: "aws", LibraryPath: "example.com/aws", Export: "ami"},
+				Inputs:    map[string]any{"name": "ubuntu"},
+				Outputs:   map[string]any{"id": "ami-abc"},
 			},
 		},
 	}
@@ -237,8 +239,8 @@ func TestSnapshotDataSourceEntry(t *testing.T) {
 	got, err := DecodeSnapshot(b)
 	require.NoError(t, err)
 	require.Equal(t, snap, got)
-	require.Contains(t, string(b), `"entry-kind": "data-source"`)
 	require.Contains(t, string(b), `"category": "data-source"`)
+	require.Contains(t, string(b), `"composite": false`)
 	require.NotContains(t, string(b), `"node-kind":`)
 }
 
@@ -250,9 +252,9 @@ func TestSnapshotRejectsActionWithoutCategory(t *testing.T) {
 		GeneratedAt:   time.Now().UTC(),
 		Entries: []*Entry{
 			{
-				Address: "action.x",
-				Type:    EntryAction,
-				Binding: &Binding{Alias: "core", LibraryPath: "example.com/core", Export: "command"},
+				Address:   "action.x",
+				Composite: false,
+				Binding:   &Binding{Alias: "core", LibraryPath: "example.com/core", Export: "command"},
 			},
 		},
 	}

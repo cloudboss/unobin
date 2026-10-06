@@ -230,7 +230,7 @@ func validationFixture(t testing.TB, name string) string {
 func validationEntry(address, name string, valid bool) *state.Entry {
 	return &state.Entry{
 		Address:       address,
-		Type:          state.EntryLeaf,
+		Composite:     false,
 		Category:      "resource",
 		Binding:       &state.Binding{Alias: "core", Export: "thing"},
 		SchemaVersion: 1,
