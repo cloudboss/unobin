@@ -1,0 +1,3118 @@
+{
+  "format-version": 1,
+  "work-package": "import-analysis",
+  "before-revision": "e87545ab2df76016f3a1372cc2c9be751717d43a",
+  "after-revision": "4856555e2240b444484ee8ec9c6ae7e69761dc73",
+  "fixture-revision": "e87545ab2df76016f3a1372cc2c9be751717d43a",
+  "primary-unit": "sec/op",
+  "assessment": "improved",
+  "statistics": [
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=10",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 5705648,
+        "low": 5705006,
+        "high": 5705660,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2935212,
+        "low": 2935201,
+        "high": 2935234,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.55602729085285,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=10",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 119374,
+        "low": 119374,
+        "high": 119374,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 60547,
+        "low": 60547,
+        "high": 60547,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -49.27957511685962,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=10",
+      "cpu": 1,
+      "unit": "libraries",
+      "before": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=10",
+      "cpu": 1,
+      "unit": "resolves/op",
+      "before": {
+        "samples": 10,
+        "median": 11,
+        "low": 11,
+        "high": 11,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 11,
+        "low": 11,
+        "high": 11,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=10",
+      "cpu": 1,
+      "unit": "schema-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=10",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.010102742500000001,
+        "low": 0.009941298000000001,
+        "high": 0.010325145,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.005039124000000001,
+        "low": 0.0049977170000000005,
+        "high": 0.005065437,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -50.12122698366311,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=10",
+      "cpu": 1,
+      "unit": "ub-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 64,
+        "low": 64,
+        "high": 64,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 44,
+        "low": 44,
+        "high": 44,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -31.25,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=10",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 5730230,
+        "low": 5729797,
+        "high": 5730575,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2948082,
+        "low": 2947858,
+        "high": 2948392,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.552117454273215,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=10",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 119398,
+        "low": 119397,
+        "high": 119398,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 60563,
+        "low": 60563,
+        "high": 60564,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -49.276369788438664,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=10",
+      "cpu": 4,
+      "unit": "libraries",
+      "before": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=10",
+      "cpu": 4,
+      "unit": "resolves/op",
+      "before": {
+        "samples": 10,
+        "median": 11,
+        "low": 11,
+        "high": 11,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 11,
+        "low": 11,
+        "high": 11,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=10",
+      "cpu": 4,
+      "unit": "schema-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=10",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.008237959500000001,
+        "low": 0.008166729000000001,
+        "high": 0.008301847000000001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0042153450000000005,
+        "low": 0.004188030000000001,
+        "high": 0.004277592,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.83022913623209,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=10",
+      "cpu": 4,
+      "unit": "ub-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 64,
+        "low": 64,
+        "high": 64,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 44,
+        "low": 44,
+        "high": 44,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -31.25,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=2",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 1755608,
+        "low": 1755335,
+        "high": 1755613,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 914665,
+        "low": 914474,
+        "high": 914665,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -47.90038550747091,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=2",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 37726,
+        "low": 37726,
+        "high": 37726,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 19268,
+        "low": 19268,
+        "high": 19268,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.926469808620055,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=2",
+      "cpu": 1,
+      "unit": "libraries",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=2",
+      "cpu": 1,
+      "unit": "resolves/op",
+      "before": {
+        "samples": 10,
+        "median": 3,
+        "low": 3,
+        "high": 3,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 3,
+        "low": 3,
+        "high": 3,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=2",
+      "cpu": 1,
+      "unit": "schema-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=2",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0030814425000000004,
+        "low": 0.003039439,
+        "high": 0.003983577,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0015805885000000001,
+        "low": 0.001558988,
+        "high": 0.002199317,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.70621470301653,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=2",
+      "cpu": 1,
+      "unit": "ub-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 16,
+        "low": 16,
+        "high": 16,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 12,
+        "low": 12,
+        "high": 12,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -25,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=2",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 1763761.5,
+        "low": 1763588,
+        "high": 1763915,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 918829.5,
+        "low": 918720,
+        "high": 918901,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -47.9051164230538,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=2",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 37737,
+        "low": 37737,
+        "high": 37738,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 19274,
+        "low": 19274,
+        "high": 19274,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.92545777353791,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=2",
+      "cpu": 4,
+      "unit": "libraries",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=2",
+      "cpu": 4,
+      "unit": "resolves/op",
+      "before": {
+        "samples": 10,
+        "median": 3,
+        "low": 3,
+        "high": 3,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 3,
+        "low": 3,
+        "high": 3,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=2",
+      "cpu": 4,
+      "unit": "schema-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=2",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0025659145000000005,
+        "low": 0.00255632,
+        "high": 0.00258856,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0013225225000000002,
+        "low": 0.001315568,
+        "high": 0.001331479,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.45804488029511,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=2",
+      "cpu": 4,
+      "unit": "ub-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 16,
+        "low": 16,
+        "high": 16,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 12,
+        "low": 12,
+        "high": 12,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -25,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=5",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 3231050.5,
+        "low": 3231041,
+        "high": 3231074,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1668257.5,
+        "low": 1668066,
+        "high": 1668260,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.3679533947241,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=5",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 68270,
+        "low": 68270,
+        "high": 68271,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 34707,
+        "low": 34707,
+        "high": 34707,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -49.16215028563058,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=5",
+      "cpu": 1,
+      "unit": "libraries",
+      "before": {
+        "samples": 10,
+        "median": 5,
+        "low": 5,
+        "high": 5,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 5,
+        "low": 5,
+        "high": 5,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=5",
+      "cpu": 1,
+      "unit": "resolves/op",
+      "before": {
+        "samples": 10,
+        "median": 6,
+        "low": 6,
+        "high": 6,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 6,
+        "low": 6,
+        "high": 6,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=5",
+      "cpu": 1,
+      "unit": "schema-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=5",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.005654757,
+        "low": 0.0056281000000000005,
+        "high": 0.005716357,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.002867509,
+        "low": 0.0028351690000000002,
+        "high": 0.002883879,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -49.29032317392241,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=5",
+      "cpu": 1,
+      "unit": "ub-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 34,
+        "low": 34,
+        "high": 34,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 24,
+        "low": 24,
+        "high": 24,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -29.411764705882348,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=5",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 3245016.5,
+        "low": 3244622,
+        "high": 3245217,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1675813.5,
+        "low": 1675667,
+        "high": 1676093,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.357319600686154,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=5",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 68288,
+        "low": 68288,
+        "high": 68288,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 34718,
+        "low": 34718,
+        "high": 34718,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -49.159442361761954,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=5",
+      "cpu": 4,
+      "unit": "libraries",
+      "before": {
+        "samples": 10,
+        "median": 5,
+        "low": 5,
+        "high": 5,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 5,
+        "low": 5,
+        "high": 5,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=5",
+      "cpu": 4,
+      "unit": "resolves/op",
+      "before": {
+        "samples": 10,
+        "median": 6,
+        "low": 6,
+        "high": 6,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 6,
+        "low": 6,
+        "high": 6,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=5",
+      "cpu": 4,
+      "unit": "schema-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=5",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0046745795,
+        "low": 0.004646131,
+        "high": 0.0047293050000000005,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.002405598,
+        "low": 0.002390759,
+        "high": 0.00242172,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.53872952636702,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeNestedLibraries/depth=5",
+      "cpu": 4,
+      "unit": "ub-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 34,
+        "low": 34,
+        "high": 34,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 24,
+        "low": 24,
+        "high": 24,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -29.411764705882348,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=1",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 1285908,
+        "low": 1285637,
+        "high": 1285911,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 674511,
+        "low": 674320,
+        "high": 674513,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -47.54593641224722,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=1",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 28175,
+        "low": 28175,
+        "high": 28175,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 14434,
+        "low": 14434,
+        "high": 14434,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.77018633540373,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=1",
+      "cpu": 1,
+      "unit": "exports",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=1",
+      "cpu": 1,
+      "unit": "resolves/op",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=1",
+      "cpu": 1,
+      "unit": "schema-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=1",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0024173785,
+        "low": 0.00240044,
+        "high": 0.002459286,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0012028605000000002,
+        "low": 0.0011935230000000002,
+        "high": 0.0012247570000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -50.24111863326326,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=1",
+      "cpu": 1,
+      "unit": "ub-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 8,
+        "low": 8,
+        "high": 8,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -19.999999999999996,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=1",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 1292496,
+        "low": 1292353,
+        "high": 1292698,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 677652,
+        "low": 677520,
+        "high": 677734,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -47.57028261596168,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=1",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 28184,
+        "low": 28184,
+        "high": 28184,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 14438,
+        "low": 14438,
+        "high": 14438,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.77235310814647,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=1",
+      "cpu": 4,
+      "unit": "exports",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=1",
+      "cpu": 4,
+      "unit": "resolves/op",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=1",
+      "cpu": 4,
+      "unit": "schema-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=1",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.00192419,
+        "low": 0.001908638,
+        "high": 0.0019387220000000001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0009890485,
+        "low": 0.000985627,
+        "high": 0.000994943,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.59922876639003,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=1",
+      "cpu": 4,
+      "unit": "ub-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 8,
+        "low": 8,
+        "high": 8,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -19.999999999999996,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=10",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 8888631,
+        "low": 8886674,
+        "high": 8888636,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 4312963,
+        "low": 4312925,
+        "high": 4313024,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -51.47775849846843,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=10",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 213046,
+        "low": 213046,
+        "high": 213046,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 104359,
+        "low": 104359,
+        "high": 104359,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -51.015743078959474,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=10",
+      "cpu": 1,
+      "unit": "exports",
+      "before": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=10",
+      "cpu": 1,
+      "unit": "resolves/op",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=10",
+      "cpu": 1,
+      "unit": "schema-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=10",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.017479632000000002,
+        "low": 0.017341994,
+        "high": 0.0175386,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.008131474,
+        "low": 0.008104995,
+        "high": 0.008209669000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -53.48029066058142,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=10",
+      "cpu": 1,
+      "unit": "ub-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 28,
+        "low": 28,
+        "high": 28,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 17,
+        "low": 17,
+        "high": 17,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -39.28571428571429,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=10",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 8921225.5,
+        "low": 8920453,
+        "high": 8921787,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 4328329,
+        "low": 4328166,
+        "high": 4328903,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -51.48279796312738,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=10",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 213080,
+        "low": 213079,
+        "high": 213081,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 104376,
+        "low": 104376,
+        "high": 104376,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -51.01558100244039,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=10",
+      "cpu": 4,
+      "unit": "exports",
+      "before": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=10",
+      "cpu": 4,
+      "unit": "resolves/op",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=10",
+      "cpu": 4,
+      "unit": "schema-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=10",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.013777177500000001,
+        "low": 0.013701609,
+        "high": 0.014051914,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0066324395,
+        "low": 0.00659893,
+        "high": 0.006662608,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -51.85922878615741,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=10",
+      "cpu": 4,
+      "unit": "ub-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 28,
+        "low": 28,
+        "high": 28,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 17,
+        "low": 17,
+        "high": 17,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -39.28571428571429,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=100",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 84762166,
+        "low": 84758951,
+        "high": 84762217,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 40620164.5,
+        "low": 40620115,
+        "high": 40620209,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -52.0774817151322,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=100",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2060366,
+        "low": 2060364,
+        "high": 2060367,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1002836,
+        "low": 1002835,
+        "high": 1002836,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -51.32728845263414,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=100",
+      "cpu": 1,
+      "unit": "exports",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=100",
+      "cpu": 1,
+      "unit": "resolves/op",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=100",
+      "cpu": 1,
+      "unit": "schema-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=100",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.1699421705,
+        "low": 0.168252124,
+        "high": 0.17099182200000002,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0777914475,
+        "low": 0.077272069,
+        "high": 0.07847899400000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -54.22475347282916,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=100",
+      "cpu": 1,
+      "unit": "ub-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 208,
+        "low": 208,
+        "high": 208,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 107,
+        "low": 107,
+        "high": 107,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.557692307692314,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=100",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 84865221,
+        "low": 84858101,
+        "high": 84867823,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 40659690,
+        "low": 40658372,
+        "high": 40661348,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -52.089101376404834,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=100",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2060679,
+        "low": 2060669,
+        "high": 2060689,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1002981,
+        "low": 1002978,
+        "high": 1002984,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -51.327644917039486,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=100",
+      "cpu": 4,
+      "unit": "exports",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=100",
+      "cpu": 4,
+      "unit": "resolves/op",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=100",
+      "cpu": 4,
+      "unit": "schema-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=100",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.134682812,
+        "low": 0.134364327,
+        "high": 0.13588023600000002,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0643656675,
+        "low": 0.064192491,
+        "high": 0.064513762,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -52.20944191453324,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkAnalyzeSharedExports/exports=100",
+      "cpu": 4,
+      "unit": "ub-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 208,
+        "low": 208,
+        "high": 208,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 107,
+        "low": 107,
+        "high": 107,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.557692307692314,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkCheckFactoryBodyLargeGraph",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 719389,
+        "low": 719389,
+        "high": 719389,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 716991,
+        "low": 716991,
+        "high": 716991,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -0.3333384302512288,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkCheckFactoryBodyLargeGraph",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 9790,
+        "low": 9790,
+        "high": 9790,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 9751,
+        "low": 9751,
+        "high": 9751,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -0.39836567926455624,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkCheckFactoryBodyLargeGraph",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0008067695000000001,
+        "low": 0.000799897,
+        "high": 0.0008180020000000001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.000752256,
+        "low": 0.000745195,
+        "high": 0.0007544330000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -6.75701052159261,
+      "p": 0.0010500335577734961,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkCheckFactoryBodyLargeGraph",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 719610,
+        "low": 719609,
+        "high": 719612,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 717194.5,
+        "low": 717193,
+        "high": 717195,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -0.3356679312405353,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkCheckFactoryBodyLargeGraph",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 9791,
+        "low": 9791,
+        "high": 9791,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 9752,
+        "low": 9752,
+        "high": 9752,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -0.3983249923399046,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkCheckFactoryBodyLargeGraph",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0005694705,
+        "low": 0.0005656680000000001,
+        "high": 0.000574954,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0005391345000000001,
+        "low": 0.000535641,
+        "high": 0.000542102,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -5.327053815781491,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkImportAnalysisNestedUBLibraries",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 3471253,
+        "low": 3470713,
+        "high": 3473597,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1810720,
+        "low": 1810470,
+        "high": 1810724,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -47.8367033460252,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkImportAnalysisNestedUBLibraries",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 77039,
+        "low": 77038,
+        "high": 77039,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 39982,
+        "low": 39982,
+        "high": 39982,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.101610872415264,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkImportAnalysisNestedUBLibraries",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.007524451000000001,
+        "low": 0.007261093000000001,
+        "high": 0.007686479,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.003945931,
+        "low": 0.0039099830000000006,
+        "high": 0.003991856,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -47.55855277680725,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkImportAnalysisNestedUBLibraries",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 3511809.5,
+        "low": 3509647,
+        "high": 3514661,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1833624,
+        "low": 1833256,
+        "high": 1834013,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -47.786917257328454,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkImportAnalysisNestedUBLibraries",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 77072,
+        "low": 77071,
+        "high": 77073,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 40001,
+        "low": 40001,
+        "high": 40002,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.09917998754412,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkImportAnalysisNestedUBLibraries",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.005743604500000001,
+        "low": 0.005707296000000001,
+        "high": 0.005820022,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0031671735000000003,
+        "low": 0.0031540390000000004,
+        "high": 0.0031858230000000004,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -44.85738877041412,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/helper-edit",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 237768,
+        "low": 237768,
+        "high": 237768,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 237784,
+        "low": 237400,
+        "high": 237784,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.006729248679393507,
+      "p": 0.47289397908592956,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/helper-edit",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2755,
+        "low": 2755,
+        "high": 2755,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2755,
+        "low": 2755,
+        "high": 2755,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/helper-edit",
+      "cpu": 1,
+      "unit": "lookups",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/helper-edit",
+      "cpu": 1,
+      "unit": "schema-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/helper-edit",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.00029215450000000004,
+        "low": 0.00028630500000000004,
+        "high": 0.000294078,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0002710645,
+        "low": 0.000268689,
+        "high": 0.000273936,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -7.2187832123072,
+      "p": 0.0010500335577734961,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/helper-edit",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 239049.5,
+        "low": 238617,
+        "high": 239077,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 238982,
+        "low": 238715,
+        "high": 239059,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -0.02823682961060614,
+      "p": 0.9705124596765466,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/helper-edit",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2757,
+        "low": 2757,
+        "high": 2757,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2757,
+        "low": 2757,
+        "high": 2757,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/helper-edit",
+      "cpu": 4,
+      "unit": "lookups",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/helper-edit",
+      "cpu": 4,
+      "unit": "schema-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/helper-edit",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.000245129,
+        "low": 0.000244008,
+        "high": 0.000247411,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.00024218200000000002,
+        "low": 0.00023936100000000003,
+        "high": 0.00024572200000000003,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -1.2022241350472584,
+      "p": 0.005196042347745136,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/unchanged",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 5674635,
+        "low": 5674634,
+        "high": 5674636,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 5674635,
+        "low": 5674633,
+        "high": 5674637,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 0.9606832795687285,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/unchanged",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 67314,
+        "low": 67314,
+        "high": 67314,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 67314,
+        "low": 67314,
+        "high": 67314,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/unchanged",
+      "cpu": 1,
+      "unit": "lookups",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/unchanged",
+      "cpu": 1,
+      "unit": "schema-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "delta-percent": null,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/unchanged",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0068019515,
+        "low": 0.006645187,
+        "high": 0.0069014820000000004,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.006364497,
+        "low": 0.006283468,
+        "high": 0.006469628000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -6.431308720739926,
+      "p": 0.0010500335577734961,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/unchanged",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 5703296.5,
+        "low": 5696039,
+        "high": 5703820,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 5704061.5,
+        "low": 5703609,
+        "high": 5704388,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.013413295275821469,
+      "p": 0.014689644720604477,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/unchanged",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 67344,
+        "low": 67343,
+        "high": 67344,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 67344,
+        "low": 67343,
+        "high": 67344,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 0.9071207430340558,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/unchanged",
+      "cpu": 4,
+      "unit": "lookups",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/unchanged",
+      "cpu": 4,
+      "unit": "schema-reads/op",
+      "before": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "delta-percent": null,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/sourcecheck",
+      "name": "BenchmarkSchemaCacheReads/unchanged",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.005716556500000001,
+        "low": 0.005678181,
+        "high": 0.005747617,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0055854415,
+        "low": 0.005573139,
+        "high": 0.005628782000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -2.2936010516121264,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    }
+  ],
+  "warnings": []
+}
