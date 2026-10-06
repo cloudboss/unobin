@@ -1,0 +1,4 @@
+ok  	github.com/cloudboss/unobin/pkg/codegen	0.600s
+ok  	github.com/cloudboss/unobin/pkg/sourcecheck	0.567s
+ok  	github.com/cloudboss/unobin/pkg/compile	17.126s
+ok  	github.com/cloudboss/unobin/internal/ubtest	18.354s

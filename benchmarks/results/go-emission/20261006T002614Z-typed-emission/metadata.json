@@ -1,0 +1,530 @@
+{
+  "format-version": 1,
+  "kind": "benchmark-comparison",
+  "before": {
+    "format-version": 1,
+    "workload": {
+      "work-package": "go-emission",
+      "description": "Composite emission with imports, source spans, configuration metadata, and a large factory",
+      "kind": "micro",
+      "fixtures": [
+        "pkg/codegen/emission_benchmark_test.go",
+        "pkg/codegen/main_benchmark_test.go",
+        "pkg/codegen/main_test.go",
+        "pkg/codegen/testdata/ub/emission/valid/library.ub",
+        "pkg/codegen/testdata/ub/emission/valid/child/library.ub"
+      ],
+      "parameters": {
+        "composites": "1,10,100",
+        "configuration-fields": "20",
+        "imports-per-composite": "2",
+        "large-factory-actions": "1000"
+      },
+      "packages": [
+        "./pkg/codegen"
+      ],
+      "benchmark": "^(BenchmarkGenerateUBLibraryMetadata|BenchmarkGenerateMainLargeFactory)$",
+      "cases": [
+        {
+          "package": "github.com/cloudboss/unobin/pkg/codegen",
+          "name": "BenchmarkGenerateUBLibraryMetadata/composites=1",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "composites",
+            "config-fields",
+            "bytes/output",
+            "library-calls/output"
+          ],
+          "fixed": {
+            "composites": 1,
+            "config-fields": 20
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/codegen",
+          "name": "BenchmarkGenerateUBLibraryMetadata/composites=10",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "composites",
+            "config-fields",
+            "bytes/output",
+            "library-calls/output"
+          ],
+          "fixed": {
+            "composites": 10,
+            "config-fields": 20
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/codegen",
+          "name": "BenchmarkGenerateUBLibraryMetadata/composites=100",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "composites",
+            "config-fields",
+            "bytes/output",
+            "library-calls/output"
+          ],
+          "fixed": {
+            "composites": 100,
+            "config-fields": 20
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/codegen",
+          "name": "BenchmarkGenerateMainLargeFactory",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "bytes/output"
+          ]
+        }
+      ],
+      "samples": 10,
+      "benchtime": "2s",
+      "cpus": [
+        1,
+        4
+      ],
+      "setup": "Parse the committed library fixture and construct the fixed typed schema, defaults, constraints, source spans, and resolved imports outside timing. Each operation calls the public UB generation adapter and includes syntax emission, metadata emission, import handling, template expansion, and Go formatting. Validate generated Go syntax and exact ordered exports after timing; count Library calls in the generated AST. Retain the existing 1000-action factory generation workload. Report output bytes and generated library calls.",
+      "cache-policy": "Symmetric warm Go build cache and one 1x benchmark warmup. Default GC, identical parsed inputs, and no unrelated CPU-intensive work during collection.",
+      "primary-unit": "sec/op",
+      "primary-direction": "lower",
+      "tests": [
+        [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/codegen",
+          "./pkg/sourcecheck",
+          "./pkg/compile",
+          "./internal/ubtest"
+        ],
+        [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "^TestCompiledCases$/^ub-composite-foreach$",
+          "./tests/e2e"
+        ]
+      ]
+    },
+    "source-revision": "6807203ebb708b87ce22e3d4f27a9d585fb0603d",
+    "fixture-revision": "6807203ebb708b87ce22e3d4f27a9d585fb0603d",
+    "workload-path": "benchmarks/workloads/go-emission.json",
+    "repository": "/home/joseph/code/unobin",
+    "clean-source": true,
+    "fixture-digests": {
+      "benchmarks/workloads/go-emission.json": "114faeaa72b46ec06de4af1f0bbe71a9984498ad5d3342ed7b1658ee9636e734",
+      "pkg/codegen/emission_benchmark_test.go": "25daa12fef0554b9525775f7bb5c4d1cd599027cb7c63ee80955aca778e133c6",
+      "pkg/codegen/main_benchmark_test.go": "87114ff4bd245bd92dcffb790b5f19be6249b14c571e90b9ada9e51bac5bf684",
+      "pkg/codegen/main_test.go": "a8448cf58094f507114b1cf43370e7ff213569f5e41a3743f99dbe03fd818d84",
+      "pkg/codegen/testdata/ub/emission/valid/child/library.ub": "dbe9f0153d02ec67b20146a4e55b6885d7c82305fdaab895132988ee724c771b",
+      "pkg/codegen/testdata/ub/emission/valid/library.ub": "01a561a7dddfcb78fc64ef59047509e434bf52cc215d474d07b3c0adeb795717"
+    },
+    "dependency-locks": {
+      "go.mod": "588dedf3818897394d476ef520f1490eaa0c46084a617876add0bb6645aa162e",
+      "go.sum": "1e1f203654bb19eb6d9c941749ae98c646e73039a7932d3730efd477d542fe45"
+    },
+    "machine": {
+      "go-version": "go1.26.2",
+      "goos": "linux",
+      "goarch": "amd64",
+      "cpu-model": "AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M",
+      "logical-cpus": 24
+    },
+    "environment": {
+      "CC": "",
+      "CGO_CFLAGS": "",
+      "CGO_CPPFLAGS": "",
+      "CGO_CXXFLAGS": "",
+      "CGO_ENABLED": "1",
+      "CGO_LDFLAGS": "",
+      "CXX": "",
+      "GO386": "",
+      "GOAMD64": "v1",
+      "GOARCH": "amd64",
+      "GOARM": "",
+      "GOARM64": "",
+      "GOCACHE": "/home/joseph/code/unobin/_output/remediation/gocache",
+      "GODEBUG": "",
+      "GOEXPERIMENT": "",
+      "GOFLAGS": "",
+      "GOMAXPROCS": "",
+      "GOMIPS": "",
+      "GOMIPS64": "",
+      "GOMODCACHE": "/home/joseph/code/unobin/_output/remediation/gomodcache",
+      "GOOS": "linux",
+      "GOPPC64": "",
+      "GORISCV64": "",
+      "GOROOT": "/home/joseph/.local/go1.26.2",
+      "GOTMPDIR": "",
+      "GOTOOLCHAIN": "auto",
+      "GOVERSION": "go1.26.2",
+      "GOWASM": "",
+      "GOWORK": "",
+      "UNOBIN_BENCH_PROFILE": ""
+    },
+    "benchstat-version": "v0.0.0-20260929162123-406019bb8b68",
+    "tests": [
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/codegen",
+          "./pkg/sourcecheck",
+          "./pkg/compile",
+          "./internal/ubtest"
+        ],
+        "directory": ".",
+        "started": "2026-10-05T22:23:37.014327897Z",
+        "finished": "2026-10-05T22:23:55.93576704Z",
+        "exit-code": 0,
+        "output": "before-test-01.txt",
+        "sha256": "fc866adfd8fe57e822af2d61e048f92b2b14c81c1a23acfe7e4770095badc1f3"
+      },
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "^TestCompiledCases$/^ub-composite-foreach$",
+          "./tests/e2e"
+        ],
+        "directory": ".",
+        "started": "2026-10-05T22:23:55.935909337Z",
+        "finished": "2026-10-05T22:23:58.924641637Z",
+        "exit-code": 0,
+        "output": "before-test-02.txt",
+        "sha256": "1513e043371351ba209bbfa0423b0ffc8b8ed4865095aaeac5c128064f2af872"
+      }
+    ],
+    "warmup": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkGenerateUBLibraryMetadata|BenchmarkGenerateMainLargeFactory)$",
+        "-benchmem",
+        "-benchtime=1x",
+        "-count=1",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/codegen"
+      ],
+      "directory": ".",
+      "started": "2026-10-05T22:23:58.924742426Z",
+      "finished": "2026-10-05T22:24:00.042944342Z",
+      "exit-code": 0,
+      "output": "before-warmup.txt",
+      "sha256": "902530737046fb1e660cad34ed54a1ff2f5ec5cfb137834a25cc3d82ced93cc0"
+    },
+    "benchmark": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkGenerateUBLibraryMetadata|BenchmarkGenerateMainLargeFactory)$",
+        "-benchmem",
+        "-benchtime=2s",
+        "-count=10",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/codegen"
+      ],
+      "directory": ".",
+      "started": "2026-10-05T22:24:00.043065579Z",
+      "finished": "2026-10-05T22:27:14.076218214Z",
+      "exit-code": 0,
+      "output": "before.txt",
+      "sha256": "8bc6534429d8fea5ee4c141bf1838eec6d512cbff518b28de214500693f790f0"
+    }
+  },
+  "after": {
+    "format-version": 1,
+    "workload": {
+      "work-package": "go-emission",
+      "description": "Composite emission with imports, source spans, configuration metadata, and a large factory",
+      "kind": "micro",
+      "fixtures": [
+        "pkg/codegen/emission_benchmark_test.go",
+        "pkg/codegen/main_benchmark_test.go",
+        "pkg/codegen/main_test.go",
+        "pkg/codegen/testdata/ub/emission/valid/library.ub",
+        "pkg/codegen/testdata/ub/emission/valid/child/library.ub"
+      ],
+      "parameters": {
+        "composites": "1,10,100",
+        "configuration-fields": "20",
+        "imports-per-composite": "2",
+        "large-factory-actions": "1000"
+      },
+      "packages": [
+        "./pkg/codegen"
+      ],
+      "benchmark": "^(BenchmarkGenerateUBLibraryMetadata|BenchmarkGenerateMainLargeFactory)$",
+      "cases": [
+        {
+          "package": "github.com/cloudboss/unobin/pkg/codegen",
+          "name": "BenchmarkGenerateUBLibraryMetadata/composites=1",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "composites",
+            "config-fields",
+            "bytes/output",
+            "library-calls/output"
+          ],
+          "fixed": {
+            "composites": 1,
+            "config-fields": 20
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/codegen",
+          "name": "BenchmarkGenerateUBLibraryMetadata/composites=10",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "composites",
+            "config-fields",
+            "bytes/output",
+            "library-calls/output"
+          ],
+          "fixed": {
+            "composites": 10,
+            "config-fields": 20
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/codegen",
+          "name": "BenchmarkGenerateUBLibraryMetadata/composites=100",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "composites",
+            "config-fields",
+            "bytes/output",
+            "library-calls/output"
+          ],
+          "fixed": {
+            "composites": 100,
+            "config-fields": 20
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/codegen",
+          "name": "BenchmarkGenerateMainLargeFactory",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "bytes/output"
+          ]
+        }
+      ],
+      "samples": 10,
+      "benchtime": "2s",
+      "cpus": [
+        1,
+        4
+      ],
+      "setup": "Parse the committed library fixture and construct the fixed typed schema, defaults, constraints, source spans, and resolved imports outside timing. Each operation calls the public UB generation adapter and includes syntax emission, metadata emission, import handling, template expansion, and Go formatting. Validate generated Go syntax and exact ordered exports after timing; count Library calls in the generated AST. Retain the existing 1000-action factory generation workload. Report output bytes and generated library calls.",
+      "cache-policy": "Symmetric warm Go build cache and one 1x benchmark warmup. Default GC, identical parsed inputs, and no unrelated CPU-intensive work during collection.",
+      "primary-unit": "sec/op",
+      "primary-direction": "lower",
+      "tests": [
+        [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/codegen",
+          "./pkg/sourcecheck",
+          "./pkg/compile",
+          "./internal/ubtest"
+        ],
+        [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "^TestCompiledCases$/^ub-composite-foreach$",
+          "./tests/e2e"
+        ]
+      ]
+    },
+    "source-revision": "140f2147f47f6b5d1b7b9089bce04693c4026a6e",
+    "fixture-revision": "6807203ebb708b87ce22e3d4f27a9d585fb0603d",
+    "workload-path": "benchmarks/workloads/go-emission.json",
+    "repository": "/home/joseph/code/unobin",
+    "clean-source": true,
+    "fixture-digests": {
+      "benchmarks/workloads/go-emission.json": "114faeaa72b46ec06de4af1f0bbe71a9984498ad5d3342ed7b1658ee9636e734",
+      "pkg/codegen/emission_benchmark_test.go": "25daa12fef0554b9525775f7bb5c4d1cd599027cb7c63ee80955aca778e133c6",
+      "pkg/codegen/main_benchmark_test.go": "87114ff4bd245bd92dcffb790b5f19be6249b14c571e90b9ada9e51bac5bf684",
+      "pkg/codegen/main_test.go": "a8448cf58094f507114b1cf43370e7ff213569f5e41a3743f99dbe03fd818d84",
+      "pkg/codegen/testdata/ub/emission/valid/child/library.ub": "dbe9f0153d02ec67b20146a4e55b6885d7c82305fdaab895132988ee724c771b",
+      "pkg/codegen/testdata/ub/emission/valid/library.ub": "01a561a7dddfcb78fc64ef59047509e434bf52cc215d474d07b3c0adeb795717"
+    },
+    "dependency-locks": {
+      "go.mod": "588dedf3818897394d476ef520f1490eaa0c46084a617876add0bb6645aa162e",
+      "go.sum": "1e1f203654bb19eb6d9c941749ae98c646e73039a7932d3730efd477d542fe45"
+    },
+    "machine": {
+      "go-version": "go1.26.2",
+      "goos": "linux",
+      "goarch": "amd64",
+      "cpu-model": "AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M",
+      "logical-cpus": 24
+    },
+    "environment": {
+      "CC": "",
+      "CGO_CFLAGS": "",
+      "CGO_CPPFLAGS": "",
+      "CGO_CXXFLAGS": "",
+      "CGO_ENABLED": "1",
+      "CGO_LDFLAGS": "",
+      "CXX": "",
+      "GO386": "",
+      "GOAMD64": "v1",
+      "GOARCH": "amd64",
+      "GOARM": "",
+      "GOARM64": "",
+      "GOCACHE": "/home/joseph/code/unobin/_output/remediation/gocache",
+      "GODEBUG": "",
+      "GOEXPERIMENT": "",
+      "GOFLAGS": "",
+      "GOMAXPROCS": "",
+      "GOMIPS": "",
+      "GOMIPS64": "",
+      "GOMODCACHE": "/home/joseph/code/unobin/_output/remediation/gomodcache",
+      "GOOS": "linux",
+      "GOPPC64": "",
+      "GORISCV64": "",
+      "GOROOT": "/home/joseph/.local/go1.26.2",
+      "GOTMPDIR": "",
+      "GOTOOLCHAIN": "auto",
+      "GOVERSION": "go1.26.2",
+      "GOWASM": "",
+      "GOWORK": "",
+      "UNOBIN_BENCH_PROFILE": ""
+    },
+    "benchstat-version": "v0.0.0-20260929162123-406019bb8b68",
+    "tests": [
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/codegen",
+          "./pkg/sourcecheck",
+          "./pkg/compile",
+          "./internal/ubtest"
+        ],
+        "directory": ".",
+        "started": "2026-10-06T00:22:21.997401354Z",
+        "finished": "2026-10-06T00:22:40.860948159Z",
+        "exit-code": 0,
+        "output": "after-test-01.txt",
+        "sha256": "6c01c556592ffb2f7a09e3091c79ec3acf42433e555f7d5e4fe6796e64d5eb6b"
+      },
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "^TestCompiledCases$/^ub-composite-foreach$",
+          "./tests/e2e"
+        ],
+        "directory": ".",
+        "started": "2026-10-06T00:22:40.861117748Z",
+        "finished": "2026-10-06T00:22:43.592984918Z",
+        "exit-code": 0,
+        "output": "after-test-02.txt",
+        "sha256": "4bddcb1408bf5368d9ae2186ad750456785297d2abfbb16bda3fc6d18beb70b3"
+      }
+    ],
+    "warmup": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkGenerateUBLibraryMetadata|BenchmarkGenerateMainLargeFactory)$",
+        "-benchmem",
+        "-benchtime=1x",
+        "-count=1",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/codegen"
+      ],
+      "directory": ".",
+      "started": "2026-10-06T00:22:43.593160868Z",
+      "finished": "2026-10-06T00:22:44.852488867Z",
+      "exit-code": 0,
+      "output": "after-warmup.txt",
+      "sha256": "6cb0bd92e365e05a3c4c387fc4ea901737af0db057eaf5776dda44423798dca0"
+    },
+    "benchmark": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkGenerateUBLibraryMetadata|BenchmarkGenerateMainLargeFactory)$",
+        "-benchmem",
+        "-benchtime=2s",
+        "-count=10",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/codegen"
+      ],
+      "directory": ".",
+      "started": "2026-10-06T00:22:44.852627547Z",
+      "finished": "2026-10-06T00:25:59.440639323Z",
+      "exit-code": 0,
+      "output": "after.txt",
+      "sha256": "2f1e77d818dd2a295415149e32e5a40a2364fb2fcdf43a36b6b8dc5a99a21a4a"
+    }
+  },
+  "comparison": {
+    "args": [
+      "go",
+      "tool",
+      "benchstat",
+      "before.txt",
+      "after.txt"
+    ],
+    "directory": ".",
+    "started": "2026-10-06T00:26:14.2023767Z",
+    "finished": "2026-10-06T00:26:14.206363944Z",
+    "exit-code": 0,
+    "output": "comparison.txt",
+    "sha256": "d72d8e3c4f5abaf0ef8455cb4ed095e2d303c31bf4306808f1d6fdefc206bb90"
+  },
+  "summary-sha256": "45fbaf53b9247cf07dde31caca38b00cb5d44b14960b329c11bb8eadb74ca231"
+}

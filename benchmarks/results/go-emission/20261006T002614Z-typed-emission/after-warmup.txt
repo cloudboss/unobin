@@ -1,0 +1,14 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/codegen
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkGenerateUBLibraryMetadata/composites=1           	       1	   2974001 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  450352 B/op	    5195 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1-4         	       1	   2790227 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  331728 B/op	    5159 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10          	       1	  19781949 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2340944 B/op	   30591 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10-4        	       1	  19500881 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2458640 B/op	   30612 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100         	       1	 164282150 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25705272 B/op	  284696 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100-4       	       1	 141468220 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25721848 B/op	  284702 allocs/op
+BenchmarkGenerateMainLargeFactory                         	       1	  61934694 ns/op	    495509 bytes/output	21238944 B/op	  293546 allocs/op
+BenchmarkGenerateMainLargeFactory-4                       	       1	  62060581 ns/op	    495509 bytes/output	21239184 B/op	  293549 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/codegen	0.670s

@@ -1,0 +1,85 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/codegen
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+                                           │  before.txt  │             after.txt              │
+                                           │    sec/op    │   sec/op     vs base               │
+GenerateUBLibraryMetadata/composites=1       1.471m ± 26%   1.488m ± 6%  +1.13% (p=0.035 n=10)
+GenerateUBLibraryMetadata/composites=1-4     1.314m ±  0%   1.336m ± 0%  +1.67% (p=0.000 n=10)
+GenerateUBLibraryMetadata/composites=10      10.37m ±  2%   10.76m ± 1%  +3.79% (p=0.001 n=10)
+GenerateUBLibraryMetadata/composites=10-4    9.634m ±  0%   9.788m ± 0%  +1.60% (p=0.000 n=10)
+GenerateUBLibraryMetadata/composites=100     102.5m ±  2%   105.1m ± 1%  +2.51% (p=0.009 n=10)
+GenerateUBLibraryMetadata/composites=100-4   93.09m ±  0%   94.66m ± 1%  +1.68% (p=0.000 n=10)
+GenerateMainLargeFactory                     51.25m ±  1%   51.44m ± 1%       ~ (p=0.190 n=10)
+GenerateMainLargeFactory-4                   40.58m ±  1%   40.82m ± 1%       ~ (p=0.089 n=10)
+geomean                                      15.77m         16.03m       +1.66%
+
+                                           │  before.txt  │               after.txt               │
+                                           │ bytes/output │ bytes/output  vs base                 │
+GenerateUBLibraryMetadata/composites=1       10.12Ki ± 0%   10.12Ki ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=1-4     10.12Ki ± 0%   10.12Ki ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=10      58.67Ki ± 0%   58.67Ki ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=10-4    58.67Ki ± 0%   58.67Ki ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=100     544.2Ki ± 0%   544.2Ki ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=100-4   544.2Ki ± 0%   544.2Ki ± 0%       ~ (p=1.000 n=10) ¹
+GenerateMainLargeFactory                     483.9Ki ± 0%   483.9Ki ± 0%  +0.01% (p=0.000 n=10)
+GenerateMainLargeFactory-4                   483.9Ki ± 0%   483.9Ki ± 0%  +0.01% (p=0.000 n=10)
+geomean                                      111.8Ki        111.8Ki       +0.00%
+¹ all samples are equal
+
+                                           │ before.txt │              after.txt              │
+                                           │ composites │ composites  vs base                 │
+GenerateUBLibraryMetadata/composites=1       1.000 ± 0%   1.000 ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=1-4     1.000 ± 0%   1.000 ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=10      10.00 ± 0%   10.00 ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=10-4    10.00 ± 0%   10.00 ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=100     100.0 ± 0%   100.0 ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=100-4   100.0 ± 0%   100.0 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                      10.00        10.00       +0.00%
+¹ all samples are equal
+
+                                           │  before.txt   │               after.txt                │
+                                           │ config-fields │ config-fields  vs base                 │
+GenerateUBLibraryMetadata/composites=1          20.00 ± 0%      20.00 ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=1-4        20.00 ± 0%      20.00 ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=10         20.00 ± 0%      20.00 ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=10-4       20.00 ± 0%      20.00 ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=100        20.00 ± 0%      20.00 ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=100-4      20.00 ± 0%      20.00 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                         20.00           20.00       +0.00%
+¹ all samples are equal
+
+                                           │      before.txt      │                   after.txt                   │
+                                           │ library-calls/output │ library-calls/output  vs base                 │
+GenerateUBLibraryMetadata/composites=1                 2.000 ± 0%             2.000 ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=1-4               2.000 ± 0%             2.000 ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=10                11.00 ± 0%             11.00 ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=10-4              11.00 ± 0%             11.00 ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=100               101.0 ± 0%             101.0 ± 0%       ~ (p=1.000 n=10) ¹
+GenerateUBLibraryMetadata/composites=100-4             101.0 ± 0%             101.0 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                                13.05                  13.05       +0.00%
+¹ all samples are equal
+
+                                           │  before.txt  │              after.txt              │
+                                           │     B/op     │     B/op      vs base               │
+GenerateUBLibraryMetadata/composites=1       303.5Ki ± 0%   304.2Ki ± 0%  +0.25% (p=0.000 n=10)
+GenerateUBLibraryMetadata/composites=1-4     306.0Ki ± 0%   306.8Ki ± 0%  +0.25% (p=0.000 n=10)
+GenerateUBLibraryMetadata/composites=10      2.256Mi ± 0%   2.263Mi ± 0%  +0.31% (p=0.001 n=10)
+GenerateUBLibraryMetadata/composites=10-4    2.300Mi ± 0%   2.307Mi ± 0%  +0.30% (p=0.000 n=10)
+GenerateUBLibraryMetadata/composites=100     24.42Mi ± 0%   24.49Mi ± 0%  +0.32% (p=0.000 n=10)
+GenerateUBLibraryMetadata/composites=100-4   24.44Mi ± 0%   24.52Mi ± 0%  +0.32% (p=0.000 n=10)
+GenerateMainLargeFactory                     20.22Mi ± 0%   20.21Mi ± 0%  -0.04% (p=0.000 n=10)
+GenerateMainLargeFactory-4                   20.26Mi ± 0%   20.25Mi ± 0%  -0.07% (p=0.000 n=10)
+geomean                                      4.279Mi        4.288Mi       +0.21%
+
+                                           │ before.txt  │             after.txt              │
+                                           │  allocs/op  │  allocs/op   vs base               │
+GenerateUBLibraryMetadata/composites=1       5.148k ± 0%   5.150k ± 0%  +0.04% (p=0.000 n=10)
+GenerateUBLibraryMetadata/composites=1-4     5.150k ± 0%   5.152k ± 0%  +0.04% (p=0.000 n=10)
+GenerateUBLibraryMetadata/composites=10      30.59k ± 0%   30.60k ± 0%  +0.04% (p=0.000 n=10)
+GenerateUBLibraryMetadata/composites=10-4    30.60k ± 0%   30.61k ± 0%  +0.04% (p=0.000 n=10)
+GenerateUBLibraryMetadata/composites=100     284.6k ± 0%   284.7k ± 0%  +0.04% (p=0.000 n=10)
+GenerateUBLibraryMetadata/composites=100-4   284.6k ± 0%   284.7k ± 0%  +0.04% (p=0.000 n=10)
+GenerateMainLargeFactory                     293.5k ± 0%   293.5k ± 0%  +0.00% (p=0.000 n=10)
+GenerateMainLargeFactory-4                   293.5k ± 0%   293.5k ± 0%  +0.00% (p=0.000 n=10)
+geomean                                      60.23k        60.24k       +0.03%

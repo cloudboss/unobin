@@ -1,0 +1,1360 @@
+{
+  "format-version": 1,
+  "work-package": "go-emission",
+  "before-revision": "6807203ebb708b87ce22e3d4f27a9d585fb0603d",
+  "after-revision": "140f2147f47f6b5d1b7b9089bce04693c4026a6e",
+  "fixture-revision": "6807203ebb708b87ce22e3d4f27a9d585fb0603d",
+  "primary-unit": "sec/op",
+  "assessment": "regressed",
+  "statistics": [
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateMainLargeFactory",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 21204509.5,
+        "low": 21202503,
+        "high": 21207066,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 21195992.5,
+        "low": 21190855,
+        "high": 21200624,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -0.040165984504381136,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateMainLargeFactory",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 293521,
+        "low": 293521,
+        "high": 293522,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 293534,
+        "low": 293533,
+        "high": 293534,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.004428984638238376,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateMainLargeFactory",
+      "cpu": 1,
+      "unit": "bytes/output",
+      "before": {
+        "samples": 10,
+        "median": 495482,
+        "low": 495482,
+        "high": 495482,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 495509,
+        "low": 495509,
+        "high": 495509,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.005449239326549282,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateMainLargeFactory",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.051254466,
+        "low": 0.050718436000000006,
+        "high": 0.051430569,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0514413945,
+        "low": 0.050729664,
+        "high": 0.052085664000000004,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.3647067555049732,
+      "p": 0.19031587607439007,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateMainLargeFactory",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 21247985.5,
+        "low": 21247507,
+        "high": 21249792,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 21233695.5,
+        "low": 21232943,
+        "high": 21234741,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -0.06725343444911047,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateMainLargeFactory",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 293532,
+        "low": 293532,
+        "high": 293533,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 293544,
+        "low": 293543,
+        "high": 293544,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.004088140304969734,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateMainLargeFactory",
+      "cpu": 4,
+      "unit": "bytes/output",
+      "before": {
+        "samples": 10,
+        "median": 495482,
+        "low": 495482,
+        "high": 495482,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 495509,
+        "low": 495509,
+        "high": 495509,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.005449239326549282,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateMainLargeFactory",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.040584955000000006,
+        "low": 0.040369921,
+        "high": 0.040897438,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0408228985,
+        "low": 0.040597509000000004,
+        "high": 0.040925992,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.5862849915689194,
+      "p": 0.0892095520578493,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=1",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 310740,
+        "low": 310740,
+        "high": 310758,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 311524,
+        "low": 311524,
+        "high": 311538,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.25230095900108385,
+      "p": 0.00042217844075429216,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=1",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 5148,
+        "low": 5148,
+        "high": 5148,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 5150,
+        "low": 5150,
+        "high": 5150,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.038850038850046786,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=1",
+      "cpu": 1,
+      "unit": "bytes/output",
+      "before": {
+        "samples": 10,
+        "median": 10361,
+        "low": 10361,
+        "high": 10361,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10361,
+        "low": 10361,
+        "high": 10361,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=1",
+      "cpu": 1,
+      "unit": "composites",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=1",
+      "cpu": 1,
+      "unit": "config-fields",
+      "before": {
+        "samples": 10,
+        "median": 20,
+        "low": 20,
+        "high": 20,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 20,
+        "low": 20,
+        "high": 20,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=1",
+      "cpu": 1,
+      "unit": "library-calls/output",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=1",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0014710220000000002,
+        "low": 0.001463447,
+        "high": 0.0018528960000000001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0014876975000000002,
+        "low": 0.0014800920000000001,
+        "high": 0.001577335,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 1.1335996334521203,
+      "p": 0.03546298902336055,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=1",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 313339,
+        "low": 313247,
+        "high": 313452,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 314122.5,
+        "low": 313994,
+        "high": 314272,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.25004866933258096,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=1",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 5150,
+        "low": 5149,
+        "high": 5150,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 5152,
+        "low": 5151,
+        "high": 5152,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.03883495145631244,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=1",
+      "cpu": 4,
+      "unit": "bytes/output",
+      "before": {
+        "samples": 10,
+        "median": 10361,
+        "low": 10361,
+        "high": 10361,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10361,
+        "low": 10361,
+        "high": 10361,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=1",
+      "cpu": 4,
+      "unit": "composites",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=1",
+      "cpu": 4,
+      "unit": "config-fields",
+      "before": {
+        "samples": 10,
+        "median": 20,
+        "low": 20,
+        "high": 20,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 20,
+        "low": 20,
+        "high": 20,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=1",
+      "cpu": 4,
+      "unit": "library-calls/output",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=1",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0013138490000000002,
+        "low": 0.0013077140000000002,
+        "high": 0.001316125,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.001335769,
+        "low": 0.001332931,
+        "high": 0.0013379680000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 1.668380460768315,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=10",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 2365436,
+        "low": 2364401,
+        "high": 2367590,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2372653,
+        "low": 2371903,
+        "high": 2373042,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.3051023151757315,
+      "p": 0.0010500335577734961,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=10",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 30585,
+        "low": 30585,
+        "high": 30586,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 30596,
+        "low": 30596,
+        "high": 30596,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.03596534248815342,
+      "p": 0.0004979540583255754,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=10",
+      "cpu": 1,
+      "unit": "bytes/output",
+      "before": {
+        "samples": 10,
+        "median": 60077,
+        "low": 60077,
+        "high": 60077,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 60077,
+        "low": 60077,
+        "high": 60077,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=10",
+      "cpu": 1,
+      "unit": "composites",
+      "before": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=10",
+      "cpu": 1,
+      "unit": "config-fields",
+      "before": {
+        "samples": 10,
+        "median": 20,
+        "low": 20,
+        "high": 20,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 20,
+        "low": 20,
+        "high": 20,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=10",
+      "cpu": 1,
+      "unit": "library-calls/output",
+      "before": {
+        "samples": 10,
+        "median": 11,
+        "low": 11,
+        "high": 11,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 11,
+        "low": 11,
+        "high": 11,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=10",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.010365054000000002,
+        "low": 0.010192637000000001,
+        "high": 0.010558952,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.010758051000000001,
+        "low": 0.010682015000000001,
+        "high": 0.010858261000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 3.7915576706112564,
+      "p": 0.0010500335577734961,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=10",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 2411628.5,
+        "low": 2411218,
+        "high": 2412537,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2418975.5,
+        "low": 2418465,
+        "high": 2419601,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.3046489125501761,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=10",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 30599,
+        "low": 30599,
+        "high": 30600,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 30610,
+        "low": 30610,
+        "high": 30611,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.03594888721853984,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=10",
+      "cpu": 4,
+      "unit": "bytes/output",
+      "before": {
+        "samples": 10,
+        "median": 60077,
+        "low": 60077,
+        "high": 60077,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 60077,
+        "low": 60077,
+        "high": 60077,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=10",
+      "cpu": 4,
+      "unit": "composites",
+      "before": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=10",
+      "cpu": 4,
+      "unit": "config-fields",
+      "before": {
+        "samples": 10,
+        "median": 20,
+        "low": 20,
+        "high": 20,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 20,
+        "low": 20,
+        "high": 20,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=10",
+      "cpu": 4,
+      "unit": "library-calls/output",
+      "before": {
+        "samples": 10,
+        "median": 11,
+        "low": 11,
+        "high": 11,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 11,
+        "low": 11,
+        "high": 11,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=10",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0096336335,
+        "low": 0.009605810000000001,
+        "high": 0.009671463,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0097876365,
+        "low": 0.009771043,
+        "high": 0.009814208000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 1.5985972478608446,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=100",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 25603224.5,
+        "low": 25601344,
+        "high": 25611377,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 25684700.5,
+        "low": 25680384,
+        "high": 25689227,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.31822554225542365,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=100",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 284574.5,
+        "low": 284574,
+        "high": 284575,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 284675,
+        "low": 284675,
+        "high": 284677,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.03531588388980822,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=100",
+      "cpu": 1,
+      "unit": "bytes/output",
+      "before": {
+        "samples": 10,
+        "median": 557237,
+        "low": 557237,
+        "high": 557237,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 557237,
+        "low": 557237,
+        "high": 557237,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=100",
+      "cpu": 1,
+      "unit": "composites",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=100",
+      "cpu": 1,
+      "unit": "config-fields",
+      "before": {
+        "samples": 10,
+        "median": 20,
+        "low": 20,
+        "high": 20,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 20,
+        "low": 20,
+        "high": 20,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=100",
+      "cpu": 1,
+      "unit": "library-calls/output",
+      "before": {
+        "samples": 10,
+        "median": 101,
+        "low": 101,
+        "high": 101,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 101,
+        "low": 101,
+        "high": 101,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=100",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.1024971985,
+        "low": 0.10086043400000001,
+        "high": 0.10453646800000001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.1050682325,
+        "low": 0.104434262,
+        "high": 0.10570841,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 2.5083944123604596,
+      "p": 0.008930697785186952,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=100",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 25627980.5,
+        "low": 25624964,
+        "high": 25632895,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 25710713,
+        "low": 25706957,
+        "high": 25716523,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.3228209885675515,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=100",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 284589.5,
+        "low": 284587,
+        "high": 284593,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 284690.5,
+        "low": 284689,
+        "high": 284693,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.035489714132119765,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=100",
+      "cpu": 4,
+      "unit": "bytes/output",
+      "before": {
+        "samples": 10,
+        "median": 557237,
+        "low": 557237,
+        "high": 557237,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 557237,
+        "low": 557237,
+        "high": 557237,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=100",
+      "cpu": 4,
+      "unit": "composites",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=100",
+      "cpu": 4,
+      "unit": "config-fields",
+      "before": {
+        "samples": 10,
+        "median": 20,
+        "low": 20,
+        "high": 20,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 20,
+        "low": 20,
+        "high": 20,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=100",
+      "cpu": 4,
+      "unit": "library-calls/output",
+      "before": {
+        "samples": 10,
+        "median": 101,
+        "low": 101,
+        "high": 101,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 101,
+        "low": 101,
+        "high": 101,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/codegen",
+      "name": "BenchmarkGenerateUBLibraryMetadata/composites=100",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0930934735,
+        "low": 0.09293409300000001,
+        "high": 0.093414409,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.09465727600000001,
+        "low": 0.09425918800000001,
+        "high": 0.09521697200000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 1.679819692193596,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    }
+  ],
+  "warnings": []
+}

@@ -1,0 +1,86 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/codegen
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkGenerateUBLibraryMetadata/composites=1           	    1179	   2003010 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  314237 B/op	    5151 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1           	    1486	   1577335 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  311538 B/op	    5150 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1           	    1636	   1493724 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  311524 B/op	    5150 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1           	    1616	   1487760 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  311524 B/op	    5150 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1           	    1612	   1480092 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  311524 B/op	    5150 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1           	    1639	   1478854 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  311524 B/op	    5150 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1           	    1618	   1480568 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  311524 B/op	    5150 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1           	    1622	   1483276 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  311523 B/op	    5150 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1           	    1626	   1487635 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  311524 B/op	    5150 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1           	    1611	   1495561 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  311524 B/op	    5150 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1-4         	    1605	   1337968 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  314272 B/op	    5152 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1-4         	    1792	   1336155 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  314180 B/op	    5152 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1-4         	    1801	   1332931 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  313994 B/op	    5151 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1-4         	    1747	   1335383 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  314174 B/op	    5152 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1-4         	    1798	   1338702 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  313947 B/op	    5151 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1-4         	    1809	   1336604 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  314087 B/op	    5151 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1-4         	    1774	   1337206 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  314115 B/op	    5152 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1-4         	    1779	   1334137 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  314451 B/op	    5152 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1-4         	    1798	   1333794 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  314090 B/op	    5151 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=1-4         	    1822	   1325758 ns/op	     10361 bytes/output	         1.000 composites	        20.00 config-fields	         2.000 library-calls/output	  314130 B/op	    5152 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10          	     244	   9765972 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2419635 B/op	   30611 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10          	     223	  10755184 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2372663 B/op	   30596 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10          	     224	  10730079 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2372648 B/op	   30596 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10          	     218	  10938938 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2372673 B/op	   30596 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10          	     222	  10829179 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2371903 B/op	   30596 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10          	     223	  10797299 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2371900 B/op	   30596 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10          	     222	  10760918 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2372658 B/op	   30596 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10          	     224	  10718702 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2372282 B/op	   30596 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10          	     220	  10858261 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2373042 B/op	   30596 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10          	     223	  10682015 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2372276 B/op	   30596 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10-4        	     246	   9771043 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2418775 B/op	   30611 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10-4        	     244	   9772460 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2418924 B/op	   30610 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10-4        	     243	   9809342 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2418747 B/op	   30610 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10-4        	     243	   9800040 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2419027 B/op	   30610 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10-4        	     246	   9758789 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2418316 B/op	   30610 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10-4        	     244	   9814208 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2419098 B/op	   30610 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10-4        	     243	   9823040 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2420684 B/op	   30611 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10-4        	     246	   9789123 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2419123 B/op	   30610 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10-4        	     246	   9786150 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2418465 B/op	   30610 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=10-4        	     244	   9776753 ns/op	     60077 bytes/output	        10.00 composites	        20.00 config-fields	        11.00 library-calls/output	 2419601 B/op	   30610 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100         	      25	  94358720 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25723089 B/op	  284691 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100         	      22	 104434262 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25676439 B/op	  284674 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100         	      22	 104625289 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25681733 B/op	  284675 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100         	      22	 104875277 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25685322 B/op	  284675 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100         	      22	 105010484 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25685218 B/op	  284675 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100         	      22	 105794988 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25680384 B/op	  284675 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100         	      22	 105708410 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25689227 B/op	  284677 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100         	      22	 105125981 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25686697 B/op	  284676 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100         	      22	 105152799 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25684183 B/op	  284675 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100         	      22	 105411262 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25680418 B/op	  284675 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100-4       	      25	  94110500 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25712521 B/op	  284692 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100-4       	      25	  94500752 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25705387 B/op	  284690 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100-4       	      24	  94859658 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25711974 B/op	  284693 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100-4       	      25	  95216972 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25716523 B/op	  284691 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100-4       	      24	  94551692 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25709452 B/op	  284691 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100-4       	      25	  94259188 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25706957 B/op	  284689 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100-4       	      24	  94961180 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25726217 B/op	  284693 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100-4       	      25	  94425711 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25707096 B/op	  284689 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100-4       	      25	  95428845 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25707699 B/op	  284688 allocs/op
+BenchmarkGenerateUBLibraryMetadata/composites=100-4       	      25	  94762860 ns/op	    557237 bytes/output	       100.0 composites	        20.00 config-fields	       101.0 library-calls/output	25712263 B/op	  284690 allocs/op
+BenchmarkGenerateMainLargeFactory                         	      55	  51321728 ns/op	    495509 bytes/output	21190855 B/op	  293533 allocs/op
+BenchmarkGenerateMainLargeFactory                         	      48	  50729664 ns/op	    495509 bytes/output	21192528 B/op	  293533 allocs/op
+BenchmarkGenerateMainLargeFactory                         	      48	  52085664 ns/op	    495509 bytes/output	21200941 B/op	  293535 allocs/op
+BenchmarkGenerateMainLargeFactory                         	      48	  51936375 ns/op	    495509 bytes/output	21193620 B/op	  293534 allocs/op
+BenchmarkGenerateMainLargeFactory                         	      50	  52142825 ns/op	    495509 bytes/output	21198365 B/op	  293534 allocs/op
+BenchmarkGenerateMainLargeFactory                         	      48	  51561061 ns/op	    495509 bytes/output	21199865 B/op	  293534 allocs/op
+BenchmarkGenerateMainLargeFactory                         	      49	  51601983 ns/op	    495509 bytes/output	21200624 B/op	  293534 allocs/op
+BenchmarkGenerateMainLargeFactory                         	      51	  51134388 ns/op	    495509 bytes/output	21200025 B/op	  293534 allocs/op
+BenchmarkGenerateMainLargeFactory                         	      49	  51219463 ns/op	    495509 bytes/output	21192425 B/op	  293533 allocs/op
+BenchmarkGenerateMainLargeFactory                         	      48	  50725401 ns/op	    495509 bytes/output	21188362 B/op	  293533 allocs/op
+BenchmarkGenerateMainLargeFactory-4                       	      57	  40839364 ns/op	    495509 bytes/output	21234016 B/op	  293545 allocs/op
+BenchmarkGenerateMainLargeFactory-4                       	      58	  40900852 ns/op	    495509 bytes/output	21232943 B/op	  293544 allocs/op
+BenchmarkGenerateMainLargeFactory-4                       	      56	  40806433 ns/op	    495509 bytes/output	21234741 B/op	  293544 allocs/op
+BenchmarkGenerateMainLargeFactory-4                       	      57	  40785516 ns/op	    495509 bytes/output	21234104 B/op	  293543 allocs/op
+BenchmarkGenerateMainLargeFactory-4                       	      55	  40565482 ns/op	    495509 bytes/output	21233138 B/op	  293544 allocs/op
+BenchmarkGenerateMainLargeFactory-4                       	      58	  40597509 ns/op	    495509 bytes/output	21235439 B/op	  293544 allocs/op
+BenchmarkGenerateMainLargeFactory-4                       	      58	  41197378 ns/op	    495509 bytes/output	21233102 B/op	  293543 allocs/op
+BenchmarkGenerateMainLargeFactory-4                       	      57	  40925992 ns/op	    495509 bytes/output	21233375 B/op	  293544 allocs/op
+BenchmarkGenerateMainLargeFactory-4                       	      57	  40788994 ns/op	    495509 bytes/output	21234557 B/op	  293544 allocs/op
+BenchmarkGenerateMainLargeFactory-4                       	      56	  40867729 ns/op	    495509 bytes/output	21232727 B/op	  293544 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/codegen	194.103s
