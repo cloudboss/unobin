@@ -34,18 +34,19 @@ var (
 )
 
 func main() {
+	libraries := map[string]*runtime.Library{
+		"partial": runtime.LibraryWithPath(
+			lib_partial.Library(),
+			"example.com/partial",
+		),
+	}
 	runner.Run(runner.Info{
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
-		Libraries: map[string]*runtime.Library{
-			"partial": runtime.LibraryWithPath(
-				lib_partial.Library(),
-				"example.com/partial",
-			),
-		},
-		UnobinVersion: unobinVersion,
+		Libraries:       libraries,
+		UnobinVersion:   unobinVersion,
 	})
 }

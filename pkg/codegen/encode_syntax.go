@@ -16,11 +16,8 @@ type SyntaxSpanNamer func(parse.Span) string
 // expression. Source positions are omitted; runtime graph extraction only needs
 // declaration names, selectors, and expression bodies.
 func EncodeSyntaxFactoryBody(n syntax.FactoryBody) (string, error) {
-	var b strings.Builder
-	if err := encodeSyntaxFactoryBody(&b, n, nil); err != nil {
-		return "", err
-	}
-	return b.String(), nil
+	emitted, err := emitSyntaxFactoryBody(n, nil)
+	return emitted.Literal, err
 }
 
 // EncodeSyntaxFactoryBodyWithSpans renders a body while preserving source spans.
@@ -28,91 +25,88 @@ func EncodeSyntaxFactoryBodyWithSpans(
 	n syntax.FactoryBody,
 	spanName SyntaxSpanNamer,
 ) (string, error) {
-	var b strings.Builder
-	if err := encodeSyntaxFactoryBody(&b, n, spanName); err != nil {
-		return "", err
-	}
-	return b.String(), nil
+	emitted, err := emitSyntaxFactoryBody(n, spanName)
+	return emitted.Literal, err
 }
 
 func encodeSyntaxFactoryBody(
-	b *strings.Builder,
+	b *syntaxEmitter,
 	n syntax.FactoryBody,
 	spanName SyntaxSpanNamer,
 ) error {
 	b.WriteString("syntax.FactoryBody{")
 	fields := syntaxFieldWriter{}
-	writeSpanField(b, &fields, n.S, spanName)
+	writeSpanField(&b.Builder, &fields, n.S, spanName)
 	if n.Description != nil {
-		fields.next(b, "Description")
-		s, err := encodeNodeString(n.Description, spanName)
+		fields.next(&b.Builder, "Description")
+		s, err := b.node(n.Description, spanName)
 		if err != nil {
 			return err
 		}
 		b.WriteString(s)
 	}
 	if len(n.Assets) > 0 {
-		fields.next(b, "Assets")
+		fields.next(&b.Builder, "Assets")
 		if err := encodeSyntaxAssets(b, n.Assets, spanName); err != nil {
 			return err
 		}
 	}
 	if len(n.Inputs) > 0 {
-		fields.next(b, "Inputs")
+		fields.next(&b.Builder, "Inputs")
 		if err := encodeSyntaxInputs(b, n.Inputs, spanName); err != nil {
 			return err
 		}
 	}
 	if len(n.Locals) > 0 {
-		fields.next(b, "Locals")
+		fields.next(&b.Builder, "Locals")
 		if err := encodeSyntaxLocals(b, n.Locals, spanName); err != nil {
 			return err
 		}
 	}
 	if len(n.Constraints) > 0 {
-		fields.next(b, "Constraints")
+		fields.next(&b.Builder, "Constraints")
 		if err := encodeSyntaxConstraints(b, n.Constraints, spanName); err != nil {
 			return err
 		}
 	}
 	if len(n.Imports) > 0 {
-		fields.next(b, "Imports")
+		fields.next(&b.Builder, "Imports")
 		if err := encodeSyntaxImports(b, n.Imports, spanName); err != nil {
 			return err
 		}
 	}
 	if len(n.LibraryConfigs) > 0 {
-		fields.next(b, "LibraryConfigs")
+		fields.next(&b.Builder, "LibraryConfigs")
 		if err := encodeSyntaxLibraryConfigs(b, n.LibraryConfigs, spanName); err != nil {
 			return err
 		}
 	}
 	if len(n.StateMoves) > 0 {
-		fields.next(b, "StateMoves")
+		fields.next(&b.Builder, "StateMoves")
 		if err := encodeSyntaxStateMoves(b, n.StateMoves, spanName); err != nil {
 			return err
 		}
 	}
 	if len(n.Resources) > 0 {
-		fields.next(b, "Resources")
+		fields.next(&b.Builder, "Resources")
 		if err := encodeSyntaxNodes(b, n.Resources, spanName); err != nil {
 			return err
 		}
 	}
 	if len(n.Data) > 0 {
-		fields.next(b, "Data")
+		fields.next(&b.Builder, "Data")
 		if err := encodeSyntaxNodes(b, n.Data, spanName); err != nil {
 			return err
 		}
 	}
 	if len(n.Actions) > 0 {
-		fields.next(b, "Actions")
+		fields.next(&b.Builder, "Actions")
 		if err := encodeSyntaxNodes(b, n.Actions, spanName); err != nil {
 			return err
 		}
 	}
 	if len(n.Outputs) > 0 {
-		fields.next(b, "Outputs")
+		fields.next(&b.Builder, "Outputs")
 		if err := encodeSyntaxOutputs(b, n.Outputs, spanName); err != nil {
 			return err
 		}
@@ -122,7 +116,7 @@ func encodeSyntaxFactoryBody(
 }
 
 func encodeSyntaxAssets(
-	b *strings.Builder,
+	b *syntaxEmitter,
 	decls []syntax.AssetDecl,
 	spanName SyntaxSpanNamer,
 ) error {
@@ -131,16 +125,16 @@ func encodeSyntaxAssets(
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		source, err := encodeNodeString(decl.Source, spanName)
+		source, err := b.node(decl.Source, spanName)
 		if err != nil {
 			return err
 		}
 		b.WriteString("{")
 		fields := syntaxFieldWriter{}
-		writeSpanField(b, &fields, decl.S, spanName)
-		fields.next(b, "Name")
+		writeSpanField(&b.Builder, &fields, decl.S, spanName)
+		fields.next(&b.Builder, "Name")
 		encodeSyntaxIdent(b, decl.Name, spanName)
-		fields.next(b, "Source")
+		fields.next(&b.Builder, "Source")
 		b.WriteString(source)
 		b.WriteString("}")
 	}
@@ -175,7 +169,7 @@ func writeSpanField(
 }
 
 func encodeSyntaxInputs(
-	b *strings.Builder,
+	b *syntaxEmitter,
 	decls []syntax.InputDecl,
 	spanName SyntaxSpanNamer,
 ) error {
@@ -186,23 +180,23 @@ func encodeSyntaxInputs(
 		}
 		b.WriteString("{")
 		fields := syntaxFieldWriter{}
-		writeSpanField(b, &fields, decl.S, spanName)
-		fields.next(b, "Name")
+		writeSpanField(&b.Builder, &fields, decl.S, spanName)
+		fields.next(&b.Builder, "Name")
 		encodeSyntaxIdent(b, decl.Name, spanName)
 		if decl.Body != nil {
-			body, err := encodeNodeString(decl.Body, spanName)
+			body, err := b.node(decl.Body, spanName)
 			if err != nil {
 				return err
 			}
-			fields.next(b, "Body")
+			fields.next(&b.Builder, "Body")
 			b.WriteString(body)
 		}
 		if decl.Type != nil {
-			typ, err := encodeNodeString(decl.Type, spanName)
+			typ, err := b.node(decl.Type, spanName)
 			if err != nil {
 				return err
 			}
-			fields.next(b, "Type")
+			fields.next(&b.Builder, "Type")
 			b.WriteString(typ)
 		}
 		b.WriteString("}")
@@ -212,7 +206,7 @@ func encodeSyntaxInputs(
 }
 
 func encodeSyntaxLocals(
-	b *strings.Builder,
+	b *syntaxEmitter,
 	decls []syntax.LocalDecl,
 	spanName SyntaxSpanNamer,
 ) error {
@@ -221,16 +215,16 @@ func encodeSyntaxLocals(
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		value, err := encodeNodeString(decl.Value, spanName)
+		value, err := b.node(decl.Value, spanName)
 		if err != nil {
 			return err
 		}
 		b.WriteString("{")
 		fields := syntaxFieldWriter{}
-		writeSpanField(b, &fields, decl.S, spanName)
-		fields.next(b, "Name")
+		writeSpanField(&b.Builder, &fields, decl.S, spanName)
+		fields.next(&b.Builder, "Name")
 		encodeSyntaxIdent(b, decl.Name, spanName)
-		fields.next(b, "Value")
+		fields.next(&b.Builder, "Value")
 		b.WriteString(value)
 		b.WriteString("}")
 	}
@@ -239,7 +233,7 @@ func encodeSyntaxLocals(
 }
 
 func encodeSyntaxConstraints(
-	b *strings.Builder,
+	b *syntaxEmitter,
 	decls []syntax.ConstraintDecl,
 	spanName SyntaxSpanNamer,
 ) error {
@@ -248,14 +242,14 @@ func encodeSyntaxConstraints(
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		value, err := encodeNodeString(decl.Value, spanName)
+		value, err := b.node(decl.Value, spanName)
 		if err != nil {
 			return err
 		}
 		b.WriteString("{")
 		fields := syntaxFieldWriter{}
-		writeSpanField(b, &fields, decl.S, spanName)
-		fields.next(b, "Value")
+		writeSpanField(&b.Builder, &fields, decl.S, spanName)
+		fields.next(&b.Builder, "Value")
 		b.WriteString(value)
 		b.WriteString("}")
 	}
@@ -264,7 +258,7 @@ func encodeSyntaxConstraints(
 }
 
 func encodeSyntaxImports(
-	b *strings.Builder,
+	b *syntaxEmitter,
 	decls []syntax.ImportDecl,
 	spanName SyntaxSpanNamer,
 ) error {
@@ -273,16 +267,16 @@ func encodeSyntaxImports(
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		ref, err := encodeNodeString(decl.Ref, spanName)
+		ref, err := b.node(decl.Ref, spanName)
 		if err != nil {
 			return err
 		}
 		b.WriteString("{")
 		fields := syntaxFieldWriter{}
-		writeSpanField(b, &fields, decl.S, spanName)
-		fields.next(b, "Alias")
+		writeSpanField(&b.Builder, &fields, decl.S, spanName)
+		fields.next(&b.Builder, "Alias")
 		encodeSyntaxIdent(b, decl.Alias, spanName)
-		fields.next(b, "Ref")
+		fields.next(&b.Builder, "Ref")
 		b.WriteString(ref)
 		b.WriteString("}")
 	}
@@ -291,7 +285,7 @@ func encodeSyntaxImports(
 }
 
 func encodeSyntaxLibraryConfigs(
-	b *strings.Builder,
+	b *syntaxEmitter,
 	decls []syntax.LibraryConfigDecl,
 	spanName SyntaxSpanNamer,
 ) error {
@@ -300,16 +294,16 @@ func encodeSyntaxLibraryConfigs(
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		value, err := encodeNodeString(decl.Value, spanName)
+		value, err := b.node(decl.Value, spanName)
 		if err != nil {
 			return err
 		}
 		b.WriteString("{")
 		fields := syntaxFieldWriter{}
-		writeSpanField(b, &fields, decl.S, spanName)
-		fields.next(b, "Alias")
+		writeSpanField(&b.Builder, &fields, decl.S, spanName)
+		fields.next(&b.Builder, "Alias")
 		encodeSyntaxIdent(b, decl.Alias, spanName)
-		fields.next(b, "Value")
+		fields.next(&b.Builder, "Value")
 		b.WriteString(value)
 		b.WriteString("}")
 	}
@@ -318,7 +312,7 @@ func encodeSyntaxLibraryConfigs(
 }
 
 func encodeSyntaxStateMoves(
-	b *strings.Builder,
+	b *syntaxEmitter,
 	decls []syntax.StateMoveDecl,
 	spanName SyntaxSpanNamer,
 ) error {
@@ -329,13 +323,13 @@ func encodeSyntaxStateMoves(
 		}
 		fields := syntaxFieldWriter{}
 		b.WriteString("{")
-		writeSpanField(b, &fields, decl.S, spanName)
+		writeSpanField(&b.Builder, &fields, decl.S, spanName)
 		if decl.From != nil {
-			fields.next(b, "From")
+			fields.next(&b.Builder, "From")
 			encodeSyntaxStateMoveRef(b, *decl.From, spanName)
 		}
 		if decl.To != nil {
-			fields.next(b, "To")
+			fields.next(&b.Builder, "To")
 			encodeSyntaxStateMoveRef(b, *decl.To, spanName)
 		}
 		b.WriteString("}")
@@ -345,21 +339,21 @@ func encodeSyntaxStateMoves(
 }
 
 func encodeSyntaxStateMoveRef(
-	b *strings.Builder,
+	b *syntaxEmitter,
 	ref syntax.StateMoveRef,
 	spanName SyntaxSpanNamer,
 ) {
 	b.WriteString("&syntax.StateMoveRef{")
 	fields := syntaxFieldWriter{}
-	writeSpanField(b, &fields, ref.S, spanName)
-	fields.next(b, "Ref")
+	writeSpanField(&b.Builder, &fields, ref.S, spanName)
+	fields.next(&b.Builder, "Ref")
 	b.WriteString("runtime.EntryRef{Address: ")
 	b.WriteString(strconv.Quote(ref.Ref.Address))
 	b.WriteString("}}")
 }
 
 func encodeSyntaxNodes(
-	b *strings.Builder,
+	b *syntaxEmitter,
 	decls []syntax.NodeDecl,
 	spanName SyntaxSpanNamer,
 ) error {
@@ -368,20 +362,20 @@ func encodeSyntaxNodes(
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		body, err := encodeNodeString(decl.Body, spanName)
+		body, err := b.node(decl.Body, spanName)
 		if err != nil {
 			return err
 		}
 		b.WriteString("{")
 		fields := syntaxFieldWriter{}
-		writeSpanField(b, &fields, decl.S, spanName)
-		fields.next(b, "Kind")
+		writeSpanField(&b.Builder, &fields, decl.S, spanName)
+		fields.next(&b.Builder, "Kind")
 		fmt.Fprintf(b, "syntax.NodeKind(%s)", strconv.Quote(string(decl.Kind)))
-		fields.next(b, "Name")
+		fields.next(&b.Builder, "Name")
 		encodeSyntaxIdent(b, decl.Name, spanName)
-		fields.next(b, "Selector")
+		fields.next(&b.Builder, "Selector")
 		encodeSyntaxNodeSelector(b, decl.Selector, spanName)
-		fields.next(b, "Body")
+		fields.next(&b.Builder, "Body")
 		b.WriteString(body)
 		b.WriteString("}")
 	}
@@ -390,7 +384,7 @@ func encodeSyntaxNodes(
 }
 
 func encodeSyntaxOutputs(
-	b *strings.Builder,
+	b *syntaxEmitter,
 	decls []syntax.OutputDecl,
 	spanName SyntaxSpanNamer,
 ) error {
@@ -399,16 +393,16 @@ func encodeSyntaxOutputs(
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		body, err := encodeNodeString(decl.Body, spanName)
+		body, err := b.node(decl.Body, spanName)
 		if err != nil {
 			return err
 		}
 		b.WriteString("{")
 		fields := syntaxFieldWriter{}
-		writeSpanField(b, &fields, decl.S, spanName)
-		fields.next(b, "Name")
+		writeSpanField(&b.Builder, &fields, decl.S, spanName)
+		fields.next(&b.Builder, "Name")
 		encodeSyntaxIdent(b, decl.Name, spanName)
-		fields.next(b, "Body")
+		fields.next(&b.Builder, "Body")
 		b.WriteString(body)
 		b.WriteString("}")
 	}
@@ -417,25 +411,25 @@ func encodeSyntaxOutputs(
 }
 
 func encodeSyntaxNodeSelector(
-	b *strings.Builder,
+	b *syntaxEmitter,
 	n syntax.NodeSelector,
 	spanName SyntaxSpanNamer,
 ) {
 	b.WriteString("syntax.NodeSelector{")
 	fields := syntaxFieldWriter{}
-	writeSpanField(b, &fields, n.S, spanName)
-	fields.next(b, "Alias")
+	writeSpanField(&b.Builder, &fields, n.S, spanName)
+	fields.next(&b.Builder, "Alias")
 	encodeSyntaxIdent(b, n.Alias, spanName)
-	fields.next(b, "Export")
+	fields.next(&b.Builder, "Export")
 	encodeSyntaxIdent(b, n.Export, spanName)
 	b.WriteString("}")
 }
 
-func encodeSyntaxIdent(b *strings.Builder, n syntax.Ident, spanName SyntaxSpanNamer) {
+func encodeSyntaxIdent(b *syntaxEmitter, n syntax.Ident, spanName SyntaxSpanNamer) {
 	b.WriteString("syntax.Ident{")
 	fields := syntaxFieldWriter{}
-	writeSpanField(b, &fields, n.S, spanName)
-	fields.next(b, "Name")
+	writeSpanField(&b.Builder, &fields, n.S, spanName)
+	fields.next(&b.Builder, "Name")
 	b.WriteString(strconv.Quote(n.Name))
 	b.WriteString("}")
 }

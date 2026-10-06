@@ -226,12 +226,12 @@ func sourceHelpersFor(
 func encodeSyntaxBodyWithSourceHelpers(
 	body syntax.FactoryBody,
 	helpers map[string]sourceHelper,
-) (string, error) {
+) (syntaxEmission, error) {
 	if len(helpers) == 0 {
-		return EncodeSyntaxFactoryBody(body)
+		return emitSyntaxFactoryBody(body, nil)
 	}
 	missing := map[string]bool{}
-	encoded, err := EncodeSyntaxFactoryBodyWithSpans(body, func(s parse.Span) string {
+	encoded, err := emitSyntaxFactoryBody(body, func(s parse.Span) string {
 		helper, ok := helpers[s.Start.File]
 		if !ok {
 			missing[s.Start.File] = true
@@ -240,7 +240,7 @@ func encodeSyntaxBodyWithSourceHelpers(
 		return fmt.Sprintf("%s(%d, %d)", helper.FuncName, s.Start.Offset, s.End.Offset)
 	})
 	if err != nil {
-		return "", err
+		return syntaxEmission{}, err
 	}
 	if len(missing) > 0 {
 		files := make([]string, 0, len(missing))
@@ -248,7 +248,8 @@ func encodeSyntaxBodyWithSourceHelpers(
 			files = append(files, file)
 		}
 		slices.Sort(files)
-		return "", fmt.Errorf("missing source metadata for %s", strings.Join(files, ", "))
+		return syntaxEmission{}, fmt.Errorf(
+			"missing source metadata for %s", strings.Join(files, ", "))
 	}
 	return encoded, nil
 }

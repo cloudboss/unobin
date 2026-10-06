@@ -28,6 +28,7 @@ func GenerateLibrary(
 	sourceHelpers, sourceHelperByFile := sourceHelpersFor(library.SourceFiles)
 	hasConfigSchemaLang := false
 	hasConfigSchemaTypecheck := false
+	hasBodyLang := false
 	groups := map[string]*compositeGroup{}
 	for _, c := range compositeKinds {
 		groups[c.kind] = &compositeGroup{MapField: c.mapField, Symbol: c.symbol}
@@ -62,7 +63,8 @@ func GenerateLibrary(
 			return nil, fmt.Errorf("ublibrary %q: encode %s %q syntax body: %w",
 				library.Name, category, name, err)
 		}
-		entry.SyntaxBody = "&" + encoded
+		entry.SyntaxBody = "&" + encoded.Literal
+		hasBodyLang = hasBodyLang || encoded.UsesLang
 		imports := slices.Clone(composite.Imports)
 		slices.SortFunc(imports, func(a, b resolve.Resolution) int {
 			return strings.Compare(a.LocalAlias, b.LocalAlias)
@@ -135,7 +137,7 @@ func GenerateLibrary(
 		Groups:        orderedGroups,
 		GoImports:     idents.imports(),
 		SourceHelpers: sourceHelpers,
-		HasLang: specVarsNeedLang(specVars) || hasSyntaxBodies(orderedGroups) ||
+		HasLang: specVarsNeedLang(specVars) || hasBodyLang ||
 			hasConfigSchemaLang,
 		HasTypecheck:     specVarsNeedTypecheck(specVars) || hasConfigSchemaTypecheck,
 		HasSyntaxBodies:  hasSyntaxBodies(orderedGroups),

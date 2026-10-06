@@ -34,18 +34,19 @@ var (
 )
 
 func main() {
+	libraries := map[string]*runtime.Library{
+		"fs": runtime.LibraryWithPath(
+			lib_fs.Library(),
+			"example.com/repo/go/fs",
+		),
+	}
 	runner.Run(runner.Info{
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
-		Libraries: map[string]*runtime.Library{
-			"fs": runtime.LibraryWithPath(
-				lib_fs.Library(),
-				"example.com/repo/go/fs",
-			),
-		},
-		UnobinVersion: unobinVersion,
+		Libraries:       libraries,
+		UnobinVersion:   unobinVersion,
 	})
 }

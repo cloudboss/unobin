@@ -34,18 +34,19 @@ var (
 )
 
 func main() {
+	libraries := map[string]*runtime.Library{
+		"self": runtime.LibraryWithPath(
+			lib_self.Library(),
+			"demo-factory/internal/self",
+		),
+	}
 	runner.Run(runner.Info{
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
-		Libraries: map[string]*runtime.Library{
-			"self": runtime.LibraryWithPath(
-				lib_self.Library(),
-				"demo-factory/internal/self",
-			),
-		},
-		UnobinVersion: unobinVersion,
+		Libraries:       libraries,
+		UnobinVersion:   unobinVersion,
 	})
 }

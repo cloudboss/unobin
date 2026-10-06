@@ -35,22 +35,23 @@ var (
 )
 
 func main() {
+	libraries := map[string]*runtime.Library{
+		"shared": runtime.LibraryWithPath(
+			lib_shared.Library(),
+			"demo-factory/internal/shared",
+		),
+		"wrap": runtime.LibraryWithPath(
+			lib_wrap.Library(),
+			"demo-factory/internal/wrap",
+		),
+	}
 	runner.Run(runner.Info{
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
-		Libraries: map[string]*runtime.Library{
-			"shared": runtime.LibraryWithPath(
-				lib_shared.Library(),
-				"demo-factory/internal/shared",
-			),
-			"wrap": runtime.LibraryWithPath(
-				lib_wrap.Library(),
-				"demo-factory/internal/wrap",
-			),
-		},
-		UnobinVersion: unobinVersion,
+		Libraries:       libraries,
+		UnobinVersion:   unobinVersion,
 	})
 }

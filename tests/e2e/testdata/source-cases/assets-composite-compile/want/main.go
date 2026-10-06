@@ -39,20 +39,21 @@ var (
 )
 
 func main() {
+	libraries := map[string]*runtime.Library{
+		"bundle": runtime.LibraryWithPath(
+			lib_bundle.Library(),
+			"factory/internal/bundle",
+		),
+	}
 	runner.Run(runner.Info{
 		FactoryName:     factoryName,
 		FactoryVersion:  factoryVersion,
 		ContentRevision: contentRevision,
 		FactoryBody:     &factoryBody,
 		LibraryPath:     factoryLibraryPath,
-		Libraries: map[string]*runtime.Library{
-			"bundle": runtime.LibraryWithPath(
-				lib_bundle.Library(),
-				"factory/internal/bundle",
-			),
-		},
-		AssetBundle:    factoryAssets,
-		RootAssetSetID: "5ee155a030a53191274f3cb2c9331db2ffb56923763efe652f77e2a69060aee0",
-		UnobinVersion:  unobinVersion,
+		Libraries:       libraries,
+		AssetBundle:     factoryAssets,
+		RootAssetSetID:  "5ee155a030a53191274f3cb2c9331db2ffb56923763efe652f77e2a69060aee0",
+		UnobinVersion:   unobinVersion,
 	})
 }
