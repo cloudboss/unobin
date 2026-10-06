@@ -13,10 +13,7 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ### Changed
 
-- Use snapshot format 2 with required `category` and boolean `composite` fields
-  instead of `entry-kind`. Earlier snapshots are rejected and state must be
-  recreated. State list/show output uses format version 2 with the same
-  classification. Backend storage and encryption envelopes are unchanged.
+- Classify state entries by `category` and `composite` instead of `entry-kind`, including empty composite calls. Use the same classification in state list/show output. Earlier snapshots must be recreated.
 - Move the `internal/e2etest` framework into `pkg/` for external library tests.
 - Libraries now register typed resource definitions and receive prior target data through `runtime.Prior`. Existing libraries must be updated to include this change.
 - Go library and configuration packages must declare their minimum implementation API in `Library().Compatibility`. Existing libraries must be updated to include this change.
@@ -24,15 +21,9 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ### Fixed
 
-- Remove obsolete owned UB packages and captured assets before building a factory.
-  Reused output now resolves the same dependencies and factory identity as clean
-  output. Earlier output directories require a fresh compilation destination.
-- Preserve authored lifecycle implementations when regenerating Go libraries.
-  Validate output ownership before publishing and remove only untouched obsolete
-  lifecycle stubs.
-- Reject saved plans after locally replaced Go implementation code changes.
-  Factory identity includes linked source and build settings; replan after the
-  first rebuild with this change.
+- Remove obsolete owned UB packages and captured assets before building a factory. Reused output now resolves the same dependencies and factory identity as clean output. Earlier output directories require a fresh compilation destination.
+- Preserve authored lifecycle implementations when regenerating Go libraries. Validate output ownership before publishing and remove only untouched obsolete lifecycle stubs.
+- Reject saved plans after locally replaced Go implementation code changes. Factory identity includes linked source and build settings; replan after the first rebuild with this change.
 - Keep sensitive values masked in destroy plans, including resources removed from configuration.
 - Resolve resource decisions during apply when replacement or configuration rules depend on values that were unknown during planning.
 - Keep dependent values pending until those resource decisions are resolved, including resources with empty outputs.
