@@ -1,0 +1,1580 @@
+// Package factorycli is the CLI scaffolding every compiled factory binary
+// links into. The generated `main.go` stays tiny: it embeds the
+// factory-specific constants and calls Run with them.
+package factorycli
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/cloudboss/unobin/internal/cmdout"
+	"github.com/cloudboss/unobin/pkg/check"
+	"github.com/cloudboss/unobin/pkg/diagnostic"
+	"github.com/cloudboss/unobin/pkg/filechange"
+	"github.com/cloudboss/unobin/pkg/graphprint"
+	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/lang/syntax"
+	"github.com/cloudboss/unobin/pkg/runtime"
+	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
+	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/spf13/cobra"
+)
+
+// EnvVarPrefix is the prefix unobin reads fallback input values from. An env
+// var like `UB_INPUT_cluster_name=web-prod` sets the `cluster-name` input only
+// when the stack file omits it, with snake case converted to kebab case.
+const EnvVarPrefix = "UB_INPUT_"
+
+// Info bundles everything a generated factory binary passes into Run.
+// FactoryBody is the generated factory syntax body. LibraryPath is the
+// binary's library-path identity (the same form Go libraries use); the
+// operator's stack file asserts the same value under `factory.pin.library-path`.
+// An empty LibraryPath disables that identity check.
+type Info struct {
+	FactoryName          string
+	FactoryVersion       string
+	ContentRevision      string
+	FactoryBody          *syntax.FactoryBody
+	LibraryPath          string
+	Libraries            map[string]*runtime.Library
+	LibraryConfigSchemas map[string]runtime.LibraryConfigSchema
+	AssetBundle          []byte
+	RootAssetSetID       string
+	Registries           *Registries
+	options              *rootOptions
+
+	// UnobinVersion is the unobin version the factory was compiled
+	// against, stamped at link time the way FactoryVersion is. Run
+	// refuses to start when the binary links a different one; empty
+	// (built outside the CLI) checks nothing.
+	UnobinVersion string
+}
+
+// Run builds the cobra command tree and executes it. The process exits
+// with status code 1 on error.
+func Run(info Info) {
+	root := newRootCmd(info)
+	if err := root.Execute(); err != nil {
+		cmdout.PrintUnreportedError(root, err)
+		os.Exit(1)
+	}
+}
+
+func newRootCmd(info Info) *cobra.Command {
+	registered, err := info.Registries.build()
+	info.options = &rootOptions{registry: registered, registryError: err}
+	root := &cobra.Command{
+		Use:           info.FactoryName,
+		Short:         "Compiled unobin factory " + info.FactoryName,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+	root.PersistentFlags().StringVar(
+		&info.options.assetCacheDir,
+		"asset-cache-dir",
+		"",
+		"Directory for materialized factory assets.",
+	)
+	root.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		return checkRunnerStartup(cmd, info)
+	}
+	versionCmd := newVersionCmd(info)
+	planCmd := newPlanCmd(info)
+	applyCmd := newApplyCmd(info)
+	validateCmd := newValidateCmd(info)
+	schemaCmd, schemaShowCmd := newSchemaCmd(info)
+	printGraphCmd := newPrintGraphCmd(info)
+	root.AddCommand(versionCmd)
+	root.AddCommand(planCmd)
+	root.AddCommand(applyCmd)
+	root.AddCommand(newRefreshCmd(info))
+	root.AddCommand(validateCmd)
+	root.AddCommand(newOutputCmd(info))
+	root.AddCommand(schemaCmd)
+	root.AddCommand(newStateCmd(info))
+	root.AddCommand(printGraphCmd)
+	root.AddCommand(newPinCmd(info))
+	wrapTextStartupChecks(root, info, map[*cobra.Command]bool{
+		versionCmd:    true,
+		planCmd:       true,
+		applyCmd:      true,
+		validateCmd:   true,
+		schemaCmd:     true,
+		schemaShowCmd: true,
+		printGraphCmd: true,
+	})
+	return root
+}
+
+func wrapTextStartupChecks(
+	command *cobra.Command,
+	info Info,
+	skip map[*cobra.Command]bool,
+) {
+	for _, child := range command.Commands() {
+		wrapTextStartupChecks(child, info, skip)
+	}
+	if skip[command] || command.Annotations[ownsStartupCheckAnnotation] == "true" {
+		return
+	}
+	if command.RunE != nil {
+		run := command.RunE
+		command.RunE = func(cmd *cobra.Command, args []string) error {
+			if err := writeLinkedUnobinText(cmd, info.UnobinVersion); err != nil {
+				return err
+			}
+			return run(cmd, args)
+		}
+		return
+	}
+	if command.Run != nil {
+		run := command.Run
+		command.Run = nil
+		command.RunE = func(cmd *cobra.Command, args []string) error {
+			if err := writeLinkedUnobinText(cmd, info.UnobinVersion); err != nil {
+				return err
+			}
+			run(cmd, args)
+			return nil
+		}
+	}
+}
+
+func linkedUnobinDiagnostic(expected string) (diagnostic.Diagnostic, error) {
+	notice, err := linkedUnobinStatus(expected)
+	if err != nil || notice == "" {
+		return diagnostic.Diagnostic{}, err
+	}
+	return diagnostic.Diagnostic{
+		Code:     "unobin.factory.replaced-toolchain",
+		Severity: diagnostic.SeverityInfo,
+		Message:  notice,
+	}, nil
+}
+
+func writeLinkedUnobinText(cmd *cobra.Command, expected string) error {
+	return checkLinkedUnobin(cmd, expected, cmdout.FormatText, nil)
+}
+
+func checkLinkedUnobin(
+	cmd *cobra.Command,
+	expected string,
+	format cmdout.Format,
+	collector *diagnostic.Collector,
+) error {
+	d, err := linkedUnobinDiagnostic(expected)
+	if err != nil {
+		if format.Machine() {
+			var collected []diagnostic.Diagnostic
+			if collector != nil {
+				collected = collector.Diagnostics()
+			}
+			return cmdout.WriteCommandError(cmd, format, collected, err)
+		}
+		return err
+	}
+	if d.Message == "" {
+		return nil
+	}
+	if format.Machine() {
+		diagnostic.Report(collector, d)
+		return nil
+	}
+	return diagnostic.WriteText(cmd.ErrOrStderr(), d)
+}
+
+type factoryIdentity struct {
+	Name            string  `json:"name"             ub:"name"`
+	Version         string  `json:"version"          ub:"version"`
+	ContentRevision string  `json:"content-revision" ub:"content-revision"`
+	LibraryPath     *string `json:"library-path"     ub:"library-path"`
+}
+
+func factoryIdentityFor(info Info) factoryIdentity {
+	var libraryPath *string
+	if info.LibraryPath != "" {
+		value := info.LibraryPath
+		libraryPath = &value
+	}
+	return factoryIdentity{
+		Name:            info.FactoryName,
+		Version:         info.FactoryVersion,
+		ContentRevision: info.ContentRevision,
+		LibraryPath:     libraryPath,
+	}
+}
+
+type factoryVersionResult struct {
+	Kind          string                  `json:"kind"           ub:"kind"`
+	FormatVersion int                     `json:"format-version" ub:"format-version"`
+	Factory       factoryIdentity         `json:"factory"        ub:"factory"`
+	Diagnostics   []diagnostic.Diagnostic `json:"diagnostics"    ub:"diagnostics"`
+}
+
+type targetDescriptor struct {
+	Path string `json:"path" ub:"path"`
+	Type string `json:"type" ub:"type"`
+}
+
+func addStandardFormatFlag(command *cobra.Command) {
+	command.Flags().String("format", "text", cmdout.FormatHelp())
+}
+
+func commandFormat(command *cobra.Command) (cmdout.Format, error) {
+	value, err := command.Flags().GetString("format")
+	if err != nil {
+		return "", err
+	}
+	return cmdout.ParseFormat(value)
+}
+
+func commandResultFailure(
+	command *cobra.Command,
+	format cmdout.Format,
+	diagnostics []diagnostic.Diagnostic,
+	err error,
+) error {
+	if format.Machine() {
+		return cmdout.WriteCommandError(command, format, diagnostics, err)
+	}
+	return err
+}
+
+const ownsStartupCheckAnnotation = "unobin.owns-startup-check"
+
+func ownStartupCheck(command *cobra.Command) {
+	if command.Annotations == nil {
+		command.Annotations = map[string]string{}
+	}
+	command.Annotations[ownsStartupCheckAnnotation] = "true"
+}
+
+func beginCommandResult(
+	command *cobra.Command,
+	info Info,
+) (cmdout.Format, *diagnostic.Collector, error) {
+	format, err := commandFormat(command)
+	if err != nil {
+		return "", nil, err
+	}
+	collector := &diagnostic.Collector{}
+	if err := checkLinkedUnobin(command, info.UnobinVersion, format, collector); err != nil {
+		return "", nil, err
+	}
+	return format, collector, nil
+}
+
+func newVersionCmd(info Info) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "version",
+		Short: "Print factory identity",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			formatValue, err := cmd.Flags().GetString("format")
+			if err != nil {
+				return err
+			}
+			format, err := cmdout.ParseFormat(formatValue)
+			if err != nil {
+				return err
+			}
+			collector := &diagnostic.Collector{}
+			if err := checkLinkedUnobin(cmd, info.UnobinVersion, format, collector); err != nil {
+				return err
+			}
+			if format == cmdout.FormatText {
+				_, err := fmt.Fprintf(
+					cmd.OutOrStdout(),
+					"%s %s (content-revision %s)\n",
+					info.FactoryName,
+					info.FactoryVersion,
+					info.ContentRevision,
+				)
+				return err
+			}
+			return cmdout.WriteDocument(cmd.OutOrStdout(), format, factoryVersionResult{
+				Kind:          "factory-version",
+				FormatVersion: 1,
+				Factory:       factoryIdentityFor(info),
+				Diagnostics:   collector.Diagnostics(),
+			})
+		},
+	}
+	cmd.Flags().String("format", "text", cmdout.FormatHelp())
+	return cmd
+}
+
+func newPlanCmd(info Info) *cobra.Command {
+	var (
+		configPath           string
+		outPath              string
+		allowVersionMismatch bool
+		parallelism          int
+		destroy              bool
+		ascii                bool
+	)
+	cmd := &cobra.Command{
+		Use:   "plan",
+		Short: "Show what apply would do",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			format, err := commandFormat(cmd)
+			if err != nil {
+				return err
+			}
+			collector := &diagnostic.Collector{}
+			if err := checkLinkedUnobin(cmd, info.UnobinVersion, format, collector); err != nil {
+				return err
+			}
+			config, err := parseStackFile(configPath)
+			if err != nil {
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+			}
+			if err := verifyFactoryEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+			}
+			return doPlanWithFormat(
+				cmd, info, config, configPath, outPath, parallelism, destroy, ascii,
+				format, collector.Diagnostics(),
+			)
+		},
+	}
+	addStandardFormatFlag(cmd)
+	cmd.Flags().StringVarP(&configPath, "config", "c", "",
+		"Path to a stack file for inputs and state settings.")
+	cmd.Flags().StringVarP(&outPath, "out", "o", "",
+		"Write the plan to this file so apply can consume it.")
+	cmd.Flags().BoolVar(&allowVersionMismatch, "allow-version-mismatch", false,
+		"Run even when the stack file does not pin this binary's version.")
+	cmd.Flags().IntVar(&parallelism, "parallelism", 0,
+		"Override the in-flight cap baked into the plan."+
+			" Zero (the default) falls back to the stack file, then to the runtime default.")
+	cmd.Flags().BoolVar(&destroy, "destroy", false,
+		"Plan to destroy every resource in state instead of converging on the source.")
+	cmd.Flags().BoolVar(&ascii, "ascii", false,
+		"Render the plan with plain ASCII symbols instead of the default arrows.")
+	return cmd
+}
+
+func newApplyCmd(info Info) *cobra.Command {
+	var (
+		parallelism int
+		outputStr   string
+		withUI      bool
+	)
+	cmd := &cobra.Command{
+		Use:   "apply <plan-file>",
+		Short: "Run a previously computed plan",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runApplyCommand(
+				cmd, info, args[0], parallelism, outputStr, withUI,
+			)
+		},
+	}
+	ownStartupCheck(cmd)
+	addStandardFormatFlag(cmd)
+	cmd.Flags().IntVar(&parallelism, "parallelism", 0,
+		"Override the in-flight cap baked into the plan."+
+			" Zero (the default) uses the value the plan was computed with.")
+	cmd.Flags().StringVar(&outputStr, "output", "text",
+		"Output format: text (human), json (NDJSON envelopes), unobin (one UB literal per line).")
+	cmd.Flags().BoolVar(&withUI, "ui", false,
+		"Serve a live view of the run and open it in a browser.")
+	return cmd
+}
+
+// uiLingerTimeout is how long apply keeps the run view up after the
+// run ends when no browser has received the result yet, so a tab
+// that is still opening can load the final state.
+var uiLingerTimeout = 10 * time.Second
+
+// teeApplyEvents forwards each event to the run view before passing
+// it along to the renderer. The view never blocks, so the renderer
+// stays the only consumer that can slow the stream down.
+func teeApplyEvents(
+	in <-chan runtime.ApplyEvent, out chan<- runtime.ApplyEvent, view applyRunView,
+) {
+	defer close(out)
+	for ev := range in {
+		view.Observe(ev)
+		out <- ev
+	}
+}
+
+// runViewMessage is the failure text the run view shows when an
+// apply ends without a failed step, such as an interrupt or a state
+// write problem. A step failure already reached the view as a fail
+// event, so it needs no extra message.
+func runViewMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	if _, ok := errors.AsType[*runtime.ApplyError](err); ok {
+		return ""
+	}
+	return err.Error()
+}
+
+// writeApplyOutputs prints the final outputs in the requested
+// format. Text emits `name: value` lines; json and unobin emit one
+// apply-output envelope per name in alphabetical order. Names in
+// sensitive get their value masked with the placeholder.
+func writeApplyOutputs(
+	out io.Writer, format Format, outputs map[string]any, sensitive map[string]bool,
+) error {
+	if format != FormatJSON && format != FormatUnobin {
+		for _, k := range sortedMapKeys(outputs) {
+			value := lang.RenderPretty(outputs[k])
+			if sensitive[k] {
+				value = sensitivePlaceholder
+			}
+			fmt.Fprintf(out, "%s: %s\n", k, value)
+		}
+		return nil
+	}
+	for _, k := range sortedMapKeys(outputs) {
+		env := applyOutputEnv{
+			Kind:  "apply-output",
+			Name:  k,
+			Value: outputs[k],
+		}
+		if sensitive[k] {
+			env.Value = sensitivePlaceholder
+		}
+		if err := writeEnvelope(out, format, env); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func newRefreshCmd(info Info) *cobra.Command {
+	var (
+		configPath           string
+		allowVersionMismatch bool
+	)
+	cmd := &cobra.Command{
+		Use:   "refresh",
+		Short: "Update state to match what each resource currently reports",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			format, collector, err := beginCommandResult(cmd, info)
+			if err != nil {
+				return err
+			}
+			config, err := parseStackFile(configPath)
+			if err != nil {
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+			}
+			if err := verifyFactoryEnvelope(info, config, configPath, allowVersionMismatch); err != nil {
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+			}
+			return doRefreshWithFormat(
+				cmd, info, config, configPath, format, collector.Diagnostics(),
+			)
+		},
+	}
+	ownStartupCheck(cmd)
+	addStandardFormatFlag(cmd)
+	cmd.Flags().StringVarP(&configPath, "config", "c", "",
+		"Path to a stack file for inputs and state settings.")
+	cmd.Flags().BoolVar(&allowVersionMismatch, "allow-version-mismatch", false,
+		"Run even when the stack file does not pin this binary's version.")
+	return cmd
+}
+
+func doRefreshWithFormat(
+	cmd *cobra.Command,
+	info Info,
+	config *parsedStack,
+	configPath string,
+	format cmdout.Format,
+	diagnostics []diagnostic.Diagnostic,
+) error {
+	fail := func(err error) error {
+		return commandResultFailure(cmd, format, diagnostics, err)
+	}
+	parsed, err := parseFactory(info)
+	if err != nil {
+		return fail(err)
+	}
+	assets, err := runnerAssetsFor(info)
+	if err != nil {
+		return fail(err)
+	}
+	dag := parsed.dag
+	inputs, err := buildInputs(
+		config,
+		configPath,
+		parsed,
+		info.Libraries,
+		info.LibraryConfigSchemas,
+	)
+	if err != nil {
+		return fail(err)
+	}
+	enc, err := loadEncrypter(info, config, configPath)
+	if err != nil {
+		return fail(err)
+	}
+	stack := stackName(configPath)
+	store, err := loadStore(info, config, configPath, stack, enc)
+	if err != nil {
+		return fail(err)
+	}
+	exec := &runtime.Executor{
+		SyntaxSource: parsed.syntaxBody,
+		DAG:          dag,
+		Libraries:    info.Libraries,
+		Inputs:       inputs,
+		Store:        store,
+		Factory: state.FactoryInfo{
+			Name:            info.FactoryName,
+			Version:         info.FactoryVersion,
+			ContentRevision: info.ContentRevision,
+		},
+	}
+	assets.configureExecutor(exec)
+	res, err := exec.Refresh(context.Background())
+	if format == cmdout.FormatText {
+		if err != nil {
+			return err
+		}
+		out := cmd.OutOrStdout()
+		fmt.Fprintf(out, "Refreshed %d, removed %d.\n", res.Refreshed, res.Dropped)
+		if res.WrittenRev != "" {
+			fmt.Fprintf(out, "State rev: %s\n", res.WrittenRev)
+		}
+		return nil
+	}
+	if err != nil && (res == nil || res.WrittenRev == "") {
+		return stateCommandFailure(cmd, format, diagnostics, err)
+	}
+	if res == nil {
+		return stateCommandFailure(cmd, format, diagnostics, err)
+	}
+	var revision *string
+	if res.WrittenRev != "" {
+		value := res.WrittenRev
+		revision = &value
+	}
+	resultDiagnostics := diagnostics
+	if err != nil {
+		resultDiagnostics = diagnostic.Merge(diagnostics, stateErrorDiagnostics(err))
+	}
+	document := buildRefreshResult(
+		info, stack, err == nil, res.Refreshed, res.Dropped, revision, resultDiagnostics,
+	)
+	if writeErr := cmdout.WriteDocument(cmd.OutOrStdout(), format, document); writeErr != nil {
+		return writeErr
+	}
+	if err != nil {
+		return cmdout.Reported(err)
+	}
+	return nil
+}
+
+func newValidateCmd(info Info) *cobra.Command {
+	var (
+		configPath           string
+		allowVersionMismatch bool
+	)
+	cmd := &cobra.Command{
+		Use:   "validate",
+		Short: "Check factory source and stack file without reading state or resources",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			formatValue, err := cmd.Flags().GetString("format")
+			if err != nil {
+				return err
+			}
+			format, err := cmdout.ParseFormat(formatValue)
+			if err != nil {
+				return err
+			}
+			collector := &diagnostic.Collector{}
+			if err := checkLinkedUnobin(cmd, info.UnobinVersion, format, collector); err != nil {
+				return err
+			}
+			target, targetErr := validationTarget(configPath)
+			if targetErr != nil {
+				if format.Machine() {
+					return cmdout.WriteCommandError(
+						cmd,
+						format,
+						collector.Diagnostics(),
+						validationCommandFailure(configPath, targetErr),
+					)
+				}
+				return targetErr
+			}
+			config, err := parseStackFile(configPath)
+			if err == nil {
+				err = verifyFactoryEnvelope(
+					info, config, configPath, allowVersionMismatch,
+				)
+			}
+			if err == nil {
+				err = validateStack(info, config, configPath)
+			}
+			if format == cmdout.FormatText {
+				if err != nil {
+					return err
+				}
+				_, err := fmt.Fprintln(cmd.OutOrStdout(), "OK")
+				return err
+			}
+			diagnostics := diagnostic.Merge(
+				collector.Diagnostics(),
+				diagnostic.FromError(err, diagnostic.ConvertOptions{
+					Path: validationPathMapper(configPath).Display,
+				}),
+			)
+			ok := !hasDiagnosticErrors(diagnostics)
+			if writeErr := cmdout.WriteDocument(
+				cmd.OutOrStdout(),
+				format,
+				validationResult{
+					Kind:          "validation-result",
+					FormatVersion: 1,
+					OK:            ok,
+					Target:        target,
+					Diagnostics:   diagnostics,
+				},
+			); writeErr != nil {
+				return writeErr
+			}
+			if !ok {
+				return cmdout.Reported(errValidationNegative)
+			}
+			return nil
+		},
+	}
+	addStandardFormatFlag(cmd)
+	cmd.Flags().StringVarP(&configPath, "config", "c", "",
+		"Path to a stack file to validate alongside the factory source.")
+	cmd.Flags().BoolVar(&allowVersionMismatch, "allow-version-mismatch", false,
+		"Validate even when the stack file does not pin this binary's version.")
+	return cmd
+}
+
+type validationResult struct {
+	Kind          string                  `json:"kind"           ub:"kind"`
+	FormatVersion int                     `json:"format-version" ub:"format-version"`
+	OK            bool                    `json:"ok"             ub:"ok"`
+	Target        targetDescriptor        `json:"target"         ub:"target"`
+	Diagnostics   []diagnostic.Diagnostic `json:"diagnostics"    ub:"diagnostics"`
+}
+
+var errValidationNegative = errors.New("validation found errors")
+
+func validationTarget(path string) (targetDescriptor, error) {
+	if path == "" {
+		return targetDescriptor{Path: "", Type: "stack"}, nil
+	}
+	if _, err := os.Stat(path); err != nil {
+		return targetDescriptor{}, err
+	}
+	return targetDescriptor{Path: filepath.ToSlash(filepath.Clean(path)), Type: "stack"}, nil
+}
+
+func validationCommandFailure(path string, err error) error {
+	var pathError *os.PathError
+	if errors.As(err, &pathError) {
+		return cmdout.FailWithDiagnostics(
+			cmdout.CodeIO,
+			"could not inspect validation target",
+			nil,
+			[]diagnostic.Diagnostic{{
+				Code:     "unobin.io",
+				Severity: diagnostic.SeverityError,
+				Message:  err.Error(),
+				Path:     filepath.ToSlash(filepath.Clean(path)),
+			}},
+		)
+	}
+	return cmdout.Fail(cmdout.CodeFailed, "validate failed", err)
+}
+
+func validationPathMapper(path string) diagnostic.PathMapper {
+	workingDir, _ := os.Getwd()
+	absolute := path
+	if !filepath.IsAbs(absolute) {
+		absolute = filepath.Join(workingDir, absolute)
+	}
+	return diagnostic.PathMapper{
+		WorkingDir: workingDir,
+		Mappings: []diagnostic.PathMapping{{
+			AbsoluteRoot: absolute,
+			DisplayRoot:  filepath.ToSlash(filepath.Clean(path)),
+		}},
+	}
+}
+
+func hasDiagnosticErrors(diagnostics []diagnostic.Diagnostic) bool {
+	for _, report := range diagnostics {
+		if report.Severity == diagnostic.SeverityError {
+			return true
+		}
+	}
+	return false
+}
+
+func doValidate(cmd *cobra.Command, info Info, config *parsedStack, configPath string) error {
+	if err := validateStack(info, config, configPath); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintln(cmd.OutOrStdout(), "OK")
+	return err
+}
+
+func validateStack(info Info, config *parsedStack, configPath string) error {
+	parsed, err := parseFactory(info)
+	if err != nil {
+		return err
+	}
+	assets, err := runnerAssetsFor(info)
+	if err != nil {
+		return err
+	}
+	// Validation is the one command whose job is to re-prove the
+	// stack, so it runs the deep checks the other commands leave to
+	// the compiler.
+	checker := check.NewSyntaxWithLibraryConfigSchemas(
+		*parsed.syntaxBody,
+		info.Libraries,
+		info.LibraryConfigSchemas,
+		assets.catalog,
+		assets.rootAssetSetID,
+	)
+	if errs := checker.References(nil); errs.Len() > 0 {
+		return errs.Err()
+	}
+	dag := checker.DAG()
+	inputs, err := buildInputs(
+		config,
+		configPath,
+		parsed,
+		info.Libraries,
+		info.LibraryConfigSchemas,
+	)
+	if err != nil {
+		return err
+	}
+	if err := validateStateRefs(info, config, configPath); err != nil {
+		return err
+	}
+	if _, err := dag.TopologicalOrder(); err != nil {
+		return err
+	}
+	demand := &runtime.Executor{
+		DAG:       dag,
+		Libraries: info.Libraries,
+		Inputs:    inputs,
+	}
+	assets.configureExecutor(demand)
+	if err := demand.ValidateCompositeConstraints(); err != nil {
+		return err
+	}
+	if err := demand.CheckLibraryConfigs(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateStateRefs(info Info, config *parsedStack, configPath string) error {
+	registered, err := info.registered()
+	if err != nil {
+		return err
+	}
+	sc, err := parseStateConfig(config, configPath)
+	if err != nil {
+		return err
+	}
+	if sc.Backend != nil {
+		bt, err := registered.lookupBackendType(sc.Backend)
+		if err != nil {
+			return err
+		}
+		decoded, err := decodeRefConfig(bt.Configuration, sc.Backend)
+		if err != nil {
+			return diagnostic.Context("state", err)
+		}
+		if err := validateRefConfig(decoded); err != nil {
+			return diagnostic.Context("state", err)
+		}
+	}
+	if sc.Encrypter == nil {
+		sc.Encrypter = defaultEncryptionRef()
+	}
+	et, err := registered.lookupEncrypterType(sc.Encrypter)
+	if err != nil {
+		return err
+	}
+	decoded, err := decodeRefConfig(et.Configuration, sc.Encrypter)
+	if err != nil {
+		return diagnostic.Context("encryption", err)
+	}
+	if err := validateRefConfig(decoded); err != nil {
+		return diagnostic.Context("encryption", err)
+	}
+	return nil
+}
+
+func newPrintGraphCmd(info Info) *cobra.Command {
+	var formatValue string
+	cmd := &cobra.Command{
+		Use:   "print-graph",
+		Short: "Print the factory's dependency graph",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			format, err := graphprint.ParseFormat(formatValue)
+			if err != nil {
+				return err
+			}
+			collector := &diagnostic.Collector{}
+			startupFormat := cmdout.FormatText
+			if format.Machine() {
+				startupFormat = cmdout.Format(format)
+			}
+			if err := checkLinkedUnobin(
+				cmd, info.UnobinVersion, startupFormat, collector,
+			); err != nil {
+				return err
+			}
+			return doPrintGraph(cmd, info, format, collector.Diagnostics())
+		},
+	}
+	cmd.Flags().StringVar(&formatValue, "format", "text",
+		"Output format: text, json, unobin, dot.")
+	return cmd
+}
+
+func doPrintGraph(
+	cmd *cobra.Command,
+	info Info,
+	format graphprint.Format,
+	diagnostics []diagnostic.Diagnostic,
+) error {
+	parsed, err := parseFactory(info)
+	if err != nil {
+		if format.Machine() {
+			return cmdout.WriteCommandError(cmd, cmdout.Format(format), diagnostics, err)
+		}
+		return err
+	}
+	dag := parsed.dag
+	out := cmd.OutOrStdout()
+	switch format {
+	case graphprint.FormatText:
+		graphprint.Text(out, dag)
+	case graphprint.FormatDOT:
+		graphprint.DOT(out, dag, info.FactoryName)
+	case graphprint.FormatJSON, graphprint.FormatUnobin:
+		return cmdout.WriteDocument(
+			out,
+			cmdout.Format(format),
+			graphprint.BuildDocument(dag, info.FactoryName, diagnostics),
+		)
+	}
+	return nil
+}
+
+func newOutputCmd(info Info) *cobra.Command {
+	var configPath string
+	cmd := &cobra.Command{
+		Use:   "output [name]",
+		Short: "Print factory outputs from the current state",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			format, collector, err := beginCommandResult(cmd, info)
+			if err != nil {
+				return err
+			}
+			config, err := parseStackFile(configPath)
+			if err != nil {
+				return commandResultFailure(cmd, format, collector.Diagnostics(), err)
+			}
+			return doOutputWithFormat(
+				cmd, info, config, configPath, args, format, collector.Diagnostics(),
+			)
+		},
+	}
+	ownStartupCheck(cmd)
+	addStandardFormatFlag(cmd)
+	cmd.Flags().StringVarP(&configPath, "config", "c", "",
+		"Path to a stack file identifying the stack.")
+	return cmd
+}
+
+type parsedFactory struct {
+	syntaxBody *syntax.FactoryBody
+	dag        *runtime.DAG
+	libraries  map[string]*runtime.Library
+}
+
+func parseFactory(info Info) (*parsedFactory, error) {
+	if info.FactoryBody == nil {
+		return nil, errors.New("factory body is required")
+	}
+	return &parsedFactory{
+		syntaxBody: info.FactoryBody,
+		dag:        runtime.BuildSyntaxDAG(*info.FactoryBody, info.Libraries),
+		libraries:  info.Libraries,
+	}, nil
+}
+
+// loadStore resolves a state backend from the state: block of a
+// pre-parsed stack file. A stack file without a state: block is an error;
+// a backend must be configured explicitly. stack is the per-stack
+// directory name (the stack file basename for plan/refresh, or the
+// plan file's embedded value for apply). configPath is preserved only
+// for error messages.
+func loadStore(
+	info Info,
+	config *parsedStack,
+	configPath, stack string,
+	enc sdkencrypt.Encrypter,
+) (state.Backend, error) {
+	registered, err := info.registered()
+	if err != nil {
+		return nil, err
+	}
+	sc, err := parseStateConfig(config, configPath)
+	if err != nil {
+		return nil, err
+	}
+	return registered.resolveBackend(sc.Backend, info.FactoryName, stack, enc)
+}
+
+// stackName derives a stack name from the stack file path. The
+// basename minus any extension is the id, so `prod.ub` becomes "prod"
+// and `staging.ub` becomes "staging". A missing stack file path falls
+// back to "default" to keep the tests and dev workflows that pass none.
+func stackName(configPath string) string {
+	if configPath == "" {
+		return "default"
+	}
+	base := filepath.Base(configPath)
+	if i := strings.LastIndex(base, "."); i > 0 {
+		return base[:i]
+	}
+	return base
+}
+
+// loadEncrypter resolves the encrypter from the `encryption:` block of
+// a pre-parsed stack file. With a nil file, or no encryption block
+// present, the resolver falls back to the env-key encrypter against
+// `UB_STATE_KEY`, or the no-op pass-through if that env var is unset.
+// configPath is preserved only for error messages.
+func loadEncrypter(info Info, config *parsedStack, configPath string) (sdkencrypt.Encrypter, error) {
+	if err := validateStateRefs(info, config, configPath); err != nil {
+		return nil, err
+	}
+	registered, err := info.registered()
+	if err != nil {
+		return nil, err
+	}
+	sc, err := parseStateConfig(config, configPath)
+	if err != nil {
+		return nil, err
+	}
+	return registered.resolveEncrypter(sc.Encrypter)
+}
+
+func doPlan(
+	cmd *cobra.Command, info Info, config *parsedStack,
+	configPath, outPath string, parallelismOverride int, destroy, ascii bool,
+) error {
+	return doPlanWithFormat(
+		cmd, info, config, configPath, outPath, parallelismOverride, destroy, ascii,
+		cmdout.FormatText, nil,
+	)
+}
+
+func doPlanWithFormat(
+	cmd *cobra.Command, info Info, config *parsedStack,
+	configPath, outPath string, parallelismOverride int, destroy, ascii bool,
+	format cmdout.Format, diagnostics []diagnostic.Diagnostic,
+) error {
+	fail := func(err error) error {
+		return commandResultFailure(cmd, format, diagnostics, err)
+	}
+	parsed, err := parseFactory(info)
+	if err != nil {
+		return fail(err)
+	}
+	assets, err := runnerAssetsFor(info)
+	if err != nil {
+		return fail(err)
+	}
+	dag := parsed.dag
+	inputs, err := buildInputs(
+		config,
+		configPath,
+		parsed,
+		info.Libraries,
+		info.LibraryConfigSchemas,
+	)
+	if err != nil {
+		return fail(err)
+	}
+	enc, err := loadEncrypter(info, config, configPath)
+	if err != nil {
+		return fail(err)
+	}
+	store, err := loadStore(info, config, configPath, stackName(configPath), enc)
+	if err != nil {
+		return fail(err)
+	}
+	parallelism, err := loadParallelism(config, configPath)
+	if err != nil {
+		return fail(err)
+	}
+	if parallelismOverride > 0 {
+		parallelism = parallelismOverride
+	}
+	exec := &runtime.Executor{
+		SyntaxSource: parsed.syntaxBody,
+		DAG:          dag,
+		Libraries:    info.Libraries,
+		Inputs:       inputs,
+		Store:        store,
+		Factory: state.FactoryInfo{
+			Name:            info.FactoryName,
+			Version:         info.FactoryVersion,
+			ContentRevision: info.ContentRevision,
+		},
+		Parallelism: parallelism,
+		Destroy:     destroy,
+	}
+	assets.configureExecutor(exec)
+	plan, err := exec.Plan(context.Background())
+	if err != nil {
+		return fail(err)
+	}
+	sc, err := parseStateConfig(config, configPath)
+	if err != nil {
+		return fail(err)
+	}
+	plan.Backend = toRuntimeStateRef(sc.Backend)
+	if format == cmdout.FormatText {
+		printPlan(cmd.OutOrStdout(), plan, ascii)
+		_, _, err := writePlanArtifact(outPath, plan, enc)
+		return err
+	}
+	digest, file, err := writePlanArtifact(outPath, plan, enc)
+	if err != nil {
+		if file != nil {
+			err = cmdout.WithFiles(err, []filechange.Change{*file})
+		}
+		return fail(err)
+	}
+	result, err := buildPlanSummary(info, plan, digest, file, diagnostics)
+	if err != nil {
+		return fail(err)
+	}
+	return cmdout.WriteDocument(cmd.OutOrStdout(), format, result)
+}
+
+func writePlanArtifact(
+	path string,
+	plan *runtime.Plan,
+	enc sdkencrypt.Encrypter,
+) (*string, *filechange.Change, error) {
+	if path == "" {
+		return nil, nil, nil
+	}
+	sealed, err := runtime.SealPlan(plan, enc)
+	if err != nil {
+		return nil, nil, err
+	}
+	digestBytes := sha256.Sum256(sealed)
+	digest := fmt.Sprintf("sha256:%x", digestBytes)
+	change, err := filechange.WriteFile(path, sealed, 0o600)
+	if err != nil {
+		if change.Action == "" {
+			return nil, nil, err
+		}
+		return nil, &change, err
+	}
+	return &digest, &change, nil
+}
+
+func buildInputs(
+	config *parsedStack,
+	configPath string,
+	parsed *parsedFactory,
+	libs map[string]*runtime.Library,
+	libraryConfigSchemas map[string]runtime.LibraryConfigSchema,
+) (map[string]any, error) {
+	decl := parsed.inputBlock()
+	constraints := parsed.constraints()
+	inputs, err := loadStackInputs(config, configPath)
+	if err != nil {
+		return nil, err
+	}
+	if err := fillMissingEnvInputs(inputs, decl); err != nil {
+		return nil, err
+	}
+	validated, errs := lang.ValidateInputsWithLibraryConfigs(
+		decl,
+		inputs,
+		defaultEval,
+		libraryConfigInputResolver(parsed.syntaxBody, libs, libraryConfigSchemas),
+	)
+	if errs.Len() > 0 {
+		return nil, errs.Err()
+	}
+	if err := checkLibraryConfigInputConstraints(
+		decl,
+		validated,
+		parsed.syntaxBody,
+		libs,
+		libraryConfigSchemas,
+	); err != nil {
+		return nil, err
+	}
+	cerrs := lang.CheckConstraints(constraints, validated,
+		predicateEval(validated, libs), lang.DisplayRooted)
+	if cerrs.Len() > 0 {
+		return nil, cerrs.Err()
+	}
+	return validated, nil
+}
+
+func checkLibraryConfigInputConstraints(
+	decl *lang.ObjectLit,
+	values map[string]any,
+	body *syntax.FactoryBody,
+	libs map[string]*runtime.Library,
+	libraryConfigSchemas map[string]runtime.LibraryConfigSchema,
+) error {
+	resolve := libraryConfigInputResolver(body, libs, libraryConfigSchemas)
+	for _, field := range libraryConfigInputFields(decl) {
+		schema, ok := resolve(field.path)
+		if !ok || len(schema.Constraints) == 0 {
+			continue
+		}
+		value, ok := values[field.name].(map[string]any)
+		if !ok {
+			continue
+		}
+		entries, perr := lang.ParseSpecs(schema.Constraints)
+		if perr.Len() > 0 {
+			return diagnostic.Context(fmt.Sprintf("input %q", field.name), perr.Err())
+		}
+		errs := lang.CheckConstraintEntries(
+			entries,
+			value,
+			predicateEval(value, libs),
+			lang.DisplayRooted,
+		)
+		if errs.Len() > 0 {
+			return diagnostic.Context(fmt.Sprintf("input %q", field.name), errs.Err())
+		}
+	}
+	return nil
+}
+
+type libraryConfigInputField struct {
+	name string
+	path string
+}
+
+func libraryConfigInputFields(decl *lang.ObjectLit) []libraryConfigInputField {
+	if decl == nil {
+		return nil
+	}
+	var out []libraryConfigInputField
+	for _, field := range decl.Fields {
+		if field.Key.Kind != lang.FieldIdent || field.Key.IsMeta() {
+			continue
+		}
+		path, ok := libraryConfigInputPath(field.Value)
+		if !ok {
+			continue
+		}
+		out = append(out, libraryConfigInputField{name: field.Key.Name, path: path})
+	}
+	return out
+}
+
+func libraryConfigInputPath(expr lang.Expr) (string, bool) {
+	obj, ok := expr.(*lang.ObjectLit)
+	if !ok {
+		return "", false
+	}
+	for _, field := range obj.Fields {
+		if field.Key.Kind != lang.FieldIdent || field.Key.Name != "type" {
+			continue
+		}
+		typeExpr := field.Value
+		if opt, ok := typeExpr.(*lang.TypeOptional); ok {
+			typeExpr = opt.Elem
+		}
+		lib, ok := typeExpr.(*lang.TypeLibraryConfig)
+		if !ok || lib.Path == nil {
+			return "", false
+		}
+		return lib.Path.Value, true
+	}
+	return "", false
+}
+
+// defaultEval reduces an input declaration default expression to a Go
+// value. The empty EvalContext means defaults can use literals,
+// arithmetic, and built-in calls but not address roots like input.X
+// (which would be circular at default-application time anyway).
+func defaultEval(e lang.Expr) (any, error) {
+	return runtime.Eval(e, &runtime.EvalContext{})
+}
+
+// predicateEval reduces a constraint's `when:` or `require:` expression
+// against the validated inputs, so a predicate can read input.X for any
+// declared input, call functions from the factory's imported libraries,
+// and read a field under an unset nested input as null.
+func predicateEval(
+	values map[string]any, libs map[string]*runtime.Library,
+) lang.ConstraintEvalFunc {
+	return func(e lang.Expr, binds []lang.EachBinding) (any, error) {
+		ctx := &runtime.EvalContext{Inputs: values, Libraries: libs, MissingAsNull: true}
+		for _, b := range binds {
+			if ctx.Each == nil {
+				ctx.Each = map[string]lang.EachValue{}
+			}
+			ctx.Each[b.Name] = lang.EachValue{Key: b.Key, Value: b.Value}
+		}
+		return runtime.Eval(e, ctx)
+	}
+}
+
+// loadParallelism extracts the `parallelism: N` top-level field from
+// a pre-parsed stack file. Zero is returned when the file omits the field
+// or when config is nil, signaling the runtime should pick its default.
+// path is preserved only for error messages.
+func loadParallelism(config *parsedStack, path string) (int, error) {
+	stack := stackFile(config)
+	if stack == nil || stack.Parallelism == nil {
+		return 0, nil
+	}
+	val, err := runtime.Eval(stack.Parallelism, &runtime.EvalContext{})
+	if err != nil {
+		return 0, diagnostic.Context(fmt.Sprintf(
+			"stack file %s: parallelism", path,
+		), err)
+	}
+	n, ok := val.(int64)
+	if !ok {
+		return 0, fmt.Errorf(
+			"stack file %s: parallelism: want a positive integer, got %s",
+			path, lang.TypeMessage(val))
+	}
+	if n < 1 {
+		return 0, fmt.Errorf(
+			"stack file %s: parallelism: want a positive integer, got %d",
+			path, n)
+	}
+	return int(n), nil
+}
+
+// loadStackInputs extracts the `factory.inputs:` block from a
+// pre-parsed stack file. A nil stack file returns an empty map with no error.
+// path is preserved only for error messages.
+func loadStackInputs(config *parsedStack, path string) (map[string]any, error) {
+	stack := stackFile(config)
+	if stack == nil || stack.Factory == nil || stack.Factory.Inputs == nil {
+		return map[string]any{}, nil
+	}
+	val, err := runtime.Eval(stack.Factory.Inputs, stackEvalContext(config))
+	if err != nil {
+		return nil, diagnostic.Context(fmt.Sprintf("stack file %s", path), err)
+	}
+	out, ok := val.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf(
+			"stack file %s: `factory.inputs:` evaluated to %T, want map", path, val)
+	}
+	return out, nil
+}
+
+// fillMissingEnvInputs reads UB_INPUT_<name> environment variables and writes
+// them into inputs only when the stack file omitted the matching name.
+// Underscores in the env name become hyphens to match kebab case input names.
+// The declared input type directs the parse: a string input takes the raw text
+// exactly as given, so a value that happens to look like another literal (true,
+// 42) arrives unmangled, while every other type reads its value as a UB literal
+// and, failing that, as JSON, so `UB_INPUT_size=5` arrives as int64 and
+// `UB_INPUT_subnets=['a', 'b']` arrives as a list.
+func fillMissingEnvInputs(inputs map[string]any, decl *lang.ObjectLit) error {
+	declared := envInputDecls(decl)
+	for _, env := range os.Environ() {
+		if !strings.HasPrefix(env, EnvVarPrefix) {
+			continue
+		}
+		eq := strings.IndexByte(env, '=')
+		if eq < 0 {
+			continue
+		}
+		name := strings.ReplaceAll(env[len(EnvVarPrefix):eq], "_", "-")
+		if name == "" {
+			continue
+		}
+		if _, ok := inputs[name]; ok {
+			continue
+		}
+		typ, ok := declared[name]
+		if !ok {
+			inputs[name] = parseEnvValue(env[eq+1:])
+			continue
+		}
+		value, err := parseEnvValueAs(env[eq+1:], typ)
+		if err != nil {
+			return diagnostic.Context(env[:eq], err)
+		}
+		inputs[name] = value
+	}
+	return nil
+}
+
+func envInputDecls(decl *lang.ObjectLit) map[string]lang.TypeExpr {
+	if decl == nil {
+		return nil
+	}
+	out := map[string]lang.TypeExpr{}
+	for _, fld := range decl.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.IsMeta() {
+			continue
+		}
+		obj, ok := fld.Value.(*lang.ObjectLit)
+		if !ok {
+			continue
+		}
+		if typ := envInputDeclType(obj); typ != nil {
+			out[fld.Key.Name] = typ
+		}
+	}
+	return out
+}
+
+func envInputDeclType(decl *lang.ObjectLit) lang.TypeExpr {
+	for _, fld := range decl.Fields {
+		if fld.Key.Kind != lang.FieldIdent || fld.Key.Name != "type" {
+			continue
+		}
+		typ, _ := fld.Value.(lang.TypeExpr)
+		return typ
+	}
+	return nil
+}
+
+func parseEnvValueAs(raw string, typ lang.TypeExpr) (any, error) {
+	if opt, ok := typ.(*lang.TypeOptional); ok {
+		if value, ok := parseEnvValueLiteral(raw); ok && value == nil {
+			return nil, nil
+		}
+		return parseEnvValueAs(raw, opt.Elem)
+	}
+	if atom, ok := typ.(*lang.TypeAtomic); ok {
+		switch atom.Name {
+		case "string":
+			return raw, nil
+		case "opaque":
+			return parseEnvValue(raw), nil
+		}
+	}
+	value, ok := parseEnvValueLiteral(raw)
+	if !ok {
+		value = raw
+	}
+	if !envValueMatchesType(value, typ) {
+		typeText, err := lang.FormatTypeExpr(typ)
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("expected %s, got %s", typeText, lang.TypeMessage(value))
+	}
+	return value, nil
+}
+
+func parseEnvValue(raw string) any {
+	if v, ok := parseEnvValueLiteral(raw); ok {
+		return v
+	}
+	return raw
+}
+
+func parseEnvValueLiteral(raw string) (any, bool) {
+	if v, ok := parseUBValue(raw); ok {
+		return v, true
+	}
+	return parseJSONValue(raw)
+}
+
+func envValueMatchesType(value any, typ lang.TypeExpr) bool {
+	switch tt := typ.(type) {
+	case *lang.TypeOptional:
+		return value == nil || envValueMatchesType(value, tt.Elem)
+	case *lang.TypeAtomic:
+		switch tt.Name {
+		case "opaque":
+			return true
+		case "string":
+			_, ok := value.(string)
+			return ok
+		case "integer":
+			_, ok := value.(int64)
+			return ok
+		case "number":
+			switch value.(type) {
+			case int64, float64:
+				return true
+			}
+			return false
+		case "boolean":
+			_, ok := value.(bool)
+			return ok
+		case "null":
+			return value == nil
+		}
+	case *lang.TypeList, *lang.TypeTuple:
+		_, ok := value.([]any)
+		return ok
+	case *lang.TypeMap, *lang.TypeObject, *lang.TypeLibraryConfig:
+		_, ok := value.(map[string]any)
+		return ok
+	}
+	return true
+}
+
+// parseUBValue reads raw as a single UB literal expression, returning ok
+// false when it does not parse to exactly one expression or fails to
+// evaluate.
+func parseUBValue(raw string) (any, bool) {
+	f, err := lang.ParseSource("env", []byte("v: "+raw+"\n"))
+	if err != nil || f.Body == nil || len(f.Body.Fields) != 1 {
+		return nil, false
+	}
+	val, err := runtime.Eval(f.Body.Fields[0].Value, &runtime.EvalContext{})
+	if err != nil {
+		return nil, false
+	}
+	return val, true
+}
+
+// parseJSONValue reads raw as one JSON value. UB strings are
+// single-quoted, so JSON's double-quoted form does not parse as UB;
+// this accepts a value supplied as JSON. Trailing tokens make the parse
+// fail, so "1 2" is not a value.
+func parseJSONValue(raw string) (any, bool) {
+	dec := json.NewDecoder(strings.NewReader(raw))
+	dec.UseNumber()
+	var v any
+	if err := dec.Decode(&v); err != nil {
+		return nil, false
+	}
+	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
+		return nil, false
+	}
+	return normalizeJSONNumbers(v), true
+}
+
+// normalizeJSONNumbers replaces every json.Number with the int64 or
+// float64 a UB literal would produce -- an integral number is an int64,
+// everything else a float64 -- and recurses through arrays and objects,
+// so a decoded value matches its UB-literal equivalent.
+func normalizeJSONNumbers(v any) any {
+	switch x := v.(type) {
+	case json.Number:
+		if i, err := x.Int64(); err == nil {
+			return i
+		}
+		f, _ := x.Float64()
+		return f
+	case []any:
+		for i, e := range x {
+			x[i] = normalizeJSONNumbers(e)
+		}
+		return x
+	case map[string]any:
+		for k, e := range x {
+			x[k] = normalizeJSONNumbers(e)
+		}
+		return x
+	}
+	return v
+}
+
+func doOutputWithFormat(
+	cmd *cobra.Command,
+	info Info,
+	config *parsedStack,
+	configPath string,
+	args []string,
+	format cmdout.Format,
+	diagnostics []diagnostic.Diagnostic,
+) error {
+	fail := func(err error) error {
+		return commandResultFailure(cmd, format, diagnostics, err)
+	}
+	enc, err := loadEncrypter(info, config, configPath)
+	if err != nil {
+		return fail(err)
+	}
+	stack := stackName(configPath)
+	store, err := loadStore(info, config, configPath, stack, enc)
+	if err != nil {
+		return fail(err)
+	}
+	snap, err := store.Current()
+	if err != nil {
+		return fail(err)
+	}
+	parsed, err := parseFactory(info)
+	if err != nil {
+		return fail(err)
+	}
+	sensitive := rootSensitiveOutputs(parsed)
+	if len(args) == 0 {
+		if format.Machine() {
+			return cmdout.WriteDocument(
+				cmd.OutOrStdout(), format,
+				buildOutputsResult(info, stack, snap.Outputs, sensitive, diagnostics),
+			)
+		}
+		for _, k := range sortedMapKeys(snap.Outputs) {
+			value := lang.RenderPretty(snap.Outputs[k])
+			if sensitive[k] {
+				value = sensitivePlaceholder
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%s: %s\n", k, value)
+		}
+		return nil
+	}
+	name := args[0]
+	val, ok := snap.Outputs[name]
+	if !ok {
+		return fail(fmt.Errorf("no output %q", name))
+	}
+	if format.Machine() {
+		return cmdout.WriteDocument(
+			cmd.OutOrStdout(), format,
+			buildOutputResult(info, stack, name, val, sensitive[name], diagnostics),
+		)
+	}
+	if sensitive[name] {
+		fmt.Fprintln(cmd.OutOrStdout(), sensitivePlaceholder)
+		return nil
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "%s\n", lang.RenderPretty(val))
+	return nil
+}
