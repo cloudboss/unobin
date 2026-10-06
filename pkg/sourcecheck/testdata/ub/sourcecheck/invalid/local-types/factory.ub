@@ -1,0 +1,11 @@
+factory: {
+  inputs: {
+    name: { type: string }
+    count: { type: integer }
+  }
+  locals: {
+    name: input.name
+    count: input.count
+  }
+  outputs: { missing: { value: input.missing } }
+}

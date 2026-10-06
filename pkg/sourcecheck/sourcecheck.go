@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing/fstest"
 
-	"github.com/cloudboss/unobin/pkg/check"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/program"
@@ -44,34 +43,14 @@ type Result struct {
 
 // CheckFactoryBody resolves imports and runs compile-time checks for body.
 func CheckFactoryBody(body syntax.FactoryBody, opts Options) (*Result, error) {
-	refs, errs := resolve.ExtractSyntaxBodyImports(body)
-	if len(errs) > 0 {
-		return nil, errors.Join(errs...)
-	}
-	analysis, err := analyzeFactoryImports(body, refs, opts)
+	analysis, err := AnalyzeFactoryBody(body, opts)
 	if err != nil {
 		return nil, err
 	}
-	checker := check.NewSyntaxWithLibraryConfigSchemas(
-		body,
-		analysis.Libraries,
-		analysis.LibraryConfigSchemas,
-		analysis.Assets.Catalog(),
-		analysis.RootAssetSetID,
-	)
-	if errs := checker.References(nil); errs.Len() > 0 {
-		return nil, errs.Err()
-	}
-	if errs := checker.LiteralConstraints(); errs.Len() > 0 {
-		return nil, errs.Err()
-	}
-	if errs := checker.ForEachNesting(); errs.Len() > 0 {
-		return nil, errs.Err()
-	}
 	return &Result{
-		Libraries:            analysis.Libraries,
-		LibraryConfigSchemas: analysis.LibraryConfigSchemas,
-		DAG:                  checker.DAG(),
+		Libraries:            analysis.Imports.Libraries,
+		LibraryConfigSchemas: analysis.Imports.LibraryConfigSchemas,
+		DAG:                  analysis.DAG,
 	}, nil
 }
 
