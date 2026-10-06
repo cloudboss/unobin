@@ -1,0 +1,2424 @@
+{
+  "format-version": 1,
+  "work-package": "editor-analysis",
+  "before-revision": "be6c947efa364e1369fad0dc66f03b7f7efdf957",
+  "after-revision": "e9d18576dde03a90d2f6fe7bcf4e1f9439b3f5b1",
+  "fixture-revision": "be6c947efa364e1369fad0dc66f03b7f7efdf957",
+  "primary-unit": "sec/op",
+  "assessment": "mixed",
+  "statistics": [
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkDiagnosticsForTextWithProjectsLargeFactory",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 88713485.5,
+        "low": 88622182,
+        "high": 88716708,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 88835006,
+        "low": 88715103,
+        "high": 88835654,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.13698086521467534,
+      "p": 0.0020892420273225234,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkDiagnosticsForTextWithProjectsLargeFactory",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2152294.5,
+        "low": 2150050,
+        "high": 2152298,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2155183.5,
+        "low": 2152294,
+        "high": 2155187,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.13422884275362534,
+      "p": 0.008281192491718808,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkDiagnosticsForTextWithProjectsLargeFactory",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.2556252775,
+        "low": 0.24978169600000003,
+        "high": 0.26231458900000004,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.29090168800000005,
+        "low": 0.28298712400000003,
+        "high": 0.297702466,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 13.800047806305082,
+      "p": 0.0010500335577734961,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkDiagnosticsForTextWithProjectsLargeFactory",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 88556003.5,
+        "low": 88548922,
+        "high": 88661323,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 88733572.5,
+        "low": 88667514,
+        "high": 88739329,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.20051604971085268,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkDiagnosticsForTextWithProjectsLargeFactory",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2145778.5,
+        "low": 2145770,
+        "high": 2148474,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2150273,
+        "low": 2148479,
+        "high": 2150280,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.2094577795424879,
+      "p": 0.00002165017644893806,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkDiagnosticsForTextWithProjectsLargeFactory",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.193042628,
+        "low": 0.188175578,
+        "high": 0.20267980700000002,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.2378490185,
+        "low": 0.22125434300000002,
+        "high": 0.24089738600000002,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 23.210619832630975,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=2000",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 237820122,
+        "low": 237818457,
+        "high": 237822066,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 238998238.5,
+        "low": 238997875,
+        "high": 239000849,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.49538133699216225,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=2000",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 5808042,
+        "low": 5808027,
+        "high": 5808052,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 5810085,
+        "low": 5810082,
+        "high": 5810092,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.03517536546739919,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=2000",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 2000,
+        "low": 2000,
+        "high": 2000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2000,
+        "low": 2000,
+        "high": 2000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=2000",
+      "cpu": 1,
+      "unit": "publications",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=2000",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.5110119055,
+        "low": 0.46951759600000004,
+        "high": 0.543301714,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.487167437,
+        "low": 0.47919781400000006,
+        "high": 0.500714526,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -4.6661277835923105,
+      "p": 0.07525601333650872,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=2000",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 238004431,
+        "low": 238003020,
+        "high": 238016454,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 239172960.5,
+        "low": 239168973,
+        "high": 239180297,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.49096964081312144,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=2000",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 5808604,
+        "low": 5808584,
+        "high": 5808613,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 5810610.5,
+        "low": 5810599,
+        "high": 5810618,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.034543583966129,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=2000",
+      "cpu": 4,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 2000,
+        "low": 2000,
+        "high": 2000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2000,
+        "low": 2000,
+        "high": 2000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=2000",
+      "cpu": 4,
+      "unit": "publications",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=2000",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.354476978,
+        "low": 0.349290357,
+        "high": 0.36306683100000003,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.35438217650000003,
+        "low": 0.35329968500000003,
+        "high": 0.36156987700000004,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -0.026744049933746794,
+      "p": 0.9117971811470266,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=50",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 67363295,
+        "low": 67359824,
+        "high": 67364423,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 67392960.5,
+        "low": 67391002,
+        "high": 67396157,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.04403807741293342,
+      "p": 0.0010500335577734961,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=50",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 1640472.5,
+        "low": 1640469,
+        "high": 1640476,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1640559.5,
+        "low": 1640557,
+        "high": 1640567,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.005303350101870663,
+      "p": 0.00002165017644893806,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=50",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 50,
+        "low": 50,
+        "high": 50,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 50,
+        "low": 50,
+        "high": 50,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=50",
+      "cpu": 1,
+      "unit": "publications",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=50",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.12886506600000003,
+        "low": 0.12729336900000002,
+        "high": 0.133101506,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.127432711,
+        "low": 0.12562414600000002,
+        "high": 0.13160217000000002,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -1.1115153582430315,
+      "p": 0.12300547749464162,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=50",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 67471359,
+        "low": 67466693,
+        "high": 67476080,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 67504256,
+        "low": 67497720,
+        "high": 67509481,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.04875698442652343,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=50",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 1640517,
+        "low": 1640511,
+        "high": 1640532,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1640617,
+        "low": 1640612,
+        "high": 1640620,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.00609563936246893,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=50",
+      "cpu": 4,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 50,
+        "low": 50,
+        "high": 50,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 50,
+        "low": 50,
+        "high": 50,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=50",
+      "cpu": 4,
+      "unit": "publications",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=50",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.10184315050000001,
+        "low": 0.101358928,
+        "high": 0.103940604,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.10074872750000001,
+        "low": 0.099374479,
+        "high": 0.101070846,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -1.0746162060255582,
+      "p": 0.0004871289701011064,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=500",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 106671342,
+        "low": 106669987,
+        "high": 106674576,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 106966659.5,
+        "low": 106962520,
+        "high": 106968228,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.27684802165515165,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=500",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2602299.5,
+        "low": 2602282,
+        "high": 2602304,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2602826,
+        "low": 2602822,
+        "high": 2602841,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.02023210625832217,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=500",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=500",
+      "cpu": 1,
+      "unit": "publications",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=500",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.210406792,
+        "low": 0.208114971,
+        "high": 0.21572289,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.2170134565,
+        "low": 0.213050139,
+        "high": 0.219679806,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 3.139948305471041,
+      "p": 0.028805559765312093,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=500",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 106814010.5,
+        "low": 106807369,
+        "high": 106817319,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 107106841,
+        "low": 107103317,
+        "high": 107112321,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.27414989721783467,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=500",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2602546,
+        "low": 2602536,
+        "high": 2602556,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2603075,
+        "low": 2603066,
+        "high": 2603085,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.0203262497569634,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=500",
+      "cpu": 4,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=500",
+      "cpu": 4,
+      "unit": "publications",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=500",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.16046979150000001,
+        "low": 0.15891270400000002,
+        "high": 0.162675806,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.16257617150000003,
+        "low": 0.16152259600000002,
+        "high": 0.16487363700000002,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 1.3126333500595555,
+      "p": 0.018543376128515452,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDependencyChange",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 128677859,
+        "low": 128677318,
+        "high": 128680432,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 64578908.5,
+        "low": 64577640,
+        "high": 64581287,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -49.81350404656639,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDependencyChange",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2769083,
+        "low": 2769071,
+        "high": 2769088,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1160116,
+        "low": 1160103,
+        "high": 1160120,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -58.10468664175108,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDependencyChange",
+      "cpu": 1,
+      "unit": "dependency-changes",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDependencyChange",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDependencyChange",
+      "cpu": 1,
+      "unit": "requests",
+      "before": {
+        "samples": 10,
+        "median": 4,
+        "low": 4,
+        "high": 4,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 4,
+        "low": 4,
+        "high": 4,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDependencyChange",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.32549345100000004,
+        "low": 0.319546508,
+        "high": 0.340775765,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.18923313,
+        "low": 0.18311595400000003,
+        "high": 0.19372861900000002,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -41.86269203923246,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDependencyChange",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 128784262.5,
+        "low": 128782264,
+        "high": 128791285,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 64638213,
+        "low": 64633883,
+        "high": 64639540,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -49.80891939339249,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDependencyChange",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2769523,
+        "low": 2769514,
+        "high": 2769542,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1160248.5,
+        "low": 1160228,
+        "high": 1160254,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -58.10655842179322,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDependencyChange",
+      "cpu": 4,
+      "unit": "dependency-changes",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDependencyChange",
+      "cpu": 4,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDependencyChange",
+      "cpu": 4,
+      "unit": "requests",
+      "before": {
+        "samples": 10,
+        "median": 4,
+        "low": 4,
+        "high": 4,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 4,
+        "low": 4,
+        "high": 4,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDependencyChange",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.23181277150000001,
+        "low": 0.227551786,
+        "high": 0.24337697000000003,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.15490121150000002,
+        "low": 0.15247849900000002,
+        "high": 0.15890205000000002,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -33.17831002249157,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDocumentEdits",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 223415721,
+        "low": 223411324,
+        "high": 223417698,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 137581165.5,
+        "low": 137578845,
+        "high": 137585196,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -38.4192102130539,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDocumentEdits",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 5085320,
+        "low": 5085307,
+        "high": 5085339,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2927134.5,
+        "low": 2927122,
+        "high": 2927139,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -42.43952199664918,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDocumentEdits",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDocumentEdits",
+      "cpu": 1,
+      "unit": "publications",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDocumentEdits",
+      "cpu": 1,
+      "unit": "requests",
+      "before": {
+        "samples": 10,
+        "median": 4,
+        "low": 4,
+        "high": 4,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 4,
+        "low": 4,
+        "high": 4,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDocumentEdits",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.573170612,
+        "low": 0.5335282090000001,
+        "high": 0.584177458,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.35588203100000004,
+        "low": 0.35012127600000004,
+        "high": 0.363707068,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -37.90993056008251,
+      "p": 0.0003247526467340709,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDocumentEdits",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 223103387,
+        "low": 223093928,
+        "high": 223106650,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 137464258,
+        "low": 137442915,
+        "high": 137467273,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -38.38540066628392,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDocumentEdits",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 5072782.5,
+        "low": 5072770,
+        "high": 5072801,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2920789,
+        "low": 2920747,
+        "high": 2920800,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -42.42234907567987,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDocumentEdits",
+      "cpu": 4,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDocumentEdits",
+      "cpu": 4,
+      "unit": "publications",
+      "before": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1,
+        "low": 1,
+        "high": 1,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDocumentEdits",
+      "cpu": 4,
+      "unit": "requests",
+      "before": {
+        "samples": 10,
+        "median": 4,
+        "low": 4,
+        "high": 4,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 4,
+        "low": 4,
+        "high": 4,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDocumentEdits",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.36114956400000003,
+        "low": 0.35110547400000003,
+        "high": 0.37658933,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.26445367750000004,
+        "low": 0.25678953200000004,
+        "high": 0.271626401,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -26.77447133786377,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=2000",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 21071988336,
+        "low": 21071944984,
+        "high": 21072022688,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 844169628,
+        "low": 844155892,
+        "high": 844172508,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -95.9938776799824,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=2000",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 224152599,
+        "low": 224152511,
+        "high": 224152753,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 11388872,
+        "low": 11388476,
+        "high": 11388887,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -94.91914345369692,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=2000",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 2000,
+        "low": 2000,
+        "high": 2000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2000,
+        "low": 2000,
+        "high": 2000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=2000",
+      "cpu": 1,
+      "unit": "requests",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=2000",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 30.079926387500002,
+        "low": 29.723567747,
+        "high": 30.645030171000002,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1.4132803640000002,
+        "low": 1.401334544,
+        "high": 1.438736672,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -95.30158303649539,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=2000",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 21077806296,
+        "low": 21077769024,
+        "high": 21077854496,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 763627662,
+        "low": 763599586,
+        "high": 763640664,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -96.37710086488025,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=2000",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 224184384.5,
+        "low": 224184053,
+        "high": 224184596,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 11353007,
+        "low": 11352819,
+        "high": 11353025,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -94.93586182404243,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=2000",
+      "cpu": 4,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 2000,
+        "low": 2000,
+        "high": 2000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2000,
+        "low": 2000,
+        "high": 2000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=2000",
+      "cpu": 4,
+      "unit": "requests",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=2000",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 20.875027414500003,
+        "low": 20.575882070000002,
+        "high": 21.38631511,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.889169168,
+        "low": 0.874233655,
+        "high": 0.9044964430000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -95.74051257349548,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=50",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 728508916,
+        "low": 728489608,
+        "high": 731792680,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 469049040,
+        "low": 469027612,
+        "high": 469063572,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -35.61519568279381,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=50",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 17725485,
+        "low": 17725431,
+        "high": 17804960,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 11358780,
+        "low": 11358656,
+        "high": 11358916,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -35.918368383150025,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=50",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 50,
+        "low": 50,
+        "high": 50,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 50,
+        "low": 50,
+        "high": 50,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=50",
+      "cpu": 1,
+      "unit": "requests",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=50",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 1.9868942990000003,
+        "low": 1.740324385,
+        "high": 2.1016173620000003,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1.0319187605,
+        "low": 1.0146284140000001,
+        "high": 1.048077849,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -48.0637313711473,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=50",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 729430914,
+        "low": 729386020,
+        "high": 729444164,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 468823513,
+        "low": 468792184,
+        "high": 468862224,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -35.727496051805666,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=50",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 17726571.5,
+        "low": 17726529,
+        "high": 17726614,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 11332618.5,
+        "low": 11332413,
+        "high": 11332631,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -36.06987961546879,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=50",
+      "cpu": 4,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 50,
+        "low": 50,
+        "high": 50,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 50,
+        "low": 50,
+        "high": 50,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=50",
+      "cpu": 4,
+      "unit": "requests",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=50",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 1.2150797195,
+        "low": 1.180983774,
+        "high": 1.236300404,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.738326888,
+        "low": 0.728822827,
+        "high": 0.746006428,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -39.23634176827358,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=500",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 3055902600,
+        "low": 3055892752,
+        "high": 3055909416,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 506582114,
+        "low": 506558320,
+        "high": 506599240,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -83.42283180098737,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=500",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 65340377.5,
+        "low": 65340282,
+        "high": 65340448,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 11364378,
+        "low": 11364343,
+        "high": 11364390,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -82.60741912609856,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=500",
+      "cpu": 1,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=500",
+      "cpu": 1,
+      "unit": "requests",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=500",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 6.962049783500001,
+        "low": 6.641919661,
+        "high": 9.680359045000001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1.105420314,
+        "low": 1.0813780080000002,
+        "high": 1.1200687900000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -84.12220038098785,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=500",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 3058378752,
+        "low": 3058355952,
+        "high": 3058431048,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 503583212,
+        "low": 503526938,
+        "high": 503636936,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -83.53430844133723,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=500",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 65350811.5,
+        "low": 65350600,
+        "high": 65350901,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 11336440.5,
+        "low": 11336254,
+        "high": 11336482,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -82.65294609233736,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=500",
+      "cpu": 4,
+      "unit": "nodes",
+      "before": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 500,
+        "low": 500,
+        "high": 500,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=500",
+      "cpu": 4,
+      "unit": "requests",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=500",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 4.457564149,
+        "low": 4.411244938,
+        "high": 4.521533339,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.768866605,
+        "low": 0.758355329,
+        "high": 0.786494268,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -82.75141805480274,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    }
+  ],
+  "warnings": []
+}
