@@ -32,6 +32,7 @@ func TestCompiledFormatInventoryGolden(t *testing.T) {
 		{Path: "version"},
 		{Path: "validate"},
 		{Path: "schema show"},
+		{Path: "schema state"},
 		{Path: "plan"},
 		{Path: "apply"},
 		{Path: "refresh"},

@@ -69,6 +69,7 @@ func newSchemaCmd(info Info) (*cobra.Command, *cobra.Command) {
 		"Write the template to this file instead of stdout.")
 	cmd.AddCommand(show)
 	cmd.AddCommand(tmpl)
+	cmd.AddCommand(newStateSchemaCmd(info))
 	return cmd, show
 }
 
