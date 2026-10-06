@@ -1,0 +1,428 @@
+{
+  "format-version": 1,
+  "kind": "benchmark-comparison",
+  "before": {
+    "format-version": 1,
+    "workload": {
+      "work-package": "queued-editor-analysis",
+      "description": "Latest diagnostics after a burst of document edits over an editor connection",
+      "kind": "micro",
+      "fixtures": [
+        "pkg/lsp/queued_analysis_benchmark_test.go",
+        "pkg/lsp/analysis_benchmark_test.go",
+        "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-50.ub",
+        "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-500.ub",
+        "pkg/goschema/testdata/definition/go.mod",
+        "pkg/goschema/testdata/definition/library.go",
+        "pkg/goschema/testdata/definition/shared/shared.go"
+      ],
+      "parameters": {
+        "document-nodes": "50,500",
+        "edits-per-batch": "8",
+        "text-variants": "two equal-length input defaults",
+        "transport": "LSP framing over in-memory pipes"
+      },
+      "packages": [
+        "./pkg/lsp"
+      ],
+      "benchmark": "^BenchmarkServeQueuedDocumentEdits$",
+      "cases": [
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkServeQueuedDocumentEdits/nodes=50",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edits",
+            "publications/op"
+          ],
+          "fixed": {
+            "edits": 8,
+            "nodes": 50
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkServeQueuedDocumentEdits/nodes=500",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edits",
+            "publications/op"
+          ],
+          "fixed": {
+            "edits": 8,
+            "nodes": 500
+          }
+        }
+      ],
+      "samples": 10,
+      "benchtime": "2s",
+      "cpus": [
+        1,
+        4
+      ],
+      "setup": "Copy the fixed local provider and create a project outside timing. Start one editor connection and wait for the initial diagnostics outside timing. Each timed operation sends eight complete document changes without waiting between changes, then waits for diagnostics at the latest version. Include client JSON encoding, framing, transport, analysis, and publication. Check the URI, strictly increasing versions, latest-version completion, and absence of diagnostics. Count actual publications to expose coalescing. Stop and join the connection during cleanup outside timing.",
+      "cache-policy": "Symmetric warm Go build cache and one 1x benchmark warmup. Default GC, local replacements, no fetch, and no unrelated CPU-intensive work during collection. Each case uses one fresh project and reuses its editor connection and project cache.",
+      "primary-unit": "sec/op",
+      "primary-direction": "lower",
+      "tests": [
+        [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/lsp",
+          "./pkg/lsp/protocol",
+          "./pkg/sourcecheck"
+        ]
+      ]
+    },
+    "source-revision": "a834721da4d8d088efdeb7e5fcdd7d18d3df2a06",
+    "fixture-revision": "a834721da4d8d088efdeb7e5fcdd7d18d3df2a06",
+    "workload-path": "benchmarks/workloads/queued-editor-analysis.json",
+    "repository": "/home/joseph/code/unobin",
+    "clean-source": true,
+    "fixture-digests": {
+      "benchmarks/workloads/queued-editor-analysis.json": "7b5a99552a5a87b3119dd618450f0940ab9cea5cf23b28b32346566baec464ea",
+      "pkg/goschema/testdata/definition/go.mod": "dc0559068bae64bb01daeb7353fdb2abe23e0b514e83355b240b25652cf668ac",
+      "pkg/goschema/testdata/definition/library.go": "e70c810128cd3a67b95b359ef62a23dbcadd03c83cffaa414fa45ce0ca2b5bcd",
+      "pkg/goschema/testdata/definition/shared/shared.go": "4f2e44e156ac78e007ac1dd0cda121d0075c4c06ae53a630b75931c6da89fe8b",
+      "pkg/lsp/analysis_benchmark_test.go": "66ad1e51f2253fba7b7067b53a84d603733f459878aa36f9e6139e1bdd557866",
+      "pkg/lsp/queued_analysis_benchmark_test.go": "3ac208260691b5c124083f6a29b7edf85bfae8e66cb3871b9b4a6b22f6251acd",
+      "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-50.ub": "a4ed7b45b97a50a6c3fa8f0dca9ca58adab8a3a039078afa2de234daf8afcfa5",
+      "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-500.ub": "0d8c34341143574d97022657a39deca7039361fd2d807bd3feaefe5123e8d23b"
+    },
+    "dependency-locks": {
+      "go.mod": "588dedf3818897394d476ef520f1490eaa0c46084a617876add0bb6645aa162e",
+      "go.sum": "1e1f203654bb19eb6d9c941749ae98c646e73039a7932d3730efd477d542fe45"
+    },
+    "machine": {
+      "go-version": "go1.26.2",
+      "goos": "linux",
+      "goarch": "amd64",
+      "cpu-model": "AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M",
+      "logical-cpus": 24
+    },
+    "environment": {
+      "CC": "",
+      "CGO_CFLAGS": "",
+      "CGO_CPPFLAGS": "",
+      "CGO_CXXFLAGS": "",
+      "CGO_ENABLED": "1",
+      "CGO_LDFLAGS": "",
+      "CXX": "",
+      "GO386": "",
+      "GOAMD64": "v1",
+      "GOARCH": "amd64",
+      "GOARM": "",
+      "GOARM64": "",
+      "GOCACHE": "/home/joseph/code/unobin/_output/remediation/gocache",
+      "GODEBUG": "",
+      "GOEXPERIMENT": "",
+      "GOFLAGS": "",
+      "GOMAXPROCS": "",
+      "GOMIPS": "",
+      "GOMIPS64": "",
+      "GOMODCACHE": "/home/joseph/code/unobin/_output/remediation/gomodcache",
+      "GOOS": "linux",
+      "GOPPC64": "",
+      "GORISCV64": "",
+      "GOROOT": "/home/joseph/.local/go1.26.2",
+      "GOTMPDIR": "",
+      "GOTOOLCHAIN": "auto",
+      "GOVERSION": "go1.26.2",
+      "GOWASM": "",
+      "GOWORK": "",
+      "UNOBIN_BENCH_PROFILE": ""
+    },
+    "benchstat-version": "v0.0.0-20260929162123-406019bb8b68",
+    "tests": [
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/lsp",
+          "./pkg/lsp/protocol",
+          "./pkg/sourcecheck"
+        ],
+        "directory": ".",
+        "started": "2026-10-06T01:22:30.204064787Z",
+        "finished": "2026-10-06T01:22:35.762400175Z",
+        "exit-code": 0,
+        "output": "before-test-01.txt",
+        "sha256": "5399659ccde6539eee8b878f8dfa73e7d8af0117faf6b07a3951511e7abb7d8f"
+      }
+    ],
+    "warmup": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^BenchmarkServeQueuedDocumentEdits$",
+        "-benchmem",
+        "-benchtime=1x",
+        "-count=1",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/lsp"
+      ],
+      "directory": ".",
+      "started": "2026-10-06T01:22:35.76251477Z",
+      "finished": "2026-10-06T01:22:42.626589197Z",
+      "exit-code": 0,
+      "output": "before-warmup.txt",
+      "sha256": "4a5260d5a0f44feb35990a3250d45e8520147b4607ffc7a0fc8b137093d5577e"
+    },
+    "benchmark": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^BenchmarkServeQueuedDocumentEdits$",
+        "-benchmem",
+        "-benchtime=2s",
+        "-count=10",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/lsp"
+      ],
+      "directory": ".",
+      "started": "2026-10-06T01:22:42.626721455Z",
+      "finished": "2026-10-06T01:24:36.395623285Z",
+      "exit-code": 0,
+      "output": "before.txt",
+      "sha256": "086bf03455a0d3d69c396c26614b19ef6d0622365d9c5b21777ea294cdd7c847"
+    }
+  },
+  "after": {
+    "format-version": 1,
+    "workload": {
+      "work-package": "queued-editor-analysis",
+      "description": "Latest diagnostics after a burst of document edits over an editor connection",
+      "kind": "micro",
+      "fixtures": [
+        "pkg/lsp/queued_analysis_benchmark_test.go",
+        "pkg/lsp/analysis_benchmark_test.go",
+        "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-50.ub",
+        "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-500.ub",
+        "pkg/goschema/testdata/definition/go.mod",
+        "pkg/goschema/testdata/definition/library.go",
+        "pkg/goschema/testdata/definition/shared/shared.go"
+      ],
+      "parameters": {
+        "document-nodes": "50,500",
+        "edits-per-batch": "8",
+        "text-variants": "two equal-length input defaults",
+        "transport": "LSP framing over in-memory pipes"
+      },
+      "packages": [
+        "./pkg/lsp"
+      ],
+      "benchmark": "^BenchmarkServeQueuedDocumentEdits$",
+      "cases": [
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkServeQueuedDocumentEdits/nodes=50",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edits",
+            "publications/op"
+          ],
+          "fixed": {
+            "edits": 8,
+            "nodes": 50
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkServeQueuedDocumentEdits/nodes=500",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "edits",
+            "publications/op"
+          ],
+          "fixed": {
+            "edits": 8,
+            "nodes": 500
+          }
+        }
+      ],
+      "samples": 10,
+      "benchtime": "2s",
+      "cpus": [
+        1,
+        4
+      ],
+      "setup": "Copy the fixed local provider and create a project outside timing. Start one editor connection and wait for the initial diagnostics outside timing. Each timed operation sends eight complete document changes without waiting between changes, then waits for diagnostics at the latest version. Include client JSON encoding, framing, transport, analysis, and publication. Check the URI, strictly increasing versions, latest-version completion, and absence of diagnostics. Count actual publications to expose coalescing. Stop and join the connection during cleanup outside timing.",
+      "cache-policy": "Symmetric warm Go build cache and one 1x benchmark warmup. Default GC, local replacements, no fetch, and no unrelated CPU-intensive work during collection. Each case uses one fresh project and reuses its editor connection and project cache.",
+      "primary-unit": "sec/op",
+      "primary-direction": "lower",
+      "tests": [
+        [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/lsp",
+          "./pkg/lsp/protocol",
+          "./pkg/sourcecheck"
+        ]
+      ]
+    },
+    "source-revision": "6d0abd1d449952fcc0345d169e4bfdf5af9d9f56",
+    "fixture-revision": "a834721da4d8d088efdeb7e5fcdd7d18d3df2a06",
+    "workload-path": "benchmarks/workloads/queued-editor-analysis.json",
+    "repository": "/home/joseph/code/unobin",
+    "clean-source": true,
+    "fixture-digests": {
+      "benchmarks/workloads/queued-editor-analysis.json": "7b5a99552a5a87b3119dd618450f0940ab9cea5cf23b28b32346566baec464ea",
+      "pkg/goschema/testdata/definition/go.mod": "dc0559068bae64bb01daeb7353fdb2abe23e0b514e83355b240b25652cf668ac",
+      "pkg/goschema/testdata/definition/library.go": "e70c810128cd3a67b95b359ef62a23dbcadd03c83cffaa414fa45ce0ca2b5bcd",
+      "pkg/goschema/testdata/definition/shared/shared.go": "4f2e44e156ac78e007ac1dd0cda121d0075c4c06ae53a630b75931c6da89fe8b",
+      "pkg/lsp/analysis_benchmark_test.go": "66ad1e51f2253fba7b7067b53a84d603733f459878aa36f9e6139e1bdd557866",
+      "pkg/lsp/queued_analysis_benchmark_test.go": "3ac208260691b5c124083f6a29b7edf85bfae8e66cb3871b9b4a6b22f6251acd",
+      "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-50.ub": "a4ed7b45b97a50a6c3fa8f0dca9ca58adab8a3a039078afa2de234daf8afcfa5",
+      "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-500.ub": "0d8c34341143574d97022657a39deca7039361fd2d807bd3feaefe5123e8d23b"
+    },
+    "dependency-locks": {
+      "go.mod": "588dedf3818897394d476ef520f1490eaa0c46084a617876add0bb6645aa162e",
+      "go.sum": "1e1f203654bb19eb6d9c941749ae98c646e73039a7932d3730efd477d542fe45"
+    },
+    "machine": {
+      "go-version": "go1.26.2",
+      "goos": "linux",
+      "goarch": "amd64",
+      "cpu-model": "AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M",
+      "logical-cpus": 24
+    },
+    "environment": {
+      "CC": "",
+      "CGO_CFLAGS": "",
+      "CGO_CPPFLAGS": "",
+      "CGO_CXXFLAGS": "",
+      "CGO_ENABLED": "1",
+      "CGO_LDFLAGS": "",
+      "CXX": "",
+      "GO386": "",
+      "GOAMD64": "v1",
+      "GOARCH": "amd64",
+      "GOARM": "",
+      "GOARM64": "",
+      "GOCACHE": "/home/joseph/code/unobin/_output/remediation/gocache",
+      "GODEBUG": "",
+      "GOEXPERIMENT": "",
+      "GOFLAGS": "",
+      "GOMAXPROCS": "",
+      "GOMIPS": "",
+      "GOMIPS64": "",
+      "GOMODCACHE": "/home/joseph/code/unobin/_output/remediation/gomodcache",
+      "GOOS": "linux",
+      "GOPPC64": "",
+      "GORISCV64": "",
+      "GOROOT": "/home/joseph/.local/go1.26.2",
+      "GOTMPDIR": "",
+      "GOTOOLCHAIN": "auto",
+      "GOVERSION": "go1.26.2",
+      "GOWASM": "",
+      "GOWORK": "",
+      "UNOBIN_BENCH_PROFILE": ""
+    },
+    "benchstat-version": "v0.0.0-20260929162123-406019bb8b68",
+    "tests": [
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/lsp",
+          "./pkg/lsp/protocol",
+          "./pkg/sourcecheck"
+        ],
+        "directory": ".",
+        "started": "2026-10-06T01:47:54.337506162Z",
+        "finished": "2026-10-06T01:48:01.367859398Z",
+        "exit-code": 0,
+        "output": "after-test-01.txt",
+        "sha256": "eb2d912c44d9c6870b47c65eab8a955f8725b06d03e2b947ebe1e31bd3492950"
+      }
+    ],
+    "warmup": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^BenchmarkServeQueuedDocumentEdits$",
+        "-benchmem",
+        "-benchtime=1x",
+        "-count=1",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/lsp"
+      ],
+      "directory": ".",
+      "started": "2026-10-06T01:48:01.367959656Z",
+      "finished": "2026-10-06T01:48:03.362848571Z",
+      "exit-code": 0,
+      "output": "after-warmup.txt",
+      "sha256": "19f67b0b0f3030a3796e5a9a04b849821814a5e7e9264c807d94696b29ec178e"
+    },
+    "benchmark": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^BenchmarkServeQueuedDocumentEdits$",
+        "-benchmem",
+        "-benchtime=2s",
+        "-count=10",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/lsp"
+      ],
+      "directory": ".",
+      "started": "2026-10-06T01:48:03.362983424Z",
+      "finished": "2026-10-06T01:49:39.908535147Z",
+      "exit-code": 0,
+      "output": "after.txt",
+      "sha256": "24d3004150d2da1b15557bb8eeb4e77a2a844c4fdc5218fef17619b8b08f752a"
+    }
+  },
+  "comparison": {
+    "args": [
+      "go",
+      "tool",
+      "benchstat",
+      "before.txt",
+      "after.txt"
+    ],
+    "directory": ".",
+    "started": "2026-10-06T01:50:38.627662868Z",
+    "finished": "2026-10-06T01:50:38.63068038Z",
+    "exit-code": 0,
+    "output": "comparison.txt",
+    "sha256": "71432ed1e76978cfeadf17b5cd007e802b2fde682d3e03e5e6a224112b28735f"
+  },
+  "summary-sha256": "c8665612a8985d528e71e96e6ad7eb6ef0a7ed018fcf563e354389ea3510dd88"
+}

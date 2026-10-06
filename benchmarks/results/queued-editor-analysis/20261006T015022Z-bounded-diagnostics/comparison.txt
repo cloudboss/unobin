@@ -1,0 +1,53 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/lsp
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+                                     │  before.txt   │              after.txt              │
+                                     │    sec/op     │   sec/op     vs base                │
+ServeQueuedDocumentEdits/nodes=50       959.9m ± 11%   234.7m ± 5%  -75.55% (p=0.000 n=10)
+ServeQueuedDocumentEdits/nodes=50-4    728.63m ±  1%   95.11m ± 1%  -86.95% (p=0.000 n=10)
+ServeQueuedDocumentEdits/nodes=500     1738.8m ±  2%   244.8m ± 1%  -85.92% (p=0.000 n=10)
+ServeQueuedDocumentEdits/nodes=500-4   1200.5m ±  1%   192.2m ± 1%  -83.99% (p=0.000 n=10)
+geomean                                  1.099         180.0m       -83.62%
+
+                                     │ before.txt │              after.txt              │
+                                     │   edits    │   edits     vs base                 │
+ServeQueuedDocumentEdits/nodes=50      8.000 ± 0%   8.000 ± 0%       ~ (p=1.000 n=10) ¹
+ServeQueuedDocumentEdits/nodes=50-4    8.000 ± 0%   8.000 ± 0%       ~ (p=1.000 n=10) ¹
+ServeQueuedDocumentEdits/nodes=500     8.000 ± 0%   8.000 ± 0%       ~ (p=1.000 n=10) ¹
+ServeQueuedDocumentEdits/nodes=500-4   8.000 ± 0%   8.000 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                8.000        8.000       +0.00%
+¹ all samples are equal
+
+                                     │ before.txt │              after.txt              │
+                                     │   nodes    │   nodes     vs base                 │
+ServeQueuedDocumentEdits/nodes=50      50.00 ± 0%   50.00 ± 0%       ~ (p=1.000 n=10) ¹
+ServeQueuedDocumentEdits/nodes=50-4    50.00 ± 0%   50.00 ± 0%       ~ (p=1.000 n=10) ¹
+ServeQueuedDocumentEdits/nodes=500     500.0 ± 0%   500.0 ± 0%       ~ (p=1.000 n=10) ¹
+ServeQueuedDocumentEdits/nodes=500-4   500.0 ± 0%   500.0 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                158.1        158.1       +0.00%
+¹ all samples are equal
+
+                                     │   before.txt    │                after.txt                │
+                                     │ publications/op │ publications/op  vs base                │
+ServeQueuedDocumentEdits/nodes=50           8.000 ± 0%        1.000 ± 0%  -87.50% (p=0.000 n=10)
+ServeQueuedDocumentEdits/nodes=50-4         8.000 ± 0%        1.000 ± 0%  -87.50% (p=0.000 n=10)
+ServeQueuedDocumentEdits/nodes=500          8.000 ± 0%        1.000 ± 0%  -87.50% (p=0.000 n=10)
+ServeQueuedDocumentEdits/nodes=500-4        8.000 ± 0%        1.000 ± 0%  -87.50% (p=0.000 n=10)
+geomean                                     8.000             1.000       -87.50%
+
+                                     │  before.txt   │              after.txt               │
+                                     │     B/op      │     B/op      vs base                │
+ServeQueuedDocumentEdits/nodes=50       461.9Mi ± 0%   115.6Mi ± 0%  -74.97% (p=0.000 n=10)
+ServeQueuedDocumentEdits/nodes=50-4    462.68Mi ± 0%   62.82Mi ± 0%  -86.42% (p=0.000 n=10)
+ServeQueuedDocumentEdits/nodes=500      764.2Mi ± 0%   117.6Mi ± 0%  -84.62% (p=0.000 n=10)
+ServeQueuedDocumentEdits/nodes=500-4    765.3Mi ± 0%   137.6Mi ± 1%  -82.02% (p=0.000 n=10)
+geomean                                 594.6Mi        104.1Mi       -82.49%
+
+                                     │  before.txt  │              after.txt              │
+                                     │  allocs/op   │  allocs/op   vs base                │
+ServeQueuedDocumentEdits/nodes=50      11.814M ± 0%   2.954M ± 0%  -75.00% (p=0.000 n=10)
+ServeQueuedDocumentEdits/nodes=50-4    11.814M ± 0%   1.602M ± 0%  -86.44% (p=0.000 n=10)
+ServeQueuedDocumentEdits/nodes=500     19.511M ± 0%   2.976M ± 0%  -84.75% (p=0.000 n=10)
+ServeQueuedDocumentEdits/nodes=500-4   19.513M ± 0%   3.491M ± 1%  -82.11% (p=0.000 n=10)
+geomean                                 15.18M        2.648M       -82.56%

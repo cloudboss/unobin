@@ -1,0 +1,10 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/lsp
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkServeQueuedDocumentEdits/nodes=50           	       1	 121603209 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	65976192 B/op	 1604387 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50-4         	       1	 126681059 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	65957352 B/op	 1604228 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500          	       1	 280344415 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	145203416 B/op	 3513001 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500-4        	       1	 280589024 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	145189464 B/op	 3512975 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/lsp	1.533s

@@ -1,0 +1,46 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/lsp
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkServeQueuedDocumentEdits/nodes=50           	      15	 142596169 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	65969929 B/op	 1604244 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50           	       7	 324984097 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	121259377 B/op	 2953761 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50           	      10	 223026508 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	121251536 B/op	 2953749 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50           	       9	 225805589 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	121242596 B/op	 2953738 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50           	       9	 231471208 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	121237492 B/op	 2953735 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50           	       9	 235402451 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	121235917 B/op	 2953736 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50           	       9	 234090773 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	121227625 B/op	 2953944 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50           	       9	 236257742 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	121243262 B/op	 2953740 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50           	       9	 239089741 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	121234539 B/op	 2953727 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50           	       9	 244867417 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	121252941 B/op	 2953750 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50-4         	      25	  95040959 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	65983171 B/op	 1604230 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50-4         	      26	  94162502 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	65875758 B/op	 1601784 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50-4         	      25	  94273869 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	65868091 B/op	 1601682 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50-4         	      22	  94985291 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	65868128 B/op	 1601339 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50-4         	      25	  95085619 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	65877167 B/op	 1601796 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50-4         	      25	  95447489 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	65982123 B/op	 1604226 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50-4         	      25	  95302579 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	65880768 B/op	 1601688 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50-4         	      25	  95140336 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	65774455 B/op	 1599253 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50-4         	      24	  95502957 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	65868164 B/op	 1601578 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=50-4         	      24	  96370926 ns/op	         8.000 edits	        50.00 nodes	         1.000 publications/op	65983352 B/op	 1604335 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500          	      12	 192212776 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	145146153 B/op	 3512996 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500          	       9	 244509720 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	123263336 B/op	 2975932 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500          	       8	 255071389 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	123301099 B/op	 2975937 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500          	       9	 243854748 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	123269106 B/op	 2975920 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500          	       9	 244394376 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	123268640 B/op	 2975930 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500          	       9	 242045189 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	120892373 B/op	 2916324 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500          	       9	 248323164 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	123269591 B/op	 2975934 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500          	       9	 247542175 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	123264427 B/op	 2975925 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500          	       9	 245109482 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	123296525 B/op	 2975933 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500          	       9	 247822259 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	123297261 B/op	 2975930 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500-4        	      12	 193033130 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	145119562 B/op	 3512984 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500-4        	      12	 189337717 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	143297872 B/op	 3468269 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500-4        	      12	 193986495 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	145130426 B/op	 3512986 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500-4        	      12	 192952380 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	145160262 B/op	 3512992 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500-4        	      12	 189666676 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	143348388 B/op	 3468262 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500-4        	      12	 194213586 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	145194320 B/op	 3512985 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500-4        	      12	 191488616 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	143337571 B/op	 3468379 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500-4        	      12	 193865621 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	145176418 B/op	 3512997 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500-4        	      12	 185605362 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	139713936 B/op	 3378833 allocs/op
+BenchmarkServeQueuedDocumentEdits/nodes=500-4        	      12	 189598906 ns/op	         8.000 edits	       500.0 nodes	         1.000 publications/op	143382369 B/op	 3468288 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/lsp	96.054s
