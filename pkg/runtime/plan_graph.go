@@ -11,7 +11,7 @@ import (
 // for under apply's scheduler.
 type StepNode struct {
 	Address     string   `json:"address"`
-	Kind        NodeKind `json:"node-kind"`
+	Kind        Category `json:"node-kind"`
 	Composite   bool     `json:"composite,omitempty"`
 	Decision    Decision `json:"decision"`
 	DependsOn   []string `json:"depends-on,omitempty"`
@@ -21,6 +21,11 @@ type StepNode struct {
 	ExportKind  string   `json:"kind,omitempty"`
 	Name        string   `json:"name,omitempty"`
 	Parent      string   `json:"parent,omitempty"`
+}
+
+// Export returns the selected implementation from the public ExportKind field.
+func (n StepNode) Export() string {
+	return n.ExportKind
 }
 
 // PlanGraph returns the dependency graph apply schedules pf with: one
@@ -51,7 +56,7 @@ func PlanGraph(pf *PlanFile, dag *DAG) []StepNode {
 			Category:    display.category,
 			ImportAlias: display.importAlias,
 			LibraryPath: display.libraryPath,
-			ExportKind:  display.exportKind,
+			ExportKind:  display.export,
 			Name:        display.name,
 			Parent:      display.parent,
 		}
@@ -63,7 +68,7 @@ type stepNodeDisplayFields struct {
 	category    string
 	importAlias string
 	libraryPath string
-	exportKind  string
+	export      string
 	name        string
 	parent      string
 }
@@ -81,7 +86,7 @@ func stepNodeDisplay(step *PlanStep) stepNodeDisplayFields {
 		category:    string(segment.Category),
 		importAlias: step.Binding.Alias,
 		libraryPath: step.Binding.LibraryPath,
-		exportKind:  step.Binding.Export,
+		export:      step.Binding.Export,
 		name:        segmentName(segment),
 		parent:      stateRefParent(ref),
 	}

@@ -332,7 +332,7 @@ const (
 // Each entry maps the field name to the source-side paths the body reads.
 type PlanStep struct {
 	Address string         `json:"address"`
-	Kind    NodeKind       `json:"node-kind"`
+	Kind    Category       `json:"node-kind"`
 	Binding *state.Binding `json:"binding,omitempty"`
 
 	// Composite marks a step whose apply finalizes a composite call
@@ -508,7 +508,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	var constraintErrs []error
 	if !e.Destroy {
 		rs.planning = true
-		rs.plannedByTemplate = map[string][]*PlanStep{}
+		rs.plannedByDeclaration = map[string][]*PlanStep{}
 		for _, addr := range rs.order {
 			node := e.DAG.Nodes[addr]
 			if e.pendingReadBlocksNode(rs, node) {
@@ -532,8 +532,8 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 					}
 				}
 				plan.Steps = append(plan.Steps, step)
-				tmpl := templateAddress(step.Address)
-				rs.plannedByTemplate[tmpl] = append(rs.plannedByTemplate[tmpl], step)
+				tmpl := declarationAddress(step.Address)
+				rs.plannedByDeclaration[tmpl] = append(rs.plannedByDeclaration[tmpl], step)
 				liveAddresses[step.Address] = true
 				if err := e.seedStepAttrs(rs, step); err != nil {
 					return nil, diagnostic.Context(step.Address, err)
@@ -591,13 +591,13 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 
 // Composite destroy steps retain an empty node kind in the plan encoding.
 // Their composite marker selects state removal without a provider lifecycle.
-func destroyEntryClassification(entry *state.Entry) (kind NodeKind, composite, ok bool) {
-	switch NodeKind(entry.Category) {
+func destroyEntryClassification(entry *state.Entry) (kind Category, composite, ok bool) {
+	switch Category(entry.Category) {
 	case NodeResource, NodeAction, NodeDataSource:
 		if entry.Composite {
 			return "", true, true
 		}
-		return NodeKind(entry.Category), false, true
+		return Category(entry.Category), false, true
 	}
 	return "", false, false
 }
@@ -720,9 +720,9 @@ func (e *Executor) resourceRegistration(n *Node) (ResourceRegistration, error) {
 	if !ok {
 		return nil, fmt.Errorf("library %q is not imported", n.Alias)
 	}
-	rt, ok := lib.Resources[n.Type]
+	rt, ok := lib.Resources[n.Export()]
 	if !ok {
-		return nil, fmt.Errorf("library %s has no resource %q", n.Alias, n.Type)
+		return nil, fmt.Errorf("library %s has no resource %q", n.Alias, n.Export())
 	}
 	return rt, nil
 }
@@ -733,9 +733,9 @@ func (e *Executor) actionRegistration(n *Node) (ActionRegistration, error) {
 	if !ok {
 		return nil, fmt.Errorf("library %q is not imported", n.Alias)
 	}
-	at, ok := lib.Actions[n.Type]
+	at, ok := lib.Actions[n.Export()]
 	if !ok {
-		return nil, fmt.Errorf("library %s has no action %q", n.Alias, n.Type)
+		return nil, fmt.Errorf("library %s has no action %q", n.Alias, n.Export())
 	}
 	return at, nil
 }
@@ -746,9 +746,9 @@ func (e *Executor) dataRegistration(n *Node) (DataSourceRegistration, error) {
 	if !ok {
 		return nil, fmt.Errorf("library %q is not imported", n.Alias)
 	}
-	dt, ok := lib.DataSources[n.Type]
+	dt, ok := lib.DataSources[n.Export()]
 	if !ok {
-		return nil, fmt.Errorf("library %s has no data source %q", n.Alias, n.Type)
+		return nil, fmt.Errorf("library %s has no data source %q", n.Alias, n.Export())
 	}
 	return dt, nil
 }
@@ -760,7 +760,7 @@ func (e *Executor) dataRegistration(n *Node) (DataSourceRegistration, error) {
 func (e *Executor) planOneInstance(
 	ctx context.Context, rs *runState, n *Node, scope *EvalContext, addr string,
 ) (*PlanStep, error) {
-	switch n.Kind {
+	switch n.Category() {
 	case NodeResource:
 		rt, err := e.resourceRegistration(n)
 		if err != nil {
@@ -778,7 +778,7 @@ func (e *Executor) planOneInstance(
 		}
 		return e.planOneData(ctx, rs, n, scope, addr)
 	}
-	return nil, fmt.Errorf("%s: unsupported node kind %q", addr, n.Kind)
+	return nil, fmt.Errorf("%s: unsupported node kind %q", addr, n.Category())
 }
 
 func (e *Executor) seedFromPriorState(rs *runState) error {
@@ -789,7 +789,7 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 		if ent.Composite {
 			continue
 		}
-		switch NodeKind(ent.Category) {
+		switch Category(ent.Category) {
 		case NodeAction:
 			scope, err := e.scopeForAddress(rs, ent.Address)
 			if errors.Is(err, ErrEvalNotFound) {
@@ -855,7 +855,7 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 		return err
 	}
 	tmpl, instKey := splitInstanceAddress(step.Address)
-	target := scopeMapForKind(scope, step.Kind)
+	target := scopeMapForCategory(scope, step.Kind)
 	// A data source read during the plan seeds what it observed; at
 	// this point in the walk a resource's drift read has not run yet,
 	// so resources still seed their prior outputs. A step whose apply
@@ -888,7 +888,7 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 // A field reading a value not yet known remains a PendingValue, so a
 // reader of it waits for apply exactly as it would for the internal itself.
 func (e *Executor) seedCompositeOutputs(rs *runState, step *PlanStep) error {
-	node, ok := e.DAG.Nodes[templateAddress(step.Address)]
+	node, ok := e.DAG.Nodes[declarationAddress(step.Address)]
 	if !ok || !node.IsComposite() {
 		return nil
 	}
@@ -907,7 +907,7 @@ func (e *Executor) seedCompositeOutputs(rs *runState, step *PlanStep) error {
 	if err != nil {
 		return err
 	}
-	target := scopeMapForKind(parent, node.Kind)
+	target := scopeMapForCategory(parent, node.Category())
 	tmpl, instKey := splitInstanceAddress(step.Address)
 	if instKey == "" {
 		seedAddress(target, tmpl, outputs)
@@ -949,7 +949,7 @@ func (e *Executor) scopeForAddress(rs *runState, addr string) (*EvalContext, err
 	if callSite == "" {
 		return rs.eval, nil
 	}
-	if _, ok := e.DAG.Nodes[templateAddress(callSite)]; !ok {
+	if _, ok := e.DAG.Nodes[declarationAddress(callSite)]; !ok {
 		return nil, nil
 	}
 	scope, err := e.ensureCompositeScope(rs, callSite)
@@ -1032,7 +1032,7 @@ func (e *Executor) planLibraryConfig(rs *runState, n *Node) (*PlanStep, error) {
 }
 
 func (e *Executor) planConfigNode(rs *runState, n *Node) (*PlanStep, error) {
-	step := &PlanStep{Address: n.Address, Kind: n.Kind, Decision: DecisionEval}
+	step := &PlanStep{Address: n.Address, Kind: n.Category(), Decision: DecisionEval}
 	scope, err := e.scopeForAddress(rs, n.Address)
 	if err != nil {
 		return nil, err
@@ -1077,7 +1077,7 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 	if n.IsComposite() {
 		return e.planComposite(rs, n)
 	}
-	switch n.Kind {
+	switch n.Category() {
 	case NodeResource, NodeAction, NodeDataSource:
 		scope, err := e.scopeFor(rs, n)
 		if err != nil {
@@ -1085,11 +1085,11 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 		}
 		return e.planOneInstance(ctx, rs, n, scope, n.Address)
 	case NodeOutput:
-		return &PlanStep{Address: n.Address, Kind: n.Kind, Decision: DecisionEval}, nil
+		return &PlanStep{Address: n.Address, Kind: n.Category(), Decision: DecisionEval}, nil
 	case NodeLibraryConfig:
 		return e.planLibraryConfig(rs, n)
 	default:
-		return nil, fmt.Errorf("unknown node kind %q", n.Kind)
+		return nil, fmt.Errorf("unknown node kind %q", n.Category())
 	}
 }
 
@@ -1110,7 +1110,7 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 	default:
 		return nil
 	}
-	tmpl := templateAddress(step.Address)
+	tmpl := declarationAddress(step.Address)
 	alias, typeName, ok := stepBindingParts(step)
 	if !ok {
 		return nil
@@ -1170,7 +1170,7 @@ func (e *Executor) checkCompositeConstraints(rs *runState, step *PlanStep) []err
 	if !step.Composite {
 		return nil
 	}
-	node, ok := e.DAG.Nodes[templateAddress(step.Address)]
+	node, ok := e.DAG.Nodes[declarationAddress(step.Address)]
 	if !ok || !node.IsComposite() {
 		return nil
 	}
@@ -1217,7 +1217,7 @@ func newCompositePlanStep(
 ) *PlanStep {
 	return &PlanStep{
 		Address:          address,
-		Kind:             n.Kind,
+		Kind:             n.Category(),
 		Composite:        true,
 		Decision:         DecisionEval,
 		Inputs:           scope.Inputs,
@@ -1261,7 +1261,7 @@ func (e *Executor) planOneAction(
 	}
 	return &PlanStep{
 		Address:            addr,
-		Kind:               n.Kind,
+		Kind:               n.Category(),
 		Binding:            bindingForNode(n),
 		Decision:           dec,
 		Inputs:             display,
@@ -1320,7 +1320,7 @@ func (e *Executor) planOneResource(
 	}
 	step := &PlanStep{
 		Address:          addr,
-		Kind:             n.Kind,
+		Kind:             n.Category(),
 		Binding:          bindingForNode(n),
 		Inputs:           display,
 		UnresolvedInputs: unresolved,
@@ -1543,10 +1543,10 @@ func (e *Executor) pendingReadBlocksNode(rs *runState, node *Node) bool {
 	}
 	pending := make(map[string]struct{}, len(rs.pendingReads))
 	for _, read := range rs.pendingReads {
-		pending[templateAddress(read.step.Address)] = struct{}{}
+		pending[declarationAddress(read.step.Address)] = struct{}{}
 	}
 	for _, dependency := range e.DAG.Edges[node.Address] {
-		if _, ok := pending[templateAddress(dependency)]; ok {
+		if _, ok := pending[declarationAddress(dependency)]; ok {
 			return true
 		}
 	}
@@ -1711,7 +1711,7 @@ func upgradeActionRerun(steps []*PlanStep, dag *DAG, sl *scopeLocals) {
 		if step.Kind != NodeAction || step.Decision != DecisionSkip {
 			continue
 		}
-		node := dag.Nodes[templateAddress(step.Address)]
+		node := dag.Nodes[declarationAddress(step.Address)]
 		if node == nil {
 			continue
 		}
@@ -1747,7 +1747,7 @@ func (e *Executor) planOneData(
 	}
 	step := &PlanStep{
 		Address:          addr,
-		Kind:             n.Kind,
+		Kind:             n.Category(),
 		Binding:          bindingForNode(n),
 		Decision:         DecisionRead,
 		Inputs:           inputs,
@@ -1791,7 +1791,7 @@ func (e *Executor) planOneData(
 // topological, so each target is planned before the read asks.
 func (e *Executor) dependsOnChange(rs *runState, n *Node) bool {
 	for _, target := range e.DAG.Edges[n.Address] {
-		for tmpl, steps := range rs.plannedByTemplate {
+		for tmpl, steps := range rs.plannedByDeclaration {
 			if tmpl != target && !strings.HasPrefix(tmpl, target+"/") {
 				continue
 			}

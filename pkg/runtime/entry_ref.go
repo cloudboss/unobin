@@ -35,28 +35,28 @@ func SameEntryRef(a, b EntryRef) bool {
 	return stateref.Same(a, b)
 }
 
-func appendEntryKey(template string, key string) (string, bool) {
-	addr, err := stateref.AppendInstanceKey(template, key)
+func appendEntryKey(address string, key string) (string, bool) {
+	addr, err := stateref.AppendInstanceKey(address, key)
 	if err != nil {
 		return "", false
 	}
 	return addr, true
 }
 
-func splitEntryKey(address string) (template string, key string, ok bool) {
-	template, key, ok, err := stateref.SplitInstanceKey(address)
+func splitEntryKey(address string) (baseAddress string, key string, ok bool) {
+	baseAddress, key, ok, err := stateref.SplitInstanceKey(address)
 	if err != nil {
 		return "", "", false
 	}
-	return template, key, ok
+	return baseAddress, key, ok
 }
 
-func entryTemplate(address string) (string, bool) {
-	template, err := stateref.Template(address)
+func entryDeclarationAddress(address string) (string, bool) {
+	declaration, err := stateref.DeclarationAddress(address)
 	if err != nil {
 		return "", false
 	}
-	return template, true
+	return declaration, true
 }
 
 func entryParent(address string) (string, bool) {

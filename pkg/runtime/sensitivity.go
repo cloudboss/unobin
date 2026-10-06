@@ -206,7 +206,7 @@ func (s *sensitivityAnalyzer) primitiveTypeSchema(n *Node) *TypeSchema {
 	if lib == nil || lib.Schema == nil {
 		return nil
 	}
-	return lib.Schema.ForType(n.Kind, n.Type)
+	return lib.Schema.ForType(n.Category(), n.Export())
 }
 
 // libsForNode returns the libraries table that resolves the node's
@@ -398,7 +398,7 @@ func (s *sensitivityAnalyzer) nodeFieldSensitive(
 	if lib == nil {
 		lib = s.rootMods[n.Alias]
 	}
-	return s.libraryFieldSensitive(lib, root, n.Type, field)
+	return s.libraryFieldSensitive(lib, root, n.Export(), field)
 }
 
 func (s *sensitivityAnalyzer) libraryFieldSensitive(

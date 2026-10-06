@@ -71,16 +71,16 @@ type TypeSchema struct {
 	Defaults []lang.DefaultSpec
 }
 
-// ForType returns the schema for a node kind's type, or nil when the
-// kind is not a resource, data source, or action or the type is absent.
-func (s *LibrarySchema) ForType(kind NodeKind, typ string) *TypeSchema {
-	switch kind {
+// ForType returns the selected export's schema within a node category.
+// It returns nil for unsupported categories or absent exports.
+func (s *LibrarySchema) ForType(category Category, export string) *TypeSchema {
+	switch category {
 	case NodeResource:
-		return s.Resources[typ]
+		return s.Resources[export]
 	case NodeDataSource:
-		return s.DataSources[typ]
+		return s.DataSources[export]
 	case NodeAction:
-		return s.Actions[typ]
+		return s.Actions[export]
 	default:
 		return nil
 	}

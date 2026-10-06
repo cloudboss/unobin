@@ -95,8 +95,8 @@ func SplitInstanceKey(address string) (template string, key string, ok bool, err
 	return ref.String(), key, true, nil
 }
 
-// Template removes static keys from every segment in address.
-func Template(address string) (string, error) {
+// DeclarationAddress removes iteration keys from every segment in address.
+func DeclarationAddress(address string) (string, error) {
 	ref, err := ParseStateRef(address)
 	if err != nil {
 		return "", err
@@ -105,6 +105,11 @@ func Template(address string) (string, error) {
 		ref.Segments[i].Key = nil
 	}
 	return ref.String(), nil
+}
+
+// Template returns the declaration address for existing callers.
+func Template(address string) (string, error) {
+	return DeclarationAddress(address)
 }
 
 // Parent returns the slash parent of address, or empty for a root segment.

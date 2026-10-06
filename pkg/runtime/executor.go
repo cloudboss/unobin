@@ -176,9 +176,9 @@ func (e *Executor) stateScope(
 			if !found {
 				continue
 			}
-			kind = NodeKind(parts[0])
+			kind = Category(parts[0])
 		}
-		target := scopeMapForKind(scope, NodeKind(kind))
+		target := scopeMapForCategory(scope, Category(kind))
 		if target == nil {
 			continue
 		}
@@ -207,7 +207,7 @@ func (e *Executor) seedPriorInternalConfigurations(
 	}
 	var scope *EvalContext
 	for _, n := range e.DAG.Nodes {
-		if n.Kind != NodeLibraryConfig {
+		if n.Category() != NodeLibraryConfig {
 			continue
 		}
 		if scope == nil {
@@ -305,7 +305,7 @@ func emptyDecodedConfig(lib *Library) any {
 
 func (e *Executor) configForStateAddress(addr, alias string) (any, error) {
 	if e.DAG != nil {
-		scope := templateAddress(DirectParent(addr))
+		scope := declarationAddress(DirectParent(addr))
 		if configAddr, ok := libraryConfigNode(e.DAG.Nodes, scope, alias); ok {
 			if v, ok := e.internalConfiguration(configAddr); ok {
 				return v, nil
@@ -363,12 +363,12 @@ type runState struct {
 	// before finalizing decisions. Apply and Refresh leave this nil.
 	pendingReads []*pendingRead
 
-	// plannedByTemplate indexes the steps Plan's walk has emitted so
+	// plannedByDeclaration indexes the steps Plan's walk has emitted so
 	// far by template address, so a later node can ask whether an
 	// upstream it names has changes pending. The walk is topological,
 	// so a node's upstreams are always indexed before it plans. Apply
 	// and Refresh leave this nil.
-	plannedByTemplate map[string][]*PlanStep
+	plannedByDeclaration map[string][]*PlanStep
 
 	// dependsOn maps each persisted step address to the addresses of
 	// the other entries it depends on, in instance form. ApplyPlan
@@ -487,7 +487,7 @@ func compositeBodyLibraries(boundary *Node, fallback map[string]*Library) map[st
 func (e *Executor) librariesForAddress(addr string) map[string]*Library {
 	parent := DirectParent(addr)
 	if parent != "" {
-		if boundary, ok := e.DAG.Nodes[templateAddress(parent)]; ok && boundary.Libraries != nil {
+		if boundary, ok := e.DAG.Nodes[declarationAddress(parent)]; ok && boundary.Libraries != nil {
 			return boundary.Libraries
 		}
 	}
@@ -512,7 +512,7 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 	if scope, ok := rs.composites[callSite]; ok {
 		return scope, nil
 	}
-	boundary, ok := e.DAG.Nodes[templateAddress(callSite)]
+	boundary, ok := e.DAG.Nodes[declarationAddress(callSite)]
 	if !ok {
 		return nil, fmt.Errorf("composite %s: boundary node not in DAG", callSite)
 	}
@@ -566,20 +566,20 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 	return scope, nil
 }
 
-// templateAddress strips every `['key']` segment from addr to return
+// declarationAddress strips every `['key']` segment from addr to return
 // the DAG-side address used to look the node up. Per-instance
 // addresses inside a `@for-each` composite (`<x>['k']/<y>`) and
 // leaf instance addresses (`<y>['k']`) both reduce to their
 // template form.
-func templateAddress(addr string) string {
-	if template, ok := entryTemplate(addr); ok {
-		return template
+func declarationAddress(addr string) string {
+	if declaration, ok := entryDeclarationAddress(addr); ok {
+		return declaration
 	}
 	return addr
 }
 
 // DirectParent returns addr's parent state-ref segment path, or the
-// empty string for a root segment. Unlike templateAddress, DirectParent
+// empty string for a root segment. Unlike declarationAddress, DirectParent
 // preserves `['key']` segments so the result names a per-instance
 // composite call site when one is present.
 func DirectParent(addr string) string {
@@ -687,11 +687,11 @@ func pruneStateEntries(snap *state.Snapshot, steps []PlanStep) {
 	snap.Entries = out
 }
 
-// scopeMapForKind returns the scope map a node's value belongs in,
+// scopeMapForCategory returns the scope map a node's value belongs in,
 // chosen by its kind so references read it back under the matching
 // address root. An unset kind (the zero value, as in tests that build a
 // boundary directly) falls back to resources.
-func scopeMapForKind(scope *EvalContext, kind NodeKind) map[string]any {
+func scopeMapForCategory(scope *EvalContext, kind Category) map[string]any {
 	switch kind {
 	case NodeDataSource:
 		return scope.Data
@@ -731,7 +731,7 @@ func (e *Executor) finalizeComposite(
 		return err
 	}
 	_, instKey := splitInstanceAddress(instAddr)
-	target := scopeMapForKind(parent, n.Kind)
+	target := scopeMapForCategory(parent, n.Category())
 	if instKey == "" {
 		storeNested(target, n, outputs)
 	} else {
@@ -740,7 +740,7 @@ func (e *Executor) finalizeComposite(
 	rs.upsertNext(&state.Entry{
 		Address:          instAddr,
 		Composite:        true,
-		Category:         string(n.Kind),
+		Category:         string(n.Category()),
 		Binding:          bindingForNode(n),
 		Inputs:           scope.Inputs,
 		Outputs:          outputs,
@@ -755,16 +755,16 @@ func (e *Executor) finalizeComposite(
 // memoized in rs by template address so every instance of the node
 // shares one evaluation per run.
 func forEachInstancesFor(
-	rs *runState, templateAddr string, expr lang.Expr, scope *EvalContext,
+	rs *runState, address string, expr lang.Expr, scope *EvalContext,
 ) (map[string]any, error) {
-	if instances, ok := rs.forEachInstances[templateAddr]; ok {
+	if instances, ok := rs.forEachInstances[address]; ok {
 		return instances, nil
 	}
 	instances, err := evalForEach(expr, scope)
 	if err != nil {
 		return nil, err
 	}
-	rs.forEachInstances[templateAddr] = instances
+	rs.forEachInstances[address] = instances
 	return instances, nil
 }
 
@@ -797,11 +797,11 @@ func childScopeWithEach(parent *EvalContext, key string, value any) *EvalContext
 
 // instanceAddress appends a per-key suffix to a template address using
 // the source-side `['<key>']` form so eval and state-lookup agree.
-func instanceAddress(templateAddr, key string) string {
-	if addr, ok := appendEntryKey(templateAddr, key); ok {
+func instanceAddress(address, key string) string {
+	if addr, ok := appendEntryKey(address, key); ok {
 		return addr
 	}
-	return fmt.Sprintf("%s['%s']", templateAddr, key)
+	return fmt.Sprintf("%s['%s']", address, key)
 }
 
 func sortedKeys(m map[string]any) []string {
@@ -925,16 +925,16 @@ func sameValue(a, b any) bool {
 }
 
 // parseAddress reads the inner-most legacy node segment of addr and
-// splits it into its kind root, alias, type, and name. Only the final
+// splits it into its category, alias, export, and name. Only the final
 // segment is parsed, so the node is read relative to its direct
 // enclosing scope. A trailing `@for-each` instance key on that segment
 // is ignored.
-func parseAddress(addr string) (kind NodeKind, alias, typeName, name string, ok bool) {
+func parseAddress(addr string) (category Category, alias, export, name string, ok bool) {
 	parts, ok := addressParts(addr)
 	if !ok || len(parts) != 4 {
 		return "", "", "", "", false
 	}
-	return NodeKind(parts[0]), parts[1], parts[2], parts[3], true
+	return Category(parts[0]), parts[1], parts[2], parts[3], true
 }
 
 func addressValuePath(addr string) ([]string, bool) {
@@ -963,10 +963,10 @@ func addressParts(addr string) ([]string, bool) {
 }
 
 func bindingForNode(n *Node) *state.Binding {
-	if n == nil || n.Alias == "" || n.Type == "" {
+	if n == nil || n.Alias == "" || n.Export() == "" {
 		return nil
 	}
-	return &state.Binding{Alias: n.Alias, LibraryPath: n.LibraryPath, Export: n.Type}
+	return &state.Binding{Alias: n.Alias, LibraryPath: n.LibraryPath, Export: n.Export()}
 }
 
 func bindingFromEntry(ent *state.Entry) *state.Binding {

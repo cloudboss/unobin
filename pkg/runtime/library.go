@@ -87,7 +87,7 @@ type FunctionType struct {
 // the executor's root Libraries table.
 type CompositeType struct {
 	Name                 string
-	Kind                 NodeKind
+	Kind                 Category
 	SyntaxBody           *syntax.FactoryBody
 	AssetSetID           string
 	Libraries            map[string]*Library
@@ -105,7 +105,7 @@ func LibraryWithPath(lib *Library, libraryPath string) *Library {
 // Composite returns the composite of the given kind and name, or nil
 // when the library has none. resource, data-source, and action are
 // independent namespaces, so the kind selects which map to consult.
-func (l *Library) Composite(kind NodeKind, name string) *CompositeType {
+func (l *Library) Composite(kind Category, name string) *CompositeType {
 	switch kind {
 	case NodeDataSource:
 		return l.DataComposites[name]

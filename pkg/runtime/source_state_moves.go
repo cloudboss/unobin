@@ -157,7 +157,7 @@ func (e *Executor) compositeEntryMovePrefixes(
 		if !ent.Composite {
 			continue
 		}
-		if templateAddress(ent.Address) != n.Address || !sameBinding(ent.Binding, binding) {
+		if declarationAddress(ent.Address) != n.Address || !sameBinding(ent.Binding, binding) {
 			continue
 		}
 		add(compositeEntryMovePrefix{from: ent.Address, to: ent.Address})
@@ -167,7 +167,7 @@ func (e *Executor) compositeEntryMovePrefixes(
 		return nil, err
 	}
 	for _, spec := range moves {
-		toTemplate := templateAddress(spec.To.Address)
+		toTemplate := declarationAddress(spec.To.Address)
 		if toTemplate == n.Address {
 			add(compositeEntryMovePrefix{from: spec.From.Address, to: spec.To.Address})
 			continue

@@ -22,7 +22,7 @@ const (
 // one JSON object per event under --json.
 type ApplyEvent struct {
 	Address string
-	Kind    NodeKind
+	Kind    Category
 
 	// Composite marks an event for a composite call site (a boundary).
 	// A boundary's Kind is its own resource/data/action kind, so this

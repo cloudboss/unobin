@@ -99,7 +99,7 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (result *ExecRes
 		if len(step.UnresolvedInputs) > 0 {
 			continue
 		}
-		boundary, ok := e.DAG.Nodes[templateAddress(step.Address)]
+		boundary, ok := e.DAG.Nodes[declarationAddress(step.Address)]
 		if !ok {
 			return nil, NewApplyFailure(
 				ApplyFailureSetup,
@@ -163,7 +163,7 @@ func (e *Executor) applyStep(
 	// gone) is never bounded. On expiry the operation sees a cancelled
 	// context and returns an error, which the scheduler handles like any
 	// other step failure.
-	if node, ok := e.DAG.Nodes[templateAddress(step.Address)]; ok && node.Timeout > 0 {
+	if node, ok := e.DAG.Nodes[declarationAddress(step.Address)]; ok && node.Timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, node.Timeout)
 		defer cancel()
@@ -177,7 +177,7 @@ func (e *Executor) applyStep(
 		return e.removeRecord(rs, step)
 	}
 	if step.Composite {
-		node, ok := e.DAG.Nodes[templateAddress(step.Address)]
+		node, ok := e.DAG.Nodes[declarationAddress(step.Address)]
 		if !ok || !node.IsComposite() {
 			return fmt.Errorf("composite: node %q not in DAG", step.Address)
 		}
@@ -275,7 +275,7 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 	rs.upsertNext(&state.Entry{
 		Address:          step.Address,
 		Composite:        false,
-		Category:         string(prep.node.Kind),
+		Category:         string(prep.node.Category()),
 		Binding:          bindingForNode(prep.node),
 		TriggerHash:      hash,
 		Inputs:           prep.inputs,
@@ -513,7 +513,7 @@ func (e *Executor) applyResource(
 	rs.upsertNext(&state.Entry{
 		Address:          step.Address,
 		Composite:        false,
-		Category:         string(prep.node.Kind),
+		Category:         string(prep.node.Category()),
 		Binding:          bindingForNode(prep.node),
 		SchemaVersion:    rt.SchemaVersion(),
 		Inputs:           prep.inputs,
@@ -753,7 +753,7 @@ func (e *Executor) prepareStep(rs *runState, addr string) (*stepPrep, error) {
 // segments before the last `/` survive into the parent address so
 // composite-internal nodes pick the right per-instance scope.
 func (e *Executor) nodeAndScope(rs *runState, addr string) (*Node, *EvalContext, error) {
-	node, ok := e.DAG.Nodes[templateAddress(addr)]
+	node, ok := e.DAG.Nodes[declarationAddress(addr)]
 	if !ok {
 		return nil, nil, fmt.Errorf("address %q not in DAG", addr)
 	}
@@ -802,7 +802,7 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	rs.upsertNext(&state.Entry{
 		Address:          step.Address,
 		Composite:        false,
-		Category:         string(prep.node.Kind),
+		Category:         string(prep.node.Category()),
 		Binding:          bindingForNode(prep.node),
 		Inputs:           prep.inputs,
 		Outputs:          outputs,
@@ -860,7 +860,7 @@ func shortValue(v any) string {
 // runtime context built up while applying the plan.
 func (e *Executor) evalPlanOutputs(rs *runState) error {
 	for _, n := range e.DAG.Nodes {
-		if n.Kind != NodeOutput {
+		if n.Category() != NodeOutput {
 			continue
 		}
 		val, err := Eval(n.Body, rs.eval)

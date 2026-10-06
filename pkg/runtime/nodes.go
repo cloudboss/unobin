@@ -8,15 +8,18 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 )
 
-// NodeKind tags a Node with its source block.
+// NodeKind identifies a node's namespace.
 type NodeKind string
 
+// Category identifies an addressable node's namespace.
+type Category = NodeKind
+
 const (
-	NodeResource      NodeKind = "resource"
-	NodeDataSource    NodeKind = "data-source"
-	NodeAction        NodeKind = "action"
-	NodeOutput        NodeKind = "output"
-	NodeLibraryConfig NodeKind = "library-config"
+	NodeResource      Category = "resource"
+	NodeDataSource    Category = "data-source"
+	NodeAction        Category = "action"
+	NodeOutput        Category = "output"
+	NodeLibraryConfig Category = "library-config"
 )
 
 // Node is one addressable element of a stack: a single resource instance,
@@ -43,7 +46,7 @@ const (
 // library it transitively uses.
 type Node struct {
 	Address              string
-	Kind                 NodeKind
+	Kind                 Category
 	Alias                string
 	LibraryPath          string
 	Type                 string
@@ -60,7 +63,7 @@ type Node struct {
 	// LockName is the value of a node body's `@lock:` field. Two nodes
 	// sharing a non-empty LockName cannot run in parallel under apply's
 	// scheduler, even on unrelated DAG branches. Empty means the node is
-	// not under a named lock. It applies to any kind; since the
+	// not under a named lock. It applies to any category; since the
 	// scheduler only runs nodes in parallel at apply, a lock has no
 	// effect on a data source whose inputs are known and read at plan.
 	LockName string
@@ -73,9 +76,19 @@ type Node struct {
 	Timeout time.Duration
 }
 
+// Category returns the node's namespace from its public Kind field.
+func (n *Node) Category() Category {
+	return n.Kind
+}
+
+// Export returns the selected library export from the public Type field.
+func (n *Node) Export() string {
+	return n.Type
+}
+
 // IsComposite reports whether the node is a composite call site (a
 // boundary) rather than a primitive leaf. A boundary has its own Kind
-// (the call site's resource/data/action kind) just like a leaf; what
+// (the call site's resource/data/action category) just like a leaf; what
 // sets it apart is the composite body populated only on boundaries.
 func (n *Node) IsComposite() bool {
 	return n != nil && n.CompositeSyntaxBody != nil
@@ -90,9 +103,9 @@ func ExtractSyntaxNodes(body syntax.FactoryBody, libs map[string]*Library) []*No
 
 func extractSyntaxNodes(body syntax.FactoryBody, parent string, libs map[string]*Library) []*Node {
 	var nodes []*Node
-	nodes = append(nodes, extractSyntaxKind(body.Resources, NodeResource, parent, libs)...)
-	nodes = append(nodes, extractSyntaxKind(body.Data, NodeDataSource, parent, libs)...)
-	nodes = append(nodes, extractSyntaxKind(body.Actions, NodeAction, parent, libs)...)
+	nodes = append(nodes, extractSyntaxCategory(body.Resources, NodeResource, parent, libs)...)
+	nodes = append(nodes, extractSyntaxCategory(body.Data, NodeDataSource, parent, libs)...)
+	nodes = append(nodes, extractSyntaxCategory(body.Actions, NodeAction, parent, libs)...)
 	nodes = append(nodes, extractSyntaxLibraryConfigs(body.LibraryConfigs, parent)...)
 	if parent == "" {
 		nodes = append(nodes, extractSyntaxOutputs(body.Outputs)...)
@@ -100,9 +113,9 @@ func extractSyntaxNodes(body syntax.FactoryBody, parent string, libs map[string]
 	return nodes
 }
 
-func extractSyntaxKind(
+func extractSyntaxCategory(
 	decls []syntax.NodeDecl,
-	kind NodeKind,
+	category Category,
 	parent string,
 	libs map[string]*Library,
 ) []*Node {
@@ -110,20 +123,20 @@ func extractSyntaxKind(
 	for _, decl := range decls {
 		alias := decl.Selector.Alias.Name
 		libraryPath := libraryPathForAlias(libs, alias)
-		typ := decl.Selector.Export.Name
+		export := decl.Selector.Export.Name
 		name := decl.Name.Name
-		addr := composeNameAddress(parent, kind, name)
-		if composite := lookupComposite(libs, alias, kind, typ); composite != nil {
+		addr := composeNameAddress(parent, category, name)
+		if composite := lookupComposite(libs, alias, category, export); composite != nil {
 			out = append(out, expandSyntaxComposite(addr, parent,
-				alias, libraryPath, typ, name, kind, decl.Body, composite, libs)...)
+				alias, libraryPath, export, name, category, decl.Body, composite, libs)...)
 			continue
 		}
 		node := &Node{
 			Address:     addr,
-			Kind:        kind,
+			Kind:        category,
 			Alias:       alias,
 			LibraryPath: libraryPath,
-			Type:        typ,
+			Type:        export,
 			Name:        name,
 			Body:        decl.Body,
 			Composite:   parent,
@@ -212,7 +225,7 @@ func libraryPathForAlias(libs map[string]*Library, alias string) string {
 }
 
 func lookupComposite(
-	libs map[string]*Library, alias string, kind NodeKind, typ string,
+	libs map[string]*Library, alias string, category Category, export string,
 ) *CompositeType {
 	if libs == nil {
 		return nil
@@ -221,15 +234,15 @@ func lookupComposite(
 	if !ok || lib == nil {
 		return nil
 	}
-	composite := lib.Composite(kind, typ)
+	composite := lib.Composite(category, export)
 	if composite == nil || composite.SyntaxBody == nil {
 		return nil
 	}
 	return composite
 }
 
-func expandSyntaxComposite(callSiteAddr, parent, alias, libraryPath, typ, name string,
-	kind NodeKind, args lang.Expr, composite *CompositeType,
+func expandSyntaxComposite(callSiteAddr, parent, alias, libraryPath, export, name string,
+	category Category, args lang.Expr, composite *CompositeType,
 	fallMods map[string]*Library) []*Node {
 	scopeMods := composite.Libraries
 	if scopeMods == nil {
@@ -237,10 +250,10 @@ func expandSyntaxComposite(callSiteAddr, parent, alias, libraryPath, typ, name s
 	}
 	out := []*Node{{
 		Address:              callSiteAddr,
-		Kind:                 kind,
+		Kind:                 category,
 		Alias:                alias,
 		LibraryPath:          libraryPath,
-		Type:                 typ,
+		Type:                 export,
 		Name:                 name,
 		Body:                 args,
 		Composite:            parent,
@@ -265,7 +278,7 @@ func libraryConfigNode(
 ) (string, bool) {
 	addr := libraryConfigNodeAddress(scope, alias)
 	n, ok := nodes[addr]
-	if ok && n.Kind == NodeLibraryConfig && n.Alias == alias {
+	if ok && n.Category() == NodeLibraryConfig && n.Alias == alias {
 		return addr, true
 	}
 	return "", false
@@ -307,8 +320,8 @@ func extractSyntaxOutputs(decls []syntax.OutputDecl) []*Node {
 	return out
 }
 
-func composeNameAddress(parent string, kind NodeKind, name string) string {
-	return joinAddress(parent, fmt.Sprintf("%s.%s", kind, name))
+func composeNameAddress(parent string, category Category, name string) string {
+	return joinAddress(parent, fmt.Sprintf("%s.%s", category, name))
 }
 
 func joinAddress(parent, local string) string {

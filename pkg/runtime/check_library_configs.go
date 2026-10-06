@@ -44,7 +44,7 @@ func nodeCanNeedLibraryConfig(n *Node) bool {
 	if n == nil || n.IsComposite() {
 		return false
 	}
-	switch n.Kind {
+	switch n.Category() {
 	case NodeResource, NodeDataSource, NodeAction:
 		return true
 	default:

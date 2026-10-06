@@ -9,10 +9,8 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 )
 
-// DAG is a stack's runtime dependency graph: every addressable node
-// indexed by its address, and the list of node addresses each one
-// depends on, collected from references in the body and from any
-// `@depends-on` meta key.
+// DAG describes dependencies between unexpanded declarations. Its node and
+// edge addresses retain composite call prefixes and omit iteration keys.
 type DAG struct {
 	Nodes map[string]*Node
 	Edges map[string][]string
@@ -60,7 +58,7 @@ func syntaxLocalMap(decls []syntax.LocalDecl) map[string]lang.Expr {
 // scopeLocals resolves the `locals:` declarations for an evaluation
 // scope. The stack body backs the root scope (the empty call site);
 // every other scope is a composite call site whose locals come from
-// the boundary node's composite body. Lookups are cached by template
+// the boundary node's composite body. Lookups are cached by declaration
 // address.
 type scopeLocals struct {
 	stack map[string]lang.Expr
@@ -82,15 +80,15 @@ func (s *scopeLocals) forScope(callSite string) map[string]lang.Expr {
 	if callSite == "" {
 		return s.stack
 	}
-	tmpl := templateAddress(callSite)
-	if m, ok := s.cache[tmpl]; ok {
+	declaration := declarationAddress(callSite)
+	if m, ok := s.cache[declaration]; ok {
 		return m
 	}
 	var m map[string]lang.Expr
-	if boundary, ok := s.nodes[tmpl]; ok && boundary.CompositeSyntaxBody != nil {
+	if boundary, ok := s.nodes[declaration]; ok && boundary.CompositeSyntaxBody != nil {
 		m = syntaxLocalMap(boundary.CompositeSyntaxBody.Locals)
 	}
-	s.cache[tmpl] = m
+	s.cache[declaration] = m
 	return m
 }
 
@@ -235,7 +233,7 @@ func (g *DAG) UnderForEachComposite(n *Node) bool {
 // leaf's alias names. The edge orders every consumer after the values
 // its alias config derives from.
 func configurationDep(n *Node, nodes map[string]*Node) (string, bool) {
-	switch n.Kind {
+	switch n.Category() {
 	case NodeResource, NodeDataSource, NodeAction:
 	default:
 		return "", false

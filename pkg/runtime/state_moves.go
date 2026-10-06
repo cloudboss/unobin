@@ -319,7 +319,7 @@ func entryMoveTargetNode(dag *DAG, ref EntryRef) (*Node, error) {
 	if dag == nil {
 		return nil, fmt.Errorf("state move %s: destination is not in this factory", ref.String())
 	}
-	n := dag.Nodes[templateAddress(ref.Address)]
+	n := dag.Nodes[declarationAddress(ref.Address)]
 	if n == nil || !entryMoveNodeMatchesRef(n, ref) {
 		return nil, fmt.Errorf("state move %s: destination is not in this factory", ref.String())
 	}
@@ -327,17 +327,17 @@ func entryMoveTargetNode(dag *DAG, ref EntryRef) (*Node, error) {
 }
 
 func entryMoveNodeMatchesRef(n *Node, ref EntryRef) bool {
-	return n != nil && templateAddress(ref.Address) == n.Address
+	return n != nil && declarationAddress(ref.Address) == n.Address
 }
 
 func validateEntryMoveTarget(ent *state.Entry, n *Node) error {
-	switch NodeKind(ent.Category) {
+	switch Category(ent.Category) {
 	case NodeResource, NodeDataSource, NodeAction:
 	default:
 		return fmt.Errorf("unsupported state category %s", ent.Category)
 	}
-	if !ent.Composite && NodeKind(ent.Category) != n.Kind {
-		return fmt.Errorf("%s entry cannot move to %s", ent.Category, n.Kind)
+	if !ent.Composite && Category(ent.Category) != n.Category() {
+		return fmt.Errorf("%s entry cannot move to %s", ent.Category, n.Category())
 	}
 	if ent.Composite != n.IsComposite() {
 		return fmt.Errorf(
@@ -346,13 +346,13 @@ func validateEntryMoveTarget(ent *state.Entry, n *Node) error {
 	if ent.Binding == nil {
 		return nil
 	}
-	if ent.Binding.LibraryPath != n.LibraryPath || ent.Binding.Export != n.Type {
+	if ent.Binding.LibraryPath != n.LibraryPath || ent.Binding.Export != n.Export() {
 		return fmt.Errorf(
 			"%s cannot move to %s as kind %s differs from %s",
 			ent.Address,
 			n.Address,
 			qualifiedMoveKind(ent.Binding.Alias, ent.Binding.Export),
-			qualifiedMoveKind(n.Alias, n.Type),
+			qualifiedMoveKind(n.Alias, n.Export()),
 		)
 	}
 	return nil
@@ -385,9 +385,9 @@ func migrateMovedEntry(
 	if !ok {
 		return fmt.Errorf("library %q is not imported", n.Alias)
 	}
-	rt, ok := lib.Resources[n.Type]
+	rt, ok := lib.Resources[n.Export()]
 	if !ok {
-		return fmt.Errorf("library %s has no resource %q", n.Alias, n.Type)
+		return fmt.Errorf("library %s has no resource %q", n.Alias, n.Export())
 	}
 	migrated, err := migrateEntry(rt, n.Alias, ent.SchemaVersion,
 		MigrationState{Inputs: ent.Inputs, Outputs: ent.Outputs})

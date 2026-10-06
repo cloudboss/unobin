@@ -17,7 +17,7 @@ type stepGraph struct {
 // buildStepGraph translates the template-form DAG edges into instance-
 // form step edges. For every step S at address `addr`:
 //
-//   - Each template-form predecessor T_dep of templateAddress(addr)
+//   - Each template-form predecessor T_dep of declarationAddress(addr)
 //     contributes one edge per instance step of T_dep whose `['key']`
 //     positions agree with S's key positions at every shared template
 //     ancestor. This keeps `@for-each` composite siblings on the same
@@ -134,12 +134,12 @@ func buildIndexedStepGraph(
 			continue
 		}
 		stepPairs := pairs(instance)
-		for _, depTemplate := range dag.Edges[instance.DeclarationAddress] {
-			if _, ok := dag.Nodes[depTemplate]; !ok {
+		for _, depDeclaration := range dag.Edges[instance.DeclarationAddress] {
+			if _, ok := dag.Nodes[depDeclaration]; !ok {
 				continue
 			}
-			narrow := stepPairs[depTemplate] && len(instance.keys) == 1
-			candidates := instances.candidates(depTemplate, instance.keys, narrow)
+			narrow := stepPairs[depDeclaration] && len(instance.keys) == 1
+			candidates := instances.candidates(depDeclaration, instance.keys, narrow)
 			for dep := candidates.next(); dep != nil; dep = candidates.next() {
 				if dep.Address == instance.Address {
 					continue

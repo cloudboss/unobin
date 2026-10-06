@@ -156,7 +156,7 @@ func TestInstanceAddressEscapesKey(t *testing.T) {
 			template, key := SplitInstanceAddress(got)
 			assert.Equal(t, "resource.items", template)
 			assert.Equal(t, tt.key, key)
-			assert.Equal(t, "resource.items", templateAddress(got))
+			assert.Equal(t, "resource.items", declarationAddress(got))
 		})
 	}
 }

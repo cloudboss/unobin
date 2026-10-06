@@ -20,7 +20,7 @@ func (e *Executor) applyInputDefaults(
 	if !ok || lib == nil {
 		return nil
 	}
-	specs := lib.Defaults[string(n.Kind)+"."+n.Type]
+	specs := lib.Defaults[string(n.Category())+"."+n.Export()]
 	if len(specs) == 0 {
 		return nil
 	}
@@ -61,17 +61,17 @@ func rejectNullForNonPointerDefaults(
 
 func defaultReceiverType(n *Node, lib *Library) reflect.Type {
 	var receiver any
-	switch n.Kind {
+	switch n.Category() {
 	case NodeResource:
-		if reg := lib.Resources[n.Type]; reg != nil {
+		if reg := lib.Resources[n.Export()]; reg != nil {
 			receiver = reg.NewReceiver()
 		}
 	case NodeDataSource:
-		if reg := lib.DataSources[n.Type]; reg != nil {
+		if reg := lib.DataSources[n.Export()]; reg != nil {
 			receiver = reg.NewReceiver()
 		}
 	case NodeAction:
-		if reg := lib.Actions[n.Type]; reg != nil {
+		if reg := lib.Actions[n.Export()]; reg != nil {
 			receiver = reg.NewReceiver()
 		}
 	}

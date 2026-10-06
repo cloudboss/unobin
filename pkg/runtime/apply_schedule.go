@@ -188,7 +188,7 @@ func (e *Executor) runApplySchedule(ctx context.Context, rs *runState, pf *PlanF
 		if r.err != nil {
 			alias := ""
 			libraryPath := ""
-			if n, ok := e.DAG.Nodes[templateAddress(r.step.Address)]; ok {
+			if n, ok := e.DAG.Nodes[declarationAddress(r.step.Address)]; ok {
 				alias = n.Alias
 				libraryPath = n.LibraryPath
 			}

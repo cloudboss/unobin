@@ -118,7 +118,7 @@ func TestInstanceGraphPreservesKeyConstraints(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			declaration := templateAddress(tt.source)
+			declaration := declarationAddress(tt.source)
 			dag := newDAG(map[string][]string{declaration: {tt.dep}, tt.dep: nil})
 			addresses := append(append([]string(nil), tt.targets...), tt.source)
 			pairs := map[string]map[string]bool{}

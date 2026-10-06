@@ -14,7 +14,7 @@ import (
 // completed alongside it.
 type ApplyError struct {
 	Address        string
-	Kind           NodeKind
+	Kind           Category
 	Decision       Decision
 	Alias          string
 	LibraryPath    string

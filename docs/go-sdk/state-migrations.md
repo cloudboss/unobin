@@ -22,6 +22,26 @@ removing their declarations prunes their entries. Composite moves include
 their descendants. `state.Binding.Export` still identifies the selected
 library export and retains the JSON name `kind`.
 
+Runtime selectors and graph lookups use these names:
+
+| Meaning | Name | Existing Go API |
+| --- | --- | --- |
+| Node namespace | `runtime.Category`, `Node.Category()` | `NodeKind`, `Node.Kind` |
+| Selected library implementation | `Node.Export()`, `state.Binding.Export` | `Node.Type` |
+| Selected implementation in a plan graph | `StepNode.Export()` | `StepNode.ExportKind` |
+| Unexpanded declaration lookup | `stateref.DeclarationAddress()` | `stateref.Template()` |
+
+The category alias preserves the existing Go type identity. The methods read
+the public fields directly, so each value has one writable owner. Plan graph
+JSON keeps its existing `node-kind` and `kind` names.
+
+Declaration addresses remove iteration keys from every segment while retaining
+composite call prefixes. For example,
+`resource.group['east']/resource.server['a']` becomes
+`resource.group/resource.server`. Concrete plan and state addresses retain
+their keys. Removing only the final key produces a base address, which can
+still include keys in its parent segments.
+
 A resource definition declares its current persisted schema version and its
 migration function:
 
