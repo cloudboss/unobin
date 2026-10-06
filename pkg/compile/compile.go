@@ -588,38 +588,6 @@ func decideSelectedUnobin(listOutput, expected string) (string, error) {
 	return "", nil
 }
 
-// verifySelectedUnobin asks the Go toolchain which unobin version the
-// tidied module graph selected and applies decideSelectedUnobin to it,
-// writing any notice to the error stream.
-func verifySelectedUnobin(
-	reporter diagnostic.Reporter,
-	goBin string,
-	dir string,
-	expected string,
-) error {
-	list := exec.Command(goBin, "list", "-m",
-		"-f", "{{.Version}}{{if .Replace}} replaced{{end}}", toolchain.UnobinModulePath)
-	list.Dir = dir
-	out, err := list.Output()
-	if err != nil {
-		return diagnostic.Context(fmt.Sprintf(
-			"go list -m %s failed", toolchain.UnobinModulePath,
-		), err)
-	}
-	notice, err := decideSelectedUnobin(string(out), expected)
-	if err != nil {
-		return err
-	}
-	if notice != "" {
-		diagnostic.Report(reporter, diagnostic.Diagnostic{
-			Code:     "unobin.compile.selected-toolchain",
-			Severity: diagnostic.SeverityInfo,
-			Message:  notice,
-		})
-	}
-	return nil
-}
-
 type goBuildResult struct {
 	ContentRevision string
 	Files           []filechange.Change
@@ -655,10 +623,9 @@ func runGoBuild(
 		return result, diagnostic.Context("go mod tidy failed", err)
 	}
 
-	if err := verifySelectedUnobin(reporter, goBin, dir, expectedUnobin); err != nil {
-		return result, err
-	}
-	if err := verifySelectedLibraries(goBin, dir, compatibility, manifest); err != nil {
+	if err := verifySelectedBuildModules(
+		reporter, goBin, dir, expectedUnobin, compatibility, manifest,
+	); err != nil {
 		return result, err
 	}
 

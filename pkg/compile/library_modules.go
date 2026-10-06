@@ -8,6 +8,7 @@ import (
 	"io"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/golibrary"
@@ -28,12 +29,19 @@ func (e *libraryModuleError) Error() string {
 	return e.message
 }
 
-func readSelectedLibraryModules(goBin, dir string) ([]selectedLibraryModule, error) {
-	command := exec.Command(goBin, "list", "-m", "-json", "all")
+func readSelectedLibraryModules(
+	goBin, dir string,
+	paths ...string,
+) ([]selectedLibraryModule, error) {
+	if len(paths) == 0 {
+		paths = []string{"all"}
+	}
+	args := append([]string{"list", "-m", "-json"}, paths...)
+	command := exec.Command(goBin, args...)
 	command.Dir = dir
 	output, err := command.Output()
 	if err != nil {
-		return nil, diagnostic.Context("go list -m -json all failed", err)
+		return nil, diagnostic.Context("go list -m -json "+strings.Join(paths, " ")+" failed", err)
 	}
 	decoder := json.NewDecoder(bytes.NewReader(output))
 	var modules []selectedLibraryModule
