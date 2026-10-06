@@ -1,0 +1,125 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/lsp
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+                                             │   before.txt    │              after.txt               │
+                                             │     sec/op      │    sec/op     vs base                │
+SessionColdDocument/nodes=50                      128.9m ±  3%   136.2m ±  9%   +5.72% (p=0.007 n=10)
+SessionColdDocument/nodes=50-4                    101.8m ±  2%   105.6m ±  1%   +3.66% (p=0.002 n=10)
+SessionColdDocument/nodes=500                     210.4m ±  3%   230.4m ±  3%   +9.52% (p=0.001 n=10)
+SessionColdDocument/nodes=500-4                   160.5m ±  1%   166.7m ±  1%   +3.89% (p=0.000 n=10)
+SessionColdDocument/nodes=2000                    511.0m ±  8%   513.8m ±  3%        ~ (p=0.684 n=10)
+SessionColdDocument/nodes=2000-4                  354.5m ±  2%   362.4m ±  2%   +2.23% (p=0.015 n=10)
+SessionWarmFeatures/nodes=50                   1986.894m ± 12%   2.070m ±  6%  -99.90% (p=0.000 n=10)
+SessionWarmFeatures/nodes=50-4                 1215.080m ±  3%   1.127m ±  3%  -99.91% (p=0.000 n=10)
+SessionWarmFeatures/nodes=500                   6962.05m ± 39%   21.95m ±  7%  -99.68% (p=0.000 n=10)
+SessionWarmFeatures/nodes=500-4                 4457.56m ±  1%   17.99m ± 12%  -99.60% (p=0.000 n=10)
+SessionWarmFeatures/nodes=2000                  30079.9m ±  2%   130.3m ±  4%  -99.57% (p=0.000 n=10)
+SessionWarmFeatures/nodes=2000-4               20875.03m ±  2%   86.30m ±  7%  -99.59% (p=0.000 n=10)
+SessionDocumentEdits                              573.2m ±  7%   286.6m ±  6%  -50.01% (p=0.000 n=10)
+SessionDocumentEdits-4                            361.1m ±  4%   190.7m ±  2%  -47.19% (p=0.000 n=10)
+SessionDependencyChange                           325.5m ±  5%   338.4m ±  3%        ~ (p=0.165 n=10)
+SessionDependencyChange-4                         231.8m ±  5%   218.6m ±  2%   -5.71% (p=0.000 n=10)
+DiagnosticsForTextWithProjectsLargeFactory        255.6m ±  3%   280.6m ±  4%   +9.78% (p=0.001 n=10)
+DiagnosticsForTextWithProjectsLargeFactory-4      193.0m ±  5%   185.5m ±  5%   -3.90% (p=0.011 n=10)
+geomean                                           723.0m         92.03m        -87.27%
+
+                                 │ before.txt  │              after.txt               │
+                                 │    nodes    │    nodes     vs base                 │
+SessionColdDocument/nodes=50        50.00 ± 0%    50.00 ± 0%       ~ (p=1.000 n=10) ¹
+SessionColdDocument/nodes=50-4      50.00 ± 0%    50.00 ± 0%       ~ (p=1.000 n=10) ¹
+SessionColdDocument/nodes=500       500.0 ± 0%    500.0 ± 0%       ~ (p=1.000 n=10) ¹
+SessionColdDocument/nodes=500-4     500.0 ± 0%    500.0 ± 0%       ~ (p=1.000 n=10) ¹
+SessionColdDocument/nodes=2000     2.000k ± 0%   2.000k ± 0%       ~ (p=1.000 n=10) ¹
+SessionColdDocument/nodes=2000-4   2.000k ± 0%   2.000k ± 0%       ~ (p=1.000 n=10) ¹
+SessionWarmFeatures/nodes=50        50.00 ± 0%    50.00 ± 0%       ~ (p=1.000 n=10) ¹
+SessionWarmFeatures/nodes=50-4      50.00 ± 0%    50.00 ± 0%       ~ (p=1.000 n=10) ¹
+SessionWarmFeatures/nodes=500       500.0 ± 0%    500.0 ± 0%       ~ (p=1.000 n=10) ¹
+SessionWarmFeatures/nodes=500-4     500.0 ± 0%    500.0 ± 0%       ~ (p=1.000 n=10) ¹
+SessionWarmFeatures/nodes=2000     2.000k ± 0%   2.000k ± 0%       ~ (p=1.000 n=10) ¹
+SessionWarmFeatures/nodes=2000-4   2.000k ± 0%   2.000k ± 0%       ~ (p=1.000 n=10) ¹
+SessionDocumentEdits                500.0 ± 0%    500.0 ± 0%       ~ (p=1.000 n=10) ¹
+SessionDocumentEdits-4              500.0 ± 0%    500.0 ± 0%       ~ (p=1.000 n=10) ¹
+SessionDependencyChange             500.0 ± 0%    500.0 ± 0%       ~ (p=1.000 n=10) ¹
+SessionDependencyChange-4           500.0 ± 0%    500.0 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                             397.6         397.6       +0.00%
+¹ all samples are equal
+
+                                 │  before.txt  │               after.txt               │
+                                 │ publications │ publications  vs base                 │
+SessionColdDocument/nodes=50         1.000 ± 0%     1.000 ± 0%       ~ (p=1.000 n=10) ¹
+SessionColdDocument/nodes=50-4       1.000 ± 0%     1.000 ± 0%       ~ (p=1.000 n=10) ¹
+SessionColdDocument/nodes=500        1.000 ± 0%     1.000 ± 0%       ~ (p=1.000 n=10) ¹
+SessionColdDocument/nodes=500-4      1.000 ± 0%     1.000 ± 0%       ~ (p=1.000 n=10) ¹
+SessionColdDocument/nodes=2000       1.000 ± 0%     1.000 ± 0%       ~ (p=1.000 n=10) ¹
+SessionColdDocument/nodes=2000-4     1.000 ± 0%     1.000 ± 0%       ~ (p=1.000 n=10) ¹
+SessionDocumentEdits                 1.000 ± 0%     1.000 ± 0%       ~ (p=1.000 n=10) ¹
+SessionDocumentEdits-4               1.000 ± 0%     1.000 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                              1.000          1.000       +0.00%
+¹ all samples are equal
+
+                                             │   before.txt   │              after.txt               │
+                                             │      B/op      │     B/op      vs base                │
+SessionColdDocument/nodes=50                     64.24Mi ± 0%   64.33Mi ± 0%   +0.14% (p=0.001 n=10)
+SessionColdDocument/nodes=50-4                   64.35Mi ± 0%   64.44Mi ± 0%   +0.15% (p=0.000 n=10)
+SessionColdDocument/nodes=500                    101.7Mi ± 0%   102.1Mi ± 0%   +0.34% (p=0.000 n=10)
+SessionColdDocument/nodes=500-4                  101.9Mi ± 0%   102.2Mi ± 0%   +0.34% (p=0.000 n=10)
+SessionColdDocument/nodes=2000                   226.8Mi ± 0%   228.0Mi ± 0%   +0.52% (p=0.000 n=10)
+SessionColdDocument/nodes=2000-4                 227.0Mi ± 0%   228.2Mi ± 0%   +0.52% (p=0.000 n=10)
+SessionWarmFeatures/nodes=50                   694.760Mi ± 0%   3.337Mi ± 0%  -99.52% (p=0.000 n=10)
+SessionWarmFeatures/nodes=50-4                 695.640Mi ± 0%   3.338Mi ± 0%  -99.52% (p=0.000 n=10)
+SessionWarmFeatures/nodes=500                  2914.34Mi ± 0%   31.45Mi ± 0%  -98.92% (p=0.000 n=10)
+SessionWarmFeatures/nodes=500-4                2916.70Mi ± 0%   31.42Mi ± 0%  -98.92% (p=0.000 n=10)
+SessionWarmFeatures/nodes=2000                 20095.8Mi ± 0%   160.3Mi ± 2%  -99.20% (p=0.000 n=10)
+SessionWarmFeatures/nodes=2000-4               20101.4Mi ± 0%   149.2Mi ± 1%  -99.26% (p=0.000 n=10)
+SessionDocumentEdits                             213.1Mi ± 0%   112.6Mi ± 0%  -47.16% (p=0.000 n=10)
+SessionDocumentEdits-4                           212.8Mi ± 0%   112.7Mi ± 0%  -47.03% (p=0.000 n=10)
+SessionDependencyChange                          122.7Mi ± 0%   118.7Mi ± 0%   -3.28% (p=0.000 n=10)
+SessionDependencyChange-4                        122.8Mi ± 0%   118.8Mi ± 0%   -3.25% (p=0.000 n=10)
+DiagnosticsForTextWithProjectsLargeFactory       84.60Mi ± 0%   84.54Mi ± 0%        ~ (p=0.684 n=10)
+DiagnosticsForTextWithProjectsLargeFactory-4     84.45Mi ± 0%   84.35Mi ± 0%   -0.13% (p=0.000 n=10)
+geomean                                          371.2Mi        67.08Mi       -81.93%
+
+                                             │    before.txt    │              after.txt               │
+                                             │    allocs/op     │  allocs/op   vs base                 │
+SessionColdDocument/nodes=50                        1.640M ± 0%   1.642M ± 0%    +0.07% (p=0.000 n=10)
+SessionColdDocument/nodes=50-4                      1.641M ± 0%   1.642M ± 0%    +0.07% (p=0.000 n=10)
+SessionColdDocument/nodes=500                       2.602M ± 0%   2.604M ± 0%    +0.06% (p=0.000 n=10)
+SessionColdDocument/nodes=500-4                     2.603M ± 0%   2.604M ± 0%    +0.06% (p=0.000 n=10)
+SessionColdDocument/nodes=2000                      5.808M ± 0%   5.811M ± 0%    +0.05% (p=0.000 n=10)
+SessionColdDocument/nodes=2000-4                    5.809M ± 0%   5.812M ± 0%    +0.05% (p=0.000 n=10)
+SessionWarmFeatures/nodes=50                    17725.485k ± 0%   2.353k ± 0%   -99.99% (p=0.000 n=10)
+SessionWarmFeatures/nodes=50-4                  17726.571k ± 0%   2.359k ± 0%   -99.99% (p=0.000 n=10)
+SessionWarmFeatures/nodes=500                   65340.378k ± 0%   2.846k ± 0%  -100.00% (p=0.000 n=10)
+SessionWarmFeatures/nodes=500-4                 65350.812k ± 0%   2.857k ± 0%  -100.00% (p=0.000 n=10)
+SessionWarmFeatures/nodes=2000                 224152.599k ± 0%   6.896k ± 6%  -100.00% (p=0.000 n=10)
+SessionWarmFeatures/nodes=2000-4               224184.384k ± 0%   5.542k ± 3%  -100.00% (p=0.000 n=10)
+SessionDocumentEdits                                5.085M ± 0%   2.451M ± 0%   -51.81% (p=0.000 n=10)
+SessionDocumentEdits-4                              5.073M ± 0%   2.451M ± 0%   -51.69% (p=0.000 n=10)
+SessionDependencyChange                             2.769M ± 0%   2.612M ± 0%    -5.66% (p=0.000 n=10)
+SessionDependencyChange-4                           2.770M ± 0%   2.613M ± 0%    -5.66% (p=0.000 n=10)
+DiagnosticsForTextWithProjectsLargeFactory          2.152M ± 0%   2.150M ± 0%         ~ (p=0.724 n=10)
+DiagnosticsForTextWithProjectsLargeFactory-4        2.146M ± 0%   2.143M ± 0%    -0.14% (p=0.000 n=10)
+geomean                                             8.337M        289.3k        -96.53%
+
+                                 │ before.txt │              after.txt              │
+                                 │  requests  │  requests   vs base                 │
+SessionWarmFeatures/nodes=50       100.0 ± 0%   100.0 ± 0%       ~ (p=1.000 n=10) ¹
+SessionWarmFeatures/nodes=50-4     100.0 ± 0%   100.0 ± 0%       ~ (p=1.000 n=10) ¹
+SessionWarmFeatures/nodes=500      100.0 ± 0%   100.0 ± 0%       ~ (p=1.000 n=10) ¹
+SessionWarmFeatures/nodes=500-4    100.0 ± 0%   100.0 ± 0%       ~ (p=1.000 n=10) ¹
+SessionWarmFeatures/nodes=2000     100.0 ± 0%   100.0 ± 0%       ~ (p=1.000 n=10) ¹
+SessionWarmFeatures/nodes=2000-4   100.0 ± 0%   100.0 ± 0%       ~ (p=1.000 n=10) ¹
+SessionDocumentEdits               4.000 ± 0%   4.000 ± 0%       ~ (p=1.000 n=10) ¹
+SessionDocumentEdits-4             4.000 ± 0%   4.000 ± 0%       ~ (p=1.000 n=10) ¹
+SessionDependencyChange            4.000 ± 0%   4.000 ± 0%       ~ (p=1.000 n=10) ¹
+SessionDependencyChange-4          4.000 ± 0%   4.000 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                            27.59        27.59       +0.00%
+¹ all samples are equal
+
+                          │     before.txt     │                  after.txt                  │
+                          │ dependency-changes │ dependency-changes  vs base                 │
+SessionDependencyChange             1.000 ± 0%           1.000 ± 0%       ~ (p=1.000 n=10) ¹
+SessionDependencyChange-4           1.000 ± 0%           1.000 ± 0%       ~ (p=1.000 n=10) ¹
+geomean                             1.000                1.000       +0.00%
+¹ all samples are equal
