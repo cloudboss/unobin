@@ -1,0 +1,111 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/runtime
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+                                                 │ before.txt  │             after.txt              │
+                                                 │   sec/op    │   sec/op     vs base               │
+ApplySchedulerLargeIndependentPlan/independent     1.684m ± 3%   1.634m ± 1%  -2.93% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/independent-4   1.287m ± 1%   1.222m ± 4%  -5.04% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/chain           1.598m ± 1%   1.549m ± 4%  -3.08% (p=0.019 n=10)
+ApplySchedulerLargeIndependentPlan/chain-4         1.434m ± 0%   1.495m ± 3%  +4.30% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/fan             2.086m ± 1%   2.057m ± 1%  -1.41% (p=0.015 n=10)
+ApplySchedulerLargeIndependentPlan/fan-4           1.565m ± 1%   1.481m ± 6%  -5.35% (p=0.001 n=10)
+PlanLargeAlreadyCheckedFactory                     724.8µ ± 1%   705.3µ ± 1%  -2.69% (p=0.000 n=10)
+PlanLargeAlreadyCheckedFactory-4                   629.2µ ± 1%   614.6µ ± 1%  -2.33% (p=0.000 n=10)
+StateLookupDuringPlanning/entries=100              3.025µ ± 4%   2.995µ ± 1%  -0.98% (p=0.015 n=10)
+StateLookupDuringPlanning/entries=100-4            2.399µ ± 1%   2.382µ ± 1%  -0.69% (p=0.007 n=10)
+StateLookupDuringPlanning/entries=1000             30.75µ ± 1%   30.08µ ± 1%  -2.18% (p=0.002 n=10)
+StateLookupDuringPlanning/entries=1000-4           24.87µ ± 1%   24.26µ ± 1%  -2.48% (p=0.000 n=10)
+StateLookupDuringPlanning/entries=10000            349.0µ ± 2%   343.5µ ± 1%  -1.57% (p=0.011 n=10)
+StateLookupDuringPlanning/entries=10000-4          291.3µ ± 1%   279.0µ ± 1%  -4.21% (p=0.000 n=10)
+StateLookupWithChanges/entries=100                 119.0µ ± 1%   117.1µ ± 1%  -1.55% (p=0.005 n=10)
+StateLookupWithChanges/entries=100-4               98.95µ ± 4%   93.31µ ± 0%  -5.70% (p=0.000 n=10)
+StateLookupWithChanges/entries=1000                1.155m ± 1%   1.161m ± 1%  +0.54% (p=0.023 n=10)
+StateLookupWithChanges/entries=1000-4              935.1µ ± 4%   931.3µ ± 1%       ~ (p=0.353 n=10)
+StateLookupWithChanges/entries=10000               13.49m ± 1%   13.59m ± 2%       ~ (p=0.165 n=10)
+StateLookupWithChanges/entries=10000-4             10.44m ± 2%   10.41m ± 0%       ~ (p=0.063 n=10)
+geomean                                            392.3µ        384.9µ       -1.89%
+
+                                                 │  before.txt  │               after.txt               │
+                                                 │     B/op     │     B/op      vs base                 │
+ApplySchedulerLargeIndependentPlan/independent     1.717Mi ± 0%   1.717Mi ± 0%  -0.01% (p=0.001 n=10)
+ApplySchedulerLargeIndependentPlan/independent-4   1.716Mi ± 0%   1.701Mi ± 0%  -0.91% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/chain           1.683Mi ± 0%   1.683Mi ± 0%       ~ (p=1.000 n=10)
+ApplySchedulerLargeIndependentPlan/chain-4         1.684Mi ± 0%   1.684Mi ± 0%       ~ (p=0.325 n=10)
+ApplySchedulerLargeIndependentPlan/fan             1.814Mi ± 0%   1.814Mi ± 0%  -0.01% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/fan-4           1.814Mi ± 0%   1.798Mi ± 0%  -0.89% (p=0.000 n=10)
+PlanLargeAlreadyCheckedFactory                     818.8Ki ± 0%   818.8Ki ± 0%       ~ (p=1.000 n=10) ¹
+PlanLargeAlreadyCheckedFactory-4                   818.8Ki ± 0%   818.8Ki ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=100              3.633Ki ± 0%   3.633Ki ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=100-4            3.633Ki ± 0%   3.633Ki ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=1000             53.55Ki ± 0%   53.55Ki ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=1000-4           53.55Ki ± 0%   53.55Ki ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=10000            426.8Ki ± 0%   426.8Ki ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=10000-4          426.8Ki ± 0%   426.8Ki ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=100                 161.4Ki ± 0%   161.4Ki ± 0%       ~ (p=1.000 n=10)
+StateLookupWithChanges/entries=100-4               161.4Ki ± 0%   161.4Ki ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=1000                1.716Mi ± 0%   1.716Mi ± 0%       ~ (p=1.000 n=10)
+StateLookupWithChanges/entries=1000-4              1.716Mi ± 0%   1.716Mi ± 0%  +0.00% (p=0.033 n=10)
+StateLookupWithChanges/entries=10000               16.33Mi ± 0%   16.33Mi ± 0%       ~ (p=1.000 n=10)
+StateLookupWithChanges/entries=10000-4             16.33Mi ± 0%   16.33Mi ± 0%  +0.00% (p=0.042 n=10)
+geomean                                            532.0Ki        531.5Ki       -0.09%
+¹ all samples are equal
+
+                                                 │ before.txt  │              after.txt               │
+                                                 │  allocs/op  │  allocs/op   vs base                 │
+ApplySchedulerLargeIndependentPlan/independent     14.17k ± 0%   14.16k ± 0%  -0.05% (p=0.001 n=10)
+ApplySchedulerLargeIndependentPlan/independent-4   14.11k ± 0%   13.09k ± 0%  -7.28% (p=0.000 n=10)
+ApplySchedulerLargeIndependentPlan/chain           14.16k ± 0%   14.16k ± 0%       ~ (p=1.000 n=10)
+ApplySchedulerLargeIndependentPlan/chain-4         14.17k ± 0%   14.17k ± 0%       ~ (p=1.000 n=10) ¹
+ApplySchedulerLargeIndependentPlan/fan             16.18k ± 0%   16.17k ± 0%  -0.10% (p=0.001 n=10)
+ApplySchedulerLargeIndependentPlan/fan-4           16.13k ± 0%   15.06k ± 0%  -6.59% (p=0.000 n=10)
+PlanLargeAlreadyCheckedFactory                     10.69k ± 0%   10.69k ± 0%       ~ (p=1.000 n=10) ¹
+PlanLargeAlreadyCheckedFactory-4                   10.69k ± 0%   10.69k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=100               6.000 ± 0%    6.000 ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=100-4             6.000 ± 0%    6.000 ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=1000              8.000 ± 0%    8.000 ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=1000-4            8.000 ± 0%    8.000 ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=10000             36.00 ± 0%    36.00 ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=10000-4           36.00 ± 0%    36.00 ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=100                 2.156k ± 0%   2.156k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=100-4               2.156k ± 0%   2.156k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=1000                21.08k ± 0%   21.08k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=1000-4              21.08k ± 0%   21.08k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=10000               210.3k ± 0%   210.3k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=10000-4             210.3k ± 0%   210.3k ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                            1.887k        1.873k       -0.72%
+¹ all samples are equal
+
+                                          │ before.txt  │              after.txt               │
+                                          │   entries   │   entries    vs base                 │
+StateLookupDuringPlanning/entries=100        100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=100-4      100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=1000      1.000k ± 0%   1.000k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=1000-4    1.000k ± 0%   1.000k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=10000     10.00k ± 0%   10.00k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=10000-4   10.00k ± 0%   10.00k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=100           100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=100-4         100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=1000         1.000k ± 0%   1.000k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=1000-4       1.000k ± 0%   1.000k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=10000        10.00k ± 0%   10.00k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=10000-4      10.00k ± 0%   10.00k ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                     1.000k        1.000k       +0.00%
+¹ all samples are equal
+
+                                          │ before.txt  │              after.txt               │
+                                          │   lookups   │   lookups    vs base                 │
+StateLookupDuringPlanning/entries=100        100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=100-4      100.0 ± 0%    100.0 ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=1000      1.000k ± 0%   1.000k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=1000-4    1.000k ± 0%   1.000k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=10000     10.00k ± 0%   10.00k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupDuringPlanning/entries=10000-4   10.00k ± 0%   10.00k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=100           203.0 ± 0%    203.0 ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=100-4         203.0 ± 0%    203.0 ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=1000         2.003k ± 0%   2.003k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=1000-4       2.003k ± 0%   2.003k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=10000        20.00k ± 0%   20.00k ± 0%       ~ (p=1.000 n=10) ¹
+StateLookupWithChanges/entries=10000-4      20.00k ± 0%   20.00k ± 0%       ~ (p=1.000 n=10) ¹
+geomean                                     1.418k        1.418k       +0.00%
+¹ all samples are equal
