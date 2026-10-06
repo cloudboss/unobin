@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"sync"
 )
 
 // Sender writes a server-to-client notification.
@@ -25,11 +26,13 @@ type ServerOptions struct {
 
 // Server serves JSON-RPC messages over LSP stdio framing.
 type Server struct {
-	reader  *bufio.Reader
-	writer  io.Writer
-	handler Handler
-	trace   io.Writer
-	logger  *log.Logger
+	reader   *bufio.Reader
+	writer   io.Writer
+	handler  Handler
+	trace    io.Writer
+	logger   *log.Logger
+	outputMu sync.Mutex
+	traceMu  sync.Mutex
 }
 
 // NewServer returns a JSON-RPC server using LSP stdio framing.
@@ -152,6 +155,8 @@ func (s *Server) writeResponse(response ResponseMessage) error {
 }
 
 func (s *Server) writeMessage(body []byte) error {
+	s.outputMu.Lock()
+	defer s.outputMu.Unlock()
 	if err := s.traceMessage("out", body); err != nil {
 		return err
 	}
@@ -159,6 +164,8 @@ func (s *Server) writeMessage(body []byte) error {
 }
 
 func (s *Server) traceMessage(direction string, body []byte) error {
+	s.traceMu.Lock()
+	defer s.traceMu.Unlock()
 	if s.trace == nil {
 		return nil
 	}
