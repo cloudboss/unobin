@@ -1,0 +1,46 @@
+{
+  "work-package": "queued-editor-analysis",
+  "description": "Latest diagnostics after a burst of document edits over an editor connection",
+  "kind": "micro",
+  "fixtures": [
+    "pkg/lsp/queued_analysis_benchmark_test.go",
+    "pkg/lsp/analysis_benchmark_test.go",
+    "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-50.ub",
+    "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-500.ub",
+    "pkg/goschema/testdata/definition/go.mod",
+    "pkg/goschema/testdata/definition/library.go",
+    "pkg/goschema/testdata/definition/shared/shared.go"
+  ],
+  "parameters": {
+    "document-nodes": "50,500",
+    "edits-per-batch": "8",
+    "transport": "LSP framing over in-memory pipes",
+    "text-variants": "two equal-length input defaults"
+  },
+  "packages": ["./pkg/lsp"],
+  "benchmark": "^BenchmarkServeQueuedDocumentEdits$",
+  "cases": [
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkServeQueuedDocumentEdits/nodes=50",
+      "units": ["sec/op", "B/op", "allocs/op", "nodes", "edits", "publications/op"],
+      "fixed": {"nodes": 50, "edits": 8}
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkServeQueuedDocumentEdits/nodes=500",
+      "units": ["sec/op", "B/op", "allocs/op", "nodes", "edits", "publications/op"],
+      "fixed": {"nodes": 500, "edits": 8}
+    }
+  ],
+  "samples": 10,
+  "benchtime": "2s",
+  "cpus": [1, 4],
+  "setup": "Copy the fixed local provider and create a project outside timing. Start one editor connection and wait for the initial diagnostics outside timing. Each timed operation sends eight complete document changes without waiting between changes, then waits for diagnostics at the latest version. Include client JSON encoding, framing, transport, analysis, and publication. Check the URI, strictly increasing versions, latest-version completion, and absence of diagnostics. Count actual publications to expose coalescing. Stop and join the connection during cleanup outside timing.",
+  "cache-policy": "Symmetric warm Go build cache and one 1x benchmark warmup. Default GC, local replacements, no fetch, and no unrelated CPU-intensive work during collection. Each case uses one fresh project and reuses its editor connection and project cache.",
+  "primary-unit": "sec/op",
+  "primary-direction": "lower",
+  "tests": [
+    ["go", "test", "-count=1", "./pkg/lsp", "./pkg/lsp/protocol", "./pkg/sourcecheck"]
+  ]
+}
