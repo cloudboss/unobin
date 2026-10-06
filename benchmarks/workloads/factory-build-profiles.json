@@ -1,0 +1,117 @@
+{
+  "work-package": "factory-build-profiles",
+  "description": "Full and local factory builds with explicit state and encryption capabilities",
+  "fixtures": [
+    "pkg/compile/compile_benchmark_test.go",
+    "pkg/compile/testdata/ub/compile-scaling/valid/nodes-10/factory.ub",
+    "pkg/compile/testdata/ub/compile-scaling/valid/nodes-500/factory.ub",
+    "pkg/compile/testdata/ub/compile-scaling/valid/shared/library.ub",
+    "pkg/compile/profile_benchmark_test.go"
+  ],
+  "parameters": {
+    "factory-composites": "10,500",
+    "exports-per-library": "one data-source composite with one constant output",
+    "generation-mode": "fresh output directory and complete Go build",
+    "build-profiles": "UNOBIN_BENCH_PROFILE selects full or local state and encryption implementations",
+    "linker-policy": "normal Go debug information; identical factory version and no strip flags"
+  },
+  "packages": [
+    "./pkg/compile"
+  ],
+  "cache-policy": "Warm task-owned Go build, toolchain, and module caches. Collector runs a symmetric 1x warmup. Cold build samples use a fresh empty build cache and keep downloaded modules and the toolchain outside timing. No unrelated CPU-intensive work during collection.",
+  "primary-unit": "sec/op",
+  "primary-direction": "lower",
+  "tests": [
+    [
+      "go",
+      "test",
+      "-count=1",
+      "./pkg/compile",
+      "./pkg/sourcecheck",
+      "./pkg/codegen",
+      "./internal/ubtest"
+    ],
+    [
+      "go",
+      "test",
+      "-count=1",
+      "-run",
+      "^TestCompiledCases$/^ub-composite-foreach$",
+      "./tests/e2e"
+    ]
+  ],
+  "kind": "profile",
+  "benchmark": "^BenchmarkCompileFactoryProfile$",
+  "cases": [
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=10/cache=warm",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "source-bytes",
+        "nodes",
+        "binary-bytes",
+        "packages"
+      ],
+      "fixed": {
+        "nodes": 10
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=10/cache=cold",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "source-bytes",
+        "nodes",
+        "binary-bytes",
+        "packages"
+      ],
+      "fixed": {
+        "nodes": 10
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=500/cache=warm",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "source-bytes",
+        "nodes",
+        "binary-bytes",
+        "packages"
+      ],
+      "fixed": {
+        "nodes": 500
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/compile",
+      "name": "BenchmarkCompileFactoryProfile/nodes=500/cache=cold",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "source-bytes",
+        "nodes",
+        "binary-bytes",
+        "packages"
+      ],
+      "fixed": {
+        "nodes": 500
+      }
+    }
+  ],
+  "samples": 5,
+  "benchtime": "1x",
+  "cpus": [
+    1
+  ],
+  "setup": "Copy committed small and large factory fixtures outside timing and use a local Unobin replacement. Each independent 1x sample uses a fresh output directory. Warm samples use the shared populated Go build cache; cold samples use a new empty build cache. Include complete source analysis, generation, owned output publication, Go tidying, dependency and compatibility verification, linked-input revision, and Go compilation. Downloaded modules and the cached Go toolchain remain available for both variants. Validate generated Go syntax, source inventory, successful build, revision, and nonempty binary after timing. Run go list -deps after timing and report package count, source bytes, and binary bytes. Go allocation metrics describe the benchmark process and exclude subprocess memory. Select the profile with UNOBIN_BENCH_PROFILE and supply its exact state and encryption capabilities to the collector. Both variants use the same source revision, fixtures, linker settings, toolchain, and downloaded modules. The local profile validates that the linked package list excludes cloud state and encryption SDKs."
+}
