@@ -54,14 +54,14 @@ func TestGCSBackendConfigKebabNames(t *testing.T) {
 }
 
 func TestNewLocalBackendAcceptsPlainConfig(t *testing.T) {
-	backend, err := newLocalBackend(
+	backend, err := Backends()[LocalName].New(
 		&LocalBackendConfig{Path: t.TempDir()}, "factory", "stack", encrypters.Noop{})
 	require.NoError(t, err)
 	assert.NotNil(t, backend)
 }
 
 func TestNewLocalBackendRequiresPath(t *testing.T) {
-	_, err := newLocalBackend(&LocalBackendConfig{}, "factory", "stack", encrypters.Noop{})
+	_, err := Backends()[LocalName].New(&LocalBackendConfig{}, "factory", "stack", encrypters.Noop{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "path is required")
 }

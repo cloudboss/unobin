@@ -13,6 +13,7 @@ import (
 	cloudkms "google.golang.org/api/cloudkms/v1"
 
 	"github.com/cloudboss/unobin/pkg/awscfg"
+	localencrypt "github.com/cloudboss/unobin/pkg/encrypters/local"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 )
@@ -20,27 +21,15 @@ import (
 // Key source names; Describe reports the same name the registry uses
 // so a recorded ref resolves back to its type.
 const (
-	EnvKeyName = "env-key"
+	EnvKeyName = localencrypt.EnvKeyName
 	KMSName    = "kms"
 	GCPKMSName = "gcp-kms"
-	NoopName   = "noop"
+	NoopName   = localencrypt.NoopName
 )
 
-// Encrypters returns the state encrypters keyed by the bare name an
-// operator selects in stack encryption. Names are unique by
-// construction: this is one map literal, so a duplicate is a compile
-// error.
+// Encrypters returns the built-in state encrypters keyed by stack selector.
 func Encrypters() map[string]sdkencrypt.EncrypterType {
-	return map[string]sdkencrypt.EncrypterType{
-		EnvKeyName: {
-			Name:        EnvKeyName,
-			Description: "AES-256-GCM with a base64 key read from an env input.",
-			Configuration: &cfg.ConfigurationType[any]{
-				Description: "Env-key encrypter configuration.",
-				New:         func() any { return &EnvKeyConfig{} },
-			},
-			New: newEnvKey,
-		},
+	registry := map[string]sdkencrypt.EncrypterType{
 		KMSName: {
 			Name:        KMSName,
 			Description: "AES-256-GCM with data keys wrapped by AWS KMS.",
@@ -59,27 +48,16 @@ func Encrypters() map[string]sdkencrypt.EncrypterType {
 			},
 			New: newGCPKMSEncrypter,
 		},
-		NoopName: {
-			Name:        NoopName,
-			Description: "No encryption; state is written as plaintext.",
-			New:         newNoop,
-		},
 	}
+	for _, registered := range localencrypt.Types() {
+		registry[registered.Name] = registered
+	}
+	return registry
 }
 
 // EnvKeyConfig is the operator-facing body under
 // `encryption: env-key { ... }`.
-type EnvKeyConfig struct {
-	EnvVar string
-}
-
-func newEnvKey(config any, _ map[string]any) (sdkencrypt.Encrypter, error) {
-	c, ok := config.(*EnvKeyConfig)
-	if !ok {
-		return nil, fmt.Errorf("env-key encrypter: missing or wrong configuration (got %T)", config)
-	}
-	return NewEnvKey(c.EnvVar)
-}
+type EnvKeyConfig = localencrypt.EnvKeyConfig
 
 // KMSConfig is the operator-facing body under `encryption: kms { ... }`.
 // The aws object holds the shared AWS connection settings from pkg/awscfg.
@@ -127,11 +105,4 @@ func newGCPKMSEncrypter(config any, body map[string]any) (sdkencrypt.Encrypter, 
 		return nil, fmt.Errorf("gcp-kms encrypter: %w", err)
 	}
 	return NewGCPKMS(newGCPKMSRESTClient(service), c.KeyID, body)
-}
-
-// newNoop builds the no-op encrypter, which writes state as
-// plaintext. It is the explicit opt-out for unencrypted state,
-// selected as `noop` in stack encryption.
-func newNoop(_ any, _ map[string]any) (sdkencrypt.Encrypter, error) {
-	return Noop{}, nil
 }

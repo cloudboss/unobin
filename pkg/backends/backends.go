@@ -15,18 +15,18 @@ import (
 	gcstorage "google.golang.org/api/storage/v1"
 
 	"github.com/cloudboss/unobin/pkg/awscfg"
+	localbackend "github.com/cloudboss/unobin/pkg/backends/local"
 	"github.com/cloudboss/unobin/pkg/gcpcfg"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 	sdkencrypt "github.com/cloudboss/unobin/pkg/sdk/encrypt"
 	sdkstate "github.com/cloudboss/unobin/pkg/sdk/state"
 	gcsstore "github.com/cloudboss/unobin/pkg/state/gcs"
-	"github.com/cloudboss/unobin/pkg/state/local"
 	s3store "github.com/cloudboss/unobin/pkg/state/s3"
 )
 
 // Backend names, the registry keys an operator selects in stack state.
 const (
-	LocalName = "local"
+	LocalName = localbackend.Name
 	S3Name    = "s3"
 	GCSName   = "gcs"
 )
@@ -36,15 +36,7 @@ const (
 // map literal, so a duplicate is a compile error.
 func Backends() map[string]sdkstate.BackendType {
 	return map[string]sdkstate.BackendType{
-		LocalName: {
-			Name:        LocalName,
-			Description: "Local filesystem state backend.",
-			Configuration: &cfg.ConfigurationType[any]{
-				Description: "Local state backend configuration.",
-				New:         func() any { return &LocalBackendConfig{} },
-			},
-			New: newLocalBackend,
-		},
+		LocalName: localbackend.Type(),
 		S3Name: {
 			Name:        S3Name,
 			Description: "S3 state backend with conditional-write locking.",
@@ -68,24 +60,7 @@ func Backends() map[string]sdkstate.BackendType {
 
 // LocalBackendConfig is the operator-facing body under
 // `state: local { ... }`.
-type LocalBackendConfig struct {
-	Path string
-}
-
-func newLocalBackend(
-	config any,
-	factory, stack string,
-	enc sdkencrypt.Encrypter,
-) (sdkstate.Backend, error) {
-	c, ok := config.(*LocalBackendConfig)
-	if !ok {
-		return nil, fmt.Errorf("local backend: missing or wrong configuration (got %T)", config)
-	}
-	if c.Path == "" {
-		return nil, errors.New("local backend: path is required")
-	}
-	return local.NewStore(c.Path, factory, stack, enc)
-}
+type LocalBackendConfig = localbackend.Config
 
 // S3BackendConfig is the operator-facing body under `state: s3 { ... }`.
 // The aws object holds the shared AWS connection settings from

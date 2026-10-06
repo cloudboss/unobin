@@ -49,7 +49,7 @@ func TestNewEnvKeyAcceptsPlainConfig(t *testing.T) {
 	key := base64.StdEncoding.EncodeToString(make([]byte, 32))
 	t.Setenv("UB_STATE_KEY", key)
 
-	enc, err := newEnvKey(&EnvKeyConfig{EnvVar: "UB_STATE_KEY"}, nil)
+	enc, err := Encrypters()[EnvKeyName].New(&EnvKeyConfig{EnvVar: "UB_STATE_KEY"}, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, enc)
 }
