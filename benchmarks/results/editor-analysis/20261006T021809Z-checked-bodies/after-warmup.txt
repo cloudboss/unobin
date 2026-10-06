@@ -1,0 +1,24 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/lsp
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkSessionColdDocument/nodes=50                   	       1	 185231119 ns/op	        50.00 nodes	         1.000 publications	67653136 B/op	 1643922 allocs/op
+BenchmarkSessionColdDocument/nodes=50-4                 	       1	 196970688 ns/op	        50.00 nodes	         1.000 publications	67658768 B/op	 1643682 allocs/op
+BenchmarkSessionColdDocument/nodes=500                  	       1	 260756907 ns/op	       500.0 nodes	         1.000 publications	107232192 B/op	 2606167 allocs/op
+BenchmarkSessionColdDocument/nodes=500-4                	       1	 224509096 ns/op	       500.0 nodes	         1.000 publications	107205296 B/op	 2606112 allocs/op
+BenchmarkSessionColdDocument/nodes=2000                 	       1	 467872945 ns/op	      2000 nodes	         1.000 publications	239299272 B/op	 5813652 allocs/op
+BenchmarkSessionColdDocument/nodes=2000-4               	       1	 474418237 ns/op	      2000 nodes	         1.000 publications	239291224 B/op	 5813639 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50                   	       1	   1763750 ns/op	        50.00 nodes	       100.0 requests	 3728824 B/op	    3181 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50-4                 	       1	   2324552 ns/op	        50.00 nodes	       100.0 requests	 3728952 B/op	    3182 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500                  	       1	  25420473 ns/op	       500.0 nodes	       100.0 requests	49411320 B/op	   13394 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500-4                	       1	  24998942 ns/op	       500.0 nodes	       100.0 requests	49410432 B/op	   13387 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000                 	       1	 236088936 ns/op	      2000 nodes	       100.0 requests	619554592 B/op	   61456 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000-4               	       1	 232684157 ns/op	      2000 nodes	       100.0 requests	619554016 B/op	   61448 allocs/op
+BenchmarkSessionDocumentEdits                           	       1	 228477583 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	118227216 B/op	 2452999 allocs/op
+BenchmarkSessionDocumentEdits-4                         	       1	 231816900 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	118212456 B/op	 2452801 allocs/op
+BenchmarkSessionDependencyChange                        	       1	 246565576 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	124625712 B/op	 2614685 allocs/op
+BenchmarkSessionDependencyChange-4                      	       1	 247607812 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	124685824 B/op	 2614692 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory     	       1	 213842239 ns/op	94679120 B/op	 2294101 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory-4   	       1	 216555250 ns/op	94693040 B/op	 2294078 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/lsp	6.491s

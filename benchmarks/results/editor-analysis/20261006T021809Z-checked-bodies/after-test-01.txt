@@ -1,0 +1,3 @@
+ok  	github.com/cloudboss/unobin/pkg/lsp	6.487s
+ok  	github.com/cloudboss/unobin/pkg/lsp/protocol	0.106s
+ok  	github.com/cloudboss/unobin/pkg/sourcecheck	0.444s

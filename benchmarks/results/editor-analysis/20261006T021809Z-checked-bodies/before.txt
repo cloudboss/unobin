@@ -1,0 +1,186 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/lsp
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkSessionColdDocument/nodes=50                   	      13	 156625946 ns/op	        50.00 nodes	         1.000 publications	67464040 B/op	 1640538 allocs/op
+BenchmarkSessionColdDocument/nodes=50                   	      16	 128043475 ns/op	        50.00 nodes	         1.000 publications	67363802 B/op	 1640474 allocs/op
+BenchmarkSessionColdDocument/nodes=50                   	      19	 126662045 ns/op	        50.00 nodes	         1.000 publications	67363828 B/op	 1640460 allocs/op
+BenchmarkSessionColdDocument/nodes=50                   	      18	 127957798 ns/op	        50.00 nodes	         1.000 publications	67364423 B/op	 1640476 allocs/op
+BenchmarkSessionColdDocument/nodes=50                   	      18	 127293369 ns/op	        50.00 nodes	         1.000 publications	67359380 B/op	 1640470 allocs/op
+BenchmarkSessionColdDocument/nodes=50                   	      18	 128794648 ns/op	        50.00 nodes	         1.000 publications	67359824 B/op	 1640471 allocs/op
+BenchmarkSessionColdDocument/nodes=50                   	      19	 128935484 ns/op	        50.00 nodes	         1.000 publications	67362971 B/op	 1640475 allocs/op
+BenchmarkSessionColdDocument/nodes=50                   	      18	 132299992 ns/op	        50.00 nodes	         1.000 publications	67360256 B/op	 1640472 allocs/op
+BenchmarkSessionColdDocument/nodes=50                   	      18	 133101506 ns/op	        50.00 nodes	         1.000 publications	67362114 B/op	 1640469 allocs/op
+BenchmarkSessionColdDocument/nodes=50                   	      16	 132476603 ns/op	        50.00 nodes	         1.000 publications	67363619 B/op	 1640473 allocs/op
+BenchmarkSessionColdDocument/nodes=50-4                 	      22	 101372591 ns/op	        50.00 nodes	         1.000 publications	67467410 B/op	 1640532 allocs/op
+BenchmarkSessionColdDocument/nodes=50-4                 	      22	 101543706 ns/op	        50.00 nodes	         1.000 publications	67471423 B/op	 1640515 allocs/op
+BenchmarkSessionColdDocument/nodes=50-4                 	      22	 101191706 ns/op	        50.00 nodes	         1.000 publications	67465376 B/op	 1640511 allocs/op
+BenchmarkSessionColdDocument/nodes=50-4                 	      24	 101358928 ns/op	        50.00 nodes	         1.000 publications	67469869 B/op	 1640513 allocs/op
+BenchmarkSessionColdDocument/nodes=50-4                 	      24	 101969694 ns/op	        50.00 nodes	         1.000 publications	67466693 B/op	 1640529 allocs/op
+BenchmarkSessionColdDocument/nodes=50-4                 	      24	 101814292 ns/op	        50.00 nodes	         1.000 publications	67484395 B/op	 1640537 allocs/op
+BenchmarkSessionColdDocument/nodes=50-4                 	      22	 101872009 ns/op	        50.00 nodes	         1.000 publications	67473424 B/op	 1640517 allocs/op
+BenchmarkSessionColdDocument/nodes=50-4                 	      22	 103940604 ns/op	        50.00 nodes	         1.000 publications	67471295 B/op	 1640517 allocs/op
+BenchmarkSessionColdDocument/nodes=50-4                 	      20	 113305934 ns/op	        50.00 nodes	         1.000 publications	67476080 B/op	 1640502 allocs/op
+BenchmarkSessionColdDocument/nodes=50-4                 	      22	 102550205 ns/op	        50.00 nodes	         1.000 publications	67473928 B/op	 1640530 allocs/op
+BenchmarkSessionColdDocument/nodes=500                  	      14	 158598908 ns/op	       500.0 nodes	         1.000 publications	106811314 B/op	 2602553 allocs/op
+BenchmarkSessionColdDocument/nodes=500                  	      10	 213111950 ns/op	       500.0 nodes	         1.000 publications	106671336 B/op	 2602304 allocs/op
+BenchmarkSessionColdDocument/nodes=500                  	      10	 215722890 ns/op	       500.0 nodes	         1.000 publications	106669987 B/op	 2602301 allocs/op
+BenchmarkSessionColdDocument/nodes=500                  	      10	 211643060 ns/op	       500.0 nodes	         1.000 publications	106670788 B/op	 2602282 allocs/op
+BenchmarkSessionColdDocument/nodes=500                  	      10	 208114971 ns/op	       500.0 nodes	         1.000 publications	106674576 B/op	 2602299 allocs/op
+BenchmarkSessionColdDocument/nodes=500                  	      10	 209084272 ns/op	       500.0 nodes	         1.000 publications	106670848 B/op	 2602300 allocs/op
+BenchmarkSessionColdDocument/nodes=500                  	      10	 209170524 ns/op	       500.0 nodes	         1.000 publications	106669624 B/op	 2602282 allocs/op
+BenchmarkSessionColdDocument/nodes=500                  	      10	 209101501 ns/op	       500.0 nodes	         1.000 publications	106671843 B/op	 2602286 allocs/op
+BenchmarkSessionColdDocument/nodes=500                  	      10	 226579232 ns/op	       500.0 nodes	         1.000 publications	106671668 B/op	 2602304 allocs/op
+BenchmarkSessionColdDocument/nodes=500                  	      10	 215417574 ns/op	       500.0 nodes	         1.000 publications	106671348 B/op	 2602298 allocs/op
+BenchmarkSessionColdDocument/nodes=500-4                	      14	 158122374 ns/op	       500.0 nodes	         1.000 publications	106811756 B/op	 2602546 allocs/op
+BenchmarkSessionColdDocument/nodes=500-4                	      14	 159591602 ns/op	       500.0 nodes	         1.000 publications	106813816 B/op	 2602553 allocs/op
+BenchmarkSessionColdDocument/nodes=500-4                	      14	 158912704 ns/op	       500.0 nodes	         1.000 publications	106814205 B/op	 2602556 allocs/op
+BenchmarkSessionColdDocument/nodes=500-4                	      14	 161967951 ns/op	       500.0 nodes	         1.000 publications	106817319 B/op	 2602546 allocs/op
+BenchmarkSessionColdDocument/nodes=500-4                	      14	 159008516 ns/op	       500.0 nodes	         1.000 publications	106817284 B/op	 2602557 allocs/op
+BenchmarkSessionColdDocument/nodes=500-4                	      14	 159439393 ns/op	       500.0 nodes	         1.000 publications	106806048 B/op	 2602550 allocs/op
+BenchmarkSessionColdDocument/nodes=500-4                	      14	 164015919 ns/op	       500.0 nodes	         1.000 publications	106810516 B/op	 2602530 allocs/op
+BenchmarkSessionColdDocument/nodes=500-4                	      14	 162245749 ns/op	       500.0 nodes	         1.000 publications	106823092 B/op	 2602536 allocs/op
+BenchmarkSessionColdDocument/nodes=500-4                	      14	 161347981 ns/op	       500.0 nodes	         1.000 publications	106807369 B/op	 2602546 allocs/op
+BenchmarkSessionColdDocument/nodes=500-4                	      13	 162675806 ns/op	       500.0 nodes	         1.000 publications	106815166 B/op	 2602537 allocs/op
+BenchmarkSessionColdDocument/nodes=2000                 	       6	 356433956 ns/op	      2000 nodes	         1.000 publications	238014981 B/op	 5808612 allocs/op
+BenchmarkSessionColdDocument/nodes=2000                 	       5	 484917387 ns/op	      2000 nodes	         1.000 publications	237819952 B/op	 5808042 allocs/op
+BenchmarkSessionColdDocument/nodes=2000                 	       5	 516901858 ns/op	      2000 nodes	         1.000 publications	237818457 B/op	 5808044 allocs/op
+BenchmarkSessionColdDocument/nodes=2000                 	       4	 561879504 ns/op	      2000 nodes	         1.000 publications	237819796 B/op	 5808042 allocs/op
+BenchmarkSessionColdDocument/nodes=2000                 	       4	 543301714 ns/op	      2000 nodes	         1.000 publications	237822066 B/op	 5808052 allocs/op
+BenchmarkSessionColdDocument/nodes=2000                 	       5	 503469593 ns/op	      2000 nodes	         1.000 publications	237820292 B/op	 5808042 allocs/op
+BenchmarkSessionColdDocument/nodes=2000                 	       4	 526809392 ns/op	      2000 nodes	         1.000 publications	237822050 B/op	 5808027 allocs/op
+BenchmarkSessionColdDocument/nodes=2000                 	       5	 469517596 ns/op	      2000 nodes	         1.000 publications	237818632 B/op	 5808030 allocs/op
+BenchmarkSessionColdDocument/nodes=2000                 	       4	 513726531 ns/op	      2000 nodes	         1.000 publications	237818104 B/op	 5808026 allocs/op
+BenchmarkSessionColdDocument/nodes=2000                 	       4	 508297280 ns/op	      2000 nodes	         1.000 publications	237821806 B/op	 5808048 allocs/op
+BenchmarkSessionColdDocument/nodes=2000-4               	       6	 348961406 ns/op	      2000 nodes	         1.000 publications	238004250 B/op	 5808582 allocs/op
+BenchmarkSessionColdDocument/nodes=2000-4               	       6	 352045751 ns/op	      2000 nodes	         1.000 publications	238014246 B/op	 5808592 allocs/op
+BenchmarkSessionColdDocument/nodes=2000-4               	       6	 349290357 ns/op	      2000 nodes	         1.000 publications	238004612 B/op	 5808615 allocs/op
+BenchmarkSessionColdDocument/nodes=2000-4               	       6	 354144280 ns/op	      2000 nodes	         1.000 publications	238003020 B/op	 5808584 allocs/op
+BenchmarkSessionColdDocument/nodes=2000-4               	       6	 354431784 ns/op	      2000 nodes	         1.000 publications	238001989 B/op	 5808603 allocs/op
+BenchmarkSessionColdDocument/nodes=2000-4               	       6	 373374996 ns/op	      2000 nodes	         1.000 publications	238003310 B/op	 5808602 allocs/op
+BenchmarkSessionColdDocument/nodes=2000-4               	       6	 359248909 ns/op	      2000 nodes	         1.000 publications	238003932 B/op	 5808613 allocs/op
+BenchmarkSessionColdDocument/nodes=2000-4               	       6	 363066831 ns/op	      2000 nodes	         1.000 publications	238005305 B/op	 5808609 allocs/op
+BenchmarkSessionColdDocument/nodes=2000-4               	       6	 354522172 ns/op	      2000 nodes	         1.000 publications	238016454 B/op	 5808605 allocs/op
+BenchmarkSessionColdDocument/nodes=2000-4               	       6	 356950834 ns/op	      2000 nodes	         1.000 publications	238020505 B/op	 5808610 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50                   	       2	1123597340 ns/op	        50.00 nodes	       100.0 requests	729418576 B/op	17726618 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50                   	       2	1778381628 ns/op	        50.00 nodes	       100.0 requests	728514636 B/op	17725434 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50                   	       2	1740324385 ns/op	        50.00 nodes	       100.0 requests	728489608 B/op	17725431 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50                   	       2	1906241432 ns/op	        50.00 nodes	       100.0 requests	728500024 B/op	17725458 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50                   	       2	2028952946 ns/op	        50.00 nodes	       100.0 requests	728485936 B/op	17725295 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50                   	       2	1968903122 ns/op	        50.00 nodes	       100.0 requests	728503196 B/op	17725503 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50                   	       2	2004885476 ns/op	        50.00 nodes	       100.0 requests	728492484 B/op	17725467 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50                   	       1	2131333769 ns/op	        50.00 nodes	       100.0 requests	731783912 B/op	17804960 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50                   	       1	2083504874 ns/op	        50.00 nodes	       100.0 requests	731807360 B/op	17804950 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50                   	       1	2101617362 ns/op	        50.00 nodes	       100.0 requests	731792680 B/op	17804967 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50-4                 	       2	1209674837 ns/op	        50.00 nodes	       100.0 requests	729436688 B/op	17726645 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50-4                 	       2	1200936761 ns/op	        50.00 nodes	       100.0 requests	729438760 B/op	17726529 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50-4                 	       2	1222645844 ns/op	        50.00 nodes	       100.0 requests	729444164 B/op	17726567 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50-4                 	       2	1244912870 ns/op	        50.00 nodes	       100.0 requests	729429308 B/op	17726576 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50-4                 	       2	1180983774 ns/op	        50.00 nodes	       100.0 requests	729393504 B/op	17726614 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50-4                 	       2	1174570777 ns/op	        50.00 nodes	       100.0 requests	729386020 B/op	17726567 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50-4                 	       2	1220484602 ns/op	        50.00 nodes	       100.0 requests	729432520 B/op	17726601 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50-4                 	       2	1236300404 ns/op	        50.00 nodes	       100.0 requests	729376412 B/op	17726552 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50-4                 	       2	1222846380 ns/op	        50.00 nodes	       100.0 requests	729460964 B/op	17726583 allocs/op
+BenchmarkSessionWarmFeatures/nodes=50-4                 	       2	1209667880 ns/op	        50.00 nodes	       100.0 requests	729411600 B/op	17726370 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500                  	       1	4771444713 ns/op	       500.0 nodes	       100.0 requests	3058400736 B/op	65350303 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500                  	       1	9792431995 ns/op	       500.0 nodes	       100.0 requests	3055905600 B/op	65340448 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500                  	       1	9680359045 ns/op	       500.0 nodes	       100.0 requests	3055897936 B/op	65340332 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500                  	       1	9472962271 ns/op	       500.0 nodes	       100.0 requests	3055901264 B/op	65340393 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500                  	       1	6681385107 ns/op	       500.0 nodes	       100.0 requests	3055903936 B/op	65340429 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500                  	       1	6853477914 ns/op	       500.0 nodes	       100.0 requests	3055892752 B/op	65340282 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500                  	       1	7209451916 ns/op	       500.0 nodes	       100.0 requests	3055907064 B/op	65340362 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500                  	       1	7070621653 ns/op	       500.0 nodes	       100.0 requests	3055909416 B/op	65340393 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500                  	       1	6658966638 ns/op	       500.0 nodes	       100.0 requests	3055891584 B/op	65340154 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500                  	       1	6641919661 ns/op	       500.0 nodes	       100.0 requests	3055897312 B/op	65340339 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500-4                	       1	4385118258 ns/op	       500.0 nodes	       100.0 requests	3058467048 B/op	65350955 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500-4                	       1	4521533339 ns/op	       500.0 nodes	       100.0 requests	3058382792 B/op	65350495 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500-4                	       1	4411244938 ns/op	       500.0 nodes	       100.0 requests	3058372360 B/op	65350799 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500-4                	       1	4464160691 ns/op	       500.0 nodes	       100.0 requests	3058413064 B/op	65350852 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500-4                	       1	4450997383 ns/op	       500.0 nodes	       100.0 requests	3058374712 B/op	65350600 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500-4                	       1	4484852279 ns/op	       500.0 nodes	       100.0 requests	3058402968 B/op	65350807 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500-4                	       1	4441242123 ns/op	       500.0 nodes	       100.0 requests	3058340376 B/op	65350901 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500-4                	       1	4530735071 ns/op	       500.0 nodes	       100.0 requests	3058356480 B/op	65350884 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500-4                	       1	4464130915 ns/op	       500.0 nodes	       100.0 requests	3058431048 B/op	65350816 allocs/op
+BenchmarkSessionWarmFeatures/nodes=500-4                	       1	4441834003 ns/op	       500.0 nodes	       100.0 requests	3058355952 B/op	65350783 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000                 	       1	20113695407 ns/op	      2000 nodes	       100.0 requests	21078259200 B/op	224187305 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000                 	       1	29723567747 ns/op	      2000 nodes	       100.0 requests	21071945344 B/op	224152515 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000                 	       1	29942013009 ns/op	      2000 nodes	       100.0 requests	21072021496 B/op	224152753 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000                 	       1	29796963392 ns/op	      2000 nodes	       100.0 requests	21071944984 B/op	224152511 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000                 	       1	30098669423 ns/op	      2000 nodes	       100.0 requests	21071996968 B/op	224152548 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000                 	       1	30061183352 ns/op	      2000 nodes	       100.0 requests	21072004120 B/op	224152745 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000                 	       1	30216973990 ns/op	      2000 nodes	       100.0 requests	21072022688 B/op	224152568 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000                 	       1	30431497129 ns/op	      2000 nodes	       100.0 requests	21071979704 B/op	224152630 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000                 	       1	30645030171 ns/op	      2000 nodes	       100.0 requests	21071970216 B/op	224152724 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000                 	       1	31453839214 ns/op	      2000 nodes	       100.0 requests	21071933232 B/op	224152351 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000-4               	       1	20339204336 ns/op	      2000 nodes	       100.0 requests	21077801424 B/op	224184053 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000-4               	       1	20603567965 ns/op	      2000 nodes	       100.0 requests	21077716088 B/op	224183843 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000-4               	       1	20575882070 ns/op	      2000 nodes	       100.0 requests	21077811168 B/op	224184272 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000-4               	       1	20987814586 ns/op	      2000 nodes	       100.0 requests	21077818360 B/op	224184415 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000-4               	       1	20762240243 ns/op	      2000 nodes	       100.0 requests	21077892976 B/op	224184563 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000-4               	       1	20746847401 ns/op	      2000 nodes	       100.0 requests	21077789064 B/op	224184408 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000-4               	       1	21386315110 ns/op	      2000 nodes	       100.0 requests	21077840600 B/op	224185082 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000-4               	       1	21213321154 ns/op	      2000 nodes	       100.0 requests	21077769024 B/op	224184361 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000-4               	       1	21375267752 ns/op	      2000 nodes	       100.0 requests	21077800120 B/op	224184322 allocs/op
+BenchmarkSessionWarmFeatures/nodes=2000-4               	       1	21633909763 ns/op	      2000 nodes	       100.0 requests	21077854496 B/op	224184596 allocs/op
+BenchmarkSessionDocumentEdits                           	       6	 352426778 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223101392 B/op	 5072786 allocs/op
+BenchmarkSessionDocumentEdits                           	       4	 554174510 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223417698 B/op	 5085340 allocs/op
+BenchmarkSessionDocumentEdits                           	       4	 544407884 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223414678 B/op	 5085330 allocs/op
+BenchmarkSessionDocumentEdits                           	       4	 584177458 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223415850 B/op	 5085308 allocs/op
+BenchmarkSessionDocumentEdits                           	       4	 580681619 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223413052 B/op	 5085331 allocs/op
+BenchmarkSessionDocumentEdits                           	       4	 566031886 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223415592 B/op	 5085320 allocs/op
+BenchmarkSessionDocumentEdits                           	       4	 533528209 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223411324 B/op	 5085313 allocs/op
+BenchmarkSessionDocumentEdits                           	       4	 581391294 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223416186 B/op	 5085307 allocs/op
+BenchmarkSessionDocumentEdits                           	       4	 596333423 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223417552 B/op	 5085320 allocs/op
+BenchmarkSessionDocumentEdits                           	       4	 580309338 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223417718 B/op	 5085339 allocs/op
+BenchmarkSessionDocumentEdits-4                         	       6	 347864434 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223106650 B/op	 5072786 allocs/op
+BenchmarkSessionDocumentEdits-4                         	       6	 359752461 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223117621 B/op	 5072803 allocs/op
+BenchmarkSessionDocumentEdits-4                         	       6	 355369759 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223100821 B/op	 5072779 allocs/op
+BenchmarkSessionDocumentEdits-4                         	       6	 351105474 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223093928 B/op	 5072772 allocs/op
+BenchmarkSessionDocumentEdits-4                         	       6	 358137978 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223093353 B/op	 5072775 allocs/op
+BenchmarkSessionDocumentEdits-4                         	       6	 376589330 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223106570 B/op	 5072757 allocs/op
+BenchmarkSessionDocumentEdits-4                         	       6	 362546667 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223102416 B/op	 5072799 allocs/op
+BenchmarkSessionDocumentEdits-4                         	       6	 364396925 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223104358 B/op	 5072795 allocs/op
+BenchmarkSessionDocumentEdits-4                         	       6	 363913611 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223105436 B/op	 5072770 allocs/op
+BenchmarkSessionDocumentEdits-4                         	       6	 410313989 ns/op	       500.0 nodes	         1.000 publications	         4.000 requests	223097649 B/op	 5072801 allocs/op
+BenchmarkSessionDependencyChange                        	      10	 213146546 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128785193 B/op	 2769511 allocs/op
+BenchmarkSessionDependencyChange                        	       7	 361609737 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128678749 B/op	 2769083 allocs/op
+BenchmarkSessionDependencyChange                        	       7	 322786536 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128677305 B/op	 2769071 allocs/op
+BenchmarkSessionDependencyChange                        	       7	 327979321 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128677724 B/op	 2769085 allocs/op
+BenchmarkSessionDependencyChange                        	       7	 329647152 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128677318 B/op	 2769080 allocs/op
+BenchmarkSessionDependencyChange                        	       6	 340775765 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128680432 B/op	 2769085 allocs/op
+BenchmarkSessionDependencyChange                        	       7	 322350814 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128677672 B/op	 2769060 allocs/op
+BenchmarkSessionDependencyChange                        	       7	 319546508 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128678770 B/op	 2769083 allocs/op
+BenchmarkSessionDependencyChange                        	       7	 323007581 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128677994 B/op	 2769088 allocs/op
+BenchmarkSessionDependencyChange                        	       7	 333588892 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128677380 B/op	 2769080 allocs/op
+BenchmarkSessionDependencyChange-4                      	       9	 226477544 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128782264 B/op	 2769516 allocs/op
+BenchmarkSessionDependencyChange-4                      	       9	 248969179 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128791285 B/op	 2769528 allocs/op
+BenchmarkSessionDependencyChange-4                      	      10	 232569352 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128788932 B/op	 2769529 allocs/op
+BenchmarkSessionDependencyChange-4                      	       9	 227580372 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128783882 B/op	 2769523 allocs/op
+BenchmarkSessionDependencyChange-4                      	       9	 228464946 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128782784 B/op	 2769523 allocs/op
+BenchmarkSessionDependencyChange-4                      	       9	 231056191 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128784643 B/op	 2769519 allocs/op
+BenchmarkSessionDependencyChange-4                      	       9	 235054692 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128782284 B/op	 2769504 allocs/op
+BenchmarkSessionDependencyChange-4                      	       9	 239044822 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128794825 B/op	 2769542 allocs/op
+BenchmarkSessionDependencyChange-4                      	       9	 243376970 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128788966 B/op	 2769547 allocs/op
+BenchmarkSessionDependencyChange-4                      	      10	 227551786 ns/op	         1.000 dependency-changes	       500.0 nodes	         4.000 requests	128781670 B/op	 2769514 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory     	      14	 170035200 ns/op	88469620 B/op	 2143836 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory     	       9	 249781696 ns/op	88622182 B/op	 2150050 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory     	       8	 257509684 ns/op	88717045 B/op	 2152300 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory     	       8	 250187433 ns/op	88711832 B/op	 2152296 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory     	       9	 253662619 ns/op	88623065 B/op	 2150051 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory     	       8	 267493084 ns/op	88714744 B/op	 2152296 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory     	       8	 257478614 ns/op	88712227 B/op	 2152285 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory     	       8	 256853399 ns/op	88716708 B/op	 2152298 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory     	       8	 254397156 ns/op	88716278 B/op	 2152293 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory     	       8	 262314589 ns/op	88715220 B/op	 2152296 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory-4   	      12	 190080079 ns/op	88548922 B/op	 2145770 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory-4   	      12	 186706895 ns/op	88553083 B/op	 2145776 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory-4   	      12	 188175578 ns/op	88544834 B/op	 2145770 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory-4   	      12	 194092557 ns/op	88556002 B/op	 2145778 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory-4   	      12	 191992699 ns/op	88558602 B/op	 2145778 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory-4   	      12	 197136046 ns/op	88556005 B/op	 2145779 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory-4   	      10	 201540342 ns/op	88661323 B/op	 2148472 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory-4   	      12	 190541119 ns/op	88555184 B/op	 2145783 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory-4   	      10	 202679807 ns/op	88660164 B/op	 2148474 allocs/op
+BenchmarkDiagnosticsForTextWithProjectsLargeFactory-4   	      10	 203635010 ns/op	88661900 B/op	 2148476 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/lsp	968.997s

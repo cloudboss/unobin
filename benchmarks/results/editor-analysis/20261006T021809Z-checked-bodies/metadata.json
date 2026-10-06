@@ -1,0 +1,688 @@
+{
+  "format-version": 1,
+  "kind": "benchmark-comparison",
+  "before": {
+    "format-version": 1,
+    "workload": {
+      "work-package": "editor-analysis",
+      "description": "Cold document diagnostics, repeated editor features, edits, and dependency changes",
+      "kind": "micro",
+      "fixtures": [
+        "pkg/lsp/analysis_benchmark_test.go",
+        "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-50.ub",
+        "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-500.ub",
+        "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-2000.ub",
+        "pkg/lsp/diagnostics_test.go",
+        "pkg/lsp/testdata/large-diagnostic-factory.ub.tmpl",
+        "pkg/goschema/testdata/definition/go.mod",
+        "pkg/goschema/testdata/definition/library.go",
+        "pkg/goschema/testdata/definition/shared/shared.go"
+      ],
+      "parameters": {
+        "dependency-change-nodes": "500",
+        "document-nodes": "50,500,2000",
+        "edit-nodes": "500",
+        "features": "symbols,definition,hover,completion",
+        "warm-feature-requests": "100"
+      },
+      "packages": [
+        "./pkg/lsp"
+      ],
+      "benchmark": "^(BenchmarkDiagnosticsForTextWithProjectsLargeFactory|BenchmarkSessionColdDocument|BenchmarkSessionWarmFeatures|BenchmarkSessionDocumentEdits|BenchmarkSessionDependencyChange)$",
+      "cases": [
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkDiagnosticsForTextWithProjectsLargeFactory",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op"
+          ]
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkSessionColdDocument/nodes=50",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "publications"
+          ],
+          "fixed": {
+            "nodes": 50,
+            "publications": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkSessionColdDocument/nodes=500",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "publications"
+          ],
+          "fixed": {
+            "nodes": 500,
+            "publications": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkSessionColdDocument/nodes=2000",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "publications"
+          ],
+          "fixed": {
+            "nodes": 2000,
+            "publications": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkSessionWarmFeatures/nodes=50",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "requests"
+          ],
+          "fixed": {
+            "nodes": 50,
+            "requests": 100
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkSessionWarmFeatures/nodes=500",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "requests"
+          ],
+          "fixed": {
+            "nodes": 500,
+            "requests": 100
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkSessionWarmFeatures/nodes=2000",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "requests"
+          ],
+          "fixed": {
+            "nodes": 2000,
+            "requests": 100
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkSessionDocumentEdits",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "publications",
+            "requests"
+          ],
+          "fixed": {
+            "nodes": 500,
+            "publications": 1,
+            "requests": 4
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkSessionDependencyChange",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "dependency-changes",
+            "requests"
+          ],
+          "fixed": {
+            "dependency-changes": 1,
+            "nodes": 500,
+            "requests": 4
+          }
+        }
+      ],
+      "samples": 10,
+      "benchtime": "2s",
+      "cpus": [
+        1,
+        4
+      ],
+      "setup": "Copy the fixed provider module and create a project outside timing. Cold operations include session creation, open, current-version diagnostics, and shutdown. Warm operations send exactly 100 requests with fixed positions after initial diagnostics. Edit operations alternate two equal-length defaults, wait for current-version diagnostics, and send four features. Dependency operations alternate one provider output type, notify a watched-file change, and send four features with diagnostic notifications disabled. Verify exact symbols, definition spans, completion labels, hover types, diagnostic versions, and absence of errors. Retain the standalone 500-node diagnostics control.",
+      "cache-policy": "Symmetric warm Go build cache and one 1x benchmark warmup. Default GC, local replacements, no fetch, and no unrelated CPU-intensive work during collection. Each benchmark owns a fresh temporary project; warm cases reuse its session and project cache.",
+      "primary-unit": "sec/op",
+      "primary-direction": "lower",
+      "tests": [
+        [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/lsp",
+          "./pkg/lsp/protocol",
+          "./pkg/sourcecheck"
+        ],
+        [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "TestInlineUB|TestTestFilesAvoidInlineUBSources|TestUBFixturesUseProjectLayout",
+          "./internal/ubtest"
+        ]
+      ]
+    },
+    "source-revision": "be6c947efa364e1369fad0dc66f03b7f7efdf957",
+    "fixture-revision": "be6c947efa364e1369fad0dc66f03b7f7efdf957",
+    "workload-path": "benchmarks/workloads/editor-analysis.json",
+    "repository": "/home/joseph/code/unobin",
+    "clean-source": true,
+    "fixture-digests": {
+      "benchmarks/workloads/editor-analysis.json": "7b72db632d6ec03e79c8ee28e58d45d68586c14ad3170c30f4d37615b04e3a95",
+      "pkg/goschema/testdata/definition/go.mod": "dc0559068bae64bb01daeb7353fdb2abe23e0b514e83355b240b25652cf668ac",
+      "pkg/goschema/testdata/definition/library.go": "e70c810128cd3a67b95b359ef62a23dbcadd03c83cffaa414fa45ce0ca2b5bcd",
+      "pkg/goschema/testdata/definition/shared/shared.go": "4f2e44e156ac78e007ac1dd0cda121d0075c4c06ae53a630b75931c6da89fe8b",
+      "pkg/lsp/analysis_benchmark_test.go": "66ad1e51f2253fba7b7067b53a84d603733f459878aa36f9e6139e1bdd557866",
+      "pkg/lsp/diagnostics_test.go": "cdb64295d74b35c40f1a5a5918d9c1d42e7cee80c9ecae231b740e753e16f235",
+      "pkg/lsp/testdata/large-diagnostic-factory.ub.tmpl": "74a74596545a1f73b24ec53d8f4d68b05c81cae5d7bd42a481e6950a9fba1204",
+      "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-2000.ub": "996d9b833885e79fe99d3f183f9c00a36f7c37803cec2f8f56a493d9921c6b0a",
+      "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-50.ub": "a4ed7b45b97a50a6c3fa8f0dca9ca58adab8a3a039078afa2de234daf8afcfa5",
+      "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-500.ub": "0d8c34341143574d97022657a39deca7039361fd2d807bd3feaefe5123e8d23b"
+    },
+    "dependency-locks": {
+      "go.mod": "588dedf3818897394d476ef520f1490eaa0c46084a617876add0bb6645aa162e",
+      "go.sum": "1e1f203654bb19eb6d9c941749ae98c646e73039a7932d3730efd477d542fe45"
+    },
+    "machine": {
+      "go-version": "go1.26.2",
+      "goos": "linux",
+      "goarch": "amd64",
+      "cpu-model": "AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M",
+      "logical-cpus": 24
+    },
+    "environment": {
+      "CC": "",
+      "CGO_CFLAGS": "",
+      "CGO_CPPFLAGS": "",
+      "CGO_CXXFLAGS": "",
+      "CGO_ENABLED": "1",
+      "CGO_LDFLAGS": "",
+      "CXX": "",
+      "GO386": "",
+      "GOAMD64": "v1",
+      "GOARCH": "amd64",
+      "GOARM": "",
+      "GOARM64": "",
+      "GOCACHE": "/home/joseph/code/unobin/_output/remediation/gocache",
+      "GODEBUG": "",
+      "GOEXPERIMENT": "",
+      "GOFLAGS": "",
+      "GOMAXPROCS": "",
+      "GOMIPS": "",
+      "GOMIPS64": "",
+      "GOMODCACHE": "/home/joseph/code/unobin/_output/remediation/gomodcache",
+      "GOOS": "linux",
+      "GOPPC64": "",
+      "GORISCV64": "",
+      "GOROOT": "/home/joseph/.local/go1.26.2",
+      "GOTMPDIR": "",
+      "GOTOOLCHAIN": "auto",
+      "GOVERSION": "go1.26.2",
+      "GOWASM": "",
+      "GOWORK": "",
+      "UNOBIN_BENCH_PROFILE": ""
+    },
+    "benchstat-version": "v0.0.0-20260929162123-406019bb8b68",
+    "tests": [
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/lsp",
+          "./pkg/lsp/protocol",
+          "./pkg/sourcecheck"
+        ],
+        "directory": ".",
+        "started": "2026-10-06T00:30:07.466846571Z",
+        "finished": "2026-10-06T00:30:13.088568913Z",
+        "exit-code": 0,
+        "output": "before-test-01.txt",
+        "sha256": "5dbc5393d44ab0872e4a09cd75150bd7700bf02644417659eed42da44aa2d1e2"
+      },
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "TestInlineUB|TestTestFilesAvoidInlineUBSources|TestUBFixturesUseProjectLayout",
+          "./internal/ubtest"
+        ],
+        "directory": ".",
+        "started": "2026-10-06T00:30:13.088682857Z",
+        "finished": "2026-10-06T00:30:31.064199436Z",
+        "exit-code": 0,
+        "output": "before-test-02.txt",
+        "sha256": "ddf47f2abbd31a41f30e20724e90c3ac447f8e176953c709c7a64c3301aa442f"
+      }
+    ],
+    "warmup": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkDiagnosticsForTextWithProjectsLargeFactory|BenchmarkSessionColdDocument|BenchmarkSessionWarmFeatures|BenchmarkSessionDocumentEdits|BenchmarkSessionDependencyChange)$",
+        "-benchmem",
+        "-benchtime=1x",
+        "-count=1",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/lsp"
+      ],
+      "directory": ".",
+      "started": "2026-10-06T00:30:31.064413337Z",
+      "finished": "2026-10-06T00:31:24.155503699Z",
+      "exit-code": 0,
+      "output": "before-warmup.txt",
+      "sha256": "45620030fe46909be1fbdfcfd7dadbd748cc4ab6b1291818abe11ec58af5691f"
+    },
+    "benchmark": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkDiagnosticsForTextWithProjectsLargeFactory|BenchmarkSessionColdDocument|BenchmarkSessionWarmFeatures|BenchmarkSessionDocumentEdits|BenchmarkSessionDependencyChange)$",
+        "-benchmem",
+        "-benchtime=2s",
+        "-count=10",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/lsp"
+      ],
+      "directory": ".",
+      "started": "2026-10-06T00:31:24.155650785Z",
+      "finished": "2026-10-06T00:47:33.732770991Z",
+      "exit-code": 0,
+      "output": "before.txt",
+      "sha256": "61dfc5bf56f19b7cb1b63fe35e6edb9a1149682f854933667c2347d27a63170a"
+    }
+  },
+  "after": {
+    "format-version": 1,
+    "workload": {
+      "work-package": "editor-analysis",
+      "description": "Cold document diagnostics, repeated editor features, edits, and dependency changes",
+      "kind": "micro",
+      "fixtures": [
+        "pkg/lsp/analysis_benchmark_test.go",
+        "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-50.ub",
+        "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-500.ub",
+        "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-2000.ub",
+        "pkg/lsp/diagnostics_test.go",
+        "pkg/lsp/testdata/large-diagnostic-factory.ub.tmpl",
+        "pkg/goschema/testdata/definition/go.mod",
+        "pkg/goschema/testdata/definition/library.go",
+        "pkg/goschema/testdata/definition/shared/shared.go"
+      ],
+      "parameters": {
+        "dependency-change-nodes": "500",
+        "document-nodes": "50,500,2000",
+        "edit-nodes": "500",
+        "features": "symbols,definition,hover,completion",
+        "warm-feature-requests": "100"
+      },
+      "packages": [
+        "./pkg/lsp"
+      ],
+      "benchmark": "^(BenchmarkDiagnosticsForTextWithProjectsLargeFactory|BenchmarkSessionColdDocument|BenchmarkSessionWarmFeatures|BenchmarkSessionDocumentEdits|BenchmarkSessionDependencyChange)$",
+      "cases": [
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkDiagnosticsForTextWithProjectsLargeFactory",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op"
+          ]
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkSessionColdDocument/nodes=50",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "publications"
+          ],
+          "fixed": {
+            "nodes": 50,
+            "publications": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkSessionColdDocument/nodes=500",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "publications"
+          ],
+          "fixed": {
+            "nodes": 500,
+            "publications": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkSessionColdDocument/nodes=2000",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "publications"
+          ],
+          "fixed": {
+            "nodes": 2000,
+            "publications": 1
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkSessionWarmFeatures/nodes=50",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "requests"
+          ],
+          "fixed": {
+            "nodes": 50,
+            "requests": 100
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkSessionWarmFeatures/nodes=500",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "requests"
+          ],
+          "fixed": {
+            "nodes": 500,
+            "requests": 100
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkSessionWarmFeatures/nodes=2000",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "requests"
+          ],
+          "fixed": {
+            "nodes": 2000,
+            "requests": 100
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkSessionDocumentEdits",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "publications",
+            "requests"
+          ],
+          "fixed": {
+            "nodes": 500,
+            "publications": 1,
+            "requests": 4
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lsp",
+          "name": "BenchmarkSessionDependencyChange",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "nodes",
+            "dependency-changes",
+            "requests"
+          ],
+          "fixed": {
+            "dependency-changes": 1,
+            "nodes": 500,
+            "requests": 4
+          }
+        }
+      ],
+      "samples": 10,
+      "benchtime": "2s",
+      "cpus": [
+        1,
+        4
+      ],
+      "setup": "Copy the fixed provider module and create a project outside timing. Cold operations include session creation, open, current-version diagnostics, and shutdown. Warm operations send exactly 100 requests with fixed positions after initial diagnostics. Edit operations alternate two equal-length defaults, wait for current-version diagnostics, and send four features. Dependency operations alternate one provider output type, notify a watched-file change, and send four features with diagnostic notifications disabled. Verify exact symbols, definition spans, completion labels, hover types, diagnostic versions, and absence of errors. Retain the standalone 500-node diagnostics control.",
+      "cache-policy": "Symmetric warm Go build cache and one 1x benchmark warmup. Default GC, local replacements, no fetch, and no unrelated CPU-intensive work during collection. Each benchmark owns a fresh temporary project; warm cases reuse its session and project cache.",
+      "primary-unit": "sec/op",
+      "primary-direction": "lower",
+      "tests": [
+        [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/lsp",
+          "./pkg/lsp/protocol",
+          "./pkg/sourcecheck"
+        ],
+        [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "TestInlineUB|TestTestFilesAvoidInlineUBSources|TestUBFixturesUseProjectLayout",
+          "./internal/ubtest"
+        ]
+      ]
+    },
+    "source-revision": "990d0ad54972e854a5046fc499836cc1e82aa708",
+    "fixture-revision": "be6c947efa364e1369fad0dc66f03b7f7efdf957",
+    "workload-path": "benchmarks/workloads/editor-analysis.json",
+    "repository": "/home/joseph/code/unobin",
+    "clean-source": true,
+    "fixture-digests": {
+      "benchmarks/workloads/editor-analysis.json": "7b72db632d6ec03e79c8ee28e58d45d68586c14ad3170c30f4d37615b04e3a95",
+      "pkg/goschema/testdata/definition/go.mod": "dc0559068bae64bb01daeb7353fdb2abe23e0b514e83355b240b25652cf668ac",
+      "pkg/goschema/testdata/definition/library.go": "e70c810128cd3a67b95b359ef62a23dbcadd03c83cffaa414fa45ce0ca2b5bcd",
+      "pkg/goschema/testdata/definition/shared/shared.go": "4f2e44e156ac78e007ac1dd0cda121d0075c4c06ae53a630b75931c6da89fe8b",
+      "pkg/lsp/analysis_benchmark_test.go": "66ad1e51f2253fba7b7067b53a84d603733f459878aa36f9e6139e1bdd557866",
+      "pkg/lsp/diagnostics_test.go": "cdb64295d74b35c40f1a5a5918d9c1d42e7cee80c9ecae231b740e753e16f235",
+      "pkg/lsp/testdata/large-diagnostic-factory.ub.tmpl": "74a74596545a1f73b24ec53d8f4d68b05c81cae5d7bd42a481e6950a9fba1204",
+      "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-2000.ub": "996d9b833885e79fe99d3f183f9c00a36f7c37803cec2f8f56a493d9921c6b0a",
+      "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-50.ub": "a4ed7b45b97a50a6c3fa8f0dca9ca58adab8a3a039078afa2de234daf8afcfa5",
+      "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-500.ub": "0d8c34341143574d97022657a39deca7039361fd2d807bd3feaefe5123e8d23b"
+    },
+    "dependency-locks": {
+      "go.mod": "588dedf3818897394d476ef520f1490eaa0c46084a617876add0bb6645aa162e",
+      "go.sum": "1e1f203654bb19eb6d9c941749ae98c646e73039a7932d3730efd477d542fe45"
+    },
+    "machine": {
+      "go-version": "go1.26.2",
+      "goos": "linux",
+      "goarch": "amd64",
+      "cpu-model": "AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M",
+      "logical-cpus": 24
+    },
+    "environment": {
+      "CC": "",
+      "CGO_CFLAGS": "",
+      "CGO_CPPFLAGS": "",
+      "CGO_CXXFLAGS": "",
+      "CGO_ENABLED": "1",
+      "CGO_LDFLAGS": "",
+      "CXX": "",
+      "GO386": "",
+      "GOAMD64": "v1",
+      "GOARCH": "amd64",
+      "GOARM": "",
+      "GOARM64": "",
+      "GOCACHE": "/home/joseph/code/unobin/_output/remediation/gocache",
+      "GODEBUG": "",
+      "GOEXPERIMENT": "",
+      "GOFLAGS": "",
+      "GOMAXPROCS": "",
+      "GOMIPS": "",
+      "GOMIPS64": "",
+      "GOMODCACHE": "/home/joseph/code/unobin/_output/remediation/gomodcache",
+      "GOOS": "linux",
+      "GOPPC64": "",
+      "GORISCV64": "",
+      "GOROOT": "/home/joseph/.local/go1.26.2",
+      "GOTMPDIR": "",
+      "GOTOOLCHAIN": "auto",
+      "GOVERSION": "go1.26.2",
+      "GOWASM": "",
+      "GOWORK": "",
+      "UNOBIN_BENCH_PROFILE": ""
+    },
+    "benchstat-version": "v0.0.0-20260929162123-406019bb8b68",
+    "tests": [
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/lsp",
+          "./pkg/lsp/protocol",
+          "./pkg/sourcecheck"
+        ],
+        "directory": ".",
+        "started": "2026-10-06T02:09:18.90081773Z",
+        "finished": "2026-10-06T02:09:25.843376395Z",
+        "exit-code": 0,
+        "output": "after-test-01.txt",
+        "sha256": "1209db2058a9866df1d7ff348e957792b1aed6d1703cc7decc3301fc49365bcd"
+      },
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "TestInlineUB|TestTestFilesAvoidInlineUBSources|TestUBFixturesUseProjectLayout",
+          "./internal/ubtest"
+        ],
+        "directory": ".",
+        "started": "2026-10-06T02:09:25.843471573Z",
+        "finished": "2026-10-06T02:09:42.690933364Z",
+        "exit-code": 0,
+        "output": "after-test-02.txt",
+        "sha256": "5db3a7a8e007cb32488736316f012c0e38f14b957fef48dce63629cfbc0d88f0"
+      }
+    ],
+    "warmup": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkDiagnosticsForTextWithProjectsLargeFactory|BenchmarkSessionColdDocument|BenchmarkSessionWarmFeatures|BenchmarkSessionDocumentEdits|BenchmarkSessionDependencyChange)$",
+        "-benchmem",
+        "-benchtime=1x",
+        "-count=1",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/lsp"
+      ],
+      "directory": ".",
+      "started": "2026-10-06T02:09:42.691029064Z",
+      "finished": "2026-10-06T02:09:49.75915315Z",
+      "exit-code": 0,
+      "output": "after-warmup.txt",
+      "sha256": "72685486f2886fc1eedb0532079b7c517c9f3fc5a29851b1214a04ff4619e548"
+    },
+    "benchmark": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkDiagnosticsForTextWithProjectsLargeFactory|BenchmarkSessionColdDocument|BenchmarkSessionWarmFeatures|BenchmarkSessionDocumentEdits|BenchmarkSessionDependencyChange)$",
+        "-benchmem",
+        "-benchtime=2s",
+        "-count=10",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/lsp"
+      ],
+      "directory": ".",
+      "started": "2026-10-06T02:09:49.759324742Z",
+      "finished": "2026-10-06T02:17:00.944136786Z",
+      "exit-code": 0,
+      "output": "after.txt",
+      "sha256": "08a00406cf49492891425e6cd260274fb13758df479a5aa2a220965640ef6842"
+    }
+  },
+  "comparison": {
+    "args": [
+      "go",
+      "tool",
+      "benchstat",
+      "before.txt",
+      "after.txt"
+    ],
+    "directory": ".",
+    "started": "2026-10-06T02:18:23.282699881Z",
+    "finished": "2026-10-06T02:18:23.28841305Z",
+    "exit-code": 0,
+    "output": "comparison.txt",
+    "sha256": "39bb9b91eedbbaa5e49424e10e7a05c84b0cde43c732641716cc2752d24b5cb2"
+  },
+  "summary-sha256": "56c9b969c97d7a93a1f624e782d2baaf14f631310fafb260aa24376742f201f5"
+}
