@@ -1,0 +1,59 @@
+factory: {
+  inputs: { query: { type: string, default: 'example' } }
+  locals: { filter: input.query }
+  imports: { def: 'example.com/definition' }
+  library-configs: { def: { region: 'us-east-1', retry: { count: 3 } } }
+  data-sources: {
+    item-0000: def.lookup { query: local.filter }
+    item-0001: def.lookup { query: local.filter }
+    item-0002: def.lookup { query: local.filter }
+    item-0003: def.lookup { query: local.filter }
+    item-0004: def.lookup { query: local.filter }
+    item-0005: def.lookup { query: local.filter }
+    item-0006: def.lookup { query: local.filter }
+    item-0007: def.lookup { query: local.filter }
+    item-0008: def.lookup { query: local.filter }
+    item-0009: def.lookup { query: local.filter }
+    item-0010: def.lookup { query: local.filter }
+    item-0011: def.lookup { query: local.filter }
+    item-0012: def.lookup { query: local.filter }
+    item-0013: def.lookup { query: local.filter }
+    item-0014: def.lookup { query: local.filter }
+    item-0015: def.lookup { query: local.filter }
+    item-0016: def.lookup { query: local.filter }
+    item-0017: def.lookup { query: local.filter }
+    item-0018: def.lookup { query: local.filter }
+    item-0019: def.lookup { query: local.filter }
+    item-0020: def.lookup { query: local.filter }
+    item-0021: def.lookup { query: local.filter }
+    item-0022: def.lookup { query: local.filter }
+    item-0023: def.lookup { query: local.filter }
+    item-0024: def.lookup { query: local.filter }
+    item-0025: def.lookup { query: local.filter }
+    item-0026: def.lookup { query: local.filter }
+    item-0027: def.lookup { query: local.filter }
+    item-0028: def.lookup { query: local.filter }
+    item-0029: def.lookup { query: local.filter }
+    item-0030: def.lookup { query: local.filter }
+    item-0031: def.lookup { query: local.filter }
+    item-0032: def.lookup { query: local.filter }
+    item-0033: def.lookup { query: local.filter }
+    item-0034: def.lookup { query: local.filter }
+    item-0035: def.lookup { query: local.filter }
+    item-0036: def.lookup { query: local.filter }
+    item-0037: def.lookup { query: local.filter }
+    item-0038: def.lookup { query: local.filter }
+    item-0039: def.lookup { query: local.filter }
+    item-0040: def.lookup { query: local.filter }
+    item-0041: def.lookup { query: local.filter }
+    item-0042: def.lookup { query: local.filter }
+    item-0043: def.lookup { query: local.filter }
+    item-0044: def.lookup { query: local.filter }
+    item-0045: def.lookup { query: local.filter }
+    item-0046: def.lookup { query: local.filter }
+    item-0047: def.lookup { query: local.filter }
+    item-0048: def.lookup { query: local.filter }
+    item-0049: def.lookup { query: local.filter }
+  }
+  outputs: { result: { value: data-source.item-0000.result } }
+}

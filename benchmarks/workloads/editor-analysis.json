@@ -1,0 +1,91 @@
+{
+  "work-package": "editor-analysis",
+  "description": "Cold document diagnostics, repeated editor features, edits, and dependency changes",
+  "kind": "micro",
+  "fixtures": [
+    "pkg/lsp/analysis_benchmark_test.go",
+    "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-50.ub",
+    "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-500.ub",
+    "pkg/lsp/testdata/ub/analysis-benchmark/valid/factory-2000.ub",
+    "pkg/lsp/diagnostics_test.go",
+    "pkg/lsp/testdata/large-diagnostic-factory.ub.tmpl",
+    "pkg/goschema/testdata/definition/go.mod",
+    "pkg/goschema/testdata/definition/library.go",
+    "pkg/goschema/testdata/definition/shared/shared.go"
+  ],
+  "parameters": {
+    "document-nodes": "50,500,2000",
+    "warm-feature-requests": "100",
+    "edit-nodes": "500",
+    "dependency-change-nodes": "500",
+    "features": "symbols,definition,hover,completion"
+  },
+  "packages": ["./pkg/lsp"],
+  "benchmark": "^(BenchmarkDiagnosticsForTextWithProjectsLargeFactory|BenchmarkSessionColdDocument|BenchmarkSessionWarmFeatures|BenchmarkSessionDocumentEdits|BenchmarkSessionDependencyChange)$",
+  "cases": [
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkDiagnosticsForTextWithProjectsLargeFactory",
+      "units": ["sec/op", "B/op", "allocs/op"]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=50",
+      "units": ["sec/op", "B/op", "allocs/op", "nodes", "publications"],
+      "fixed": {"nodes": 50, "publications": 1}
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=500",
+      "units": ["sec/op", "B/op", "allocs/op", "nodes", "publications"],
+      "fixed": {"nodes": 500, "publications": 1}
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionColdDocument/nodes=2000",
+      "units": ["sec/op", "B/op", "allocs/op", "nodes", "publications"],
+      "fixed": {"nodes": 2000, "publications": 1}
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=50",
+      "units": ["sec/op", "B/op", "allocs/op", "nodes", "requests"],
+      "fixed": {"nodes": 50, "requests": 100}
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=500",
+      "units": ["sec/op", "B/op", "allocs/op", "nodes", "requests"],
+      "fixed": {"nodes": 500, "requests": 100}
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionWarmFeatures/nodes=2000",
+      "units": ["sec/op", "B/op", "allocs/op", "nodes", "requests"],
+      "fixed": {"nodes": 2000, "requests": 100}
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDocumentEdits",
+      "units": ["sec/op", "B/op", "allocs/op", "nodes", "publications", "requests"],
+      "fixed": {"nodes": 500, "publications": 1, "requests": 4}
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lsp",
+      "name": "BenchmarkSessionDependencyChange",
+      "units": ["sec/op", "B/op", "allocs/op", "nodes", "dependency-changes", "requests"],
+      "fixed": {"nodes": 500, "dependency-changes": 1, "requests": 4}
+    }
+  ],
+  "samples": 10,
+  "benchtime": "2s",
+  "cpus": [1, 4],
+  "setup": "Copy the fixed provider module and create a project outside timing. Cold operations include session creation, open, current-version diagnostics, and shutdown. Warm operations send exactly 100 requests with fixed positions after initial diagnostics. Edit operations alternate two equal-length defaults, wait for current-version diagnostics, and send four features. Dependency operations alternate one provider output type, notify a watched-file change, and send four features with diagnostic notifications disabled. Verify exact symbols, definition spans, completion labels, hover types, diagnostic versions, and absence of errors. Retain the standalone 500-node diagnostics control.",
+  "cache-policy": "Symmetric warm Go build cache and one 1x benchmark warmup. Default GC, local replacements, no fetch, and no unrelated CPU-intensive work during collection. Each benchmark owns a fresh temporary project; warm cases reuse its session and project cache.",
+  "primary-unit": "sec/op",
+  "primary-direction": "lower",
+  "tests": [
+    ["go", "test", "-count=1", "./pkg/lsp", "./pkg/lsp/protocol", "./pkg/sourcecheck"],
+    ["go", "test", "-count=1", "-run", "TestInlineUB|TestTestFilesAvoidInlineUBSources|TestUBFixturesUseProjectLayout", "./internal/ubtest"]
+  ]
+}
