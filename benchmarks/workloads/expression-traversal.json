@@ -1,0 +1,151 @@
+{
+  "work-package": "expression-traversal",
+  "description": "Expression traversal order, lexical scope, and reference analysis",
+  "kind": "micro",
+  "fixtures": [
+    "pkg/lang/traversal_benchmark_test.go",
+    "pkg/lang/exprscan_test.go",
+    "pkg/check/scope_index_benchmark_test.go"
+  ],
+  "parameters": {
+    "expression-fields": "10,100,1000",
+    "expressions-per-field": "16",
+    "root-expressions": "1",
+    "reference-composite-scopes": "400",
+    "methods": "walk,scan"
+  },
+  "packages": [
+    "./pkg/lang",
+    "./pkg/check"
+  ],
+  "benchmark": "^(BenchmarkExpressionTraversal|BenchmarkReferencesManyCompositeScopes)$",
+  "cases": [
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=walk",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "fields",
+        "expressions"
+      ],
+      "fixed": {
+        "fields": 10,
+        "expressions": 161
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=scan",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "fields",
+        "expressions"
+      ],
+      "fixed": {
+        "fields": 10,
+        "expressions": 161
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=walk",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "fields",
+        "expressions"
+      ],
+      "fixed": {
+        "fields": 100,
+        "expressions": 1601
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=scan",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "fields",
+        "expressions"
+      ],
+      "fixed": {
+        "fields": 100,
+        "expressions": 1601
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=walk",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "fields",
+        "expressions"
+      ],
+      "fixed": {
+        "fields": 1000,
+        "expressions": 16001
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=scan",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op",
+        "fields",
+        "expressions"
+      ],
+      "fixed": {
+        "fields": 1000,
+        "expressions": 16001
+      }
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/check",
+      "name": "BenchmarkReferencesManyCompositeScopes",
+      "units": [
+        "sec/op",
+        "B/op",
+        "allocs/op"
+      ]
+    }
+  ],
+  "samples": 10,
+  "benchtime": "2s",
+  "cpus": [
+    1,
+    4
+  ],
+  "setup": "Construct the fixed expression tree outside timing. Each field contains calls, dotted paths, conditional branches, a comprehension, and interpolation. Walk and ScanExpr must visit exactly 1+16*fields expressions. Reference analysis visits 400 composite scopes and must return no diagnostics. Parsing, tree construction, and checker construction are outside timing.",
+  "cache-policy": "Symmetric warm task-owned Go build and module caches; one 1x warmup. Default GC, no fetch, and no unrelated CPU-intensive work during collection.",
+  "primary-unit": "sec/op",
+  "primary-direction": "lower",
+  "tests": [
+    [
+      "go",
+      "test",
+      "-count=1",
+      "./pkg/lang",
+      "./pkg/check",
+      "./pkg/runtime"
+    ],
+    [
+      "go",
+      "test",
+      "-count=1",
+      "-run",
+      "TestInlineUB|TestTestFilesAvoidInlineUBSources|TestUBFixturesUseProjectLayout",
+      "./internal/ubtest"
+    ]
+  ]
+}
