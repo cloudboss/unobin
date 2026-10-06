@@ -26,6 +26,7 @@ type ServerOptions struct {
 
 // Server serves JSON-RPC messages over LSP stdio framing.
 type Server struct {
+	input    io.Reader
 	reader   *bufio.Reader
 	writer   io.Writer
 	handler  Handler
@@ -48,6 +49,7 @@ func NewServerWithOptions(
 	options ServerOptions,
 ) *Server {
 	server := &Server{
+		input:   r,
 		reader:  bufio.NewReader(r),
 		writer:  w,
 		handler: handler,
@@ -83,23 +85,79 @@ func (s *Server) Notify(method string, params any) error {
 func (s *Server) Serve(ctx context.Context) error {
 	s.logf("server started")
 	defer s.logf("server stopped")
+	serveCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	queue := newRequestQueue(serveCtx)
+	stopQueue := context.AfterFunc(serveCtx, queue.stop)
+	defer stopQueue()
+	ioStopped := make(chan struct{})
+	stopIO := context.AfterFunc(serveCtx, func() {
+		for _, stream := range []any{s.input, s.writer} {
+			if closer, ok := stream.(io.Closer); ok {
+				_ = closer.Close()
+			}
+		}
+		close(ioStopped)
+	})
+	defer func() {
+		if !stopIO() {
+			<-ioStopped
+		}
+	}()
+	done := make(chan error, 1)
+	go func() {
+		for work := queue.next(); work != nil; work = queue.next() {
+			err := s.handleMessage(work.ctx, work.body)
+			queue.complete(work)
+			if err != nil || s.stopRequested() {
+				cancel()
+				done <- err
+				return
+			}
+		}
+		done <- nil
+	}()
+	readErr := s.readRequests(queue)
+	if readErr == io.EOF {
+		queue.finish()
+	} else {
+		cancel()
+		queue.stop()
+	}
+	requestErr := <-done
+	if ctx.Err() != nil {
+		return nil
+	}
+	if requestErr != nil {
+		return requestErr
+	}
+	if s.stopRequested() || readErr == io.EOF {
+		return nil
+	}
+	return readErr
+}
+
+func (s *Server) readRequests(queue *requestQueue) error {
 	for {
 		body, err := ReadMessage(s.reader)
 		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
 			return err
 		}
 		if err := s.traceMessage("in", body); err != nil {
 			return err
 		}
-		if err := s.handleMessage(ctx, body); err != nil {
-			return err
+		var request RequestMessage
+		if err := json.Unmarshal(body, &request); err != nil || request.JSONRPC != "2.0" {
+			queue.push(body, nil)
+			continue
 		}
-		if s.stopRequested() {
-			return nil
+		if request.ID == nil && request.Method == "$/cancelRequest" {
+			if err := queue.cancelRequest(request.Params); err != nil {
+				s.logf("parse request cancellation: %v", err)
+			}
+			continue
 		}
+		queue.push(body, request.ID)
 	}
 }
 
@@ -132,7 +190,14 @@ func (s *Server) handleMessage(ctx context.Context, body []byte) error {
 		})
 	}
 
-	result, rpcErr := s.handler.HandleRequest(ctx, &req)
+	var result any
+	var rpcErr *ResponseError
+	if ctx.Err() == nil {
+		result, rpcErr = s.handler.HandleRequest(ctx, &req)
+	}
+	if ctx.Err() != nil {
+		rpcErr = &ResponseError{Code: ErrorCodeRequestCancel, Message: "request canceled"}
+	}
 	if req.ID == nil {
 		return nil
 	}
