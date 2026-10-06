@@ -17,20 +17,25 @@ type Options struct {
 
 // Session owns the state for one LSP client connection.
 type Session struct {
-	version   string
-	documents *DocumentStore
-	projects  *ProjectCache
-	shutdown  bool
-	exiting   bool
-	sender    protocol.Sender
+	version           string
+	documents         *DocumentStore
+	projects          *ProjectCache
+	shutdown          bool
+	exiting           bool
+	sender            protocol.Sender
+	analyses          map[string]*documentAnalysis
+	dependencyVersion uint64
+	analyzeDocument   func(*Document) *documentAnalysis
 }
 
 // NewSession returns a new LSP session.
 func NewSession(version string) *Session {
 	return &Session{
-		version:   version,
-		documents: NewDocumentStore(),
-		projects:  NewProjectCache(""),
+		version:         version,
+		documents:       NewDocumentStore(),
+		projects:        NewProjectCache(""),
+		analyses:        make(map[string]*documentAnalysis),
+		analyzeDocument: analyzeDocumentSyntax,
 	}
 }
 
@@ -88,6 +93,7 @@ func (s *Session) HandleRequest(
 		return nil, nil
 	case "shutdown":
 		s.shutdown = true
+		clear(s.analyses)
 		return nil, nil
 	case "exit":
 		s.exiting = true
@@ -127,6 +133,8 @@ func (s *Session) handleInitialize(params json.RawMessage) (any, *protocol.Respo
 		return nil, protocol.InvalidParams(err.Error())
 	}
 	s.projects.SetWorkspaceRoots(roots)
+	s.dependencyVersion++
+	clear(s.analyses)
 	return protocol.InitializeResult{
 		Capabilities: protocol.ServerCapabilities{
 			TextDocumentSync:           protocol.TextDocumentSyncKindFull,
@@ -217,6 +225,7 @@ func (s *Session) handleDidClose(params json.RawMessage) *protocol.ResponseError
 		return err
 	}
 	s.documents.Close(close.TextDocument.URI)
+	delete(s.analyses, close.TextDocument.URI)
 	return nil
 }
 
@@ -241,7 +250,7 @@ func (s *Session) handleDocumentSymbols(params json.RawMessage) (any, *protocol.
 	if !ok {
 		return nil, protocol.InvalidParams("document is not open: " + documentSymbols.TextDocument.URI)
 	}
-	return DocumentSymbolsForText(doc.Path, doc.Text)
+	return cloneDocumentSymbols(s.analysisFor(doc).documentSymbols()), nil
 }
 
 func (s *Session) handleDefinition(params json.RawMessage) (any, *protocol.ResponseError) {
@@ -253,7 +262,7 @@ func (s *Session) handleDefinition(params json.RawMessage) (any, *protocol.Respo
 	if !ok {
 		return nil, protocol.InvalidParams("document is not open: " + definition.TextDocument.URI)
 	}
-	return DefinitionForText(doc.Path, doc.Text, definition.Position, s.projects)
+	return definitionForText(doc.Path, doc.Text, definition.Position, s.projects, s.analysisFor(doc))
 }
 
 func (s *Session) handleCompletion(params json.RawMessage) (any, *protocol.ResponseError) {
@@ -265,7 +274,7 @@ func (s *Session) handleCompletion(params json.RawMessage) (any, *protocol.Respo
 	if !ok {
 		return nil, protocol.InvalidParams("document is not open: " + completion.TextDocument.URI)
 	}
-	return CompleteForText(doc.Path, doc.Text, completion.Position, s.projects)
+	return completeForText(doc.Path, doc.Text, completion.Position, s.projects, s.analysisFor(doc))
 }
 
 func (s *Session) handleHover(params json.RawMessage) (any, *protocol.ResponseError) {
@@ -277,7 +286,7 @@ func (s *Session) handleHover(params json.RawMessage) (any, *protocol.ResponseEr
 	if !ok {
 		return nil, protocol.InvalidParams("document is not open: " + hover.TextDocument.URI)
 	}
-	return HoverForText(doc.Path, doc.Text, hover.Position, s.projects)
+	return hoverForText(doc.Path, doc.Text, hover.Position, s.projects, s.analysisFor(doc))
 }
 
 func (s *Session) invalidateURI(uri string) error {
@@ -286,6 +295,8 @@ func (s *Session) invalidateURI(uri string) error {
 		return err
 	}
 	s.projects.InvalidatePath(path)
+	s.dependencyVersion++
+	clear(s.analyses)
 	return nil
 }
 
@@ -316,7 +327,13 @@ func (s *Session) publishDiagnostics(doc *Document) *protocol.ResponseError {
 		return nil
 	}
 	version := doc.Version
-	diagnostics := DiagnosticsForTextWithProjects(doc.Path, doc.Text, s.projects)
+	analysis := s.analysisFor(doc)
+	var diagnostics []protocol.Diagnostic
+	if analysis.parseErr != nil {
+		diagnostics = diagnosticsForParseFailure(doc.Text, analysis.parseErr)
+	} else {
+		diagnostics = diagnosticsForFile(doc.Path, doc.Text, analysis.file, s.projects)
+	}
 	if diagnostics == nil {
 		diagnostics = []protocol.Diagnostic{}
 	}

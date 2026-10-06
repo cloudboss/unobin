@@ -22,6 +22,16 @@ func CompleteForText(
 	pos protocol.Position,
 	projects *ProjectCache,
 ) (protocol.CompletionList, *protocol.ResponseError) {
+	return completeForText(path, text, pos, projects, nil)
+}
+
+func completeForText(
+	path string,
+	text string,
+	pos protocol.Position,
+	projects *ProjectCache,
+	analysis *documentAnalysis,
+) (protocol.CompletionList, *protocol.ResponseError) {
 	offset, ok := LSPToOffset(text, pos)
 	if !ok {
 		return protocol.CompletionList{}, protocol.InvalidParams("invalid document position")
@@ -35,12 +45,18 @@ func CompleteForText(
 	if list, ok := inputDeclarationSourceCompletions(text, offset); ok {
 		return list, nil
 	}
-	file, err := parseCompletionSource(path, text, offset)
+	var file *syntax.File
+	var err error
+	if analysis != nil && analysis.parseErr == nil {
+		file = analysis.file
+	} else {
+		file, err = parseCompletionSource(path, text, offset)
+	}
 	if err != nil {
 		return completionList([]protocol.CompletionItem{}), nil
 	}
 	body, hasScope := definitionBodyForOffset(file, offset)
-	decls := definitionDeclsForBody(body)
+	decls := analysis.declarationsFor(body)
 	if hasScope {
 		list, found, err := completionAtOffset(
 			path, text, offset, body, decls, projects,

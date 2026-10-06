@@ -18,11 +18,21 @@ func HoverForText(
 	pos protocol.Position,
 	projects *ProjectCache,
 ) (*protocol.Hover, *protocol.ResponseError) {
+	return hoverForText(path, text, pos, projects, nil)
+}
+
+func hoverForText(
+	path string,
+	text string,
+	pos protocol.Position,
+	projects *ProjectCache,
+	analysis *documentAnalysis,
+) (*protocol.Hover, *protocol.ResponseError) {
 	offset, ok := LSPToOffset(text, pos)
 	if !ok {
 		return nil, protocol.InvalidParams("invalid document position")
 	}
-	file, err := syntax.ParseSource(path, []byte(text))
+	file, err := analysis.syntaxFile(path, text)
 	if err != nil {
 		return nil, nil
 	}
@@ -30,7 +40,7 @@ func HoverForText(
 		projects = NewProjectCache("")
 	}
 	body, hasScope := definitionBodyForOffset(file, offset)
-	decls := definitionDeclsForBody(body)
+	decls := analysis.declarationsFor(body)
 	if hasScope {
 		hover, found, err := hoverAtOffset(
 			path, text, offset, body, decls, projects,

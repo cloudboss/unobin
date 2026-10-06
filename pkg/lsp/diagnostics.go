@@ -32,6 +32,15 @@ func DiagnosticsForTextWithProjects(
 	if err != nil {
 		return diagnosticsForParseFailure(text, err)
 	}
+	return diagnosticsForFile(path, text, file, projects)
+}
+
+func diagnosticsForFile(
+	path string,
+	text string,
+	file *syntax.File,
+	projects *ProjectCache,
+) []protocol.Diagnostic {
 	if errs := syntax.ValidateFile(file); errs.Len() > 0 {
 		return DiagnosticsForError(text, errs)
 	}

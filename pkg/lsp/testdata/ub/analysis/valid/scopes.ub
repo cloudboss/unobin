@@ -1,0 +1,10 @@
+first: resource {
+  inputs: { name: { type: string } }
+  locals: { value: input.name }
+  outputs: { value: { value: local.value } }
+}
+second: data-source {
+  inputs: { count: { type: integer } }
+  locals: { value: input.count }
+  outputs: { value: { value: local.value } }
+}

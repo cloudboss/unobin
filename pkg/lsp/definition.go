@@ -19,11 +19,21 @@ func DefinitionForText(
 	pos protocol.Position,
 	projects *ProjectCache,
 ) ([]protocol.Location, *protocol.ResponseError) {
+	return definitionForText(path, text, pos, projects, nil)
+}
+
+func definitionForText(
+	path string,
+	text string,
+	pos protocol.Position,
+	projects *ProjectCache,
+	analysis *documentAnalysis,
+) ([]protocol.Location, *protocol.ResponseError) {
 	offset, ok := LSPToOffset(text, pos)
 	if !ok {
 		return nil, protocol.InvalidParams("invalid document position")
 	}
-	file, err := syntax.ParseSource(path, []byte(text))
+	file, err := analysis.syntaxFile(path, text)
 	if err != nil {
 		return []protocol.Location{}, nil
 	}
@@ -31,7 +41,7 @@ func DefinitionForText(
 		projects = NewProjectCache("")
 	}
 	body, hasScope := definitionBodyForOffset(file, offset)
-	decls := definitionDeclsForBody(body)
+	decls := analysis.declarationsFor(body)
 	if hasScope {
 		locations, found, err := definitionAtOffset(
 			path, text, offset, body, decls, projects,
