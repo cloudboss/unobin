@@ -1,0 +1,3 @@
+ok  	github.com/cloudboss/unobin/pkg/lang	0.516s
+ok  	github.com/cloudboss/unobin/pkg/check	0.167s
+ok  	github.com/cloudboss/unobin/pkg/runtime	3.793s

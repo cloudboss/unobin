@@ -1,0 +1,26 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/lang
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkExpressionTraversal/fields=10/method=walk           	       1	      8245 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk-4         	       1	      3116 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan           	       1	     10500 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan-4         	       1	      5130 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk          	       1	     15139 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk-4        	       1	     13455 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan          	       1	     22773 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan-4        	       1	     24416 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk         	       1	    224541 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk-4       	       1	    252213 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan         	       1	    324880 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan-4       	       1	    295515 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/lang	0.022s
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/check
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkReferencesManyCompositeScopes     	       1	   2333659 ns/op	 1628912 B/op	   14152 allocs/op
+BenchmarkReferencesManyCompositeScopes-4   	       1	   2320364 ns/op	 1629152 B/op	   14155 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/check	0.015s

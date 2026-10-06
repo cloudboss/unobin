@@ -1,0 +1,1828 @@
+{
+  "format-version": 1,
+  "work-package": "expression-traversal",
+  "before-revision": "b826f50c44ef9d07fd3ab835c913a3a78ddbfdc4",
+  "after-revision": "4de24d2c9be92cea2852751bb4666c58f3f2b370",
+  "fixture-revision": "b826f50c44ef9d07fd3ab835c913a3a78ddbfdc4",
+  "primary-unit": "sec/op",
+  "assessment": "mixed",
+  "statistics": [
+    {
+      "package": "github.com/cloudboss/unobin/pkg/check",
+      "name": "BenchmarkReferencesManyCompositeScopes",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 1628471,
+        "low": 1628471,
+        "high": 1628472,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1628472,
+        "low": 1628472,
+        "high": 1628472,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.00006140729555959012,
+      "p": 0.04953560371517028,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/check",
+      "name": "BenchmarkReferencesManyCompositeScopes",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 14151,
+        "low": 14151,
+        "high": 14151,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 14151,
+        "low": 14151,
+        "high": 14151,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/check",
+      "name": "BenchmarkReferencesManyCompositeScopes",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0011066275,
+        "low": 0.001095188,
+        "high": 0.001118544,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.001097637,
+        "low": 0.0010883940000000001,
+        "high": 0.001114575,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -0.8124233312474027,
+      "p": 0.16549394877568258,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/check",
+      "name": "BenchmarkReferencesManyCompositeScopes",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 1629075.5,
+        "low": 1629073,
+        "high": 1629079,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1629076.5,
+        "low": 1629073,
+        "high": 1629079,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0.0000613845091868015,
+      "p": 0.8688973565134556,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/check",
+      "name": "BenchmarkReferencesManyCompositeScopes",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 14154,
+        "low": 14154,
+        "high": 14154,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 14154,
+        "low": 14154,
+        "high": 14154,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/check",
+      "name": "BenchmarkReferencesManyCompositeScopes",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0011930305,
+        "low": 0.0009488360000000001,
+        "high": 0.001445978,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.000952028,
+        "low": 0.0009358190000000001,
+        "high": 0.001443035,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -20.200866616570156,
+      "p": 0.10512243174781878,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "inconclusive",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=scan",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 32,
+        "low": 32,
+        "high": 32,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 32,
+        "low": 32,
+        "high": 32,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=scan",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=scan",
+      "cpu": 1,
+      "unit": "expressions",
+      "before": {
+        "samples": 10,
+        "median": 161,
+        "low": 161,
+        "high": 161,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 161,
+        "low": 161,
+        "high": 161,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=scan",
+      "cpu": 1,
+      "unit": "fields",
+      "before": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=scan",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0000011405,
+        "low": 0.0000011100000000000002,
+        "high": 0.000001187,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0000010375000000000002,
+        "low": 0.000001032,
+        "high": 0.000001058,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -9.031126698816283,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=scan",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 32,
+        "low": 32,
+        "high": 32,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 32,
+        "low": 32,
+        "high": 32,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=scan",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=scan",
+      "cpu": 4,
+      "unit": "expressions",
+      "before": {
+        "samples": 10,
+        "median": 161,
+        "low": 161,
+        "high": 161,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 161,
+        "low": 161,
+        "high": 161,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=scan",
+      "cpu": 4,
+      "unit": "fields",
+      "before": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=scan",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.000001125,
+        "low": 0.000001117,
+        "high": 0.00000114,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.000001019,
+        "low": 0.000001006,
+        "high": 0.0000010310000000000002,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -9.422222222222231,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=walk",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "delta-percent": null,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=walk",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "delta-percent": null,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=walk",
+      "cpu": 1,
+      "unit": "expressions",
+      "before": {
+        "samples": 10,
+        "median": 161,
+        "low": 161,
+        "high": 161,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 161,
+        "low": 161,
+        "high": 161,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=walk",
+      "cpu": 1,
+      "unit": "fields",
+      "before": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=walk",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 6.245e-7,
+        "low": 6.198e-7,
+        "high": 6.263e-7,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 6.401e-7,
+        "low": 6.359e-7,
+        "high": 9.378e-7,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 2.4979983987189813,
+      "p": 0.0007252809110394251,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=walk",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "delta-percent": null,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=walk",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "delta-percent": null,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=walk",
+      "cpu": 4,
+      "unit": "expressions",
+      "before": {
+        "samples": 10,
+        "median": 161,
+        "low": 161,
+        "high": 161,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 161,
+        "low": 161,
+        "high": 161,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=walk",
+      "cpu": 4,
+      "unit": "fields",
+      "before": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 10,
+        "low": 10,
+        "high": 10,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=10/method=walk",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 6.243000000000001e-7,
+        "low": 6.228e-7,
+        "high": 6.375e-7,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 6.468000000000001e-7,
+        "low": 6.446e-7,
+        "high": 6.493e-7,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 3.6040365209034197,
+      "p": 0.00002165017644893806,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=scan",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 32,
+        "low": 32,
+        "high": 32,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 32,
+        "low": 32,
+        "high": 32,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=scan",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=scan",
+      "cpu": 1,
+      "unit": "expressions",
+      "before": {
+        "samples": 10,
+        "median": 1601,
+        "low": 1601,
+        "high": 1601,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1601,
+        "low": 1601,
+        "high": 1601,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=scan",
+      "cpu": 1,
+      "unit": "fields",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=scan",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.000010672,
+        "low": 0.0000106,
+        "high": 0.000010836000000000001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0000097055,
+        "low": 0.000009625,
+        "high": 0.000009912000000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -9.056409295352319,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=scan",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 32,
+        "low": 32,
+        "high": 32,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 32,
+        "low": 32,
+        "high": 32,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=scan",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=scan",
+      "cpu": 4,
+      "unit": "expressions",
+      "before": {
+        "samples": 10,
+        "median": 1601,
+        "low": 1601,
+        "high": 1601,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1601,
+        "low": 1601,
+        "high": 1601,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=scan",
+      "cpu": 4,
+      "unit": "fields",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=scan",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.000010793500000000001,
+        "low": 0.000010613,
+        "high": 0.000011068000000000001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0000097195,
+        "low": 0.000009573000000000001,
+        "high": 0.000009916000000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -9.950433131051096,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=walk",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "delta-percent": null,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=walk",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "delta-percent": null,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=walk",
+      "cpu": 1,
+      "unit": "expressions",
+      "before": {
+        "samples": 10,
+        "median": 1601,
+        "low": 1601,
+        "high": 1601,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1601,
+        "low": 1601,
+        "high": 1601,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=walk",
+      "cpu": 1,
+      "unit": "fields",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=walk",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.000006223500000000001,
+        "low": 0.0000061790000000000005,
+        "high": 0.0000063200000000000005,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0000064305000000000005,
+        "low": 0.000006412000000000001,
+        "high": 0.000006521000000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 3.3261026753434564,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=walk",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "delta-percent": null,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=walk",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "delta-percent": null,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=walk",
+      "cpu": 4,
+      "unit": "expressions",
+      "before": {
+        "samples": 10,
+        "median": 1601,
+        "low": 1601,
+        "high": 1601,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1601,
+        "low": 1601,
+        "high": 1601,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=walk",
+      "cpu": 4,
+      "unit": "fields",
+      "before": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 100,
+        "low": 100,
+        "high": 100,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=100/method=walk",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.00000622,
+        "low": 0.0000061620000000000005,
+        "high": 0.000006289,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.000006472,
+        "low": 0.000006429000000000001,
+        "high": 0.000006543000000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 4.051446945337633,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=scan",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 32,
+        "low": 32,
+        "high": 32,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 32,
+        "low": 32,
+        "high": 32,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=scan",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=scan",
+      "cpu": 1,
+      "unit": "expressions",
+      "before": {
+        "samples": 10,
+        "median": 16001,
+        "low": 16001,
+        "high": 16001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 16001,
+        "low": 16001,
+        "high": 16001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=scan",
+      "cpu": 1,
+      "unit": "fields",
+      "before": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=scan",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.00011950200000000001,
+        "low": 0.000116934,
+        "high": 0.00011974500000000001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.00010936800000000001,
+        "low": 0.00010738700000000001,
+        "high": 0.00011277900000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -8.48019280012049,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=scan",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 32,
+        "low": 32,
+        "high": 32,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 32,
+        "low": 32,
+        "high": 32,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=scan",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 2,
+        "low": 2,
+        "high": 2,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=scan",
+      "cpu": 4,
+      "unit": "expressions",
+      "before": {
+        "samples": 10,
+        "median": 16001,
+        "low": 16001,
+        "high": 16001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 16001,
+        "low": 16001,
+        "high": 16001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=scan",
+      "cpu": 4,
+      "unit": "fields",
+      "before": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=scan",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.00011932300000000001,
+        "low": 0.00011728900000000001,
+        "high": 0.00012052,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.000109444,
+        "low": 0.000105778,
+        "high": 0.00011018800000000001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": -8.279208534817261,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "improved",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=walk",
+      "cpu": 1,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "delta-percent": null,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=walk",
+      "cpu": 1,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "delta-percent": null,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=walk",
+      "cpu": 1,
+      "unit": "expressions",
+      "before": {
+        "samples": 10,
+        "median": 16001,
+        "low": 16001,
+        "high": 16001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 16001,
+        "low": 16001,
+        "high": 16001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=walk",
+      "cpu": 1,
+      "unit": "fields",
+      "before": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=walk",
+      "cpu": 1,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.0000737285,
+        "low": 0.000072785,
+        "high": 0.00007474200000000001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.00007617250000000001,
+        "low": 0.000075658,
+        "high": 0.000077012,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 3.314864672412976,
+      "p": 0.00001082508822446903,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=walk",
+      "cpu": 4,
+      "unit": "B/op",
+      "before": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "delta-percent": null,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=walk",
+      "cpu": 4,
+      "unit": "allocs/op",
+      "before": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0,
+        "low": 0,
+        "high": 0,
+        "confidence": 0.978515625
+      },
+      "delta-percent": null,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=walk",
+      "cpu": 4,
+      "unit": "expressions",
+      "before": {
+        "samples": 10,
+        "median": 16001,
+        "low": 16001,
+        "high": 16001,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 16001,
+        "low": 16001,
+        "high": 16001,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=walk",
+      "cpu": 4,
+      "unit": "fields",
+      "before": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 1000,
+        "low": 1000,
+        "high": 1000,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 0,
+      "p": 1,
+      "alpha": 0.05,
+      "significant": false,
+      "assessment": "unchanged",
+      "warnings": [
+        "all samples are equal"
+      ]
+    },
+    {
+      "package": "github.com/cloudboss/unobin/pkg/lang",
+      "name": "BenchmarkExpressionTraversal/fields=1000/method=walk",
+      "cpu": 4,
+      "unit": "sec/op",
+      "before": {
+        "samples": 10,
+        "median": 0.00007294550000000001,
+        "low": 0.00007233800000000001,
+        "high": 0.000076191,
+        "confidence": 0.978515625
+      },
+      "after": {
+        "samples": 10,
+        "median": 0.0000766145,
+        "low": 0.00007578700000000001,
+        "high": 0.00007757,
+        "confidence": 0.978515625
+      },
+      "delta-percent": 5.029782508859348,
+      "p": 0.0004871289701011064,
+      "alpha": 0.05,
+      "significant": true,
+      "assessment": "regressed",
+      "warnings": []
+    }
+  ],
+  "warnings": []
+}

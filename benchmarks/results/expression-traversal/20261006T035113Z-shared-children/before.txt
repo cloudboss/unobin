@@ -1,0 +1,152 @@
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/lang
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkExpressionTraversal/fields=10/method=walk           	 2768144	       729.1 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk           	 3906135	       615.1 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk           	 3885622	       622.6 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk           	 3852843	       626.1 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk           	 3900560	       620.7 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk           	 3829534	       626.3 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk           	 3853401	       625.2 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk           	 3877993	       619.8 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk           	 3834187	       623.8 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk           	 3867602	       625.4 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk-4         	 3855579	       624.2 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk-4         	 3881302	       621.5 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk-4         	 3836761	       624.4 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk-4         	 3847543	       623.6 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk-4         	 3774799	       643.8 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk-4         	 3850494	       623.8 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk-4         	 3823262	       622.8 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk-4         	 3832426	       637.5 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk-4         	 3789559	       627.0 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=walk-4         	 3806358	       627.0 ns/op	       161.0 expressions	        10.00 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan           	 2135743	      1115 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan           	 2144056	      1114 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan           	 2164610	      1109 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan           	 2154597	      1110 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan           	 2140963	      1128 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan           	 2019861	      1192 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan           	 2078216	      1153 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan           	 2044393	      1175 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan           	 2070318	      1187 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan           	 2013524	      1159 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan-4         	 2170982	      1120 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan-4         	 2136571	      1119 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan-4         	 2143881	      1130 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan-4         	 2189640	      1113 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan-4         	 2126737	      1139 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan-4         	 2121910	      1120 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan-4         	 2130048	      1130 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan-4         	 2118778	      1117 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan-4         	 2068764	      1167 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=10/method=scan-4         	 2051176	      1140 ns/op	       161.0 expressions	        10.00 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk          	  386820	      6119 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk          	  384858	      6210 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk          	  390813	      6216 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk          	  390625	      6179 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk          	  379174	      6196 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk          	  391921	      6353 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk          	  377566	      6320 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk          	  372572	      6238 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk          	  382832	      6231 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk          	  390436	      6251 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk-4        	  383442	      6212 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk-4        	  385738	      6228 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk-4        	  394856	      6162 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk-4        	  389863	      6289 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk-4        	  386082	      6272 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk-4        	  382346	      6407 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk-4        	  385488	      6288 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk-4        	  386781	      6196 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk-4        	  383151	      6190 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=walk-4        	  383510	      6118 ns/op	      1601 expressions	       100.0 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan          	  232555	     10678 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan          	  230472	     10745 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan          	  219805	     10654 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan          	  230637	     10600 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan          	  225694	     10565 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan          	  224439	     10666 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan          	  204708	     10836 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan          	  230794	     10657 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan          	  215344	     10758 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan          	  217953	     11137 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan-4        	  230822	     11197 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan-4        	  220461	     10635 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan-4        	  225577	     10613 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan-4        	  225752	     10908 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan-4        	  218500	     10959 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan-4        	  223028	     10683 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan-4        	  232015	     10601 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan-4        	  225460	     11068 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan-4        	  203932	     10904 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=100/method=scan-4        	  215049	     10675 ns/op	      1601 expressions	       100.0 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk         	   32770	     74528 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk         	   32953	     72785 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk         	   32694	     73730 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk         	   32670	     73678 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk         	   32412	     74883 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk         	   33462	     71751 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk         	   32799	     74742 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk         	   32415	     73958 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk         	   32174	     73707 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk         	   33128	     73727 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk-4       	   31044	     76191 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk-4       	   32750	     72300 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk-4       	   32839	     72762 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk-4       	   31599	     76656 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk-4       	   33375	     72338 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk-4       	   32060	     72361 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk-4       	   32028	     74352 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk-4       	   32538	     72579 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk-4       	   33771	     73161 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=walk-4       	   33322	     73129 ns/op	     16001 expressions	      1000 fields	       0 B/op	       0 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan         	   20998	    117876 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan         	   19794	    119702 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan         	   20006	    119404 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan         	   20916	    116835 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan         	   19407	    121962 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan         	   20162	    119745 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan         	   20331	    118538 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan         	   20971	    116934 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan         	   19959	    119600 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan         	   19779	    119684 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan-4       	   20354	    118373 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan-4       	   19174	    124041 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan-4       	   20002	    120520 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan-4       	   20684	    117289 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan-4       	   20271	    119538 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan-4       	   19710	    120103 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan-4       	   20001	    119168 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan-4       	   20299	    119478 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan-4       	   20300	    117071 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+BenchmarkExpressionTraversal/fields=1000/method=scan-4       	   20458	    118545 ns/op	     16001 expressions	      1000 fields	      32 B/op	       2 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/lang	288.066s
+goos: linux
+goarch: amd64
+pkg: github.com/cloudboss/unobin/pkg/check
+cpu: AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M       
+BenchmarkReferencesManyCompositeScopes     	    1959	   1099506 ns/op	 1628471 B/op	   14151 allocs/op
+BenchmarkReferencesManyCompositeScopes     	    2167	   1095188 ns/op	 1628471 B/op	   14151 allocs/op
+BenchmarkReferencesManyCompositeScopes     	    2178	   1121733 ns/op	 1628471 B/op	   14151 allocs/op
+BenchmarkReferencesManyCompositeScopes     	    2097	   1118544 ns/op	 1628470 B/op	   14151 allocs/op
+BenchmarkReferencesManyCompositeScopes     	    2188	   1110641 ns/op	 1628471 B/op	   14151 allocs/op
+BenchmarkReferencesManyCompositeScopes     	    2048	   1108117 ns/op	 1628472 B/op	   14151 allocs/op
+BenchmarkReferencesManyCompositeScopes     	    2155	   1111504 ns/op	 1628472 B/op	   14151 allocs/op
+BenchmarkReferencesManyCompositeScopes     	    2120	   1102218 ns/op	 1628472 B/op	   14151 allocs/op
+BenchmarkReferencesManyCompositeScopes     	    2191	   1105138 ns/op	 1628472 B/op	   14151 allocs/op
+BenchmarkReferencesManyCompositeScopes     	    2173	   1090997 ns/op	 1628471 B/op	   14151 allocs/op
+BenchmarkReferencesManyCompositeScopes-4   	    1430	   1532219 ns/op	 1629075 B/op	   14154 allocs/op
+BenchmarkReferencesManyCompositeScopes-4   	    1735	   1423360 ns/op	 1629071 B/op	   14154 allocs/op
+BenchmarkReferencesManyCompositeScopes-4   	    1640	   1433960 ns/op	 1629074 B/op	   14154 allocs/op
+BenchmarkReferencesManyCompositeScopes-4   	    1628	   1445978 ns/op	 1629081 B/op	   14154 allocs/op
+BenchmarkReferencesManyCompositeScopes-4   	    1700	   1435074 ns/op	 1629075 B/op	   14154 allocs/op
+BenchmarkReferencesManyCompositeScopes-4   	    2509	    948496 ns/op	 1629073 B/op	   14154 allocs/op
+BenchmarkReferencesManyCompositeScopes-4   	    2481	    962701 ns/op	 1629076 B/op	   14154 allocs/op
+BenchmarkReferencesManyCompositeScopes-4   	    2584	    956786 ns/op	 1629079 B/op	   14154 allocs/op
+BenchmarkReferencesManyCompositeScopes-4   	    2530	    948836 ns/op	 1629078 B/op	   14154 allocs/op
+BenchmarkReferencesManyCompositeScopes-4   	    2515	    959822 ns/op	 1629076 B/op	   14154 allocs/op
+PASS
+ok  	github.com/cloudboss/unobin/pkg/check	52.981s

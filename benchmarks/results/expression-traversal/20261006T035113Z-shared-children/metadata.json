@@ -1,0 +1,602 @@
+{
+  "format-version": 1,
+  "kind": "benchmark-comparison",
+  "before": {
+    "format-version": 1,
+    "workload": {
+      "work-package": "expression-traversal",
+      "description": "Expression traversal order, lexical scope, and reference analysis",
+      "kind": "micro",
+      "fixtures": [
+        "pkg/lang/traversal_benchmark_test.go",
+        "pkg/lang/exprscan_test.go",
+        "pkg/check/scope_index_benchmark_test.go"
+      ],
+      "parameters": {
+        "expression-fields": "10,100,1000",
+        "expressions-per-field": "16",
+        "methods": "walk,scan",
+        "reference-composite-scopes": "400",
+        "root-expressions": "1"
+      },
+      "packages": [
+        "./pkg/lang",
+        "./pkg/check"
+      ],
+      "benchmark": "^(BenchmarkExpressionTraversal|BenchmarkReferencesManyCompositeScopes)$",
+      "cases": [
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lang",
+          "name": "BenchmarkExpressionTraversal/fields=10/method=walk",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "fields",
+            "expressions"
+          ],
+          "fixed": {
+            "expressions": 161,
+            "fields": 10
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lang",
+          "name": "BenchmarkExpressionTraversal/fields=10/method=scan",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "fields",
+            "expressions"
+          ],
+          "fixed": {
+            "expressions": 161,
+            "fields": 10
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lang",
+          "name": "BenchmarkExpressionTraversal/fields=100/method=walk",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "fields",
+            "expressions"
+          ],
+          "fixed": {
+            "expressions": 1601,
+            "fields": 100
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lang",
+          "name": "BenchmarkExpressionTraversal/fields=100/method=scan",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "fields",
+            "expressions"
+          ],
+          "fixed": {
+            "expressions": 1601,
+            "fields": 100
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lang",
+          "name": "BenchmarkExpressionTraversal/fields=1000/method=walk",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "fields",
+            "expressions"
+          ],
+          "fixed": {
+            "expressions": 16001,
+            "fields": 1000
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lang",
+          "name": "BenchmarkExpressionTraversal/fields=1000/method=scan",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "fields",
+            "expressions"
+          ],
+          "fixed": {
+            "expressions": 16001,
+            "fields": 1000
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/check",
+          "name": "BenchmarkReferencesManyCompositeScopes",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op"
+          ]
+        }
+      ],
+      "samples": 10,
+      "benchtime": "2s",
+      "cpus": [
+        1,
+        4
+      ],
+      "setup": "Construct the fixed expression tree outside timing. Each field contains calls, dotted paths, conditional branches, a comprehension, and interpolation. Walk and ScanExpr must visit exactly 1+16*fields expressions. Reference analysis visits 400 composite scopes and must return no diagnostics. Parsing, tree construction, and checker construction are outside timing.",
+      "cache-policy": "Symmetric warm task-owned Go build and module caches; one 1x warmup. Default GC, no fetch, and no unrelated CPU-intensive work during collection.",
+      "primary-unit": "sec/op",
+      "primary-direction": "lower",
+      "tests": [
+        [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/lang",
+          "./pkg/check",
+          "./pkg/runtime"
+        ],
+        [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "TestInlineUB|TestTestFilesAvoidInlineUBSources|TestUBFixturesUseProjectLayout",
+          "./internal/ubtest"
+        ]
+      ]
+    },
+    "source-revision": "b826f50c44ef9d07fd3ab835c913a3a78ddbfdc4",
+    "fixture-revision": "b826f50c44ef9d07fd3ab835c913a3a78ddbfdc4",
+    "workload-path": "benchmarks/workloads/expression-traversal.json",
+    "repository": "/home/joseph/code/unobin",
+    "clean-source": true,
+    "fixture-digests": {
+      "benchmarks/workloads/expression-traversal.json": "9c3b4e08721962b8d019d71f36b87a7464824d1d00563628cf922f035f9c809e",
+      "pkg/check/scope_index_benchmark_test.go": "8f75ed56cd58c70fa9f02bc53ad7b9a75382d615dd205077c2030048a7bacfbd",
+      "pkg/lang/exprscan_test.go": "1cf9d23ac38dd94df3d00b989154a8d37bcbb1c987459431623dc569d1f4b151",
+      "pkg/lang/traversal_benchmark_test.go": "07cd827d4927b7d6a4be8f08d15fa5087d284fe3c6c165452e7e3b0b1fc58422"
+    },
+    "dependency-locks": {
+      "go.mod": "588dedf3818897394d476ef520f1490eaa0c46084a617876add0bb6645aa162e",
+      "go.sum": "1e1f203654bb19eb6d9c941749ae98c646e73039a7932d3730efd477d542fe45"
+    },
+    "machine": {
+      "go-version": "go1.26.2",
+      "goos": "linux",
+      "goarch": "amd64",
+      "cpu-model": "AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M",
+      "logical-cpus": 24
+    },
+    "environment": {
+      "CC": "",
+      "CGO_CFLAGS": "",
+      "CGO_CPPFLAGS": "",
+      "CGO_CXXFLAGS": "",
+      "CGO_ENABLED": "1",
+      "CGO_LDFLAGS": "",
+      "CXX": "",
+      "GO386": "",
+      "GOAMD64": "v1",
+      "GOARCH": "amd64",
+      "GOARM": "",
+      "GOARM64": "",
+      "GOCACHE": "/home/joseph/code/unobin/_output/remediation/gocache",
+      "GODEBUG": "",
+      "GOEXPERIMENT": "",
+      "GOFLAGS": "",
+      "GOMAXPROCS": "",
+      "GOMIPS": "",
+      "GOMIPS64": "",
+      "GOMODCACHE": "/home/joseph/code/unobin/_output/remediation/gomodcache",
+      "GOOS": "linux",
+      "GOPPC64": "",
+      "GORISCV64": "",
+      "GOROOT": "/home/joseph/.local/go1.26.2",
+      "GOTMPDIR": "",
+      "GOTOOLCHAIN": "auto",
+      "GOVERSION": "go1.26.2",
+      "GOWASM": "",
+      "GOWORK": "",
+      "UNOBIN_BENCH_PROFILE": ""
+    },
+    "benchstat-version": "v0.0.0-20260929162123-406019bb8b68",
+    "tests": [
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/lang",
+          "./pkg/check",
+          "./pkg/runtime"
+        ],
+        "directory": ".",
+        "started": "2026-10-06T03:30:28.942149492Z",
+        "finished": "2026-10-06T03:30:33.834522041Z",
+        "exit-code": 0,
+        "output": "before-test-01.txt",
+        "sha256": "f9423ad773e4a5d11d7587fd425731aabb1cc9ce254b3e44faf602da6a11de37"
+      },
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "TestInlineUB|TestTestFilesAvoidInlineUBSources|TestUBFixturesUseProjectLayout",
+          "./internal/ubtest"
+        ],
+        "directory": ".",
+        "started": "2026-10-06T03:30:33.834641174Z",
+        "finished": "2026-10-06T03:30:51.930788412Z",
+        "exit-code": 0,
+        "output": "before-test-02.txt",
+        "sha256": "51d41a3be079167300ee4abc3087a937b376cf494c80d582965e457e6165fa72"
+      }
+    ],
+    "warmup": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkExpressionTraversal|BenchmarkReferencesManyCompositeScopes)$",
+        "-benchmem",
+        "-benchtime=1x",
+        "-count=1",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/lang",
+        "./pkg/check"
+      ],
+      "directory": ".",
+      "started": "2026-10-06T03:30:51.931982953Z",
+      "finished": "2026-10-06T03:30:52.616560002Z",
+      "exit-code": 0,
+      "output": "before-warmup.txt",
+      "sha256": "612eda900aca66313f7502d5c6f63a9c38c092a02f16b0d4edb828d9f53b2ff6"
+    },
+    "benchmark": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkExpressionTraversal|BenchmarkReferencesManyCompositeScopes)$",
+        "-benchmem",
+        "-benchtime=2s",
+        "-count=10",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/lang",
+        "./pkg/check"
+      ],
+      "directory": ".",
+      "started": "2026-10-06T03:30:52.616715033Z",
+      "finished": "2026-10-06T03:36:34.312528234Z",
+      "exit-code": 0,
+      "output": "before.txt",
+      "sha256": "6d7e8927e3ccd31664b5df60479464fe0bfedbb597103c8465e3bb661b2b42d0"
+    }
+  },
+  "after": {
+    "format-version": 1,
+    "workload": {
+      "work-package": "expression-traversal",
+      "description": "Expression traversal order, lexical scope, and reference analysis",
+      "kind": "micro",
+      "fixtures": [
+        "pkg/lang/traversal_benchmark_test.go",
+        "pkg/lang/exprscan_test.go",
+        "pkg/check/scope_index_benchmark_test.go"
+      ],
+      "parameters": {
+        "expression-fields": "10,100,1000",
+        "expressions-per-field": "16",
+        "methods": "walk,scan",
+        "reference-composite-scopes": "400",
+        "root-expressions": "1"
+      },
+      "packages": [
+        "./pkg/lang",
+        "./pkg/check"
+      ],
+      "benchmark": "^(BenchmarkExpressionTraversal|BenchmarkReferencesManyCompositeScopes)$",
+      "cases": [
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lang",
+          "name": "BenchmarkExpressionTraversal/fields=10/method=walk",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "fields",
+            "expressions"
+          ],
+          "fixed": {
+            "expressions": 161,
+            "fields": 10
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lang",
+          "name": "BenchmarkExpressionTraversal/fields=10/method=scan",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "fields",
+            "expressions"
+          ],
+          "fixed": {
+            "expressions": 161,
+            "fields": 10
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lang",
+          "name": "BenchmarkExpressionTraversal/fields=100/method=walk",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "fields",
+            "expressions"
+          ],
+          "fixed": {
+            "expressions": 1601,
+            "fields": 100
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lang",
+          "name": "BenchmarkExpressionTraversal/fields=100/method=scan",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "fields",
+            "expressions"
+          ],
+          "fixed": {
+            "expressions": 1601,
+            "fields": 100
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lang",
+          "name": "BenchmarkExpressionTraversal/fields=1000/method=walk",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "fields",
+            "expressions"
+          ],
+          "fixed": {
+            "expressions": 16001,
+            "fields": 1000
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/lang",
+          "name": "BenchmarkExpressionTraversal/fields=1000/method=scan",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op",
+            "fields",
+            "expressions"
+          ],
+          "fixed": {
+            "expressions": 16001,
+            "fields": 1000
+          }
+        },
+        {
+          "package": "github.com/cloudboss/unobin/pkg/check",
+          "name": "BenchmarkReferencesManyCompositeScopes",
+          "units": [
+            "sec/op",
+            "B/op",
+            "allocs/op"
+          ]
+        }
+      ],
+      "samples": 10,
+      "benchtime": "2s",
+      "cpus": [
+        1,
+        4
+      ],
+      "setup": "Construct the fixed expression tree outside timing. Each field contains calls, dotted paths, conditional branches, a comprehension, and interpolation. Walk and ScanExpr must visit exactly 1+16*fields expressions. Reference analysis visits 400 composite scopes and must return no diagnostics. Parsing, tree construction, and checker construction are outside timing.",
+      "cache-policy": "Symmetric warm task-owned Go build and module caches; one 1x warmup. Default GC, no fetch, and no unrelated CPU-intensive work during collection.",
+      "primary-unit": "sec/op",
+      "primary-direction": "lower",
+      "tests": [
+        [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/lang",
+          "./pkg/check",
+          "./pkg/runtime"
+        ],
+        [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "TestInlineUB|TestTestFilesAvoidInlineUBSources|TestUBFixturesUseProjectLayout",
+          "./internal/ubtest"
+        ]
+      ]
+    },
+    "source-revision": "4de24d2c9be92cea2852751bb4666c58f3f2b370",
+    "fixture-revision": "b826f50c44ef9d07fd3ab835c913a3a78ddbfdc4",
+    "workload-path": "benchmarks/workloads/expression-traversal.json",
+    "repository": "/home/joseph/code/unobin",
+    "clean-source": true,
+    "fixture-digests": {
+      "benchmarks/workloads/expression-traversal.json": "9c3b4e08721962b8d019d71f36b87a7464824d1d00563628cf922f035f9c809e",
+      "pkg/check/scope_index_benchmark_test.go": "8f75ed56cd58c70fa9f02bc53ad7b9a75382d615dd205077c2030048a7bacfbd",
+      "pkg/lang/exprscan_test.go": "1cf9d23ac38dd94df3d00b989154a8d37bcbb1c987459431623dc569d1f4b151",
+      "pkg/lang/traversal_benchmark_test.go": "07cd827d4927b7d6a4be8f08d15fa5087d284fe3c6c165452e7e3b0b1fc58422"
+    },
+    "dependency-locks": {
+      "go.mod": "588dedf3818897394d476ef520f1490eaa0c46084a617876add0bb6645aa162e",
+      "go.sum": "1e1f203654bb19eb6d9c941749ae98c646e73039a7932d3730efd477d542fe45"
+    },
+    "machine": {
+      "go-version": "go1.26.2",
+      "goos": "linux",
+      "goarch": "amd64",
+      "cpu-model": "AMD Ryzen AI 9 HX PRO 370 w/ Radeon 890M",
+      "logical-cpus": 24
+    },
+    "environment": {
+      "CC": "",
+      "CGO_CFLAGS": "",
+      "CGO_CPPFLAGS": "",
+      "CGO_CXXFLAGS": "",
+      "CGO_ENABLED": "1",
+      "CGO_LDFLAGS": "",
+      "CXX": "",
+      "GO386": "",
+      "GOAMD64": "v1",
+      "GOARCH": "amd64",
+      "GOARM": "",
+      "GOARM64": "",
+      "GOCACHE": "/home/joseph/code/unobin/_output/remediation/gocache",
+      "GODEBUG": "",
+      "GOEXPERIMENT": "",
+      "GOFLAGS": "",
+      "GOMAXPROCS": "",
+      "GOMIPS": "",
+      "GOMIPS64": "",
+      "GOMODCACHE": "/home/joseph/code/unobin/_output/remediation/gomodcache",
+      "GOOS": "linux",
+      "GOPPC64": "",
+      "GORISCV64": "",
+      "GOROOT": "/home/joseph/.local/go1.26.2",
+      "GOTMPDIR": "",
+      "GOTOOLCHAIN": "auto",
+      "GOVERSION": "go1.26.2",
+      "GOWASM": "",
+      "GOWORK": "",
+      "UNOBIN_BENCH_PROFILE": ""
+    },
+    "benchstat-version": "v0.0.0-20260929162123-406019bb8b68",
+    "tests": [
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "./pkg/lang",
+          "./pkg/check",
+          "./pkg/runtime"
+        ],
+        "directory": ".",
+        "started": "2026-10-06T03:44:32.366381039Z",
+        "finished": "2026-10-06T03:44:37.050566292Z",
+        "exit-code": 0,
+        "output": "after-test-01.txt",
+        "sha256": "ba6d013b96df85304ce2f4815c296493d14c3318694506b8050d9ab88db2b402"
+      },
+      {
+        "args": [
+          "go",
+          "test",
+          "-count=1",
+          "-run",
+          "TestInlineUB|TestTestFilesAvoidInlineUBSources|TestUBFixturesUseProjectLayout",
+          "./internal/ubtest"
+        ],
+        "directory": ".",
+        "started": "2026-10-06T03:44:37.050708418Z",
+        "finished": "2026-10-06T03:44:53.569775051Z",
+        "exit-code": 0,
+        "output": "after-test-02.txt",
+        "sha256": "2b9c918798a060b4833f287b465a23131cc776fe54fc457e55c2397e40e35695"
+      }
+    ],
+    "warmup": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkExpressionTraversal|BenchmarkReferencesManyCompositeScopes)$",
+        "-benchmem",
+        "-benchtime=1x",
+        "-count=1",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/lang",
+        "./pkg/check"
+      ],
+      "directory": ".",
+      "started": "2026-10-06T03:44:53.570298393Z",
+      "finished": "2026-10-06T03:44:54.276445621Z",
+      "exit-code": 0,
+      "output": "after-warmup.txt",
+      "sha256": "8814c1adc11fa358ee80f2b9bcf9ce7b5285adce326b6215b2a03a020dc6fbe9"
+    },
+    "benchmark": {
+      "args": [
+        "go",
+        "test",
+        "-run",
+        "^$",
+        "-bench",
+        "^(BenchmarkExpressionTraversal|BenchmarkReferencesManyCompositeScopes)$",
+        "-benchmem",
+        "-benchtime=2s",
+        "-count=10",
+        "-cpu=1,4",
+        "-p=1",
+        "-timeout=30m",
+        "./pkg/lang",
+        "./pkg/check"
+      ],
+      "directory": ".",
+      "started": "2026-10-06T03:44:54.276665283Z",
+      "finished": "2026-10-06T03:50:36.028596557Z",
+      "exit-code": 0,
+      "output": "after.txt",
+      "sha256": "fb5f5af8d85c17d47c2e83fe21cc0b8d917c1bcf799bad19ea15c6a743936df7"
+    }
+  },
+  "comparison": {
+    "args": [
+      "go",
+      "tool",
+      "benchstat",
+      "before.txt",
+      "after.txt"
+    ],
+    "directory": ".",
+    "started": "2026-10-06T03:51:13.877744149Z",
+    "finished": "2026-10-06T03:51:13.882306149Z",
+    "exit-code": 0,
+    "output": "comparison.txt",
+    "sha256": "ac6f06fa8c915273d640754cff10ce8f4bfb7d22158df298d7fc93bfcd202051"
+  },
+  "summary-sha256": "3b7f90c6f2c3f1d735858bc6653b400364947ba90662ed334925916d52739127"
+}

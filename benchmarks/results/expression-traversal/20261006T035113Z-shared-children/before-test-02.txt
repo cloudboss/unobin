@@ -1,0 +1,1 @@
+ok  	github.com/cloudboss/unobin/internal/ubtest	17.843s
