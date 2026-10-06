@@ -1390,7 +1390,7 @@ func valueCompletionItems(
 			})
 		}
 	}
-	locals, err := localCompletionTypes(path, body, projects)
+	locals, err := localCompletionTypes(path, body, decls, projects)
 	if err != nil {
 		return nil, err
 	}
@@ -1421,11 +1421,18 @@ func completionTypeAssignable(target typecheck.Type, candidate typecheck.Type) b
 func localCompletionTypes(
 	path string,
 	body *syntax.FactoryBody,
+	decls definitionDecls,
 	projects *ProjectCache,
 ) (map[string]typecheck.Type, error) {
 	out := map[string]typecheck.Type{}
 	if body == nil || len(body.Locals) == 0 {
 		return out, nil
+	}
+	if decls.analysis != nil {
+		checked, _ := decls.analysis.checked(projects)
+		if checked != nil {
+			return checked.LocalTypes, nil
+		}
 	}
 	libs, err := diagnosticLibraries(path, *body, projects)
 	if err != nil {
@@ -1798,6 +1805,9 @@ func schemaForNode(
 func goSchemaForResolved(
 	resolved resolvedImport,
 ) (*ubruntime.LibrarySchema, bool, error) {
+	if resolved.schema != nil {
+		return resolved.schema, true, nil
+	}
 	if !resolved.sourceOK {
 		return &ubruntime.LibrarySchema{}, true, nil
 	}

@@ -148,6 +148,16 @@ func hoverForToken(
 		}
 	case "local":
 		if local, ok := decls.locals[parts[1]]; ok {
+			if decls.analysis != nil {
+				checked, _ := decls.analysis.checked(projects)
+				if checked != nil {
+					if typ, ok := checked.LocalTypes[local.Name.Name]; ok {
+						return plainHover(fmt.Sprintf("local %s: %s",
+							local.Name.Name, typ.String())), nil
+					}
+					return plainHover("local " + local.Name.Name), nil
+				}
+			}
 			text, err := localHoverText(path, body, local, projects)
 			if err != nil {
 				return nil, err

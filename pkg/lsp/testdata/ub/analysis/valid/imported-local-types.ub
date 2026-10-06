@@ -1,0 +1,11 @@
+factory: {
+  inputs: { query: { type: string, default: 'example' } }
+  imports: { def: 'example.com/definition' }
+  library-configs: { def: { region: 'us-east-1', retry: { count: 3 } } }
+  data-sources: {
+    first: def.lookup { query: input.query }
+    second: def.lookup { query: local.value }
+  }
+  locals: { value: data-source.first.result }
+  outputs: { value: { value: local.value } }
+}

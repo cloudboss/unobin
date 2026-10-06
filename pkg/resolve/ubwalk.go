@@ -55,9 +55,8 @@ const (
 // imports, Path is the canonical Go-import path (URL plus subdir when
 // present) and Version is the pinned version. For UB imports,
 // CanonicalKey is the dedup key (see UBKey) and visitors look up their
-// per-library state by that key. SourcePath is the on-disk directory
-// where the resolver fetched the import, useful for compile-time
-// inspection.
+// per-library state by that key. SourcePath is the resolved import's
+// on-disk directory for source inspection.
 type Resolution struct {
 	Kind         ResolutionKind
 	LocalAlias   string
@@ -640,6 +639,7 @@ func (w *ubWalker) handleUBImport(
 			LocalAlias:   alias,
 			Ref:          ref,
 			CanonicalKey: key,
+			SourcePath:   source.Path,
 		}, nil
 	}
 	if w.inProgress[key] {
@@ -680,6 +680,7 @@ func (w *ubWalker) handleUBImport(
 		LocalAlias:   alias,
 		Ref:          ref,
 		CanonicalKey: key,
+		SourcePath:   source.Path,
 	}, nil
 }
 

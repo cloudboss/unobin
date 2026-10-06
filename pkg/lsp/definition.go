@@ -10,6 +10,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/lsp/protocol"
 	"github.com/cloudboss/unobin/pkg/resolve"
+	"github.com/cloudboss/unobin/pkg/runtime"
 )
 
 // DefinitionForText resolves a go-to-definition request.
@@ -71,11 +72,12 @@ type definitionToken struct {
 }
 
 type definitionDecls struct {
-	assets  map[string]syntax.AssetDecl
-	inputs  map[string]syntax.InputDecl
-	locals  map[string]syntax.LocalDecl
-	imports map[string]syntax.ImportDecl
-	nodes   map[syntax.NodeKind]map[string]syntax.NodeDecl
+	analysis *bodyAnalysis
+	assets   map[string]syntax.AssetDecl
+	inputs   map[string]syntax.InputDecl
+	locals   map[string]syntax.LocalDecl
+	imports  map[string]syntax.ImportDecl
+	nodes    map[syntax.NodeKind]map[string]syntax.NodeDecl
 }
 
 type definitionTarget struct {
@@ -89,6 +91,7 @@ type resolvedImport struct {
 	source   *resolve.Source
 	found    bool
 	sourceOK bool
+	schema   *runtime.LibrarySchema
 }
 
 func definitionBodyForOffset(file *syntax.File, offset int) (*syntax.FactoryBody, bool) {
@@ -835,6 +838,12 @@ func resolveImportAlias(
 	imp, ok := decls.imports[alias]
 	if !ok || imp.Ref == nil {
 		return resolvedImport{}, nil
+	}
+	if decls.analysis != nil {
+		_, _ = decls.analysis.checked(projects)
+		if resolved, ok := decls.analysis.imports[alias]; ok {
+			return resolved, nil
+		}
 	}
 	ref, err := resolve.ParseImportRef(imp.Ref.Value)
 	if err != nil {
