@@ -1,14 +1,8 @@
 # Releasing Unobin
 
-Releases use the same version for the CLI and the Go module. A pushed release
-tag starts the workflow. It checks the changelog, runs the full Go test suite and
-lint, builds the archives, and publishes a GitHub Release with the matching
-changelog entry as its release notes.
+Releases use the same version for the CLI, Go module, and documentation. A pushed release tag starts the workflow. It checks the changelog, runs the full Go test suite and lint, builds the archives, publishes a GitHub Release with the matching changelog entry as its release notes, and then publishes the documentation.
 
-Release tags use `vMAJOR.MINOR.PATCH`, without a suffix. They also start the
-existing documentation workflow. Development tags such as `v0.12.0-a.7` do not
-publish releases or create changelog version sections. Keep their changes under
-`Unreleased` until the next release.
+Release tags use `vMAJOR.MINOR.PATCH`, without a suffix. Documentation publishing runs after the GitHub Release succeeds. Development tags such as `v0.12.0-a.7` do not publish releases or create changelog version sections. Keep their changes under `Unreleased` until the next release.
 
 ## Local checks and builds
 
@@ -108,9 +102,7 @@ See [library author guidance](docs/go-sdk/libraries.md#maintaining-compatibility
    git push origin v0.12.0
    ```
 
-5. Check the `release` workflow and the GitHub Release. Download an archive for
-   your platform and its `.sha256` file. Check and extract it, then confirm the
-   version:
+5. Check the `release` workflow, the GitHub Release, and the published documentation. Download an archive for your platform and its `.sha256` file. Check and extract it, then confirm the version:
 
    ```sh
    sha256sum -c unobin-v0.12.0-linux-amd64.tar.gz.sha256
@@ -120,15 +112,12 @@ See [library author guidance](docs/go-sdk/libraries.md#maintaining-compatibility
 
 On macOS, use `shasum -a 256 -c` in place of `sha256sum -c`.
 
-The workflow uses the repository's `GITHUB_TOKEN` with write permission only in
-the publishing job. No additional release secret is needed.
+The release and documentation publishing jobs use the repository's `GITHUB_TOKEN` with `contents: write`. Documentation also uses `id-token: write` for the existing AWS publisher. No additional release secret is needed.
 
 ## Failed releases
 
-If checks or builds fail, the workflow does not publish a GitHub Release. Fix
-source or changelog problems in a new commit and use a new version. For a
-transient service failure, rerun the workflow for the same commit.
+If checks, builds, or GitHub Release publication fail, documentation publishing is skipped and existing documentation stays available. Fix source or changelog problems in a new commit and use a new version. For a transient service failure, rerun the workflow for the same commit.
 
-If publishing fails, inspect the GitHub Release for partial uploads before a
-retry. Published Go module versions can be cached outside GitHub: do not move or
-delete a release tag to replace its contents.
+If documentation publishing fails after the GitHub Release succeeds, rerun the failed documentation job from that release workflow.
+
+If GitHub Release publication fails, inspect the release for partial uploads before retrying. Published Go module versions can be cached outside GitHub: do not move or delete a release tag to replace its contents.

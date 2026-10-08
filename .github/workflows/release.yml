@@ -50,3 +50,12 @@ jobs:
           args: |
             artifacts/unobin-${{ github.ref_name }}-*.tar.gz
             artifacts/unobin-${{ github.ref_name }}-*.tar.gz.sha256
+
+  docs:
+    needs: release
+    permissions:
+      contents: write
+      id-token: write
+    uses: ./.github/workflows/docs.yml
+    with:
+      version: ${{ github.ref_name }}
