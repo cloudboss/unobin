@@ -46,7 +46,7 @@ func collectValidUnobinSourceFiles(t *testing.T) []string {
 		}
 		if d.IsDir() {
 			switch d.Name() {
-			case ".git", "node_modules":
+			case ".git", "_output", "node_modules":
 				return filepath.SkipDir
 			}
 			return nil
