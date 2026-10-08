@@ -104,10 +104,8 @@ check-release: check-version
 	@case $${VERSION} in \
 		*-*) echo 'Release versions must be vMAJOR.MINOR.PATCH without a suffix' >&2; exit 1 ;; \
 	esac
-	@awk -v version=$${VERSION} \
-		'$${1} == "##" && $${2} == "[" substr(version, 2) "]" && $${3} == "-" && \
-		$${4} ~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$$/ { found = 1 } \
-		END { exit !found }' CHANGELOG.md || \
+	@grep -F "## [$${VERSION#v}] - " CHANGELOG.md | \
+		LC_ALL=C grep -Eq '^## \[[^]]+\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$$' || \
 		{ echo "CHANGELOG.md needs a dated entry for $${VERSION}" >&2; exit 1; }
 
 check-platform:
