@@ -4,6 +4,13 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-07
+
+> [!WARNING]
+> This release contains breaking changes.
+> - The state format has changed since v0.11.0.
+> - The library API now has an internal versioning scheme.
+
 ### Added
 
 - Add a changelog.
@@ -40,5 +47,6 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 - Preserve source locations in triple-string interpolation so imported libraries compile with accurate diagnostics.
 - Defer composite outputs with unresolved inputs until apply can evaluate them.
 
-[Unreleased]: https://github.com/cloudboss/unobin/compare/v0.11.1...HEAD
+[Unreleased]: https://github.com/cloudboss/unobin/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/cloudboss/unobin/releases/tag/v0.12.0
 [0.11.1]: https://github.com/cloudboss/unobin/releases/tag/v0.11.1
