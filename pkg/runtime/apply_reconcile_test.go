@@ -5,6 +5,7 @@ import (
 	"maps"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudboss/unobin/internal/ubtest"
@@ -232,6 +233,40 @@ func TestApplyReconciledValueReachesOutputs(t *testing.T) {
 	})
 	require.EqualValues(t, 99, res.Outputs["a-size"],
 		"a stack output reads the reconciled value, not the one captured at apply")
+}
+
+func TestApplyReconcilesNestedForEachOutputs(t *testing.T) {
+	var counters resourceCounters
+	libraries := resourceModules(&counters)
+	counters.readFn = func(prior any) (any, error) {
+		out := maps.Clone(prior.(map[string]any))
+		out["size"] = int64(99)
+		return out, nil
+	}
+	fixture := func(name string) string {
+		return ubtest.ReadValidFixture(t, "testdata/ub/apply-reconcile", name)
+	}
+	libraries["nested"] = &Library{
+		Name: "nested",
+		ResourceComposites: map[string]*CompositeType{
+			"inner": syntaxResourceComposite(t, "inner", fixture("inner")),
+			"outer": syntaxResourceComposite(t, "outer", fixture("outer")),
+		},
+	}
+	store := newStateStore(t)
+	factory := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
+	executor := applyPlanTestExecutor(t, fixture("for-each"), libraries, store, factory)
+	result := applyOnce(t, executor)
+	assert.Equal(t, map[string]any{"first": int64(99), "second": int64(99)}, result.Outputs)
+	snapshot, err := store.Current()
+	require.NoError(t, err)
+	for _, address := range []string{
+		"resource.group['one']", "resource.group['one']/resource.child",
+		"resource.group['two']", "resource.group['two']/resource.child",
+	} {
+		entry := findEntry(t, snapshot, address)
+		assert.Equal(t, map[string]any{"size": float64(99)}, entry.Outputs, address)
+	}
 }
 
 func TestApplyReconcilesPreExistingDependency(t *testing.T) {

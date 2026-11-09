@@ -1,0 +1,37 @@
+  (rerun)   action.read-first
+      text: 'before'
+      upper: false
+  (create)  resource.one  (composite)
+      e2e-config: {base-dir: '.', event-log-path: 'events.ndjson', nested: {enabled: true, label: 'nested'}, prefix: ''}
+      path: 'files/one.txt'
+    (create)  resource.child  (composite)
+        e2e-config: {base-dir: '.', event-log-path: 'events.ndjson', nested: {enabled: true, label: 'nested'}, prefix: ''}
+        path: 'files/one.txt'
+      (create)  resource.original
+          content: 'before'
+          create-parents: true
+          mode: 420
+          path: 'files/one.txt'
+      (create)  resource.overwrite
+          content: 'after'
+          create-parents: true
+          mode: 420
+          path: 'files/one.txt'
+  (create)  resource.two  (composite)
+      e2e-config: {base-dir: '.', event-log-path: 'events.ndjson', nested: {enabled: true, label: 'nested'}, prefix: ''}
+      path: 'files/two.txt'
+    (create)  resource.child  (composite)
+        e2e-config: {base-dir: '.', event-log-path: 'events.ndjson', nested: {enabled: true, label: 'nested'}, prefix: ''}
+        path: 'files/two.txt'
+      (create)  resource.original
+          content: 'before'
+          create-parents: true
+          mode: 420
+          path: 'files/two.txt'
+      (create)  resource.overwrite
+          content: 'after'
+          create-parents: true
+          mode: 420
+          path: 'files/two.txt'
+
+Plan: 4 to create, 0 to update, 0 to replace, 0 to destroy, 1 to rerun.

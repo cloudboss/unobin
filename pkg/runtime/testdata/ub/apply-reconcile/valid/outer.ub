@@ -1,0 +1,3 @@
+resources: { child: nested.inner { name: input.name } }
+locals: { size: resource.child.size }
+outputs: { size: { value: local.size } }

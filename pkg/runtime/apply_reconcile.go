@@ -64,12 +64,57 @@ func (e *Executor) reconcileChangedOutputs(ctx context.Context, rs *runState, pf
 		})
 	}
 	wg.Wait()
+	changed := map[string]bool{}
+	outputsChanged := false
 	for _, r := range results {
 		if r.err != nil || r.gone {
 			continue
 		}
+		previous := rs.nextEntry(r.ent.Address)
+		different := previous == nil || !sameInputs(previous.Outputs, r.ent.Outputs)
 		rs.upsertNext(r.ent)
 		e.seedReconciled(rs, r.ent)
+		if !different {
+			continue
+		}
+		outputsChanged = true
+		for parent := DirectParent(r.ent.Address); parent != ""; parent = DirectParent(parent) {
+			changed[parent] = true
+		}
+	}
+	if outputsChanged {
+		e.reconcileCompositeOutputs(rs, &applied, changed)
+		rs.eval.locals = e.rootLocalScope()
+	}
+}
+
+func (e *Executor) reconcileCompositeOutputs(
+	rs *runState, pf *PlanFile, changed map[string]bool,
+) {
+	var steps []*PlanStep
+	for i := range pf.Steps {
+		step := &pf.Steps[i]
+		if step.Composite && step.Decision != DecisionDestroy && changed[step.Address] {
+			steps = append(steps, step)
+		}
+	}
+	slices.SortStableFunc(steps, func(a, b *PlanStep) int {
+		return len(b.Address) - len(a.Address)
+	})
+	for _, step := range steps {
+		node := e.DAG.Nodes[declarationAddress(step.Address)]
+		if node == nil {
+			continue
+		}
+		_ = guardErr("reconciling composite outputs", true, func() error {
+			scope, err := e.ensureCompositeScope(rs, step.Address)
+			if err != nil {
+				return err
+			}
+			scope.locals = compositeLocalScope(node)
+			return e.finalizeComposite(rs, node, step.Address,
+				step.SensitiveInputs, step.SensitiveOutputs)
+		})
 	}
 }
 

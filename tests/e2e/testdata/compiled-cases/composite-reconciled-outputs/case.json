@@ -1,0 +1,31 @@
+{
+  "name": "composite-reconciled-outputs",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/composite-reconciled-outputs",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub", "-o", "plan.ubp"],
+      "stdout": "want/plan.stdout",
+      "stderr": "want/plan.stderr"
+    },
+    {
+      "name": "apply",
+      "args": ["apply", "--format", "json", "plan.ubp"],
+      "stdout": "want/apply.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "output",
+      "args": ["output", "--format", "json", "-c", "stacks/dev.ub"],
+      "stdout": "want/output.json",
+      "normalize": "json"
+    }
+  ],
+  "files": [
+    { "path": "files/one.txt", "want": "want/content.txt" },
+    { "path": "files/two.txt", "want": "want/content.txt" }
+  ],
+  "stateSummary": "want/state-summary.json"
+}

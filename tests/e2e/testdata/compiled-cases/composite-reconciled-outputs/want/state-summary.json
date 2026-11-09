@@ -1,0 +1,253 @@
+{
+  "format-version": 2,
+  "factory": {
+    "name": "composite-reconciled-outputs",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "entries": [
+    {
+      "address": "action.read-first",
+      "category": "action",
+      "composite": false,
+      "binding": {
+        "alias": "e2e",
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "echo"
+      },
+      "inputs": {
+        "text": "before",
+        "upper": false
+      },
+      "outputs": {
+        "length": 6,
+        "prefixed": "before",
+        "text": "before"
+      },
+      "depends-on": [
+        "resource.one"
+      ]
+    },
+    {
+      "address": "resource.one",
+      "category": "resource",
+      "composite": true,
+      "binding": {
+        "alias": "self",
+        "library-path": "composite-reconciled-outputs/internal/self",
+        "kind": "outer"
+      },
+      "inputs": {
+        "e2e-config": {
+          "base-dir": ".",
+          "event-log-path": "events.ndjson",
+          "nested": {
+            "enabled": true,
+            "label": "nested"
+          },
+          "prefix": ""
+        },
+        "path": "files/one.txt"
+      },
+      "outputs": {
+        "content": "after"
+      },
+      "depends-on": [
+        "resource.one/resource.child"
+      ]
+    },
+    {
+      "address": "resource.one/resource.child",
+      "category": "resource",
+      "composite": true,
+      "binding": {
+        "alias": "lib",
+        "library-path": "composite-reconciled-outputs/internal/lib",
+        "kind": "inner"
+      },
+      "inputs": {
+        "e2e-config": {
+          "base-dir": ".",
+          "event-log-path": "events.ndjson",
+          "nested": {
+            "enabled": true,
+            "label": "nested"
+          },
+          "prefix": ""
+        },
+        "path": "files/one.txt"
+      },
+      "outputs": {
+        "content": "after"
+      },
+      "depends-on": [
+        "resource.one/resource.child/resource.original",
+        "resource.one/resource.child/resource.overwrite"
+      ]
+    },
+    {
+      "address": "resource.one/resource.child/resource.original",
+      "category": "resource",
+      "composite": false,
+      "binding": {
+        "alias": "e2e",
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "before",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/one.txt"
+      },
+      "outputs": {
+        "content": "after",
+        "exists": true,
+        "path": "files/one.txt",
+        "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8",
+        "size": 5
+      }
+    },
+    {
+      "address": "resource.one/resource.child/resource.overwrite",
+      "category": "resource",
+      "composite": false,
+      "binding": {
+        "alias": "e2e",
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "after",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/one.txt"
+      },
+      "outputs": {
+        "content": "after",
+        "exists": true,
+        "path": "files/one.txt",
+        "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8",
+        "size": 5
+      },
+      "depends-on": [
+        "resource.one/resource.child/resource.original"
+      ]
+    },
+    {
+      "address": "resource.two",
+      "category": "resource",
+      "composite": true,
+      "binding": {
+        "alias": "self",
+        "library-path": "composite-reconciled-outputs/internal/self",
+        "kind": "outer"
+      },
+      "inputs": {
+        "e2e-config": {
+          "base-dir": ".",
+          "event-log-path": "events.ndjson",
+          "nested": {
+            "enabled": true,
+            "label": "nested"
+          },
+          "prefix": ""
+        },
+        "path": "files/two.txt"
+      },
+      "outputs": {
+        "content": "after"
+      },
+      "depends-on": [
+        "resource.two/resource.child"
+      ]
+    },
+    {
+      "address": "resource.two/resource.child",
+      "category": "resource",
+      "composite": true,
+      "binding": {
+        "alias": "lib",
+        "library-path": "composite-reconciled-outputs/internal/lib",
+        "kind": "inner"
+      },
+      "inputs": {
+        "e2e-config": {
+          "base-dir": ".",
+          "event-log-path": "events.ndjson",
+          "nested": {
+            "enabled": true,
+            "label": "nested"
+          },
+          "prefix": ""
+        },
+        "path": "files/two.txt"
+      },
+      "outputs": {
+        "content": "after"
+      },
+      "depends-on": [
+        "resource.two/resource.child/resource.original",
+        "resource.two/resource.child/resource.overwrite"
+      ]
+    },
+    {
+      "address": "resource.two/resource.child/resource.original",
+      "category": "resource",
+      "composite": false,
+      "binding": {
+        "alias": "e2e",
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "before",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/two.txt"
+      },
+      "outputs": {
+        "content": "after",
+        "exists": true,
+        "path": "files/two.txt",
+        "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8",
+        "size": 5
+      }
+    },
+    {
+      "address": "resource.two/resource.child/resource.overwrite",
+      "category": "resource",
+      "composite": false,
+      "binding": {
+        "alias": "e2e",
+        "library-path": "example.com/unobin/e2elib",
+        "kind": "file"
+      },
+      "schema-version": 1,
+      "inputs": {
+        "content": "after",
+        "create-parents": true,
+        "mode": 420,
+        "path": "files/two.txt"
+      },
+      "outputs": {
+        "content": "after",
+        "exists": true,
+        "path": "files/two.txt",
+        "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8",
+        "size": 5
+      },
+      "depends-on": [
+        "resource.two/resource.child/resource.original"
+      ]
+    }
+  ],
+  "outputs": {
+    "first": "after",
+    "second": "after"
+  }
+}

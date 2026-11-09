@@ -1,0 +1,6 @@
+resources: {
+  original: core.thing { name: input.name, size: 1 }
+  overwrite: core.thing { name: 'overwrite', size: resource.original.size }
+}
+locals: { size: resource.original.size }
+outputs: { size: { value: local.size } }

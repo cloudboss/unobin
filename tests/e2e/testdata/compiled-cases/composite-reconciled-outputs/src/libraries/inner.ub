@@ -1,0 +1,14 @@
+inner: resource {
+  inputs: {
+    path: { type: string }
+    e2e-config: { type: library-config('example.com/unobin/e2elib') }
+  }
+  imports: { e2e: 'example.com/unobin/e2elib' }
+  library-configs: { e2e: input.e2e-config }
+  locals: { content: resource.original.content }
+  resources: {
+    original: e2e.file { path: input.path, content: 'before' }
+    overwrite: e2e.file { path: resource.original.path, content: 'after' }
+  }
+  outputs: { content: { value: local.content } }
+}

@@ -1,0 +1,10 @@
+resources: {
+  group: nested.outer {
+    @for-each: { one: 'one', two: 'two' }
+    name: @each.value
+  }
+}
+outputs: {
+  first: { value: resource.group['one'].size }
+  second: { value: resource.group['two'].size }
+}
