@@ -1,0 +1,29 @@
+{
+  "name": "state-snapshot-consistency",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/state-snapshot-consistency",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan",
+      "args": ["plan", "--format", "json", "-c", "stacks/s3.ub", "-o", "plan.ubp"],
+      "stdout": "want/plan.stdout",
+      "stderr": "want/plan.stderr",
+      "normalize": "json"
+    },
+    {
+      "name": "reject-stale-plan",
+      "args": ["apply", "plan.ubp"],
+      "exitCode": 1,
+      "stdout": "want/apply.stdout",
+      "stderr": "want/apply.stderr"
+    },
+    {
+      "name": "keep-concurrent-resource",
+      "args": ["state", "list", "-c", "stacks/s3.ub"],
+      "stdout": "want/state-list.stdout",
+      "stderr": "want/state-list.stderr"
+    }
+  ],
+  "planSummaries": [{ "path": "plan.ubp", "want": "want/plan-summary.json" }]
+}

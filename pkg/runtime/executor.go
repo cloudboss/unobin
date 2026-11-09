@@ -331,11 +331,12 @@ type ExecResult struct {
 }
 
 type runState struct {
-	eval     *EvalContext
-	outputs  map[string]any
-	prior    *state.Snapshot
-	next     *state.Snapshot
-	planning bool
+	eval          *EvalContext
+	outputs       map[string]any
+	prior         *state.Snapshot
+	priorRevision string
+	next          *state.Snapshot
+	planning      bool
 
 	priorEntries *snapshotEntries
 	nextEntries  *snapshotEntries
@@ -413,11 +414,18 @@ func (e *Executor) initRun() (*runState, error) {
 		forEachInstances: make(map[string]map[string]any),
 		next:             state.NewSnapshot(e.Factory, e.Store.Stack()),
 	}
-	prior, err := e.Store.Current()
-	if err != nil && !errors.Is(err, state.ErrNoCurrent) {
+	revision, err := checkedCurrentRevision(e.Store)
+	if err != nil {
 		return nil, err
 	}
-	rs.prior = prior
+	if revision != "" {
+		prior, err := e.Store.Get(revision)
+		if err != nil {
+			return nil, diagnostic.Context("snapshot "+revision, err)
+		}
+		rs.prior = prior
+	}
+	rs.priorRevision = revision
 	return rs, nil
 }
 

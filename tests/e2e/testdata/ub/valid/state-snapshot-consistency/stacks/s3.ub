@@ -1,0 +1,9 @@
+stack: {
+  state: s3 {
+    bucket: 'test-bucket'
+    prefix: 'state'
+    use-path-style: true
+    aws: { region: 'us-east-1' }
+  }
+  encryption: noop {}
+}

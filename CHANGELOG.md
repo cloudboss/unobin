@@ -4,6 +4,10 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep plans bound to the exact state snapshot read during planning and reject stale plans after concurrent state changes.
+
 ## [0.12.0] - 2026-10-07
 
 > [!WARNING]

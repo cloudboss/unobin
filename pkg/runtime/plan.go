@@ -474,12 +474,10 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	stateRev, _ := e.Store.CurrentRev()
-
 	plan := &Plan{
 		Factory:     e.Factory,
 		Stack:       e.Store.Stack(),
-		StateRev:    stateRev,
+		StateRev:    rs.priorRevision,
 		Inputs:      e.Inputs,
 		Parallelism: e.Parallelism,
 		Destroy:     e.Destroy,
