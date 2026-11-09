@@ -1,0 +1,30 @@
+{
+  "format-version": 2,
+  "factory": {
+    "name": "state-stack-identity",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "entries": [
+    {
+      "address": "action.check",
+      "category": "action",
+      "composite": false,
+      "binding": {
+        "alias": "state",
+        "library-path": "example.com/unobin/e2elib/statechecks",
+        "kind": "reject-stack"
+      },
+      "inputs": {
+        "path": "api-state"
+      },
+      "outputs": {
+        "rejected": true
+      }
+    }
+  ],
+  "outputs": {
+    "rejected": true
+  }
+}

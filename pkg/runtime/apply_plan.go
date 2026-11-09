@@ -33,6 +33,11 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (result *ExecRes
 			pf.Factory.Name, pf.Factory.Version, pf.Factory.ContentRevision,
 			e.Factory.Name, e.Factory.Version, e.Factory.ContentRevision))
 	}
+	if stack := e.Store.Stack(); pf.Stack != stack {
+		return nil, NewApplyFailure(ApplyFailureSetup, fmt.Errorf(
+			"plan was computed for stack %q, this backend is stack %q", pf.Stack, stack,
+		))
+	}
 
 	release, err := AcquireStateLock(ctx, e.Store)
 	if err != nil {

@@ -1,0 +1,5 @@
+factory: {
+  imports: { state: 'example.com/unobin/e2elib//statechecks' }
+  actions: { check: state.reject-stack { path: 'api-state' } }
+  outputs: { rejected: { value: action.check.rejected } }
+}

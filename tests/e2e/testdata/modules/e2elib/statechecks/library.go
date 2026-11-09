@@ -15,7 +15,8 @@ func Library() *ubruntime.Library {
 		Name:          "statechecks",
 		Compatibility: ubruntime.LibraryCompatibility{RequiredAPI: "1.0"},
 		Actions: map[string]ubruntime.ActionRegistration{
-			"cancel-lock": ubruntime.MakeAction[CancelLock, *LockResult, ubruntime.NoConfig](),
+			"cancel-lock":  ubruntime.MakeAction[CancelLock, *LockResult, ubruntime.NoConfig](),
+			"reject-stack": ubruntime.MakeAction[RejectStack, *StackResult, ubruntime.NoConfig](),
 		},
 	}
 }
