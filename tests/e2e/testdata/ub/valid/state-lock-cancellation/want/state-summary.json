@@ -1,0 +1,27 @@
+{
+  "format-version": 2,
+  "factory": {
+    "name": "state-lock-cancellation",
+    "version": "v0.0.0",
+    "content-revision": "<revision>"
+  },
+  "stack": "dev",
+  "entries": [
+    {
+      "address": "action.check",
+      "category": "action",
+      "composite": false,
+      "binding": {
+        "alias": "state",
+        "library-path": "example.com/unobin/e2elib/statechecks",
+        "kind": "cancel-lock"
+      },
+      "outputs": {
+        "canceled": true
+      }
+    }
+  ],
+  "outputs": {
+    "canceled": true
+  }
+}

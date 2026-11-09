@@ -1,0 +1,5 @@
+factory: {
+  imports: { state: 'example.com/unobin/e2elib//statechecks' }
+  actions: { check: state.cancel-lock {} }
+  outputs: { canceled: { value: action.check.canceled } }
+}

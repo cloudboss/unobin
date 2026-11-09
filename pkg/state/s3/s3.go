@@ -42,9 +42,10 @@ import (
 )
 
 const (
-	maxRevAttempts = 100
-	lockPollEvery  = 500 * time.Millisecond
-	snapshotSuffix = ".json.enc"
+	maxRevAttempts  = 100
+	lockPollEvery   = 500 * time.Millisecond
+	lockInfoTimeout = time.Second
+	snapshotSuffix  = ".json.enc"
 )
 
 // now returns the current time. Tests override it to freeze the clock
@@ -125,7 +126,7 @@ func (s *Store) CurrentRev() (string, error) {
 
 // Get returns the snapshot with the given rev.
 func (s *Store) Get(rev string) (*sdkstate.Snapshot, error) {
-	sealed, err := s.getObject(s.snapshotKey(rev))
+	sealed, err := s.getObject(context.Background(), s.snapshotKey(rev))
 	if err != nil {
 		return nil, fmt.Errorf("s3 store: get %s: %w", rev, err)
 	}
@@ -164,7 +165,7 @@ func (s *Store) Write(snap *sdkstate.Snapshot) (string, error) {
 		if attempt > 0 {
 			rev = fmt.Sprintf("%s_%d", base, attempt)
 		}
-		err := s.putObject(s.snapshotKey(rev), sealed, true)
+		err := s.putObject(context.Background(), s.snapshotKey(rev), sealed, true)
 		if err == nil {
 			return rev, nil
 		}
@@ -188,7 +189,7 @@ func (s *Store) SetCurrent(rev string) error {
 	if err != nil {
 		return fmt.Errorf("set-current %s: %w", rev, err)
 	}
-	if err := s.putObject(s.key("current"), []byte(rev+"\n"), false); err != nil {
+	if err := s.putObject(context.Background(), s.key("current"), []byte(rev+"\n"), false); err != nil {
 		return fmt.Errorf("set-current %s: %w", rev, err)
 	}
 	return nil
@@ -252,7 +253,10 @@ func (s *Store) Lock(ctx context.Context) (sdkstate.Lock, error) {
 	}
 	key := s.key("lock")
 	for {
-		err := s.putObject(key, body, true)
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		err := s.putObject(ctx, key, body, true)
 		if err == nil {
 			return &s3Lock{store: s, key: key}, nil
 		}
@@ -274,7 +278,9 @@ func (s *Store) Lock(ctx context.Context) (sdkstate.Lock, error) {
 // effort: contention errors stay useful even when the marker vanished
 // or does not parse.
 func (s *Store) holderDescription() string {
-	body, err := s.getObject(s.key("lock"))
+	ctx, cancel := context.WithTimeout(context.Background(), lockInfoTimeout)
+	defer cancel()
+	body, err := s.getObject(ctx, s.key("lock"))
 	if err != nil {
 		return ""
 	}
@@ -319,8 +325,8 @@ func (s *Store) snapshotKey(rev string) string {
 	return s.key("snapshots", rev+snapshotSuffix)
 }
 
-func (s *Store) getObject(key string) ([]byte, error) {
-	out, err := s.client.GetObject(context.Background(), &s3.GetObjectInput{
+func (s *Store) getObject(ctx context.Context, key string) ([]byte, error) {
+	out, err := s.client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.Bucket),
 		Key:    aws.String(key),
 	})
@@ -334,7 +340,7 @@ func (s *Store) getObject(key string) ([]byte, error) {
 // putObject writes one object, with If-None-Match when create is
 // true so an existing object wins, and with SSE-KMS headers when the
 // store has a key configured.
-func (s *Store) putObject(key string, body []byte, create bool) error {
+func (s *Store) putObject(ctx context.Context, key string, body []byte, create bool) error {
 	in := &s3.PutObjectInput{
 		Bucket: aws.String(s.Bucket),
 		Key:    aws.String(key),
@@ -347,12 +353,12 @@ func (s *Store) putObject(key string, body []byte, create bool) error {
 		in.ServerSideEncryption = s3types.ServerSideEncryptionAwsKms
 		in.SSEKMSKeyId = aws.String(s.KMSKeyID)
 	}
-	_, err := s.client.PutObject(context.Background(), in)
+	_, err := s.client.PutObject(ctx, in)
 	return err
 }
 
 func (s *Store) currentRev() (string, error) {
-	body, err := s.getObject(s.key("current"))
+	body, err := s.getObject(context.Background(), s.key("current"))
 	if err != nil {
 		if isNotFound(err) {
 			return "", sdkstate.ErrNoCurrent
