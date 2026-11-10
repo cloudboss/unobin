@@ -162,9 +162,13 @@ func readMeasurements(record Record, body []byte) (Measurements, float64, error)
 			if !exists || result.Iters < 1 {
 				return nil, 0, fmt.Errorf("unexpected benchmark case %s", key)
 			}
+			cpuName := strings.TrimSpace(result.GetConfig("cpu"))
+			// Go can omit the CPU name on Linux ARM64.
+			missingCPUName := cpuName == "" && record.Machine.GOOS == "linux" &&
+				record.Machine.GOARCH == "arm64"
 			if result.GetConfig("goos") != record.Machine.GOOS ||
 				result.GetConfig("goarch") != record.Machine.GOARCH ||
-				strings.TrimSpace(result.GetConfig("cpu")) != record.Machine.CPUModel {
+				cpuName != record.Machine.CPUModel && !missingCPUName {
 				return nil, 0, fmt.Errorf("benchmark %s used a different target or CPU", key)
 			}
 			cpu := 1

@@ -115,6 +115,47 @@ func TestCompareComputesStatisticsFromRawSamples(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestValidateCPUName(t *testing.T) {
+	tests := []struct {
+		name      string
+		goos      string
+		goarch    string
+		cpu       string
+		wantError bool
+	}{
+		{name: "linux arm64 without CPU", goos: "linux", goarch: "arm64"},
+		{name: "linux arm64 matching CPU", goos: "linux", goarch: "arm64", cpu: "Synthetic CPU"},
+		{
+			name: "linux arm64 different CPU", goos: "linux", goarch: "arm64",
+			cpu: "Other CPU", wantError: true,
+		},
+		{name: "linux amd64 without CPU", goos: "linux", goarch: "amd64", wantError: true},
+		{name: "darwin arm64 without CPU", goos: "darwin", goarch: "arm64", wantError: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			metadata, files := fixtureRecord(fixtureSpec(), 100, strings.Repeat("b", 40))
+			metadata.Machine.GOOS, metadata.Machine.GOARCH = tt.goos, tt.goarch
+			for _, run := range []*Run{&metadata.Warmup, &metadata.Benchmark} {
+				body := strings.ReplaceAll(string(files[run.Output]), "goos: linux", "goos: "+tt.goos)
+				body = strings.ReplaceAll(body, "goarch: amd64", "goarch: "+tt.goarch)
+				header := ""
+				if tt.cpu != "" {
+					header = "cpu: " + tt.cpu + "\n"
+				}
+				files[run.Output] = []byte(strings.ReplaceAll(body, "cpu: Synthetic CPU\n", header))
+				run.Digest = digest(files[run.Output])
+			}
+			_, err := Validate(metadata, files)
+			if tt.wantError {
+				require.ErrorContains(t, err, "different target or CPU")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestValidateAcceptsCPUDescriptionPadding(t *testing.T) {
 	record, files := fixtureRecord(fixtureSpec(), 100, strings.Repeat("b", 40))
 	for _, run := range []*Run{&record.Warmup, &record.Benchmark} {

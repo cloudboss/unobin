@@ -22,33 +22,38 @@ VERSION ?=
 DIR_OUT ?= _output
 DIR_ROOT = $(realpath $(CURDIR))
 DIR_OUT_ABS = $(abspath $(DIR_OUT))
+DIR_CACHE = $(DIR_OUT_ABS)/cache/$(HOST_ARCH)
 DIR_STG = $(DIR_OUT)/staging/unobin/$(VERSION)/$(OS)/$(ARCH)
 DIR_RELEASE ?= $(DIR_OUT)/release
 
 CTR_IMAGE_GO = ghcr.io/cloudboss/docker.io/library/golang:1.26.2-trixie
 CTR_IMAGE_GOLANGCI = ghcr.io/cloudboss/golangci/golangci-lint:v2.11.4-alpine
 OS ?= $(shell uname -s | tr '[:upper:]' '[:lower:]')
-ARCH ?= $(shell uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')
+HOST_ARCH := $(shell uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')
+ARCH ?= $(HOST_ARCH)
+
+CTR_PLATFORM = --platform linux/$(HOST_ARCH)
+
 ARCHIVE = unobin-$(VERSION)-$(OS)-$(ARCH).tar.gz
 USER_ID = $(shell id -u)
 GROUP_ID = $(shell id -g)
 
 SHA256 ?= $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo 'shasum -a 256')
 BUILD_IMAGE_HASH = $(shell { \
-	printf '%s\n' '$(CTR_IMAGE_GO)' '$(USER_ID)' '$(GROUP_ID)'; \
+	printf '%s\n' '$(CTR_IMAGE_GO)' '$(HOST_ARCH)' '$(USER_ID)' '$(GROUP_ID)'; \
 	cat Containerfile.build; \
 	} | $(SHA256) | cut -c 1-40)
 CTR_IMAGE_LOCAL = unobin-build:$(BUILD_IMAGE_HASH)
 HAS_IMAGE_LOCAL = $(DIR_OUT)/.image-local-$(BUILD_IMAGE_HASH)
 HAS_COMMAND_DOCKER = $(DIR_OUT)/.command-docker
 
-CTR_RUN = docker run --rm \
+CTR_RUN = docker run --rm $(CTR_PLATFORM) \
 	-v $(DIR_ROOT):$(DIR_ROOT):z \
 	-w $(DIR_ROOT) \
 	-e GOPATH=$(DIR_OUT_ABS)/go \
 	-e GOCACHE=$(DIR_OUT_ABS)/gocache \
-	-e XDG_CACHE_HOME=$(DIR_OUT_ABS)/cache \
-	-e npm_config_cache=$(DIR_OUT_ABS)/cache/npm \
+	-e XDG_CACHE_HOME=$(DIR_CACHE) \
+	-e npm_config_cache=$(DIR_CACHE)/npm \
 	-e CGO_ENABLED=0
 
 export VERSION OS ARCH
@@ -74,7 +79,7 @@ $(DIR_OUT)/.command-%: | $(DIR_OUT)
 	release-linux-amd64 release-linux-arm64 release-one test
 
 $(HAS_IMAGE_LOCAL): Containerfile.build | $(DIR_OUT) $(HAS_COMMAND_DOCKER)
-	@docker build \
+	@docker build $(CTR_PLATFORM) \
 		--build-arg FROM=$(CTR_IMAGE_GO) \
 		--build-arg USER_ID=$(USER_ID) \
 		--build-arg GROUP_ID=$(GROUP_ID) \
@@ -88,7 +93,7 @@ test: | $(HAS_IMAGE_LOCAL)
 
 lint: | $(DIR_OUT) $(HAS_COMMAND_DOCKER)
 	@$(CTR_RUN) -u $(USER_ID):$(GROUP_ID) \
-		-e GOLANGCI_LINT_CACHE=$(DIR_OUT_ABS)/cache/golangci-lint \
+		-e GOLANGCI_LINT_CACHE=$(DIR_CACHE)/golangci-lint \
 		$(CTR_IMAGE_GOLANGCI) sh -c \
 		'golangci-lint run --timeout 5m ./... && \
 		cd benchmarks && golangci-lint run --timeout 5m ./...'
