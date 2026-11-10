@@ -121,6 +121,10 @@ func cpuModel(ctx context.Context) (string, error) {
 				return strings.TrimSpace(value), nil
 			}
 		}
+		if runtime.GOARCH == "arm64" {
+			body, err := os.ReadFile("/sys/devices/system/cpu/cpu0/regs/identification/midr_el1")
+			return "ARM MIDR " + strings.TrimSpace(string(body)), err
+		}
 	case "darwin":
 		body, err := commandOutput(ctx, "", "sysctl", "-n", "machdep.cpu.brand_string")
 		return strings.TrimSpace(string(body)), err
