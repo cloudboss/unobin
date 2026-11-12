@@ -515,6 +515,7 @@ func buildUnobinCLI(ctx context.Context, repoRoot string, outDir string) (string
 		ctx,
 		"go",
 		"build",
+		"-buildvcs=false",
 		"-ldflags",
 		ldflags,
 		"-o",
