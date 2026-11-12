@@ -55,14 +55,7 @@ and action input structs:
 - `ub:"name"` changes the UB field name.
 - `ub:"-"` omits a Go field from the UB schema.
 
-Plain map and slice fields are required like other non-pointer fields. Pointer
-fields such as `*map[string]string` are nullable and may be omitted. Use
-`Defaults()` with `defaults.Value` when a non-pointer field may be omitted
-because the compiler should insert a real value. Use `defaults.NullableValue`
-when a pointer field should default on omission while explicit `null` remains
-null. Use `Constraints()` for config validation. Defaults are applied before
-constraints and before the decoded config reaches resources, data sources,
-actions, or functions.
+Plain map and slice fields are required like other non-pointer fields. Pointer fields such as `*map[string]string` are nullable and may be omitted. Use `Defaults()` with `defaults.Value` when a non-pointer field may be omitted because the compiler should insert a real value. Use `defaults.NullableValue` when a pointer field should default on omission while explicit `null` remains null. Use `Constraints()` for config validation. Defaults are applied before constraints and before the decoded config reaches resources, data sources, or actions.
 
 ## Source use
 
@@ -86,8 +79,7 @@ library-configs: {
 }
 ```
 
-Every resource, data source, action, and function under the `cloud` alias receives
-that config type at runtime.
+Every resource, data source, and action under the `cloud` alias receives that config type at runtime. Functions receive only their explicit arguments.
 
 ## Separate configuration packages
 

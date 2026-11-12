@@ -30,7 +30,7 @@ factory: {
 
 ## Inputs and locals
 
-Inputs are values passed to the factory from the stack file. Locals are file-scoped expressions computed from inputs, resources, data sources, actions, and other locals where dependencies permit it.
+Inputs are values passed to the factory from the stack file. Locals belong to the containing factory or composite body and are computed from its inputs, resources, data sources, actions, and other locals where dependencies permit it.
 
 ```
 locals: {
@@ -285,6 +285,8 @@ library-configs: {
 ```
 
 Inputs may use `library-config('...')` to define the configuration type, passing in the library path. Thus, ordinary inputs are used to configure libraries; there is no separate configuration mechanism like Terraform uses for providers.
+
+Each configuration binding belongs to its import alias in the containing factory or composite instance. See [Composite scope and configuration](composite-libraries.md#scope-and-configuration) for explicit configuration passing between bodies.
 
 The `library-config(...)` path may name a separate configuration package. This
 is useful when one repository has service packages that share a config package:

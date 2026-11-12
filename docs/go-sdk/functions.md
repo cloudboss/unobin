@@ -2,6 +2,8 @@
 
 Functions run inline during expression evaluation. They do not create state nodes.
 
+Functions receive only their explicit arguments. Pass any required configuration values as ordinary arguments.
+
 Register a function with `runtime.MakeFunc`:
 
 ```go
