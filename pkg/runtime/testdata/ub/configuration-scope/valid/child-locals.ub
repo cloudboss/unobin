@@ -1,0 +1,1 @@
+locals: { endpoint: input.endpoint }

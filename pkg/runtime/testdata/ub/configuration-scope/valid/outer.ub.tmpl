@@ -1,0 +1,4 @@
+inputs: { endpoint: { type: string } }
+imports: { inner: 'example.com/inner' }
+%s: { child: inner.app { endpoint: input.endpoint } }
+outputs: { endpoint: { value: %s.child.endpoint } }

@@ -1,0 +1,12 @@
+inputs: { endpoint: { type: string } }
+imports: { fix: 'example.com/fix', wrapper: 'example.com/wrapper' }
+locals: { config: { endpoint: input.endpoint } }
+library-configs: { fix: local.config }
+%s: {
+  a: wrapper.app { endpoint: 'A' }
+  b: wrapper.app { endpoint: 'B' }
+}
+outputs: {
+  a: { value: %s.a.endpoint }
+  b: { value: %s.b.endpoint }
+}

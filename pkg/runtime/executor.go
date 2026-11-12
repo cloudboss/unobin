@@ -148,19 +148,9 @@ func (e *Executor) stateScope(
 	prior *state.Snapshot,
 	inputs map[string]any,
 ) (*EvalContext, error) {
-	rootAssets, err := e.rootAssetSet()
+	scope, err := e.newEvalScope(nil, inputs)
 	if err != nil {
 		return nil, err
-	}
-	scope := &EvalContext{
-		Inputs:     inputs,
-		Resources:  make(map[string]any),
-		Data:       make(map[string]any),
-		Actions:    make(map[string]any),
-		Libraries:  e.Libraries,
-		Assets:     rootAssets,
-		AssetCache: e.AssetCache,
-		locals:     e.rootLocalScope(),
 	}
 	if prior == nil {
 		return scope, nil
@@ -393,21 +383,12 @@ func (e *Executor) initRun() (*runState, error) {
 	if err != nil {
 		return nil, err
 	}
-	rootAssets, err := e.rootAssetSet()
+	scope, err := e.newEvalScope(nil, e.Inputs)
 	if err != nil {
 		return nil, err
 	}
 	rs := &runState{
-		eval: &EvalContext{
-			Inputs:     e.Inputs,
-			Resources:  make(map[string]any),
-			Data:       make(map[string]any),
-			Actions:    make(map[string]any),
-			Libraries:  e.Libraries,
-			Assets:     rootAssets,
-			AssetCache: e.AssetCache,
-			locals:     e.rootLocalScope(),
-		},
+		eval:             scope,
 		order:            order,
 		outputs:          make(map[string]any),
 		composites:       make(map[string]*EvalContext),
@@ -556,19 +537,9 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 			fmt.Sprintf("composite %s: eval call args", callSite), err,
 		)
 	}
-	assets, err := e.assetSet(boundary.AssetSetID)
+	scope, err := e.newEvalScope(boundary, args)
 	if err != nil {
 		return nil, diagnostic.Context(fmt.Sprintf("composite %s", callSite), err)
-	}
-	scope := &EvalContext{
-		Inputs:     args,
-		Resources:  make(map[string]any),
-		Data:       make(map[string]any),
-		Actions:    make(map[string]any),
-		Libraries:  compositeBodyLibraries(boundary, e.Libraries),
-		Assets:     assets,
-		AssetCache: e.AssetCache,
-		locals:     compositeLocalScope(boundary),
 	}
 	rs.composites[callSite] = scope
 	return scope, nil

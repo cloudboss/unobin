@@ -1,0 +1,6 @@
+inputs: { endpoint: { type: string } }
+imports: { fix: 'example.com/fix' }
+locals: { config: { endpoint: input.endpoint } }
+library-configs: { fix: local.config }
+%s: { this: fix.config-echo {} }
+outputs: { endpoint: { value: %s.this.endpoint } }

@@ -111,23 +111,14 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (result *ExecRes
 				fmt.Errorf("composite %q: not in DAG", step.Address),
 			)
 		}
-		assets, err := e.assetSet(boundary.AssetSetID)
+		scope, err := e.newEvalScope(boundary, step.Inputs)
 		if err != nil {
 			return nil, NewApplyFailure(
 				ApplyFailureSetup,
 				diagnostic.Context(fmt.Sprintf("composite %s", step.Address), err),
 			)
 		}
-		rs.composites[step.Address] = &EvalContext{
-			Inputs:     step.Inputs,
-			Resources:  make(map[string]any),
-			Data:       make(map[string]any),
-			Actions:    make(map[string]any),
-			Libraries:  compositeBodyLibraries(boundary, e.Libraries),
-			Assets:     assets,
-			AssetCache: e.AssetCache,
-			locals:     compositeLocalScope(boundary),
-		}
+		rs.composites[step.Address] = scope
 	}
 
 	if err := e.runApplySchedule(ctx, rs, pf); err != nil {
@@ -215,7 +206,12 @@ func (e *Executor) applyLibraryConfig(rs *runState, step *PlanStep) error {
 
 func (e *Executor) applyConfigNode(rs *runState, step *PlanStep, node *Node) error {
 	rs.mu.Lock()
-	raw, err := evalConfigurationBody(node.Body, rs.eval)
+	scope, err := e.enclosingScope(rs, step.Address)
+	if err != nil {
+		rs.mu.Unlock()
+		return diagnostic.Context(step.Address, err)
+	}
+	raw, err := evalConfigurationBody(node.Body, scope)
 	rs.mu.Unlock()
 	if err != nil {
 		return diagnostic.Context(step.Address, err)

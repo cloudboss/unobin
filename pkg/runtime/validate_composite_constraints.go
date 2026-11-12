@@ -28,21 +28,12 @@ func (e *Executor) ValidateCompositeConstraints() error {
 }
 
 func (e *Executor) compositeValidationState() (*runState, error) {
-	rootAssets, err := e.rootAssetSet()
+	scope, err := e.newEvalScope(nil, e.Inputs)
 	if err != nil {
 		return nil, err
 	}
 	return &runState{
-		eval: &EvalContext{
-			Inputs:     e.Inputs,
-			Resources:  map[string]any{},
-			Data:       map[string]any{},
-			Actions:    map[string]any{},
-			Libraries:  e.Libraries,
-			Assets:     rootAssets,
-			AssetCache: e.AssetCache,
-			locals:     e.rootLocalScope(),
-		},
+		eval:             scope,
 		composites:       map[string]*EvalContext{},
 		forEachInstances: map[string]map[string]any{},
 	}, nil
