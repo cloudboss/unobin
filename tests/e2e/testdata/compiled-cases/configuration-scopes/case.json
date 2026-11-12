@@ -1,0 +1,150 @@
+{
+  "name": "configuration-scopes",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/configuration-scopes",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan",
+      "args": [
+        "plan",
+        "--ascii",
+        "-c",
+        "stacks/dev.ub",
+        "-o",
+        "initial.ubp"
+      ],
+      "stdout": "want/plan.stdout",
+      "stderr": "want/notice.stderr"
+    },
+    {
+      "name": "apply",
+      "args": [
+        "apply",
+        "--format",
+        "json",
+        "initial.ubp"
+      ],
+      "stdout": "want/apply.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "output",
+      "args": [
+        "output",
+        "--format",
+        "json",
+        "-c",
+        "stacks/dev.ub"
+      ],
+      "stdout": "want/output-initial.json",
+      "normalize": "json"
+    },
+    {
+      "name": "refresh",
+      "args": [
+        "refresh",
+        "--format",
+        "json",
+        "-c",
+        "stacks/dev.ub"
+      ],
+      "stdout": "want/refresh.json",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-unchanged",
+      "args": [
+        "plan",
+        "--ascii",
+        "-c",
+        "stacks/dev.ub",
+        "-o",
+        "unchanged.ubp"
+      ],
+      "stdout": "want/plan-unchanged.stdout",
+      "stderr": "want/notice.stderr"
+    },
+    {
+      "name": "apply-unchanged",
+      "args": [
+        "apply",
+        "--format",
+        "json",
+        "unchanged.ubp"
+      ],
+      "stdout": "want/apply-unchanged.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-reduced",
+      "args": [
+        "plan",
+        "--ascii",
+        "-c",
+        "stacks/dev.ub",
+        "-o",
+        "reduced.ubp"
+      ],
+      "env": {
+        "UB_INPUT_names": "{east: 'E-'}"
+      },
+      "stdout": "want/plan-reduced.stdout",
+      "stderr": "want/notice.stderr"
+    },
+    {
+      "name": "apply-reduced",
+      "args": [
+        "apply",
+        "--format",
+        "json",
+        "reduced.ubp"
+      ],
+      "stdout": "want/apply-reduced.stdout",
+      "normalize": "json"
+    },
+    {
+      "name": "output-reduced",
+      "args": [
+        "output",
+        "--format",
+        "json",
+        "-c",
+        "stacks/dev.ub"
+      ],
+      "stdout": "want/output-reduced.json",
+      "normalize": "json"
+    },
+    {
+      "name": "plan-destroy",
+      "args": [
+        "plan",
+        "--ascii",
+        "--destroy",
+        "-c",
+        "stacks/dev.ub",
+        "-o",
+        "destroy.ubp"
+      ],
+      "stdout": "want/plan-destroy.stdout",
+      "stderr": "want/notice.stderr"
+    },
+    {
+      "name": "apply-destroy",
+      "args": [
+        "apply",
+        "--format",
+        "json",
+        "destroy.ubp"
+      ],
+      "stdout": "want/apply-destroy.stdout",
+      "normalize": "json"
+    }
+  ],
+  "absentFiles": [
+    "east/payload.txt",
+    "west/payload.txt",
+    "ROOT/payload.txt"
+  ],
+  "deterministic": true
+}

@@ -197,7 +197,7 @@ func (e *Executor) applyStep(
 }
 
 func (e *Executor) applyLibraryConfig(rs *runState, step *PlanStep) error {
-	node, ok := e.DAG.Nodes[step.Address]
+	node, ok := e.DAG.Nodes[declarationAddress(step.Address)]
 	if !ok {
 		return fmt.Errorf("%s: not in the graph", step.Address)
 	}
@@ -248,7 +248,7 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 		if err := e.decodeInputs(receiver, prep.inputs); err != nil {
 			return err
 		}
-		result, err := at.Run(ctx, receiver, e.configFor(prep.node))
+		result, err := at.Run(ctx, receiver, e.configFor(prep.node, step.Address))
 		if err != nil {
 			return err
 		}
@@ -314,8 +314,8 @@ func (e *Executor) applyResource(
 			"resource %s inputs changed since the plan was computed; plan again\n%s",
 			step.Address, diffFields(planned, applied, step.SensitiveInputs))
 	}
-	cfg := e.configFor(prep.node)
-	configuration := e.configurationInputFor(prep.node)
+	cfg := e.configFor(prep.node, step.Address)
+	configuration := e.configurationInputFor(prep.node, step.Address)
 	if step.DeferredConfig == "" && !sameInputs(step.Configuration, configuration) {
 		return fmt.Errorf(
 			"resource %s configuration changed since the plan was computed; plan again\n%s",
@@ -601,12 +601,12 @@ func (e *Executor) reclassifyResourceApply(
 // node's instances via rs), looks up the bound value for instKey, and
 // returns a child scope with `@each.key` and `@each.value` set.
 func instanceScope(
-	rs *runState, node *Node, parent *EvalContext, instKey string,
+	rs *runState, node *Node, parent *EvalContext, address, instKey string,
 ) (*EvalContext, error) {
 	if instKey == "" {
 		return parent, nil
 	}
-	instances, err := forEachInstancesFor(rs, node.Address, node.ForEach, parent)
+	instances, err := forEachInstancesFor(rs, address, node.ForEach, parent)
 	if err != nil {
 		return nil, err
 	}
@@ -728,7 +728,7 @@ func (e *Executor) prepareStep(rs *runState, addr string) (*stepPrep, error) {
 	if err != nil {
 		return nil, err
 	}
-	scope, err := instanceScope(rs, node, parent, instKey)
+	scope, err := instanceScope(rs, node, parent, tmpl, instKey)
 	if err != nil {
 		return nil, err
 	}
@@ -778,7 +778,7 @@ func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) 
 	if err := e.decodeInputs(receiver, prep.inputs); err != nil {
 		return err
 	}
-	result, err := dt.Read(ctx, receiver, e.configFor(prep.node))
+	result, err := dt.Read(ctx, receiver, e.configFor(prep.node, step.Address))
 	if err != nil {
 		return err
 	}

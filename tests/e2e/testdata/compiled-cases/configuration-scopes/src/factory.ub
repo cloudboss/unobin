@@ -1,0 +1,21 @@
+factory: {
+  inputs: {
+    names: { type: map(string), default: { east: 'E-', west: 'W-' } }
+    prefix: { type: string, default: 'ROOT-' }
+  }
+  imports: {
+    e2e: 'example.com/unobin/e2elib'
+    bundles: './libraries/outer'
+  }
+  library-configs: { e2e: { prefix: input.prefix, base-dir: 'ROOT', nested: { label: 'root' } } }
+  resources: {
+    apps: bundles.bundle {
+      @for-each: input.names
+      prefix: @each.value
+      directory: @each.key
+    }
+  }
+  outputs: {
+    applications: { value: resource.apps }
+  }
+}

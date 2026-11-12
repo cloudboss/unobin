@@ -25,7 +25,7 @@ func (e *Executor) insideForEachComposite(rs *runState, n *Node) bool {
 func (e *Executor) planForEachLeaf(
 	ctx context.Context, rs *runState, n *Node,
 ) ([]*PlanStep, error) {
-	scope, err := e.scopeFor(rs, n)
+	scope, err := e.enclosingScope(rs, n.Address)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (e *Executor) planForEachLeaf(
 func (e *Executor) planForEachComposite(
 	ctx context.Context, rs *runState, boundary *Node,
 ) ([]*PlanStep, error) {
-	parent, err := e.scopeFor(rs, boundary)
+	parent, err := e.enclosingScope(rs, boundary.Address)
 	if err != nil {
 		return nil, err
 	}
@@ -77,9 +77,14 @@ func (e *Executor) planForEachComposite(
 		}
 		for _, internal := range internals {
 			rewritten := rewriteAddress(internal.Address, boundary.Address, instAddr)
-			subSteps, err := e.planInternalUnder(ctx, rs, internal, rewritten, instAddr)
+			subSteps, err := e.planInternalUnder(ctx, rs, internal, rewritten)
 			if err != nil {
 				return nil, diagnostic.Context(fmt.Sprintf("@for-each[%q]", key), err)
+			}
+			for _, step := range subSteps {
+				if err := e.notePlannedStep(rs, step); err != nil {
+					return nil, err
+				}
 			}
 			steps = append(steps, subSteps...)
 		}
@@ -150,11 +155,11 @@ func rewriteAddress(addr, boundary, instAddr string) string {
 // planInternalUnder plans an internal node of a `@for-each`
 // composite at its per-instance address. A leaf's scope comes from
 // the cached per-instance composite scope (built lazily via
-// scopeForAddress when its body is evaluated); a nested boundary
+// enclosingScope when its body is evaluated); a nested boundary
 // builds its own scope, whose Inputs are its call args evaluated
 // against the enclosing instance.
 func (e *Executor) planInternalUnder(
-	ctx context.Context, rs *runState, n *Node, addr, instCallSite string,
+	ctx context.Context, rs *runState, n *Node, addr string,
 ) ([]*PlanStep, error) {
 	if n.IsComposite() {
 		own, err := e.ensureCompositeScope(rs, addr)
@@ -169,12 +174,19 @@ func (e *Executor) planInternalUnder(
 		}
 		return []*PlanStep{newCompositePlanStep(n, addr, own, priorOut)}, nil
 	}
-	scope, err := e.scopeForAddress(rs, addr)
+	scope, err := e.enclosingScope(rs, addr)
 	if err != nil {
 		return nil, err
 	}
 	if scope == nil {
 		return nil, fmt.Errorf("internal %q: no scope", addr)
+	}
+	if n.Category() == NodeLibraryConfig {
+		step, err := e.planConfigNode(rs, n, addr)
+		if err != nil {
+			return nil, err
+		}
+		return []*PlanStep{step}, nil
 	}
 	step, err := e.planOneInstance(ctx, rs, n, scope, addr)
 	if err != nil {

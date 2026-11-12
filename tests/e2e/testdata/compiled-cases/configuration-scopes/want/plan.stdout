@@ -1,0 +1,30 @@
+  (create)  resource.apps['east']  (composite)
+      directory: 'east'
+      prefix: 'E-'
+    (create)  resource.child  (composite)
+        directory: 'east'
+        prefix: 'E-'
+      (rerun)   action.this
+          text: 'hello'
+          upper: false
+      (create)  resource.this
+          content: 'E-'
+          create-parents: true
+          mode: 420
+          path: 'payload.txt'
+  (create)  resource.apps['west']  (composite)
+      directory: 'west'
+      prefix: 'W-'
+    (create)  resource.child  (composite)
+        directory: 'west'
+        prefix: 'W-'
+      (rerun)   action.this
+          text: 'hello'
+          upper: false
+      (create)  resource.this
+          content: 'W-'
+          create-parents: true
+          mode: 420
+          path: 'payload.txt'
+
+Plan: 2 to create, 0 to update, 0 to replace, 0 to destroy, 2 to rerun.

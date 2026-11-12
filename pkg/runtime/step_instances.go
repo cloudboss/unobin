@@ -50,6 +50,13 @@ func indexStepInstances(addresses []string) *stepInstances {
 }
 
 func parseStepAddress(address string) (string, []keyPosition) {
+	if parent := DirectParent(address); parent != "" {
+		local := strings.TrimPrefix(address, parent+"/")
+		if strings.HasPrefix(local, "library-config.") {
+			declaration, keys := parseStepAddress(parent)
+			return joinAddress(declaration, local), keys
+		}
+	}
 	ref, err := stateref.ParseStateRef(address)
 	if err != nil {
 		return address, nil

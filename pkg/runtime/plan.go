@@ -519,21 +519,12 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 				return nil, diagnostic.Context(addr, err)
 			}
 			for _, step := range steps {
-				step.SensitiveInputs = sensitivity.stepSensitiveInputs(node)
-				step.SensitiveOutputs = sensitivity.sensitiveOutputs(node)
-				if !step.Composite {
-					switch step.Kind {
-					case NodeResource, NodeDataSource, NodeAction:
-						if configAddr, pending := e.pendingInternalConfig(node); pending {
-							step.DeferredConfig = configAddr
-						}
-					}
-				}
+				declaration := e.DAG.Nodes[declarationAddress(step.Address)]
+				step.SensitiveInputs = sensitivity.stepSensitiveInputs(declaration)
+				step.SensitiveOutputs = sensitivity.sensitiveOutputs(declaration)
 				plan.Steps = append(plan.Steps, step)
-				tmpl := declarationAddress(step.Address)
-				rs.plannedByDeclaration[tmpl] = append(rs.plannedByDeclaration[tmpl], step)
 				liveAddresses[step.Address] = true
-				if err := e.seedStepAttrs(rs, step); err != nil {
+				if err := e.notePlannedStep(rs, step); err != nil {
 					return nil, diagnostic.Context(step.Address, err)
 				}
 				constraintErrs = append(constraintErrs, e.checkStepConstraints(step)...)
@@ -789,7 +780,7 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 		}
 		switch Category(ent.Category) {
 		case NodeAction:
-			scope, err := e.scopeForAddress(rs, ent.Address)
+			scope, err := e.priorEntryScope(rs, ent.Address)
 			if errors.Is(err, ErrEvalNotFound) {
 				continue
 			}
@@ -806,7 +797,7 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 				seedAddressInstance(scope.Actions, tmpl, instKey, ent.Outputs)
 			}
 		case NodeResource:
-			scope, err := e.scopeForAddress(rs, ent.Address)
+			scope, err := e.priorEntryScope(rs, ent.Address)
 			if errors.Is(err, ErrEvalNotFound) {
 				continue
 			}
@@ -824,6 +815,25 @@ func (e *Executor) seedFromPriorState(rs *runState) error {
 			}
 		}
 	}
+	return nil
+}
+
+func (e *Executor) notePlannedStep(rs *runState, step *PlanStep) error {
+	if rs.plannedAddresses[step.Address] {
+		return nil
+	}
+	if err := e.seedStepAttrs(rs, step); err != nil {
+		return err
+	}
+	if rs.plannedByDeclaration == nil {
+		rs.plannedByDeclaration = map[string][]*PlanStep{}
+	}
+	if rs.plannedAddresses == nil {
+		rs.plannedAddresses = map[string]bool{}
+	}
+	declaration := declarationAddress(step.Address)
+	rs.plannedByDeclaration[declaration] = append(rs.plannedByDeclaration[declaration], step)
+	rs.plannedAddresses[step.Address] = true
 	return nil
 }
 
@@ -848,7 +858,7 @@ func (e *Executor) seedStepAttrs(rs *runState, step *PlanStep) error {
 	default:
 		return nil
 	}
-	scope, err := e.scopeForAddress(rs, step.Address)
+	scope, err := e.enclosingScope(rs, step.Address)
 	if err != nil || scope == nil {
 		return err
 	}
@@ -933,16 +943,8 @@ func knownFields(step *PlanStep, inputs map[string]any) map[string]any {
 	return known
 }
 
-// scopeForAddress returns the scope a state entry belongs to. Entries
-// addressed inside a composite (their address contains `/`) seed the
-// scope of their direct enclosing composite, which is everything up
-// to the last `/`. The callsite may carry a `['key']` suffix when the
-// composite has `@for-each`; ensureCompositeScope builds the
-// per-instance scope from it. When a prior entry's composite has been
-// removed from source, its boundary is not in the DAG, so there is no
-// scope to seed and the entry is skipped (a nil scope tells the
-// caller to move on).
-func (e *Executor) scopeForAddress(rs *runState, addr string) (*EvalContext, error) {
+// Removed instances do not seed values into the live plan's environments.
+func (e *Executor) priorEntryScope(rs *runState, addr string) (*EvalContext, error) {
 	callSite := DirectParent(addr)
 	if callSite == "" {
 		return rs.eval, nil
@@ -950,7 +952,7 @@ func (e *Executor) scopeForAddress(rs *runState, addr string) (*EvalContext, err
 	if _, ok := e.DAG.Nodes[declarationAddress(callSite)]; !ok {
 		return nil, nil
 	}
-	scope, err := e.ensureCompositeScope(rs, callSite)
+	scope, err := e.enclosingScope(rs, addr)
 	if err != nil {
 		if errors.Is(err, ErrInstanceGone) {
 			return nil, nil
@@ -1025,13 +1027,9 @@ func isUpstreamChange(d Decision) bool {
 	return false
 }
 
-func (e *Executor) planLibraryConfig(rs *runState, n *Node) (*PlanStep, error) {
-	return e.planConfigNode(rs, n)
-}
-
-func (e *Executor) planConfigNode(rs *runState, n *Node) (*PlanStep, error) {
-	step := &PlanStep{Address: n.Address, Kind: n.Category(), Decision: DecisionEval}
-	scope, err := e.scopeForAddress(rs, n.Address)
+func (e *Executor) planConfigNode(rs *runState, n *Node, address string) (*PlanStep, error) {
+	step := &PlanStep{Address: address, Kind: n.Category(), Decision: DecisionEval}
+	scope, err := e.enclosingScope(rs, address)
 	if err != nil {
 		return nil, err
 	}
@@ -1040,7 +1038,7 @@ func (e *Executor) planConfigNode(rs *runState, n *Node) (*PlanStep, error) {
 		var unresolved map[string][]string
 		inputs, unresolved, err = planEvalBody(n.Body, scope)
 		if err != nil {
-			return nil, diagnostic.Context(n.Address, err)
+			return nil, diagnostic.Context(address, err)
 		}
 		step.Inputs = inputs
 		if len(unresolved) > 0 {
@@ -1053,21 +1051,21 @@ func (e *Executor) planConfigNode(rs *runState, n *Node) (*PlanStep, error) {
 			return step, nil
 		}
 		if err != nil {
-			return nil, diagnostic.Context(n.Address, err)
+			return nil, diagnostic.Context(address, err)
 		}
 		step.Inputs = inputs
 	}
 	lib, ok := e.librariesFor(n)[n.Alias]
 	if !ok || lib.Configuration == nil {
 		return nil, fmt.Errorf("%s: library %q declares no configuration",
-			n.Address, n.Alias)
+			address, n.Alias)
 	}
 	decoded, err := e.decodeLibraryConfig(lib, inputs)
 	if err != nil {
-		return nil, diagnostic.Context(n.Address, err)
+		return nil, diagnostic.Context(address, err)
 	}
-	e.storeInternalConfiguration(n.Address, decoded)
-	e.storeInternalConfigurationInput(n.Address, inputs)
+	e.storeInternalConfiguration(address, decoded)
+	e.storeInternalConfigurationInput(address, inputs)
 	return step, nil
 }
 
@@ -1077,7 +1075,7 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 	}
 	switch n.Category() {
 	case NodeResource, NodeAction, NodeDataSource:
-		scope, err := e.scopeFor(rs, n)
+		scope, err := e.enclosingScope(rs, n.Address)
 		if err != nil {
 			return nil, err
 		}
@@ -1085,7 +1083,7 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 	case NodeOutput:
 		return &PlanStep{Address: n.Address, Kind: n.Category(), Decision: DecisionEval}, nil
 	case NodeLibraryConfig:
-		return e.planLibraryConfig(rs, n)
+		return e.planConfigNode(rs, n, n.Address)
 	default:
 		return nil, fmt.Errorf("unknown node kind %q", n.Category())
 	}
@@ -1257,7 +1255,7 @@ func (e *Executor) planOneAction(
 		prior.TriggerHash == trigger.Hash {
 		dec = DecisionSkip
 	}
-	return &PlanStep{
+	step := &PlanStep{
 		Address:            addr,
 		Kind:               n.Category(),
 		Binding:            bindingForNode(n),
@@ -1268,7 +1266,11 @@ func (e *Executor) planOneAction(
 		TriggerHash:        trigger.Hash,
 		regeneratesOutputs: dec == DecisionRerun,
 		mayChangeOutputs:   dec == DecisionRerun,
-	}, nil
+	}
+	if config, pending := e.pendingInternalConfig(n, addr); pending {
+		step.DeferredConfig = config
+	}
+	return step, nil
 }
 
 // pendingRead is the per-resource read job queued by planOneResource
@@ -1323,8 +1325,10 @@ func (e *Executor) planOneResource(
 		Inputs:           display,
 		UnresolvedInputs: unresolved,
 	}
-	if _, pending := e.pendingInternalConfig(n); !pending {
-		step.Configuration = e.configurationInputFor(n)
+	if config, pending := e.pendingInternalConfig(n, addr); pending {
+		step.DeferredConfig = config
+	} else {
+		step.Configuration = e.configurationInputFor(n, addr)
 	}
 	if prior == nil {
 		step.Decision = DecisionCreate
@@ -1380,7 +1384,7 @@ func (e *Executor) planOneResource(
 			return nil, err
 		}
 	}
-	configAddr, configPending := e.pendingInternalConfig(n)
+	configAddr, configPending := e.pendingInternalConfig(n, addr)
 	if !implementationChanged {
 		step.PendingReplacementReasons = rt.PendingReplacementReasons(unresolved, configPending)
 	}
@@ -1396,7 +1400,7 @@ func (e *Executor) planOneResource(
 		}
 		reasons, err := rt.KnownReplacementReasons(
 			probe,
-			e.configFor(n),
+			e.configFor(n, addr),
 			resolvedPrior,
 			unresolved,
 			true,
@@ -1417,7 +1421,7 @@ func (e *Executor) planOneResource(
 		setResourceDecision(step, inputsSame)
 		return step, nil
 	}
-	readConfig := e.configFor(n)
+	readConfig := e.configFor(n, addr)
 	if implementationChanged {
 		readConfig, err = e.configForStateAddress(addr, priorAlias)
 		if err != nil {
@@ -1431,7 +1435,7 @@ func (e *Executor) planOneResource(
 		receiver:   probe,
 		alias:      priorAlias,
 		readConfig: readConfig,
-		desiredCfg: e.configFor(n),
+		desiredCfg: e.configFor(n, addr),
 		prior: resourcePrior{
 			Inputs:        priorInputs,
 			Outputs:       migrated.Outputs,
@@ -1751,11 +1755,11 @@ func (e *Executor) planOneData(
 		Inputs:           inputs,
 		UnresolvedInputs: unresolved,
 	}
-	if len(unresolved) > 0 || e.dependsOnChange(rs, n) {
-		return step, nil
-	}
-	if configAddr, pending := e.pendingInternalConfig(n); pending {
+	configAddr, configPending := e.pendingInternalConfig(n, addr)
+	if configPending {
 		step.DeferredConfig = configAddr
+	}
+	if len(unresolved) > 0 || e.dependsOnChange(rs, n) || configPending {
 		return step, nil
 	}
 	dt, err := e.dataRegistration(n)
@@ -1766,7 +1770,7 @@ func (e *Executor) planOneData(
 	if err := e.decodeInputs(receiver, inputs); err != nil {
 		return nil, err
 	}
-	result, err := dt.Read(ctx, receiver, e.configFor(n))
+	result, err := dt.Read(ctx, receiver, e.configFor(n, addr))
 	if err != nil {
 		blameLibrary(err, n.Alias)
 		return nil, diagnostic.Context("read", err)

@@ -149,14 +149,19 @@ func (e *Executor) effectiveParallelism() int {
 	return DefaultParallelism
 }
 
-// pendingInternalConfig reports whether n's alias config has not evaluated
-// this run. Reads gate on it at plan: a consumer must not reach its API with a
-// nil config just because the config expression's own upstream is mid-change.
-func (e *Executor) pendingInternalConfig(n *Node) (string, bool) {
+func (e *Executor) configurationAddress(address, alias string) (string, bool) {
+	owner := DirectParent(address)
+	config := libraryConfigNodeAddress(owner, alias)
 	if e.DAG == nil {
-		return "", false
+		return config, false
 	}
-	addr, ok := libraryConfigNode(e.DAG.Nodes, n.Composite, n.Alias)
+	_, found := libraryConfigNode(e.DAG.Nodes, declarationAddress(owner), alias)
+	return config, found
+}
+
+// Pending configs prevent reads from using incomplete connection settings.
+func (e *Executor) pendingInternalConfig(n *Node, address string) (string, bool) {
+	addr, ok := e.configurationAddress(address, n.Alias)
 	if !ok {
 		return "", false
 	}
@@ -170,22 +175,18 @@ func (e *Executor) pendingInternalConfig(n *Node) (string, bool) {
 // node. A configured alias reads from its evaluated library-config node; an
 // unconfigured alias uses nil for libraries without config or a decoded empty
 // config for empty config schemas.
-func (e *Executor) configFor(n *Node) any {
-	if e.DAG != nil {
-		if addr, ok := libraryConfigNode(e.DAG.Nodes, n.Composite, n.Alias); ok {
-			v, _ := e.internalConfiguration(addr)
-			return v
-		}
+func (e *Executor) configFor(n *Node, address string) any {
+	if addr, ok := e.configurationAddress(address, n.Alias); ok {
+		value, _ := e.internalConfiguration(addr)
+		return value
 	}
 	return emptyDecodedConfig(e.librariesFor(n)[n.Alias])
 }
 
-func (e *Executor) configurationInputFor(n *Node) map[string]any {
-	if e.DAG != nil {
-		if addr, ok := libraryConfigNode(e.DAG.Nodes, n.Composite, n.Alias); ok {
-			value, _ := e.internalConfigurationInput(addr)
-			return value
-		}
+func (e *Executor) configurationInputFor(n *Node, address string) map[string]any {
+	if addr, ok := e.configurationAddress(address, n.Alias); ok {
+		value, _ := e.internalConfigurationInput(addr)
+		return value
 	}
 	return mapify(emptyDecodedConfig(e.librariesFor(n)[n.Alias]))
 }
@@ -202,7 +203,7 @@ func emptyDecodedConfig(lib *Library) any {
 }
 
 func (e *Executor) configForStateAddress(addr, alias string) (any, error) {
-	configAddr := libraryConfigNodeAddress(DirectParent(addr), alias)
+	configAddr, declared := e.configurationAddress(addr, alias)
 	if value, ok := e.internalConfiguration(configAddr); ok {
 		return value, nil
 	}
@@ -210,13 +211,8 @@ func (e *Executor) configForStateAddress(addr, alias string) (any, error) {
 		return value, nil
 	}
 	e.internalMu.Lock()
-	declared := e.priorConfigurationBindings[configAddr]
+	declared = declared || e.priorConfigurationBindings[configAddr]
 	e.internalMu.Unlock()
-	if e.DAG != nil {
-		scope := declarationAddress(DirectParent(addr))
-		_, current := libraryConfigNode(e.DAG.Nodes, scope, alias)
-		declared = declared || current
-	}
 	if declared {
 		return nil, fmt.Errorf("library config %s could not be evaluated", configAddr)
 	}
@@ -257,11 +253,7 @@ type runState struct {
 	// hold sibling outputs as the internals complete.
 	composites map[string]*EvalContext
 
-	// forEachInstances memoizes each `@for-each` node's evaluated
-	// iterable by template address, so sibling instances share one
-	// evaluation per run. Sound because the iterable's references are
-	// dependencies of every instance: their values settle before the
-	// first instance needs them and cannot change within the run.
+	// Sibling keys reuse an iterable within one enclosing instance.
 	forEachInstances map[string]map[string]any
 
 	// pendingReads queues per-resource Read calls collected during
@@ -275,6 +267,7 @@ type runState struct {
 	// so a node's upstreams are always indexed before it plans. Apply
 	// and Refresh leave this nil.
 	plannedByDeclaration map[string][]*PlanStep
+	plannedAddresses     map[string]bool
 
 	// dependsOn maps each persisted step address to the addresses of
 	// the other entries it depends on, in instance form. ApplyPlan
@@ -348,17 +341,6 @@ func (e *Executor) assetSet(id string) (*asset.Set, error) {
 		return nil, fmt.Errorf("asset set %q: not found in asset catalog", id)
 	}
 	return set, nil
-}
-
-// scopeFor returns the EvalContext n's body should be evaluated
-// against. Root scope for nodes outside a composite, the composite's
-// own scope otherwise. The composite scope's Inputs carry the call site
-// args and its Resources/Data/Actions hold sibling outputs.
-func (e *Executor) scopeFor(rs *runState, n *Node) (*EvalContext, error) {
-	if n.Composite == "" {
-		return rs.eval, nil
-	}
-	return e.ensureCompositeScope(rs, n.Composite)
 }
 
 // librariesFor returns the import table the runtime should resolve n's
@@ -492,10 +474,8 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 // leaf instance addresses (`<y>['k']`) both reduce to their
 // template form.
 func declarationAddress(addr string) string {
-	if declaration, ok := entryDeclarationAddress(addr); ok {
-		return declaration
-	}
-	return addr
+	declaration, _ := parseStepAddress(addr)
+	return declaration
 }
 
 // DirectParent returns addr's parent state-ref segment path, or the
@@ -671,9 +651,7 @@ func (e *Executor) finalizeComposite(
 	return nil
 }
 
-// forEachInstancesFor returns a `@for-each` node's evaluated iterable,
-// memoized in rs by template address so every instance of the node
-// shares one evaluation per run.
+// Each iterable is cached by declaration within its enclosing instance.
 func forEachInstancesFor(
 	rs *runState, address string, expr lang.Expr, scope *EvalContext,
 ) (map[string]any, error) {

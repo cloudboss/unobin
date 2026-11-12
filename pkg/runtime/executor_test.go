@@ -1154,7 +1154,7 @@ func TestConfigForUsesLibraryConfigNode(t *testing.T) {
 		configNode.Address: configNode,
 	}}}
 	e.storeInternalConfiguration(configNode.Address, "decoded-cfg")
-	require.Equal(t, "decoded-cfg", e.configFor(leaf))
+	require.Equal(t, "decoded-cfg", e.configFor(leaf, leaf.Address))
 }
 
 func TestConfigForEmptyConfigSynthesizesValue(t *testing.T) {
@@ -1169,7 +1169,7 @@ func TestConfigForEmptyConfigSynthesizesValue(t *testing.T) {
 			},
 		},
 	}
-	require.IsType(t, &struct{}{}, e.configFor(leaf))
+	require.IsType(t, &struct{}{}, e.configFor(leaf, leaf.Address))
 }
 
 func TestConfigForNoConfigReturnsNil(t *testing.T) {
@@ -1178,7 +1178,7 @@ func TestConfigForNoConfigReturnsNil(t *testing.T) {
 		DAG:       &DAG{Nodes: map[string]*Node{leaf.Address: leaf}},
 		Libraries: map[string]*Library{"aws": {}},
 	}
-	require.Nil(t, e.configFor(leaf))
+	require.Nil(t, e.configFor(leaf, leaf.Address))
 }
 
 func TestExecutorPropagatesSkippedOutputs(t *testing.T) {

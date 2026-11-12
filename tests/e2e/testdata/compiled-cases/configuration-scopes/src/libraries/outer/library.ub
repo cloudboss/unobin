@@ -1,0 +1,11 @@
+bundle: resource {
+  inputs: {
+    directory: { type: string }
+    prefix: { type: string }
+  }
+  imports: { inner: '../inner' }
+  resources: {
+    child: inner.bundle { directory: input.directory, prefix: input.prefix }
+  }
+  outputs: { result: { value: resource.child.result } }
+}

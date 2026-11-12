@@ -1,0 +1,20 @@
+bundle: resource {
+  inputs: {
+    directory: { type: string }
+    prefix: { type: string }
+  }
+  imports: { e2e: 'example.com/unobin/e2elib' }
+  library-configs: {
+    e2e: { base-dir: input.directory, prefix: input.prefix, nested: { label: 'child' } }
+  }
+  resources: {
+    this: e2e.file { path: 'payload.txt', content: input.prefix }
+  }
+  data-sources: {
+    this: e2e.read-file { @depends-on: [resource.this], path: 'payload.txt' }
+  }
+  actions: { this: e2e.echo { text: 'hello' } }
+  outputs: {
+    result: { value: { content: data-source.this.content, prefixed: action.this.prefixed } }
+  }
+}

@@ -51,14 +51,6 @@ func splitEntryKey(address string) (baseAddress string, key string, ok bool) {
 	return baseAddress, key, ok
 }
 
-func entryDeclarationAddress(address string) (string, bool) {
-	declaration, err := stateref.DeclarationAddress(address)
-	if err != nil {
-		return "", false
-	}
-	return declaration, true
-}
-
 func entryParent(address string) (string, bool) {
 	parent, err := stateref.Parent(address)
 	if err != nil {

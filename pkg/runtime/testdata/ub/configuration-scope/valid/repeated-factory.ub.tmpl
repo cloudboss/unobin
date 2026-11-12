@@ -1,0 +1,8 @@
+inputs: { endpoints: { type: map(string) } }
+imports: { wrapper: 'example.com/wrapper' }
+%s: {
+  apps: wrapper.app {
+    @for-each: input.endpoints
+    endpoint: @each.value
+  }
+}
