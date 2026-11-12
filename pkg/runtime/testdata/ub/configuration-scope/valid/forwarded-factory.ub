@@ -1,0 +1,3 @@
+inputs: { endpoint: { type: string } }
+imports: { wrapper: 'example.com/wrapper' }
+resources: { a: wrapper.app { endpoint: input.endpoint } }

@@ -1,0 +1,8 @@
+inputs: { endpoint: { type: string } }
+imports: { base: 'example.com/base', fix: 'example.com/fix' }
+library-configs: { fix: { endpoint: resource.config.value } }
+resources: {
+  config: base.echo { value: input.endpoint }
+  this: fix.config-echo {}
+}
+outputs: { endpoint: { value: resource.this.endpoint } }

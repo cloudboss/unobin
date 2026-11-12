@@ -94,6 +94,8 @@ type Executor struct {
 	// orphan reads all operate on objects the last apply recorded, so
 	// they use the configuration those objects were written with.
 	priorInternalConfigurations map[string]any
+	priorConfigurationBindings  map[string]bool
+	priorScopeLibraries         map[string]map[string]*Library
 }
 
 // storeInternalConfiguration records the decoded value of an internal
@@ -137,100 +139,6 @@ func (e *Executor) priorInternalConfiguration(addr string) (any, bool) {
 	defer e.internalMu.Unlock()
 	v, ok := e.priorInternalConfigurations[addr]
 	return v, ok
-}
-
-// stateScope builds an evaluation context whose resource, data-source,
-// and action values come from a prior snapshot, for evaluating internal
-// configurations against what the last apply recorded. Only root
-// entries seed it: configurations are defined at the factory root and
-// cannot reference composite internals.
-func (e *Executor) stateScope(
-	prior *state.Snapshot,
-	inputs map[string]any,
-) (*EvalContext, error) {
-	scope, err := e.newEvalScope(nil, inputs)
-	if err != nil {
-		return nil, err
-	}
-	if prior == nil {
-		return scope, nil
-	}
-	for _, ent := range prior.Entries {
-		if DirectParent(ent.Address) != "" {
-			continue
-		}
-		tmpl, instKey := splitInstanceAddress(ent.Address)
-		kind, _, _, _, ok := parseAddress(tmpl)
-		if !ok {
-			parts, found := addressParts(tmpl)
-			if !found {
-				continue
-			}
-			kind = Category(parts[0])
-		}
-		target := scopeMapForCategory(scope, Category(kind))
-		if target == nil {
-			continue
-		}
-		attrs := mergeAttrs(ent.Inputs, ent.Outputs)
-		if instKey == "" {
-			seedAddress(target, tmpl, attrs)
-		} else {
-			seedAddressInstance(target, tmpl, instKey, attrs)
-		}
-	}
-	return scope, nil
-}
-
-// seedPriorInternalConfigurations evaluates every internal
-// configuration against the prior snapshot and keeps the decoded
-// values for the state-entry paths. A configuration whose sources are
-// not all in state is skipped: a consumer that needs it sees a nil
-// configuration, the same as an operator-side name that was never
-// supplied. Live consumers never read these values; the plan walk and
-// apply evaluate their own.
-func (e *Executor) seedPriorInternalConfigurations(
-	prior *state.Snapshot, inputs map[string]any,
-) error {
-	if prior == nil || e.DAG == nil {
-		return nil
-	}
-	var scope *EvalContext
-	for _, n := range e.DAG.Nodes {
-		if n.Category() != NodeLibraryConfig {
-			continue
-		}
-		if scope == nil {
-			var err error
-			scope, err = e.stateScope(prior, inputs)
-			if err != nil {
-				return err
-			}
-		}
-		raw, err := evalConfigurationBody(n.Body, scope)
-		if err != nil {
-			if errors.Is(err, ErrEvalNotFound) {
-				continue
-			}
-			return diagnostic.Context(n.Address, err)
-		}
-		lib, ok := e.librariesFor(n)[n.Alias]
-		if !ok || lib.Configuration == nil {
-			return fmt.Errorf("%s: library %q declares no configuration",
-				n.Address, n.Alias)
-		}
-		decoded, err := e.decodeLibraryConfig(lib, raw)
-		if err != nil {
-			return diagnostic.Context(n.Address, err)
-		}
-		e.internalMu.Lock()
-		if e.priorInternalConfigurations == nil {
-			e.priorInternalConfigurations = map[string]any{}
-		}
-		e.priorInternalConfigurations[n.Address] = decoded
-		e.internalMu.Unlock()
-	}
-	return nil
 }
 
 // effectiveParallelism returns the in-flight cap apply should honor.
@@ -294,18 +202,23 @@ func emptyDecodedConfig(lib *Library) any {
 }
 
 func (e *Executor) configForStateAddress(addr, alias string) (any, error) {
+	configAddr := libraryConfigNodeAddress(DirectParent(addr), alias)
+	if value, ok := e.internalConfiguration(configAddr); ok {
+		return value, nil
+	}
+	if value, ok := e.priorInternalConfiguration(configAddr); ok {
+		return value, nil
+	}
+	e.internalMu.Lock()
+	declared := e.priorConfigurationBindings[configAddr]
+	e.internalMu.Unlock()
 	if e.DAG != nil {
 		scope := declarationAddress(DirectParent(addr))
-		if configAddr, ok := libraryConfigNode(e.DAG.Nodes, scope, alias); ok {
-			if v, ok := e.internalConfiguration(configAddr); ok {
-				return v, nil
-			}
-			if v, ok := e.priorInternalConfiguration(configAddr); ok {
-				return v, nil
-			}
-			return nil, fmt.Errorf(
-				"library config %s could not be evaluated", configAddr)
-		}
+		_, current := libraryConfigNode(e.DAG.Nodes, scope, alias)
+		declared = declared || current
+	}
+	if declared {
+		return nil, fmt.Errorf("library config %s could not be evaluated", configAddr)
 	}
 	return emptyDecodedConfig(e.librariesForAddress(addr)[alias]), nil
 }
@@ -328,8 +241,10 @@ type runState struct {
 	next          *state.Snapshot
 	planning      bool
 
-	priorEntries *snapshotEntries
-	nextEntries  *snapshotEntries
+	priorEntries  *snapshotEntries
+	nextEntries   *snapshotEntries
+	scopeSnapshot *snapshotEntries
+	scopeChildren map[string][]*state.Entry
 
 	// order is the DAG's topological order, computed once per run.
 	// Plan's walk and per-instance composite expansion both follow it.
@@ -383,6 +298,13 @@ func (e *Executor) initRun() (*runState, error) {
 	if err != nil {
 		return nil, err
 	}
+	e.internalMu.Lock()
+	e.internalConfigurations = nil
+	e.internalConfigurationInputs = nil
+	e.priorInternalConfigurations = nil
+	e.priorConfigurationBindings = nil
+	e.priorScopeLibraries = nil
+	e.internalMu.Unlock()
 	scope, err := e.newEvalScope(nil, e.Inputs)
 	if err != nil {
 		return nil, err
@@ -479,6 +401,12 @@ func (e *Executor) librariesForAddress(addr string) map[string]*Library {
 		if boundary, ok := e.DAG.Nodes[declarationAddress(parent)]; ok && boundary.Libraries != nil {
 			return boundary.Libraries
 		}
+		e.internalMu.Lock()
+		libraries := e.priorScopeLibraries[parent]
+		e.internalMu.Unlock()
+		if libraries != nil {
+			return libraries
+		}
 	}
 	return e.Libraries
 }
@@ -501,15 +429,28 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 	if scope, ok := rs.composites[callSite]; ok {
 		return scope, nil
 	}
-	boundary, ok := e.DAG.Nodes[declarationAddress(callSite)]
-	if !ok {
-		return nil, fmt.Errorf("composite %s: boundary node not in DAG", callSite)
-	}
 	parent, err := e.enclosingScope(rs, callSite)
 	if err != nil {
 		return nil, diagnostic.Context(
 			fmt.Sprintf("composite %s: build parent scope", callSite), err,
 		)
+	}
+	boundary, err := e.scopeBoundary(rs, callSite, parent)
+	if err != nil {
+		return nil, err
+	}
+	if rs.scopeSnapshot != nil {
+		args, err := e.stateScopeInputs(rs, boundary, callSite, parent)
+		if err != nil {
+			return nil, diagnostic.Context(fmt.Sprintf("composite %s", callSite), err)
+		}
+		scope, err := e.newEvalScope(boundary, args)
+		if err != nil {
+			return nil, err
+		}
+		seedScopeEntries(scope, rs.scopeChildren[callSite])
+		rs.composites[callSite] = scope
+		return scope, nil
 	}
 	setAddr, instKey := splitInstanceAddress(callSite)
 	bodyScope := parent
