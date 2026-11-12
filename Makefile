@@ -27,7 +27,7 @@ DIR_STG = $(DIR_OUT)/staging/unobin/$(VERSION)/$(OS)/$(ARCH)
 DIR_RELEASE ?= $(DIR_OUT)/release
 
 CTR_IMAGE_GO = ghcr.io/cloudboss/docker.io/library/golang:1.26.2-trixie
-CTR_IMAGE_GOLANGCI = ghcr.io/cloudboss/golangci/golangci-lint:v2.11.4-alpine
+CTR_IMAGE_GOLANGCI = ghcr.io/cloudboss/docker.io/golangci/golangci-lint:v2.11.4-alpine
 OS ?= $(shell uname -s | tr '[:upper:]' '[:lower:]')
 HOST_ARCH := $(shell uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')
 ARCH ?= $(HOST_ARCH)
