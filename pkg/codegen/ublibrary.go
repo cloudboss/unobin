@@ -509,14 +509,12 @@ func {{.FuncName}}(start, end int) parse.Span {
 {{- if .LibraryConfigSchemas}}
 				LibraryConfigSchemas: {{.LibraryConfigSchemas}},
 {{- end}}
-{{- if .Libraries}}
 				Libraries: map[string]*runtime.Library{
 {{range .Libraries}}					{{quote .LocalAlias}}: runtime.LibraryWithPath(
 						{{.Value}},
 						{{quote .Path}},
 					),
 {{end}}				},
-{{- end}}
 			},
 {{end}}		},
 {{end}}	}

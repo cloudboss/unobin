@@ -52,16 +52,6 @@ func nodeCanNeedLibraryConfig(n *Node) bool {
 	}
 }
 
-func librariesForNode(dag *DAG, root map[string]*Library, n *Node) map[string]*Library {
-	if n == nil || n.Composite == "" || dag == nil {
-		return root
-	}
-	if boundary, ok := dag.Nodes[n.Composite]; ok && boundary.Libraries != nil {
-		return boundary.Libraries
-	}
-	return root
-}
-
 func libraryNeedsConfig(lib *Library) bool {
 	if lib == nil {
 		return false

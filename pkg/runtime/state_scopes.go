@@ -89,7 +89,6 @@ func (e *Executor) scopeBoundary(
 		Libraries:           composite.Libraries,
 		AssetSetID:          composite.AssetSetID,
 	}
-	boundary.Libraries = compositeBodyLibraries(boundary, parent.Libraries)
 	return boundary, nil
 }
 

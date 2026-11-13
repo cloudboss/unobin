@@ -343,54 +343,26 @@ func (e *Executor) assetSet(id string) (*asset.Set, error) {
 	return set, nil
 }
 
-// librariesFor returns the import table the runtime should resolve n's
-// library alias against. Top-level nodes use the executor's root
-// Libraries; composite-internal nodes use their boundary's Libraries so a
-// composite stays self-contained. Falls back to e.Libraries when a
-// composite has no Libraries populated, preserving backward
-// compatibility for direct test construction.
+// librariesFor resolves imports only in the node's enclosing body.
 func (e *Executor) librariesFor(n *Node) map[string]*Library {
-	if n.Composite == "" {
-		return e.Libraries
-	}
-	if boundary, ok := e.DAG.Nodes[n.Composite]; ok && boundary.Libraries != nil {
-		return boundary.Libraries
-	}
-	return e.Libraries
+	return librariesForNode(e.DAG, e.Libraries, n)
 }
 
-// compositeBodyLibraries returns the import table the composite's own
-// body (internals and outputs) should resolve aliases against. The
-// boundary node carries the composite's Libraries; an unset table falls
-// back to the executor's root for test compositions that don't set it.
-func compositeBodyLibraries(boundary *Node, fallback map[string]*Library) map[string]*Library {
-	if boundary.Libraries != nil {
-		return boundary.Libraries
-	}
-	return fallback
-}
-
-// librariesForAddress is the orphan-path equivalent of librariesFor: it
-// resolves the import table for a state-only address whose source node
-// has been removed. The direct parent call site (everything up to the
-// last `/`) is consulted in the DAG; if its boundary is still present,
-// its Libraries are used. Otherwise the executor's root Libraries is
-// returned, which works whenever the parent composite type is still
-// imported at the stack root.
+// librariesForAddress uses the current enclosing body or its reconstructed
+// prior-state imports. Only root addresses use the executor's root imports.
 func (e *Executor) librariesForAddress(addr string) map[string]*Library {
 	parent := DirectParent(addr)
-	if parent != "" {
-		if boundary, ok := e.DAG.Nodes[declarationAddress(parent)]; ok && boundary.Libraries != nil {
+	if parent == "" {
+		return e.Libraries
+	}
+	if e.DAG != nil {
+		if boundary := e.DAG.Nodes[declarationAddress(parent)]; boundary != nil {
 			return boundary.Libraries
 		}
-		e.internalMu.Lock()
-		libraries := e.priorScopeLibraries[parent]
-		e.internalMu.Unlock()
-		if libraries != nil {
-			return libraries
-		}
 	}
-	return e.Libraries
+	e.internalMu.Lock()
+	defer e.internalMu.Unlock()
+	return e.priorScopeLibraries[parent]
 }
 
 // enclosingScope returns the scope enclosing a step or call-site

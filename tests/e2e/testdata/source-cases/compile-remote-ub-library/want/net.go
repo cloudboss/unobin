@@ -27,6 +27,7 @@ func Library() *runtime.Library {
 				Name:       "cluster",
 				Kind:       runtime.NodeResource,
 				SyntaxBody: &syntax.FactoryBody{S: sp0(18, 124), Description: &lang.StringLit{S: sp0(35, 0), Value: "a cluster"}, Resources: []syntax.NodeDecl{{S: sp0(62, 120), Kind: syntax.NodeKind("resource"), Name: syntax.Ident{S: sp0(62, 0), Name: "x"}, Selector: syntax.NodeSelector{S: sp0(65, 75), Alias: syntax.Ident{S: sp0(65, 70), Name: "local"}, Export: syntax.Ident{S: sp0(71, 75), Name: "file"}}, Body: &lang.ObjectLit{S: sp0(76, 120), Fields: []*lang.Field{{S: sp0(78, 0), Key: lang.FieldKey{S: sp0(78, 0), Kind: lang.FieldIdent, Name: "path"}, Value: &lang.StringLit{S: sp0(84, 0), Value: "/tmp/x"}}, {S: sp0(94, 0), Key: lang.FieldKey{S: sp0(94, 0), Kind: lang.FieldIdent, Name: "content"}, Value: &lang.StringLit{S: sp0(103, 0), Value: "hi"}}, {S: sp0(109, 0), Key: lang.FieldKey{S: sp0(109, 0), Kind: lang.FieldIdent, Name: "mode"}, Value: &lang.NumberLit{S: sp0(115, 0), Value: "420", ParsedInt: 420}}}}}}},
+				Libraries:  map[string]*runtime.Library{},
 			},
 		},
 	}

@@ -169,6 +169,7 @@ func TestRefreshUpdatesCompositeInternalLeaf(t *testing.T) {
 	compositeBody := syntaxResourceComposite(t, "box", refreshFixture(t, "composite-box"))
 	var c resourceCounters
 	libs := resourceModules(&c)
+	compositeBody.Libraries = map[string]*Library{"core": libs["core"]}
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{

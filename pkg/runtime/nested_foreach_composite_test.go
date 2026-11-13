@@ -34,6 +34,8 @@ func TestForEachCompositeCallingComposite(t *testing.T) {
 			},
 		},
 	}
+	inner.Libraries = map[string]*Library{"core": libs["core"]}
+	outer.Libraries = map[string]*Library{"w": libs["w"]}
 	src := ubtest.ReadValidFixture(t, "testdata/ub/nested-foreach-composite", "resource-call")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -99,6 +101,7 @@ func TestForEachCompositeCallingDataComposite(t *testing.T) {
 			},
 		},
 	}
+	outer.Libraries = map[string]*Library{"core": libs["core"], "w": libs["w"]}
 	src := ubtest.ReadValidFixture(t, "testdata/ub/nested-foreach-composite", "data-call")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}

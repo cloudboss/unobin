@@ -880,6 +880,7 @@ func TestDestroyComposite(t *testing.T) {
 	rec := &deleteOrder{}
 	libs := orderModules(rec)
 	composite := syntaxResourceComposite(t, "box", applyPlanFixture(t, "destroy-composite-1"))
+	composite.Libraries = map[string]*Library{"core": libs["core"]}
 	libs["w"] = &Library{
 		Name:               "w",
 		ResourceComposites: map[string]*CompositeType{"box": composite},
@@ -935,6 +936,7 @@ func TestDestroyClearsActionAndLibraryCallRecords(t *testing.T) {
 	compositeBody := syntaxResourceComposite(t, "box",
 		applyPlanFixture(t, "destroy-clears-action-and-library-call-records-1"))
 	libs := testModules()
+	compositeBody.Libraries = map[string]*Library{"core": libs["core"]}
 	libs["w"] = &Library{
 		Name:               "w",
 		ResourceComposites: map[string]*CompositeType{"box": compositeBody},
@@ -1399,6 +1401,7 @@ func TestApplyPlanComposite(t *testing.T) {
 	composite := syntaxResourceComposite(t, "box", applyPlanFixture(t, "apply-plan-composite-1"))
 	var c resourceCounters
 	libs := resourceModules(&c)
+	composite.Libraries = map[string]*Library{"core": libs["core"]}
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{
@@ -1455,6 +1458,8 @@ func TestApplyPlanNestedComposite(t *testing.T) {
 			"cluster": clusterBody,
 		},
 	}
+	clusterBody.Libraries = map[string]*Library{"core": libs["core"]}
+	layerBody.Libraries = map[string]*Library{"inner-lib": libs["inner-lib"]}
 	src := applyPlanFixture(t, "apply-plan-nested-composite-3")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -1498,6 +1503,7 @@ func TestApplyPlanCompositeOrphan(t *testing.T) {
 		applyPlanFixture(t, "apply-plan-composite-orphan-1"))
 	var c resourceCounters
 	libs := resourceModules(&c)
+	composite.Libraries = map[string]*Library{"core": libs["core"]}
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{
@@ -1564,6 +1570,7 @@ func TestApplyPlanCompositeWithRootVarArgs(t *testing.T) {
 		applyPlanFixture(t, "apply-plan-composite-with-root-input-args-1"))
 	var c resourceCounters
 	libs := resourceModules(&c)
+	composite.Libraries = map[string]*Library{"core": libs["core"]}
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{
@@ -1611,6 +1618,7 @@ func TestApplyPlanCompositeUpdateInPlace(t *testing.T) {
 		applyPlanFixture(t, "apply-plan-composite-update-in-place-1"))
 	var c resourceCounters
 	libs := resourceModules(&c)
+	composite.Libraries = map[string]*Library{"core": libs["core"]}
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{

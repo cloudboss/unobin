@@ -83,8 +83,8 @@ type FunctionType struct {
 // keyed by the alias declared in the body's `imports:` block. The
 // runtime looks up composite-internal nodes against this table, not
 // the stack root's, so a composite can be reused without the caller
-// importing every library it transitively uses. A nil Libraries uses
-// the executor's root Libraries table.
+// importing every library it transitively uses. A nil or empty Libraries
+// table makes no imports available inside the composite.
 type CompositeType struct {
 	Name                 string
 	Kind                 Category

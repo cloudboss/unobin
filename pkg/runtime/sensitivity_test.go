@@ -77,6 +77,19 @@ func TestSensitivityRecognizesSensitiveGoInput(t *testing.T) {
 		"a reader of a sensitive input is masked, the same as a sensitive output")
 }
 
+func TestCompositeSensitivityDoesNotUseRootImports(t *testing.T) {
+	composite := syntaxResourceComposite(t, "box", sensitivityFixture(t, "composite-go-field-box"))
+	libs := map[string]*Library{
+		"wrap": {ResourceComposites: map[string]*CompositeType{"box": composite}},
+		"vault": {Schema: &LibrarySchema{Resources: map[string]*TypeSchema{
+			"secret": {SensitiveOutputs: []string{"value"}},
+		}}},
+	}
+	dag, analyzer := syntaxSensitivity(t, sensitivityFixture(t, "composite-go-field-call"), libs)
+	outputs := analyzer.compositeSensitivity(dag.Nodes["resource.one"]).outputs
+	require.Empty(t, outputs)
+}
+
 func TestSensitivityRecognizesNonSensitiveGoOutput(t *testing.T) {
 	libs := map[string]*Library{
 		"vault": {

@@ -134,11 +134,30 @@ func TestExtractSyntaxNodesMatchesNestedCompositeDAG(t *testing.T) {
 		},
 	}
 
+	libs["outer"].ResourceComposites["layer"].Libraries = map[string]*Library{"inner": libs["inner"]}
 	got := BuildSyntaxDAG(fixture.body, libs)
 	require.Contains(t, got.Nodes, "resource.seed")
 	require.Contains(t, got.Nodes, "resource.app")
 	require.Contains(t, got.Nodes, "resource.app/resource.only")
 	require.Contains(t, got.Nodes, "resource.app/resource.only/resource.file")
+}
+
+func TestCompositeWithoutImportsDoesNotExpandCallerKinds(t *testing.T) {
+	outerBody := parseSyntaxCompositeFixture(t, nodeFixture(t, "nested-dag-layer"))
+	innerBody := parseSyntaxCompositeFixture(t, nodeFixture(t, "nested-dag-cluster"))
+	outer := &CompositeType{Name: "layer", SyntaxBody: &outerBody.body}
+	inner := &CompositeType{Name: "cluster", SyntaxBody: &innerBody.body}
+	libs := map[string]*Library{
+		"outer": {ResourceComposites: map[string]*CompositeType{"layer": outer}},
+		"inner": {ResourceComposites: map[string]*CompositeType{"cluster": inner}},
+	}
+	fixture := parseSyntaxFactoryFixture(t, nodeFixture(t, "nested-dag-factory"))
+	dag := BuildSyntaxDAG(fixture.body, libs)
+	child := dag.Nodes["resource.app/resource.only"]
+	require.NotNil(t, child)
+	require.False(t, child.IsComposite())
+	require.NotContains(t, dag.Nodes, "resource.app/resource.only/resource.file")
+	require.Empty(t, dag.Nodes["resource.app"].Libraries)
 }
 
 func TestExtractSyntaxNodesUsesCompositeSyntaxBody(t *testing.T) {
@@ -259,6 +278,7 @@ func TestExtractNodesNestedComposite(t *testing.T) {
 			},
 		},
 	}
+	layerBody.Libraries = map[string]*Library{"inner-lib": libs["inner-lib"]}
 	src := nodeFixture(t, "nested-extract-call")
 	got := extractSyntaxTestNodes(t, src, libs)
 

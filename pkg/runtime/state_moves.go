@@ -381,7 +381,7 @@ func migrateMovedEntry(
 	if err != nil {
 		return err
 	}
-	lib, ok := entryMoveLibrariesForNode(n, dag, libs)[n.Alias]
+	lib, ok := librariesForNode(dag, libs, n)[n.Alias]
 	if !ok {
 		return fmt.Errorf("library %q is not imported", n.Alias)
 	}
@@ -398,13 +398,4 @@ func migrateMovedEntry(
 	ent.Outputs = migrated.Outputs
 	ent.SchemaVersion = rt.SchemaVersion()
 	return nil
-}
-
-func entryMoveLibrariesForNode(n *Node, dag *DAG, libs map[string]*Library) map[string]*Library {
-	if n != nil && n.Composite != "" && dag != nil {
-		if boundary := dag.Nodes[n.Composite]; boundary != nil && boundary.Libraries != nil {
-			return boundary.Libraries
-		}
-	}
-	return libs
 }

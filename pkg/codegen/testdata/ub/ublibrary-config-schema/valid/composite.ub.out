@@ -25,6 +25,7 @@ func Library() *runtime.Library {
 						{Kind: "predicate", Require: "input.region != ''"},
 					}, Identity: "aws-config-v1", Digest: "digest"},
 				},
+				Libraries: map[string]*runtime.Library{},
 			},
 		},
 	}

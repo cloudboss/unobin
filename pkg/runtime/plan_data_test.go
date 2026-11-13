@@ -576,6 +576,7 @@ func TestDataDefersWhenDependsOnCompositeChanges(t *testing.T) {
 	value := "a"
 	var reads int64
 	libs := dataPlanModules(&value, &reads)
+	composite.Libraries = map[string]*Library{"core": libs["core"]}
 	libs["core"].Resources["versioned"] = MakeResource[
 		versionedResource,
 		*versionedResourceOutput,

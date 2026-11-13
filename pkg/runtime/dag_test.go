@@ -227,6 +227,7 @@ func TestBuildDAGNestedComposite(t *testing.T) {
 			},
 		},
 	}
+	layerBody.Libraries = map[string]*Library{"inner-lib": libs["inner-lib"]}
 	g := syntaxDAG(t, dagFixture(t, "build-dag-nested-composite-3"), libs)
 
 	outerAddr := "resource.mine"

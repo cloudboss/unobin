@@ -213,15 +213,14 @@ func (s *sensitivityAnalyzer) primitiveTypeSchema(n *Node) *TypeSchema {
 // import alias. Root nodes use the analyzer's rootMods; nodes
 // inside a composite use the call-site boundary's Libraries.
 func (s *sensitivityAnalyzer) libsForNode(n *Node) (map[string]*Library, *Node) {
-	if n.Composite == "" || s.dag == nil {
+	if n.Composite == "" {
 		return s.rootMods, nil
 	}
-	tmpl, _ := splitInstanceAddress(n.Composite)
-	boundary, ok := s.dag.Nodes[tmpl]
-	if !ok || boundary.Libraries == nil {
-		return s.rootMods, boundary
+	if s.dag == nil {
+		return nil, nil
 	}
-	return boundary.Libraries, boundary
+	boundary := s.dag.Nodes[declarationAddress(n.Composite)]
+	return librariesForNode(s.dag, s.rootMods, n), boundary
 }
 
 // scopeFor returns the sensitive-inputs set and libraries table to
@@ -229,23 +228,23 @@ func (s *sensitivityAnalyzer) libsForNode(n *Node) (map[string]*Library, *Node) 
 // composite call site. The root scope returns the analyzer's
 // rootInputs and rootMods.
 func (s *sensitivityAnalyzer) scopeFor(compositeAddr string) *sensScope {
-	if compositeAddr == "" || s.dag == nil {
+	if compositeAddr == "" {
 		return newSensScope(s.rootInputs, s.rootMods, s.rootLocals, s.dagNodes(), "")
 	}
-	tmpl, _ := splitInstanceAddress(compositeAddr)
+	tmpl := declarationAddress(compositeAddr)
+	if s.dag == nil {
+		return newSensScope(nil, nil, nil, nil, tmpl)
+	}
 	boundary, ok := s.dag.Nodes[tmpl]
 	if !ok {
-		return newSensScope(s.rootInputs, s.rootMods, s.rootLocals, s.dagNodes(), "")
+		return newSensScope(nil, nil, nil, s.dagNodes(), tmpl)
 	}
 	cs := s.compositeSensitivity(boundary)
 	if cs == nil {
-		return newSensScope(s.rootInputs, s.rootMods, s.rootLocals, s.dagNodes(), "")
+		return newSensScope(nil, boundary.Libraries, nil, s.dagNodes(), tmpl)
 	}
-	libs := boundary.Libraries
-	if libs == nil {
-		libs = s.rootMods
-	}
-	return newSensScope(cs.inputs, libs, compositeLocalExprs(boundary), s.dagNodes(), tmpl)
+	return newSensScope(cs.inputs, boundary.Libraries,
+		compositeLocalExprs(boundary), s.dagNodes(), tmpl)
 }
 
 func (s *sensitivityAnalyzer) dagNodes() map[string]*Node {
@@ -265,12 +264,8 @@ func (s *sensitivityAnalyzer) compositeSensitivity(boundary *Node) *compositeSen
 	if boundary == nil {
 		return nil
 	}
-	libs := boundary.Libraries
-	if libs == nil {
-		libs = s.rootMods
-	}
 	return s.syntaxCompositeSensitivity(
-		boundary.CompositeSyntaxBody, libs, s.dagNodes(), boundary.Address)
+		boundary.CompositeSyntaxBody, boundary.Libraries, s.dagNodes(), boundary.Address)
 }
 
 func (s *sensitivityAnalyzer) syntaxCompositeSensitivity(
@@ -391,14 +386,7 @@ func (s *sensitivityAnalyzer) nodeFieldSensitive(
 		cs := s.compositeSensitivity(n)
 		return cs != nil && cs.outputs[field]
 	}
-	lib := libs[n.Alias]
-	if lib == nil {
-		lib = n.Libraries[n.Alias]
-	}
-	if lib == nil {
-		lib = s.rootMods[n.Alias]
-	}
-	return s.libraryFieldSensitive(lib, root, n.Export(), field)
+	return s.libraryFieldSensitive(libs[n.Alias], root, n.Export(), field)
 }
 
 func (s *sensitivityAnalyzer) libraryFieldSensitive(
@@ -485,11 +473,7 @@ func (s *sensitivityAnalyzer) compositeTypeOutputs(ct *CompositeType) map[string
 	if ct == nil {
 		return nil
 	}
-	libs := ct.Libraries
-	if libs == nil {
-		libs = s.rootMods
-	}
-	cs := s.syntaxCompositeSensitivity(ct.SyntaxBody, libs, nil, "")
+	cs := s.syntaxCompositeSensitivity(ct.SyntaxBody, ct.Libraries, nil, "")
 	if cs == nil {
 		return nil
 	}

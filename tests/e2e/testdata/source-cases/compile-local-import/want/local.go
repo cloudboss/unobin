@@ -27,6 +27,7 @@ func Library() *runtime.Library {
 				Name:       "message",
 				Kind:       runtime.NodeDataSource,
 				SyntaxBody: &syntax.FactoryBody{S: sp0(21, 61), Outputs: []syntax.OutputDecl{{S: sp0(36, 0), Name: syntax.Ident{S: sp0(36, 0), Name: "text"}, Body: &lang.ObjectLit{S: sp0(42, 57), Fields: []*lang.Field{{S: sp0(44, 0), Key: lang.FieldKey{S: sp0(44, 0), Kind: lang.FieldIdent, Name: "value"}, Value: &lang.StringLit{S: sp0(51, 0), Value: "hi"}}}}}}},
+				Libraries:  map[string]*runtime.Library{},
 			},
 		},
 	}

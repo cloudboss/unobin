@@ -128,7 +128,7 @@ func extractSyntaxCategory(
 		addr := composeNameAddress(parent, category, name)
 		if composite := lookupComposite(libs, alias, category, export); composite != nil {
 			out = append(out, expandSyntaxComposite(addr, parent,
-				alias, libraryPath, export, name, category, decl.Body, composite, libs)...)
+				alias, libraryPath, export, name, category, decl.Body, composite)...)
 			continue
 		}
 		node := &Node{
@@ -242,12 +242,7 @@ func lookupComposite(
 }
 
 func expandSyntaxComposite(callSiteAddr, parent, alias, libraryPath, export, name string,
-	category Category, args lang.Expr, composite *CompositeType,
-	fallMods map[string]*Library) []*Node {
-	scopeMods := composite.Libraries
-	if scopeMods == nil {
-		scopeMods = fallMods
-	}
+	category Category, args lang.Expr, composite *CompositeType) []*Node {
 	out := []*Node{{
 		Address:              callSiteAddr,
 		Kind:                 category,
@@ -259,11 +254,11 @@ func expandSyntaxComposite(callSiteAddr, parent, alias, libraryPath, export, nam
 		Composite:            parent,
 		CompositeSyntaxBody:  composite.SyntaxBody,
 		AssetSetID:           composite.AssetSetID,
-		Libraries:            scopeMods,
+		Libraries:            composite.Libraries,
 		LibraryConfigSchemas: composite.LibraryConfigSchemas,
 		ForEach:              extractForEach(args),
 	}}
-	out = append(out, extractSyntaxNodes(*composite.SyntaxBody, callSiteAddr, scopeMods)...)
+	out = append(out, extractSyntaxNodes(*composite.SyntaxBody, callSiteAddr, composite.Libraries)...)
 	return out
 }
 

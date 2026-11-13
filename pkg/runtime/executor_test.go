@@ -549,6 +549,7 @@ func TestExecutorRunsComposite(t *testing.T) {
 	composite := syntaxResourceComposite(t, "box", executorFixture(t, "executor-runs-composite-1"))
 	var c resourceCounters
 	libs := resourceModules(&c)
+	composite.Libraries = map[string]*Library{"core": libs["core"]}
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{
@@ -593,6 +594,7 @@ func TestExecutorAppliesDataComposite(t *testing.T) {
 	composite := syntaxComposite(t, "box", NodeDataSource,
 		executorFixture(t, "executor-applies-data-composite-1"))
 	libs := testModules()
+	composite.Libraries = map[string]*Library{"core": libs["core"]}
 	libs["w"] = &Library{
 		Name: "w",
 		DataComposites: map[string]*CompositeType{
@@ -632,6 +634,7 @@ func TestExecutorAppliesActionComposite(t *testing.T) {
 	composite := syntaxComposite(t, "greet", NodeAction,
 		executorFixture(t, "executor-applies-action-composite-1"))
 	libs := testModules()
+	composite.Libraries = map[string]*Library{"core": libs["core"]}
 	libs["ops"] = &Library{
 		Name: "ops",
 		ActionComposites: map[string]*CompositeType{
@@ -807,6 +810,8 @@ func TestExecutorRunsNestedComposite(t *testing.T) {
 			"cluster": clusterBody,
 		},
 	}
+	clusterBody.Libraries = map[string]*Library{"core": libs["core"]}
+	layerBody.Libraries = map[string]*Library{"inner-lib": libs["inner-lib"]}
 	src := executorFixture(t, "executor-runs-nested-composite-3")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -867,6 +872,8 @@ func TestExecutorNestedCompositeEncapsulation(t *testing.T) {
 			"cluster": clusterBody,
 		},
 	}
+	clusterBody.Libraries = map[string]*Library{"core": libs["core"]}
+	layerBody.Libraries = map[string]*Library{"inner-lib": libs["inner-lib"]}
 
 	t.Run("only published outputs cross the boundary", func(t *testing.T) {
 		src := executorFixture(t, "executor-nested-composite-encapsulation-3")
@@ -914,6 +921,7 @@ func TestExecutorCompositeInternalDataAndAction(t *testing.T) {
 	composite := syntaxResourceComposite(t, "box",
 		executorFixture(t, "executor-composite-internal-data-and-action-1"))
 	libs := testModules()
+	composite.Libraries = map[string]*Library{"core": libs["core"]}
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{

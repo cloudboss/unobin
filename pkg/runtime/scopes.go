@@ -1,5 +1,17 @@
 package runtime
 
+func librariesForNode(dag *DAG, root map[string]*Library, n *Node) map[string]*Library {
+	if n == nil || n.Composite == "" {
+		return root
+	}
+	if dag != nil {
+		if boundary := dag.Nodes[declarationAddress(n.Composite)]; boundary != nil {
+			return boundary.Libraries
+		}
+	}
+	return nil
+}
+
 func (e *Executor) newEvalScope(
 	boundary *Node, inputs map[string]any,
 ) (*EvalContext, error) {
@@ -8,7 +20,7 @@ func (e *Executor) newEvalScope(
 	locals := e.rootLocalExprs()
 	if boundary != nil {
 		setID = boundary.AssetSetID
-		libraries = compositeBodyLibraries(boundary, e.Libraries)
+		libraries = boundary.Libraries
 		locals = compositeLocalExprs(boundary)
 	}
 	assets, err := e.assetSet(setID)

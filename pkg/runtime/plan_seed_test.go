@@ -254,6 +254,7 @@ func TestCompositeOutputsSeedAtPlan(t *testing.T) {
 			},
 		},
 	}
+	composite.Libraries = map[string]*Library{"core": libs["core"]}
 	src := ubtest.ReadValidFixture(t, "testdata/ub/plan-seed", "composite-output-seed")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -299,6 +300,7 @@ func TestCompositeOutputPendingWhenInternalReplaces(t *testing.T) {
 			},
 		},
 	}
+	composite.Libraries = map[string]*Library{"core": libs["core"]}
 	src := ubtest.ReadValidFixture(t, "testdata/ub/plan-seed", "composite-pending")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
@@ -386,6 +388,7 @@ func TestForEachCompositeOutputsSeedAtPlan(t *testing.T) {
 			},
 		},
 	}
+	composite.Libraries = map[string]*Library{"core": libs["core"]}
 	src := ubtest.ReadValidFixture(t, "testdata/ub/plan-seed", "foreach-composite-output")
 	store := newStateStore(t)
 	stack := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}

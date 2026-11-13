@@ -253,6 +253,10 @@ func TestApplyReconcilesNestedForEachOutputs(t *testing.T) {
 			"outer": syntaxResourceComposite(t, "outer", fixture("outer")),
 		},
 	}
+	libraries["nested"].ResourceComposites["inner"].Libraries =
+		map[string]*Library{"core": libraries["core"]}
+	libraries["nested"].ResourceComposites["outer"].Libraries =
+		map[string]*Library{"nested": libraries["nested"]}
 	store := newStateStore(t)
 	factory := state.FactoryInfo{Name: "test-stack", Version: "v0", ContentRevision: "c0"}
 	executor := applyPlanTestExecutor(t, fixture("for-each"), libraries, store, factory)

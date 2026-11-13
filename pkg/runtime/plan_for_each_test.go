@@ -38,6 +38,7 @@ func TestForEachCompositeIterableEvaluatesOncePerRun(t *testing.T) {
 		ubtest.ReadValidFixture(t, "testdata/ub/plan-for-each", "composite-body"))
 	var evals int64
 	libs := countingInstancesLibrary(&evals)
+	inner.Libraries = map[string]*Library{"core": libs["core"]}
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{

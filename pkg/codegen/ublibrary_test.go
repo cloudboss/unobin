@@ -373,6 +373,15 @@ func TestGenerateUBLibraryEmitsPerCompositeLibraries(t *testing.T) {
 	require.Contains(t, s, `"github.com/cloudboss/unobin/pkg/libraries/local",`)
 }
 
+func TestGenerateUBLibraryEmitsEmptyCompositeImports(t *testing.T) {
+	body := parseSyntaxUB(t, "data-source", "label", readUBLibraryBody(t, "empty-imports"))
+	out, err := GenerateUBLibrary("labels", map[string]map[string]syntax.FactoryBody{
+		"data-source": {"label": body},
+	}, nil, nil)
+	require.NoError(t, err)
+	require.Regexp(t, `Libraries:\s+map\[string\]\*runtime.Library\{\},`, string(out))
+}
+
 func TestGenerateUBLibrarySharesIdentForSamePath(t *testing.T) {
 	bodies := map[string]syntax.FactoryBody{
 		"alpha": parseSyntaxUB(t, "resource", "alpha", "description: 'a'"),

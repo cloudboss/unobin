@@ -601,6 +601,7 @@ func planCompositeConstraintErr(t *testing.T, inputs, constraints, callArgs stri
 		"resources",
 	))
 	libs := resourceModules(&resourceCounters{})
+	composite.Libraries = map[string]*Library{"core": libs["core"]}
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{
@@ -871,6 +872,7 @@ func TestPlanComposite(t *testing.T) {
 	composite := syntaxResourceComposite(t, "pair", planFixture(t, "plan-composite-1"))
 	var c resourceCounters
 	libs := resourceModules(&c)
+	composite.Libraries = map[string]*Library{"core": libs["core"]}
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{
@@ -902,6 +904,7 @@ func TestPlanCompositeInternalActionSkipsAfterRun(t *testing.T) {
 	composite := syntaxResourceComposite(t, "box",
 		planFixture(t, "plan-composite-internal-action-skips-after-run-1"))
 	libs := testModules()
+	composite.Libraries = map[string]*Library{"core": libs["core"]}
 	libs["w"] = &Library{
 		Name: "w",
 		ResourceComposites: map[string]*CompositeType{
