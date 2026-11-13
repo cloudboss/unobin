@@ -63,6 +63,8 @@ Each composite kind has a lexical scope. Its inputs, imports, library configs, l
 
 Every invocation has its own environment, including each `@for-each` instance. Nested composites resolve names through their own imports and declarations. A resource, data source, and action can use the same name because their categories are separate namespaces.
 
+A composite can use only its own declared imports. A body with no imports has no access to the caller's library aliases.
+
 A Go-library configuration belongs to an import alias in the containing factory or composite instance. Resources, data sources, and actions under that alias use its configuration binding. Two aliases can have different configurations for the same library. The same alias in a different composite instance has a separate binding.
 
 A UB library groups exported kinds. Each kind accepts configuration through its declared inputs. In this example, `example.com/cloud` is a placeholder Go library:

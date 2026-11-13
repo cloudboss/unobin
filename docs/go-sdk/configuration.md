@@ -2,6 +2,10 @@
 
 A Go library can declare configuration that applies to every node under an import alias.
 
+The runtime decodes a configuration object for each import alias in a factory or composite invocation. Resources, data sources, and actions under that alias share the object. Separate aliases and composite invocations have independent bindings. The configuration's `New` function must return a fresh instance on every call.
+
+Treat configuration passed to library callbacks as read-only, including nested maps, slices, and pointers. Callbacks can run concurrently. Keep mutable operation data in local variables or on the node's receiver. Create a private copy before changing configuration values.
+
 ```go
 type Configuration struct {
     Region      string
