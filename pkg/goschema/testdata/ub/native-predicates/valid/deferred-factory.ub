@@ -1,0 +1,9 @@
+factory: {
+  inputs: { labels: { type: map(string) } }
+  resources: {
+    x: lib.thing {
+      expected: 'same'
+      labels:   input.labels
+    }
+  }
+}

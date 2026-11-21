@@ -78,6 +78,14 @@ func TestCoreFunctionSet(t *testing.T) {
 	number := typecheck.TNumber()
 	boolean := typecheck.TBoolean()
 	expected := map[string]typecheck.FuncSig{
+		"matches": {
+			Params: []typecheck.Type{typecheck.TOptional(str), str}, Result: boolean,
+		},
+		"is-regex":             {Params: []typecheck.Type{typecheck.TOptional(str)}, Result: boolean},
+		"is-ip":                {Params: []typecheck.Type{typecheck.TOptional(str)}, Result: boolean},
+		"is-cidr":              {Params: []typecheck.Type{typecheck.TOptional(str)}, Result: boolean},
+		"is-base64":            {Params: []typecheck.Type{typecheck.TOptional(str)}, Result: boolean},
+		"is-positive-duration": {Params: []typecheck.Type{typecheck.TOptional(str)}, Result: boolean},
 		"all": {
 			Params: []typecheck.Type{typecheck.TList(boolean)},
 			Result: boolean,
