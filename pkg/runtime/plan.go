@@ -527,7 +527,9 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 				if err := e.notePlannedStep(rs, step); err != nil {
 					return nil, diagnostic.Context(step.Address, err)
 				}
-				constraintErrs = append(constraintErrs, e.checkStepConstraints(step)...)
+				for _, err := range e.checkStepConstraints(step, step.Inputs, step.UnresolvedInputs) {
+					constraintErrs = append(constraintErrs, fmt.Errorf("%s: %v", step.Address, err))
+				}
 				constraintErrs = append(constraintErrs, e.checkCompositeConstraints(rs, step)...)
 			}
 		}
@@ -1090,14 +1092,16 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 }
 
 // checkStepConstraints validates a leaf node's evaluated args against its
-// Go type's constraints, returning one error per violation prefixed with
-// the node address. Each rule runs as soon as every field it reads
-// resolved at plan, so a forward-reference arg (unknown until apply)
+// Go type's constraints, returning one error per violation.
+// Each rule runs as soon as every field it reads
+// has resolved, so a forward-reference arg (unknown until apply)
 // never causes a false violation: only the rules that read a pending
 // field wait for apply. A missing optional arg evaluates to null in a
 // predicate rather than erroring. Composite boundaries and types that
 // declare no constraint contribute nothing.
-func (e *Executor) checkStepConstraints(step *PlanStep) []error {
+func (e *Executor) checkStepConstraints(
+	step *PlanStep, inputs map[string]any, unresolved map[string][]string,
+) []error {
 	if step.Composite {
 		return nil
 	}
@@ -1119,13 +1123,13 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 	if len(specs) == 0 {
 		return nil
 	}
-	deferred := make(map[string]bool, len(step.UnresolvedInputs))
-	for name := range step.UnresolvedInputs {
+	deferred := make(map[string]bool, len(unresolved))
+	for name := range unresolved {
 		deferred[name] = true
 	}
 	entries, perr := lang.ParseSpecs(specs)
-	values := make(map[string]any, len(step.Inputs))
-	maps.Copy(values, step.Inputs)
+	values := make(map[string]any, len(inputs))
+	maps.Copy(values, inputs)
 	eval := func(ex lang.Expr, binds []lang.EachBinding) (any, error) {
 		ctx := &EvalContext{Inputs: values, MissingAsNull: true}
 		ApplyBindings(ctx, binds)
@@ -1137,7 +1141,7 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 	}
 	var out []error
 	for _, er := range perr.Errors() {
-		out = append(out, fmt.Errorf("%s: %v", step.Address, er))
+		out = append(out, er)
 	}
 	for i, c := range entries {
 		if c.ReadsAny(deferred) {
@@ -1145,7 +1149,7 @@ func (e *Executor) checkStepConstraints(step *PlanStep) []error {
 		}
 		checked := lang.CheckConstraintEntry(i, c, values, eval, lang.DisplayNodeRelative)
 		for _, er := range checked.Errors() {
-			out = append(out, fmt.Errorf("%s: %v", step.Address, er))
+			out = append(out, er)
 		}
 	}
 	return out

@@ -1,0 +1,336 @@
+package runtime
+
+import (
+	"context"
+	"strings"
+	"sync/atomic"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/cloudboss/unobin/internal/ubtest"
+	"github.com/cloudboss/unobin/pkg/lang"
+	"github.com/cloudboss/unobin/pkg/sdk/state"
+)
+
+type applyConstraintItem struct {
+	Name string
+}
+
+type applyConstraintSeed struct {
+	Echo  string
+	Count int64
+	runs  *int64
+}
+
+func (a *applyConstraintSeed) Run(_ context.Context, _ any) (any, error) {
+	atomic.AddInt64(a.runs, 1)
+	return map[string]any{"value": a.Echo, "size": a.Count}, nil
+}
+
+type applyConstraintData struct {
+	Key   string
+	Items []applyConstraintItem
+	reads *int64
+}
+
+func (d *applyConstraintData) Read(_ context.Context, _ any) (any, error) {
+	atomic.AddInt64(d.reads, 1)
+	return map[string]any{"value": d.Key}, nil
+}
+
+func applyConstraintFixture(t testing.TB, name string) string {
+	t.Helper()
+	return ubtest.ReadValidFixture(t, "testdata/ub/apply-constraints", name)
+}
+
+func applyConstraintLibrary(
+	c *resourceCounters, seedRuns, actionRuns, dataReads *int64,
+) map[string]*Library {
+	definition := countingResourceDefinition()
+	definition.Replace.Fields = []AnyInputField[countingResource]{
+		InputField(func(input *countingResource) *int64 { return &input.Size }),
+	}
+	return map[string]*Library{
+		"core": {
+			Name: "core",
+			Resources: map[string]ResourceRegistration{
+				"thing": MakeResourceWith[countingResource, *countingResourceOutput, any](
+					definition,
+					func() *countingResource { return &countingResource{counters: c} },
+				),
+			},
+			Actions: map[string]ActionRegistration{
+				"seed": MakeActionWith[applyConstraintSeed, any, any](
+					func() *applyConstraintSeed { return &applyConstraintSeed{runs: seedRuns} },
+				),
+				"consume": MakeActionWith[countedAction, any, any](
+					func() *countedAction { return &countedAction{runs: actionRuns} },
+				),
+			},
+			DataSources: map[string]DataSourceRegistration{
+				"lookup": MakeDataSourceWith[applyConstraintData, any, any](
+					func() *applyConstraintData { return &applyConstraintData{reads: dataReads} },
+				),
+			},
+			Constraints: map[string][]lang.ConstraintSpec{
+				"resource.thing":     {predSpec("true", "input.name == 'good'")},
+				"action.consume":     {predSpec("true", "input.echo == 'good'")},
+				"data-source.lookup": {predSpec("true", "input.key == 'good'")},
+			},
+		},
+	}
+}
+
+func savedConstraintPlan(t *testing.T, exec *Executor) *PlanFile {
+	t.Helper()
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	encoded, err := EncodePlan(plan)
+	require.NoError(t, err)
+	pf, err := DecodePlan(encoded)
+	require.NoError(t, err)
+	return pf
+}
+
+func TestApplyDeferredInputConstraints(t *testing.T) {
+	for _, kind := range []string{"resource", "data-source", "action"} {
+		for _, valid := range []bool{false, true} {
+			name := kind + "/invalid"
+			value := "bad"
+			if valid {
+				name = kind + "/valid"
+				value = "good"
+			}
+			t.Run(name, func(t *testing.T) {
+				c := &resourceCounters{}
+				var seedRuns, actionRuns, dataReads int64
+				libs := applyConstraintLibrary(c, &seedRuns, &actionRuns, &dataReads)
+				exec := planTestExecutor(t, applyConstraintFixture(t, "deferred-"+kind),
+					libs, newStateStore(t), state.FactoryInfo{})
+				exec.Inputs = map[string]any{"value": value, "size": int64(1)}
+				pf := savedConstraintPlan(t, exec)
+				require.Empty(t, seedRuns)
+				require.Empty(t, dataReads)
+				_, err := exec.ApplyPlan(context.Background(), pf)
+				if valid {
+					require.NoError(t, err)
+					calls := map[string]int64{
+						"resource": c.creates, "data-source": dataReads, "action": actionRuns,
+					}
+					require.EqualValues(t, 1, calls[kind])
+				} else {
+					require.ErrorContains(t, err,
+						kind+".consumer: schema: constraints[0] (predicate)")
+					require.Equal(t, 1, strings.Count(err.Error(), kind+".consumer"))
+					require.Zero(t, c.creates)
+					require.Zero(t, actionRuns)
+					require.Zero(t, dataReads)
+				}
+				require.EqualValues(t, 1, seedRuns)
+			})
+		}
+	}
+}
+
+func TestApplyDeferredResourceConstraintsBeforeMutation(t *testing.T) {
+	for _, decision := range []Decision{DecisionUpdate, DecisionReplace} {
+		t.Run(string(decision), func(t *testing.T) {
+			c := &resourceCounters{}
+			var seedRuns, actionRuns, dataReads int64
+			libs := applyConstraintLibrary(c, &seedRuns, &actionRuns, &dataReads)
+			store := newStateStore(t)
+			initial := planTestExecutor(t, applyConstraintFixture(t, "settled-resource"),
+				libs, store, state.FactoryInfo{})
+			initial.Inputs = map[string]any{"value": "good", "size": int64(1)}
+			applyOnce(t, initial)
+			exec := planTestExecutor(t, applyConstraintFixture(t, "deferred-resource"),
+				libs, store, state.FactoryInfo{})
+			size := int64(1)
+			if decision == DecisionReplace {
+				size = 2
+			}
+			exec.Inputs = map[string]any{"value": "bad", "size": size}
+			pf := savedConstraintPlan(t, exec)
+			for _, step := range pf.Steps {
+				if step.Address == "resource.consumer" {
+					require.Equal(t, decision, step.Decision)
+				}
+			}
+			_, err := exec.ApplyPlan(context.Background(), pf)
+			require.ErrorContains(t, err, "resource.consumer: schema: constraints[0] (predicate)")
+			require.EqualValues(t, 1, c.creates)
+			require.Zero(t, c.updates)
+			require.Zero(t, c.deletes)
+			snapshot, err := store.Current()
+			require.NoError(t, err)
+			require.Equal(t, "good", snapshot.Find("resource.consumer").Inputs["name"])
+		})
+	}
+}
+
+func TestApplySavedNoOpInputConstraints(t *testing.T) {
+	c := &resourceCounters{}
+	var seedRuns, actionRuns, dataReads int64
+	libs := applyConstraintLibrary(c, &seedRuns, &actionRuns, &dataReads)
+	exec := planTestExecutor(t, applyConstraintFixture(t, "settled-resource"),
+		libs, newStateStore(t), state.FactoryInfo{})
+	exec.Inputs = map[string]any{"value": "good", "size": int64(1)}
+	applyOnce(t, exec)
+	pf := savedConstraintPlan(t, exec)
+	require.Equal(t, DecisionNoOp, pf.Steps[0].Decision)
+	libs["core"].Constraints["resource.thing"] = []lang.ConstraintSpec{
+		predSpec("true", "input.name == 'changed-contract'"),
+	}
+	_, err := exec.ApplyPlan(context.Background(), pf)
+	require.ErrorContains(t, err, "resource.consumer: schema: constraints[0] (predicate)")
+	require.EqualValues(t, 1, c.creates)
+	require.Zero(t, c.updates)
+	require.Zero(t, c.deletes)
+}
+
+func TestApplyPendingReplacementInputConstraints(t *testing.T) {
+	c := &resourceCounters{}
+	var seedRuns, actionRuns, dataReads int64
+	libs := applyConstraintLibrary(c, &seedRuns, &actionRuns, &dataReads)
+	libs["core"].Constraints["resource.thing"] = []lang.ConstraintSpec{
+		predSpec("true", "input.size == 1"),
+	}
+	store := newStateStore(t)
+	initial := planTestExecutor(t, applyConstraintFixture(t, "settled-resource"),
+		libs, store, state.FactoryInfo{})
+	initial.Inputs = map[string]any{"value": "good", "size": int64(1)}
+	applyOnce(t, initial)
+	exec := planTestExecutor(t, applyConstraintFixture(t, "pending-replacement"),
+		libs, store, state.FactoryInfo{})
+	exec.Inputs = map[string]any{"size": int64(2)}
+	pf := savedConstraintPlan(t, exec)
+	var consumer *PlanStep
+	for i := range pf.Steps {
+		if pf.Steps[i].Address == "resource.consumer" {
+			consumer = &pf.Steps[i]
+			break
+		}
+	}
+	require.NotNil(t, consumer)
+	require.Equal(t, map[string][]string{"size": {"action.seed.size"}},
+		consumer.UnresolvedInputs)
+	require.Equal(t, []string{"size"}, consumer.PendingReplacementReasons)
+	require.Contains(t, consumer.AllowedDecisions, DecisionReplace)
+	require.Empty(t, consumer.ReplacementReasons)
+	decision := consumer.Decision
+	reads := c.reads
+	_, err := exec.ApplyPlan(context.Background(), pf)
+	require.ErrorContains(t, err, "resource.consumer: schema: constraints[0] (predicate)")
+	require.Equal(t, decision, consumer.Decision)
+	require.Empty(t, consumer.ReplacementReasons)
+	require.Equal(t, reads, c.reads)
+	require.EqualValues(t, 1, seedRuns)
+	require.EqualValues(t, 1, c.creates)
+	require.Zero(t, c.updates)
+	require.Zero(t, c.deletes)
+	snapshot, err := store.Current()
+	require.NoError(t, err)
+	require.EqualValues(t, 1, snapshot.Find("resource.consumer").Inputs["size"])
+}
+
+func TestApplyInputConstraintsSeeDefaults(t *testing.T) {
+	for _, value := range []string{"good", "bad"} {
+		t.Run(value, func(t *testing.T) {
+			c := &resourceCounters{}
+			var seedRuns, actionRuns, dataReads int64
+			libs := applyConstraintLibrary(c, &seedRuns, &actionRuns, &dataReads)
+			libs["core"].Defaults = map[string][]lang.DefaultSpec{
+				"resource.thing": {{Field: "input.size", Value: "7"}},
+			}
+			libs["core"].Constraints["resource.thing"] = []lang.ConstraintSpec{
+				predSpec("true", "input.name == 'good' && input.size == 7"),
+			}
+			store := newStateStore(t)
+			exec := planTestExecutor(t, applyConstraintFixture(t, "deferred-default"),
+				libs, store, state.FactoryInfo{})
+			exec.Inputs = map[string]any{"value": value}
+			pf := savedConstraintPlan(t, exec)
+			_, err := exec.ApplyPlan(context.Background(), pf)
+			if value == "bad" {
+				require.ErrorContains(t, err,
+					"resource.consumer: schema: constraints[0] (predicate)")
+				require.Zero(t, c.creates)
+				return
+			}
+			require.NoError(t, err)
+			require.EqualValues(t, 1, c.creates)
+			snapshot, err := store.Current()
+			require.NoError(t, err)
+			require.EqualValues(t, 7, snapshot.Find("resource.consumer").Inputs["size"])
+		})
+	}
+}
+
+func TestDestroyIgnoresHistoricalInputConstraints(t *testing.T) {
+	c := &resourceCounters{}
+	var seedRuns, actionRuns, dataReads int64
+	libs := applyConstraintLibrary(c, &seedRuns, &actionRuns, &dataReads)
+	exec := planTestExecutor(t, applyConstraintFixture(t, "settled-resource"),
+		libs, newStateStore(t), state.FactoryInfo{})
+	exec.Inputs = map[string]any{"value": "good", "size": int64(1)}
+	applyOnce(t, exec)
+	libs["core"].Constraints["resource.thing"] = []lang.ConstraintSpec{
+		predSpec("true", "false"),
+	}
+	exec.Destroy = true
+	applyOnce(t, exec)
+	require.EqualValues(t, 1, c.deletes)
+}
+
+func TestApplyNestedForEachInputConstraints(t *testing.T) {
+	for _, value := range []string{"bad", "good"} {
+		t.Run(value, func(t *testing.T) {
+			c := &resourceCounters{}
+			var seedRuns, actionRuns, dataReads int64
+			libs := applyConstraintLibrary(c, &seedRuns, &actionRuns, &dataReads)
+			libs["core"].Constraints["data-source.lookup"] = []lang.ConstraintSpec{{
+				Kind: "predicate", When: "true", Require: "@each.value.name == 'good'",
+				ForEach: "input.items", Message: "item name must be good",
+			}}
+			libs["w"] = &Library{
+				Name: "w",
+				ResourceComposites: map[string]*CompositeType{
+					"box": syntaxResourceComposite(t, "box",
+						applyConstraintFixture(t, "nested-body")),
+				},
+			}
+			exec := planTestExecutor(t, applyConstraintFixture(t, "nested-call"),
+				libs, newStateStore(t), state.FactoryInfo{})
+			exec.Inputs = map[string]any{"value": value}
+			pf := savedConstraintPlan(t, exec)
+			_, err := exec.ApplyPlan(context.Background(), pf)
+			if value == "good" {
+				require.NoError(t, err)
+				require.EqualValues(t, 1, dataReads)
+			} else {
+				require.ErrorContains(t, err, "resource.box['east']/data-source.consumer")
+				require.ErrorContains(t, err, "item name must be good (items[1])")
+				require.Zero(t, dataReads)
+			}
+			require.EqualValues(t, 1, seedRuns)
+		})
+	}
+}
+
+func TestPlanChecksKnownRulesWithDeferredInputs(t *testing.T) {
+	c := &resourceCounters{}
+	var seedRuns, actionRuns, dataReads int64
+	libs := applyConstraintLibrary(c, &seedRuns, &actionRuns, &dataReads)
+	libs["core"].Constraints["resource.thing"] = append(
+		libs["core"].Constraints["resource.thing"], predSpec("true", "input.size > 0"),
+	)
+	exec := planTestExecutor(t, applyConstraintFixture(t, "deferred-resource"),
+		libs, newStateStore(t), state.FactoryInfo{})
+	exec.Inputs = map[string]any{"value": "bad", "size": int64(0)}
+	_, err := exec.Plan(context.Background())
+	require.ErrorContains(t, err, "resource.consumer: schema: constraints[1] (predicate)")
+	require.NotContains(t, err.Error(), "constraints[0]")
+	require.Zero(t, seedRuns)
+	require.Zero(t, c.creates)
+}

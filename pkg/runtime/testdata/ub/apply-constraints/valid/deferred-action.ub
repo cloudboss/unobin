@@ -1,0 +1,8 @@
+actions: {
+  seed: core.seed {
+    echo: input.value
+  }
+  consumer: core.consume {
+    echo: action.seed.value
+  }
+}

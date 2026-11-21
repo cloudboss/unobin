@@ -1,0 +1,6 @@
+resources: {
+  consumer: core.thing {
+    name: input.value
+    size: input.size
+  }
+}
