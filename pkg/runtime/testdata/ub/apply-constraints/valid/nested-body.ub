@@ -1,0 +1,14 @@
+inputs: {
+  value: { type: string }
+}
+actions: {
+  seed: core.seed {
+    echo: input.value
+  }
+}
+data-sources: {
+  consumer: core.lookup {
+    key:   'good'
+    items: [{ name: 'good' }, { name: action.seed.value }]
+  }
+}

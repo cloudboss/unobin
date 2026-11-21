@@ -1,0 +1,11 @@
+actions: {
+  seed: core.seed {
+    count: input.size
+  }
+}
+resources: {
+  consumer: core.thing {
+    name: 'good'
+    size: action.seed.size
+  }
+}

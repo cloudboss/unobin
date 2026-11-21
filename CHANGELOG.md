@@ -6,6 +6,7 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ### Fixed
 
+- Validate resolved and defaulted inputs during apply, including saved no-op plans and deferred resource decisions, before executing resource, data-source, or action operations. Historical state can still be destroyed when its inputs no longer satisfy current constraints.
 - Keep plans bound to the exact state snapshot read during planning and reject stale plans after concurrent state changes.
 - Recompute affected composite outputs and cached locals after reconciling resource outputs, including nested and for-each composites.
 - Honor cancellation during S3 lock acquisition and bound lock-holder lookups after cancellation.

@@ -1,0 +1,6 @@
+resources: {
+  box: w.box {
+    @for-each: { east: input.value }
+    value:     @each.value
+  }
+}

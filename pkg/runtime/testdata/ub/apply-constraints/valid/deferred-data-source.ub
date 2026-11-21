@@ -1,0 +1,10 @@
+actions: {
+  seed: core.seed {
+    echo: input.value
+  }
+}
+data-sources: {
+  consumer: core.lookup {
+    key: action.seed.value
+  }
+}

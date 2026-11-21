@@ -1,0 +1,11 @@
+actions: {
+  seed: core.seed {
+    echo: input.value
+  }
+}
+resources: {
+  consumer: core.thing {
+    name: action.seed.value
+    size: input.size
+  }
+}

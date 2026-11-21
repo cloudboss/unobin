@@ -235,7 +235,7 @@ func (e *Executor) applyConfigNode(rs *runState, step *PlanStep, node *Node) err
 }
 
 func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep) error {
-	prep, err := e.prepareStep(rs, step.Address)
+	prep, err := e.prepareStep(rs, step)
 	if err != nil {
 		return err
 	}
@@ -295,7 +295,7 @@ func (e *Executor) applyAction(ctx context.Context, rs *runState, step *PlanStep
 func (e *Executor) applyResource(
 	ctx context.Context, rs *runState, step *PlanStep, start func(),
 ) error {
-	prep, err := e.prepareStep(rs, step.Address)
+	prep, err := e.prepareStep(rs, step)
 	if err != nil {
 		return err
 	}
@@ -724,10 +724,10 @@ type stepPrep struct {
 // returned stepPrep gives the caller everything needed to run CRUD
 // without holding the lock; the caller retakes rs.mu before writing
 // outputs back into scope.
-func (e *Executor) prepareStep(rs *runState, addr string) (*stepPrep, error) {
+func (e *Executor) prepareStep(rs *runState, step *PlanStep) (*stepPrep, error) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
-	tmpl, instKey := splitInstanceAddress(addr)
+	tmpl, instKey := splitInstanceAddress(step.Address)
 	node, parent, err := e.nodeAndScope(rs, tmpl)
 	if err != nil {
 		return nil, err
@@ -741,6 +741,9 @@ func (e *Executor) prepareStep(rs *runState, addr string) (*stepPrep, error) {
 		return nil, err
 	}
 	if err := e.applyInputDefaults(node, inputs, nil); err != nil {
+		return nil, err
+	}
+	if err := errors.Join(e.checkStepConstraints(step, inputs, nil)...); err != nil {
 		return nil, err
 	}
 	return &stepPrep{
@@ -770,7 +773,7 @@ func (e *Executor) nodeAndScope(rs *runState, addr string) (*Node, *EvalContext,
 }
 
 func (e *Executor) applyData(ctx context.Context, rs *runState, step *PlanStep) error {
-	prep, err := e.prepareStep(rs, step.Address)
+	prep, err := e.prepareStep(rs, step)
 	if err != nil {
 		return err
 	}
