@@ -1,0 +1,10 @@
+factory: {
+  resources: {
+    x: lib.thing {
+      expected: 'same'
+      object:   { metadata: { name: 'valid' } }
+      labels:   { a: 'aGk=' }
+      groups:   { first: { same: 'aGk=' } }
+    }
+  }
+}

@@ -76,12 +76,19 @@ func ForbiddenWith(field any, forbids ...any) Constraint {
 // Must is an unconditional predicate: every condition must hold.
 func Must(require ...Condition) Constraint { return Constraint{kind: KindPredicate} }
 
-// ForEach applies per-element rules to a list field, mirroring the
-// @for-each a UB constraint uses. The list argument is source metadata:
-// pkg/goschema validates that it names a list field and that the body
-// parameter matches the list element type. Pointer list fields are optional
-// in UB, and generated predicate constraints use ?? [] as an empty-list
-// fallback.
+// MapEntry is the callback parameter for ForEach over a map. Key is the
+// string key and Value has the map's value type.
+type MapEntry[T any] struct {
+	Key   string
+	Value T
+}
+
+// ForEach applies per-element rules to a list or map field, mirroring the
+// @for-each a UB constraint uses. For lists the callback takes the element
+// type; for maps it takes MapEntry[T], where T is the map's value type.
+// Plain, named, and pointer collections are supported. Null collections
+// have no entries. Map iteration supports predicates, including inside
+// nested iterations; set constraints require lists of structs.
 //
 // As with every constructor in this package, ForEach is read from
 // source and never called: the body declares rules and must be a
@@ -93,7 +100,7 @@ func Must(require ...Condition) Constraint { return Constraint{kind: KindPredica
 //			constraint.RequiredWith(r.TLS, v.CACert),
 //		}
 //	})
-func ForEach[T any](list any, body func(T) []Constraint) Constraint {
+func ForEach[T any](collection any, body func(T) []Constraint) Constraint {
 	return Constraint{kind: KindForEach}
 }
 
@@ -146,6 +153,26 @@ func Below(field, value any) Condition { return Condition{} }
 // AtMost holds when field is less than or equal to value (literal or
 // field). A null operand makes the condition pass.
 func AtMost(field, value any) Condition { return Condition{} }
+
+// Matches tests a string against a Go regular expression. The pattern must be
+// a constant string expression of literals, concatenations, and parentheses.
+// Null passes.
+func Matches(field any, pattern string) Condition { return Condition{} }
+
+// IsRegex tests whether a string is a valid Go regular expression. Null passes.
+func IsRegex(field any) Condition { return Condition{} }
+
+// IsIP tests whether a string is an IPv4 or IPv6 address. Null passes.
+func IsIP(field any) Condition { return Condition{} }
+
+// IsCIDR tests whether a string is an IPv4 or IPv6 CIDR prefix. Null passes.
+func IsCIDR(field any) Condition { return Condition{} }
+
+// IsBase64 tests whether a string uses standard padded base64. Null passes.
+func IsBase64(field any) Condition { return Condition{} }
+
+// IsPositiveDuration tests whether a string is a positive Go duration. Null passes.
+func IsPositiveDuration(field any) Condition { return Condition{} }
 
 // OneOf holds when field's value is one of the given values.
 func OneOf(field any, values ...any) Condition { return Condition{} }

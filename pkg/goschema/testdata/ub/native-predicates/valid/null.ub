@@ -1,0 +1,11 @@
+value: {
+  object:   null
+  pattern:  null
+  ip:       null
+  cidr:     null
+  data:     null
+  duration: null
+  labels:   null
+  groups:   null
+  expected: 'same'
+}

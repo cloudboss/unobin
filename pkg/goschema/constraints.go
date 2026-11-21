@@ -6,6 +6,7 @@ import (
 	"go/printer"
 	"go/token"
 	"maps"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -47,15 +48,29 @@ func (w *walker) lookupConstraints(ref typeRef) []lang.ConstraintSpec {
 func (w *walker) constraintsFromType(typeName string) []lang.ConstraintSpec {
 	method := findMethod(w.files, typeName, "Constraints")
 	if method == nil {
-		return nil
+		spec := findTypeSpec(w.files, typeName)
+		if spec == nil || spec.Assign == token.NoPos {
+			return nil
+		}
+		ref, ok := outputTypeRef(ast.Unparen(spec.Type))
+		if !ok {
+			return nil
+		}
+		return w.lookupConstraints(ref)
 	}
+	source := sourceTypeRef{w: w, expr: ast.NewIdent(typeName)}
+	structWalker, structName, resolved := source.structType()
 	w.subject = typeName
 	scope := constraintScope{}
 	if name, ok := receiverName(method); ok {
-		scope[name] = scopeRoot{
+		root := scopeRoot{
 			w: w, typeName: typeName, prefix: "input",
-			source: sourceTypeRef{w: w, expr: ast.NewIdent(typeName)},
+			source: source,
 		}
+		if resolved {
+			root.w, root.typeName = structWalker, structName
+		}
+		scope[name] = root
 	}
 	var out []lang.ConstraintSpec
 	for _, call := range w.listReturnCalls(
@@ -96,6 +111,7 @@ type scopeRoot struct {
 	nullable  bool
 	nonNull   map[string]bool
 	source    sourceTypeRef
+	mapEntry  *scopeRoot
 }
 
 func (scope constraintScope) withNonNullFacts(facts map[string]bool) constraintScope {
@@ -273,7 +289,7 @@ func (w *walker) isForEachCall(call *ast.CallExpr) bool {
 // inside lowers to a chained @for-each, each Go parameter a level
 // binding read as @param.value.
 func (w *walker) forEachSpecs(call *ast.CallExpr, scope constraintScope) []lang.ConstraintSpec {
-	return w.forEachSpecsAt(call, scope, scope, nil)
+	return w.forEachSpecsAt(call, scope, scope, nil, false)
 }
 
 func (w *walker) forEachSpecsAt(
@@ -281,9 +297,10 @@ func (w *walker) forEachSpecsAt(
 	scope constraintScope,
 	chainScope constraintScope,
 	chain []lang.ForEachSpecLevel,
+	mapAncestor bool,
 ) []lang.ConstraintSpec {
 	if len(call.Args) != 2 {
-		w.addErrf("ForEach takes a list field and a function")
+		w.addErrf("ForEach takes a list or map field and a function")
 		return nil
 	}
 	list, ok := w.listField(call.Args[0], scope)
@@ -304,14 +321,28 @@ func (w *walker) forEachSpecsAt(
 		w.addErrf("ForEach parameter %q shadows an enclosing name; rename it", param)
 		return nil
 	}
-	if !sameSourceType(sourceTypeRef{w: w, expr: paramType}, list.elem.source) {
+	paramSource := sourceTypeRef{w: w, expr: paramType}
+	if list.isMap {
+		var ok bool
+		paramSource, ok = paramSource.mapEntryValueType()
+		if !ok {
+			w.addErrf("ForEach map parameter must be constraint.MapEntry[T], got %s",
+				renderExpr(paramType))
+			return nil
+		}
+	}
+	if !sameSourceType(paramSource, list.elem.source) {
 		w.addErrf("ForEach parameter type %s does not match element type %s for %s",
 			renderExpr(paramType), renderExpr(list.elem.source.expr), list.path)
 		return nil
 	}
+	if list.isMap {
+		value := list.elem
+		list.elem = scopeRoot{w: w, mapEntry: &value}
+	}
 	levelPath := chainPath(list.path, scope, chainScope)
 	levels := append(slices.Clip(chain), lang.ForEachSpecLevel{
-		Name: "@" + param, In: forEachIterablePath(levelPath, list.nullable),
+		Name: "@" + param, In: collectionIterablePath(levelPath, list.nullable, list.isMap),
 	})
 
 	innerSet := make(constraintScope, len(scope)+1)
@@ -323,13 +354,17 @@ func (w *walker) forEachSpecsAt(
 	innerChain := make(constraintScope, len(chainScope)+1)
 	maps.Copy(innerChain, chainScope)
 	chained := list.elem
-	chained.prefix = "@" + param + ".value"
+	bindingField := ".value"
+	if list.isMap {
+		bindingField = ""
+	}
+	chained.prefix = "@" + param + bindingField
 	innerChain[param] = chained
 
 	innerEach := make(constraintScope, len(scope)+1)
 	maps.Copy(innerEach, scope)
 	bound := list.elem
-	bound.prefix = "@each.value"
+	bound.prefix = "@each" + bindingField
 	innerEach[param] = bound
 
 	var out []lang.ConstraintSpec
@@ -340,11 +375,9 @@ func (w *walker) forEachSpecsAt(
 				w.addErrf("Message applies to the constraints inside ForEach, not ForEach itself")
 				continue
 			}
-			if list.elem.scalar {
-				w.addErrf("cannot iterate inside %q; its elements are scalars", list.path)
-				continue
-			}
-			out = append(out, w.forEachSpecsAt(base, innerSet, innerChain, levels)...)
+			out = append(out, w.forEachSpecsAt(
+				base, innerSet, innerChain, levels, mapAncestor || list.isMap,
+			)...)
 			continue
 		}
 		if isPredicateCall(c) {
@@ -361,8 +394,12 @@ func (w *walker) forEachSpecsAt(
 			if !ok {
 				continue
 			}
-			spec.ForEach = forEachIterablePath(list.path, list.nullable)
+			spec.ForEach = collectionIterablePath(list.path, list.nullable, list.isMap)
 			out = append(out, spec)
+			continue
+		}
+		if list.isMap || mapAncestor {
+			w.addErrf("a set constraint cannot iterate map %q; use predicates", list.path)
 			continue
 		}
 		if list.elem.scalar {
@@ -385,16 +422,19 @@ func (w *walker) forEachSpecsAt(
 // prefix for its binding (@it.value.subs); one rooted at the receiver
 // reads as written.
 func chainPath(listPath string, scope, chainScope constraintScope) string {
+	bestLength := 0
+	path := listPath
 	for name, chained := range chainScope {
 		set, ok := scope[name]
 		if !ok || set.prefix == chained.prefix {
 			continue
 		}
-		if rest, ok := strings.CutPrefix(listPath, set.prefix); ok {
-			return chained.prefix + rest
+		if rest, ok := strings.CutPrefix(listPath, set.prefix); ok && len(set.prefix) > bestLength {
+			bestLength = len(set.prefix)
+			path = chained.prefix + rest
 		}
 	}
-	return listPath
+	return path
 }
 
 // isPredicateCall reports whether a constructor call builds a
@@ -413,11 +453,21 @@ type forEachListField struct {
 	path     string
 	nullable bool
 	elem     scopeRoot
+	isMap    bool
 }
 
-// listField resolves ForEach's list argument to its rendered input reference
-// and the scope root of the list's element type.
+// listField resolves the collection argument and the scope root of its element type.
 func (w *walker) listField(arg ast.Expr, scope constraintScope) (forEachListField, bool) {
+	if id, ok := arg.(*ast.Ident); ok {
+		entry, found := scope[id.Name]
+		if !found {
+			w.addErrf("ForEach list references unknown name %q", id.Name)
+			return forEachListField{}, false
+		}
+		return w.listFieldElement(entry.source, constraintFieldRef{
+			expr: entry.prefix, valueType: entry.valueType, nullable: entry.nullable,
+		})
+	}
 	sel, ok := arg.(*ast.SelectorExpr)
 	if !ok {
 		w.addErrf("ForEach list must be a struct field selector, got %T", arg)
@@ -433,12 +483,6 @@ func (w *walker) listField(arg ast.Expr, scope constraintScope) (forEachListFiel
 		w.addErrf("ForEach list references unknown name %q", root)
 		return forEachListField{}, false
 	}
-	path, ok := entry.w.fieldPath(entry.typeName, hops)
-	if !ok {
-		w.addErrf("ForEach list references unknown field %q", hopNames(hops))
-		return forEachListField{}, false
-	}
-	path = entry.prefix + "." + path
 	fieldSource, ok := entry.w.fieldSourceTypeFromRoot(entry, hops)
 	if !ok {
 		w.addErrf("ForEach list references unknown field %q", hopNames(hops))
@@ -449,9 +493,30 @@ func (w *walker) listField(arg ast.Expr, scope constraintScope) (forEachListFiel
 		w.addErrf("ForEach list references unknown field %q", hopNames(hops))
 		return forEachListField{}, false
 	}
+	return w.listFieldElement(fieldSource, listRef)
+}
+
+func (w *walker) listFieldElement(
+	fieldSource sourceTypeRef, listRef constraintFieldRef,
+) (forEachListField, bool) {
+	path := listRef.expr
+	if valueSource, nullable, ok := fieldSource.mapElementType(false); ok {
+		valueType, valueNullable := nullableValueType(valueSource.w.typeFromAST(valueSource.expr))
+		value := scopeRoot{
+			w: valueSource.w, source: valueSource, valueType: valueType, nullable: valueNullable,
+		}
+		if cw, name, ok := valueSource.structType(); ok {
+			value.w, value.typeName = cw, name
+		} else {
+			value.scalar = true
+		}
+		return forEachListField{
+			path: path, nullable: listRef.nullable || nullable, elem: value, isMap: true,
+		}, true
+	}
 	elemSource, sourceNullable, ok := fieldSource.listElementType()
 	if !ok {
-		w.addErrf("ForEach list %q must be a list field", path)
+		w.addErrf("ForEach collection %q must be a list field or a map with string keys", path)
 		return forEachListField{}, false
 	}
 	elemValueType, elemNullable := listElementType(listRef.valueType)
@@ -499,6 +564,13 @@ func forEachIterablePath(path string, nullable bool) string {
 		return path + " ?? []"
 	}
 	return path
+}
+
+func collectionIterablePath(path string, nullable, isMap bool) string {
+	if nullable && isMap {
+		return path + " ?? {}"
+	}
+	return forEachIterablePath(path, nullable)
 }
 
 // specFromCall turns one constructor call into a constraint spec. It
@@ -708,6 +780,18 @@ func (w *walker) condString(arg ast.Expr, scope constraintScope) (string, bool) 
 		return w.orderedCond(call, "<", scope)
 	case "AtMost":
 		return w.orderedCond(call, "<=", scope)
+	case "Matches":
+		return w.formatCond(call, "matches", true, scope)
+	case "IsRegex":
+		return w.formatCond(call, "is-regex", false, scope)
+	case "IsIP":
+		return w.formatCond(call, "is-ip", false, scope)
+	case "IsCIDR":
+		return w.formatCond(call, "is-cidr", false, scope)
+	case "IsBase64":
+		return w.formatCond(call, "is-base64", false, scope)
+	case "IsPositiveDuration":
+		return w.formatCond(call, "is-positive-duration", false, scope)
 	case "IsTrue":
 		return w.boolCond(call, "true", scope)
 	case "IsFalse":
@@ -733,6 +817,41 @@ func (w *walker) condString(arg ast.Expr, scope constraintScope) (string, bool) 
 	}
 	w.addWarnf("unsupported condition %q", sel.Sel.Name)
 	return "", false
+}
+
+func (w *walker) formatCond(
+	call *ast.CallExpr, name string, pattern bool, scope constraintScope,
+) (string, bool) {
+	want := 1
+	if pattern {
+		want = 2
+	}
+	if len(call.Args) != want {
+		w.addErrf("%s requires %d arguments", condName(call), want)
+		return "", false
+	}
+	field, ok := w.selectorFieldRef(call.Args[0], scope)
+	if !ok {
+		return "", false
+	}
+	if field.valueType.Kind != typecheck.String {
+		w.addErrf("%s requires a string field, got %s", condName(call), field.valueType)
+		return "", false
+	}
+	args := field.expr
+	if pattern {
+		pattern, ok := stringConstant(call.Args[1])
+		if !ok {
+			w.addErrf("Matches requires a regular expression constant string expression")
+			return "", false
+		}
+		if _, err := regexp.Compile(pattern); err != nil {
+			w.addErrf("Matches regular expression: %v", err)
+			return "", false
+		}
+		args += ", " + lang.Render(pattern)
+	}
+	return "(@core." + name + "(" + args + "))", true
 }
 
 func (w *walker) compareCond(
@@ -1003,7 +1122,11 @@ func peelMessage(call *ast.CallExpr) (inner *ast.CallExpr, msg string, bad ast.E
 func stringConstant(e ast.Expr) (string, bool) {
 	switch v := e.(type) {
 	case *ast.BasicLit:
-		return stringLit(v)
+		if v.Kind != token.STRING {
+			return "", false
+		}
+		value, err := strconv.Unquote(v.Value)
+		return value, err == nil
 	case *ast.ParenExpr:
 		return stringConstant(v.X)
 	case *ast.BinaryExpr:
@@ -1214,6 +1337,16 @@ func intLiteral(e ast.Expr) (int, bool) {
 func (w *walker) fieldSourceTypeFromRoot(
 	root scopeRoot, hops []selectorHop,
 ) (sourceTypeRef, bool) {
+	if root.mapEntry != nil {
+		child, ok := mapEntryFieldRoot(root, hops[0])
+		if !ok {
+			return sourceTypeRef{}, false
+		}
+		if len(hops) == 1 {
+			return child.source, true
+		}
+		return child.w.fieldSourceTypeFromRoot(child, hops[1:])
+	}
 	cw, typeName := root.w, root.typeName
 	var ref sourceTypeRef
 	for i, hop := range hops {
@@ -1243,6 +1376,99 @@ func (w *walker) fieldSourceTypeFromRoot(
 
 func (ref sourceTypeRef) listElementType() (sourceTypeRef, bool, bool) {
 	return ref.listElementTypeWithNullable(false)
+}
+
+func (ref sourceTypeRef) mapEntryValueType() (sourceTypeRef, bool) {
+	switch t := ref.expr.(type) {
+	case *ast.ParenExpr:
+		return (sourceTypeRef{w: ref.w, expr: t.X}).mapEntryValueType()
+	case *ast.Ident:
+		spec := findTypeSpec(ref.w.files, t.Name)
+		if spec != nil && spec.Assign != token.NoPos {
+			return (sourceTypeRef{w: ref.w, expr: spec.Type}).mapEntryValueType()
+		}
+	case *ast.SelectorExpr:
+		if sub, ok := ref.selectorWalker(t); ok {
+			return (sourceTypeRef{w: sub, expr: ast.NewIdent(t.Sel.Name)}).mapEntryValueType()
+		}
+	case *ast.IndexExpr:
+		sel, ok := t.X.(*ast.SelectorExpr)
+		if !ok || sel.Sel.Name != "MapEntry" {
+			return sourceTypeRef{}, false
+		}
+		pkg, ok := identName(sel.X)
+		if ok && ref.w.importPathFor(pkg, sel.Pos()) == constraintPkgPath {
+			return sourceTypeRef{w: ref.w, expr: t.Index}, true
+		}
+	}
+	return sourceTypeRef{}, false
+}
+
+func mapEntryFieldRoot(root scopeRoot, hop selectorHop) (scopeRoot, bool) {
+	var child scopeRoot
+	switch hop.name {
+	case "Key":
+		child = scopeRoot{
+			w: root.w, prefix: root.prefix + ".key", scalar: true,
+			valueType: typecheck.TString(), source: sourceTypeRef{w: root.w, expr: ast.NewIdent("string")},
+		}
+	case "Value":
+		child = *root.mapEntry
+		child.prefix = root.prefix + ".value"
+	default:
+		return scopeRoot{}, false
+	}
+	child.nonNull = root.nonNull
+	if len(hop.indexes) > 0 {
+		var ok bool
+		child.valueType, ok = typeAfterSelectorHop(child.valueType, hop.indexes, &child.nullable)
+		if !ok {
+			return scopeRoot{}, false
+		}
+		for _, idx := range hop.indexes {
+			source, _, ok := child.source.listElementType()
+			if !ok {
+				return scopeRoot{}, false
+			}
+			child.source = source
+			child.prefix += "[" + strconv.Itoa(idx) + "]"
+		}
+		if cw, name, ok := child.source.structType(); ok {
+			child.w, child.typeName, child.scalar = cw, name, false
+		} else {
+			child.scalar = true
+		}
+	}
+	if root.nonNull[child.prefix] {
+		child.nullable = false
+	}
+	return child, true
+}
+
+func (ref sourceTypeRef) mapElementType(nullable bool) (sourceTypeRef, bool, bool) {
+	switch t := ref.expr.(type) {
+	case *ast.ParenExpr:
+		return (sourceTypeRef{w: ref.w, expr: t.X}).mapElementType(nullable)
+	case *ast.StarExpr:
+		return (sourceTypeRef{w: ref.w, expr: t.X}).mapElementType(true)
+	case *ast.MapType:
+		keyType := ref.w.typeFromAST(t.Key)
+		if keyType.Kind != typecheck.String {
+			return sourceTypeRef{}, false, false
+		}
+		return sourceTypeRef{w: ref.w, expr: t.Value}, nullable, true
+	case *ast.Ident:
+		spec := findTypeSpec(ref.w.files, t.Name)
+		if spec != nil {
+			return (sourceTypeRef{w: ref.w, expr: spec.Type}).mapElementType(nullable)
+		}
+	case *ast.SelectorExpr:
+		if sub, ok := ref.selectorWalker(t); ok {
+			return (sourceTypeRef{w: sub, expr: ast.NewIdent(t.Sel.Name)}).
+				mapElementType(nullable)
+		}
+	}
+	return sourceTypeRef{}, false, false
 }
 
 func (ref sourceTypeRef) listElementTypeWithNullable(
@@ -1399,6 +1625,18 @@ func sourceTypeKey(ref sourceTypeRef) (string, bool) {
 func (w *walker) fieldRefFromRoot(
 	root scopeRoot, hops []selectorHop,
 ) (constraintFieldRef, bool) {
+	if root.mapEntry != nil {
+		child, ok := mapEntryFieldRoot(root, hops[0])
+		if !ok {
+			return constraintFieldRef{}, false
+		}
+		if len(hops) == 1 {
+			return constraintFieldRef{
+				expr: child.prefix, valueType: child.valueType, nullable: child.nullable,
+			}, true
+		}
+		return child.w.fieldRefFromRoot(child, hops[1:])
+	}
 	cw, typeName := root.w, root.typeName
 	parts := make([]string, 0, len(hops))
 	nullable := root.nullable
@@ -1538,24 +1776,7 @@ func (w *walker) nestedStruct(typeName string, hop selectorHop) (*walker, string
 		}
 		ft = arr.Elt
 	}
-	if star, ok := ft.(*ast.StarExpr); ok {
-		ft = star.X
-	}
-	switch t := ft.(type) {
-	case *ast.Ident:
-		return w, t.Name, true
-	case *ast.SelectorExpr:
-		pkg, ok := identName(t.X)
-		if !ok {
-			return nil, "", false
-		}
-		sub := w.sub(w.importPathFor(pkg, t.Pos()))
-		if sub == nil {
-			return nil, "", false
-		}
-		return sub, t.Sel.Name, true
-	}
-	return nil, "", false
+	return (sourceTypeRef{w: w, expr: ft}).structType()
 }
 
 // fieldTypeByGoName returns the AST type of the struct field with the

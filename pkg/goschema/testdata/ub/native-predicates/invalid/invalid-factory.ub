@@ -1,0 +1,9 @@
+factory: {
+  resources: {
+    x: lib.thing {
+      expected: 'same'
+      object:   { metadata: { name: 'BAD!' } }
+      labels:   { a: 'aGk=', 'z-invalid!': 'aGk=' }
+    }
+  }
+}

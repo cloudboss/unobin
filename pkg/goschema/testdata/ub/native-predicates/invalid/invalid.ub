@@ -1,0 +1,13 @@
+value: {
+  object:   { metadata: { name: 'BAD!' } }
+  pattern:  '['
+  ip:       '999.0.0.1'
+  cidr:     '10.0.0.1/99'
+  data:     '!'
+  duration: '0s'
+  labels:   { a: 'aGk=', 'z-invalid!': '!' }
+  expected: 'same'
+  groups:   { first: { same: 'aGk=' }, second: { wrong: '!' } }
+  lists:    { first: ['127.0.0.1'], second: ['::1', 'invalid'] }
+  nested:   { outer: { middle: { first: 'aGk=', second: '!' } } }
+}
