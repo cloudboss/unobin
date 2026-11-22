@@ -22,16 +22,17 @@ VERSION ?=
 DIR_OUT ?= _output
 DIR_ROOT = $(realpath $(CURDIR))
 DIR_OUT_ABS = $(abspath $(DIR_OUT))
-DIR_CACHE = $(DIR_OUT_ABS)/cache/$(ARCH)
+DIR_CACHE = $(DIR_OUT_ABS)/cache/$(HOST_ARCH)
 DIR_STG = $(DIR_OUT)/staging/unobin/$(VERSION)/$(OS)/$(ARCH)
 DIR_RELEASE ?= $(DIR_OUT)/release
 
 CTR_IMAGE_GO = ghcr.io/cloudboss/docker.io/library/golang:1.26.2-trixie
 CTR_IMAGE_GOLANGCI = ghcr.io/cloudboss/docker.io/golangci/golangci-lint:v2.11.4-alpine
+HOST_ARCH := $(shell uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')
 OS ?= $(shell uname -s | tr '[:upper:]' '[:lower:]')
-ARCH ?= $(shell uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')
+ARCH ?= $(HOST_ARCH)
 
-CTR_PLATFORM = --platform linux/$(ARCH)
+CTR_PLATFORM = --platform linux/$(HOST_ARCH)
 
 ARCHIVE = unobin-$(VERSION)-$(OS)-$(ARCH).tar.gz
 USER_ID = $(shell id -u)
@@ -39,7 +40,7 @@ GROUP_ID = $(shell id -g)
 
 SHA256 ?= $(shell command -v sha256sum >/dev/null 2>&1 && echo sha256sum || echo 'shasum -a 256')
 BUILD_IMAGE_HASH = $(shell { \
-	printf '%s\n' '$(CTR_IMAGE_GO)' '$(ARCH)' '$(USER_ID)' '$(GROUP_ID)'; \
+	printf '%s\n' '$(CTR_IMAGE_GO)' '$(HOST_ARCH)' '$(USER_ID)' '$(GROUP_ID)'; \
 	cat Containerfile.build; \
 	} | $(SHA256) | cut -c 1-40)
 CTR_IMAGE_LOCAL = unobin-build:$(BUILD_IMAGE_HASH)
