@@ -1,0 +1,4 @@
+limit:     @core.length(input.topologies ?? []) <= 1
+label:     input.metadata.labels.owner == 'team'
+namespace: input.metadata.namespace == 'default'
+default:   'default'

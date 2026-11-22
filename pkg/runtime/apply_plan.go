@@ -739,7 +739,7 @@ func (e *Executor) prepareStep(rs *runState, step *PlanStep) (*stepPrep, error) 
 	if err := e.applyInputDefaults(node, inputs, nil); err != nil {
 		return nil, err
 	}
-	if err := errors.Join(e.checkStepConstraints(step, inputs, nil)...); err != nil {
+	if err := errors.Join(e.checkStepConstraints(step, inputs)...); err != nil {
 		return nil, err
 	}
 	return &stepPrep{

@@ -1,6 +1,7 @@
 package lang
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -62,6 +63,9 @@ type EachBinding struct {
 // iteration.
 type ConstraintEvalFunc func(e Expr, binds []EachBinding) (any, error)
 
+// ErrConstraintPending tells the checker to defer the current evaluation.
+var ErrConstraintPending = errors.New("constraint value is pending")
+
 // ForEachLevel is one link of a chained @for-each: the binding name,
 // @-spelled, and the iterable its elements come from. InText is the
 // iterable's source form, used to name the element a failure is about.
@@ -91,6 +95,19 @@ func CheckConstraints(
 	evalAgainstInputs ConstraintEvalFunc,
 	display FieldDisplay,
 ) *ErrorList {
+	return CheckPartialConstraints(block, values, evalAgainstInputs, display, nil)
+}
+
+// CheckPartialConstraints checks a constraint block whose inputs can
+// contain pending values. isPending tests one value without descending
+// into collections.
+func CheckPartialConstraints(
+	block *ArrayLit,
+	values map[string]any,
+	evalAgainstInputs ConstraintEvalFunc,
+	display FieldDisplay,
+	isPending func(any) bool,
+) *ErrorList {
 	errs := NewErrorList(0)
 	if block == nil {
 		return errs
@@ -104,7 +121,7 @@ func CheckConstraints(
 		if !ok {
 			continue
 		}
-		checkEntry(i, c, values, evalAgainstInputs, display, errs)
+		checkEntry(i, c, values, evalAgainstInputs, display, isPending, errs)
 	}
 	return errs
 }
@@ -121,7 +138,7 @@ func CheckConstraintEntries(
 ) *ErrorList {
 	errs := NewErrorList(0)
 	for i, c := range entries {
-		checkEntry(i, c, values, evalAgainstInputs, display, errs)
+		checkEntry(i, c, values, evalAgainstInputs, display, nil, errs)
 	}
 	return errs
 }
@@ -137,8 +154,22 @@ func CheckConstraintEntry(
 	evalAgainstInputs ConstraintEvalFunc,
 	display FieldDisplay,
 ) *ErrorList {
+	return CheckPartialConstraintEntry(idx, c, values, evalAgainstInputs, display, nil)
+}
+
+// CheckPartialConstraintEntry defers field checks that encounter a pending
+// value along their paths. isPending tests one value without descending into
+// collections. Predicate evaluators can return ErrConstraintPending.
+func CheckPartialConstraintEntry(
+	idx int,
+	c ConstraintEntry,
+	values map[string]any,
+	evalAgainstInputs ConstraintEvalFunc,
+	display FieldDisplay,
+	isPending func(any) bool,
+) *ErrorList {
 	errs := NewErrorList(0)
-	checkEntry(idx, c, values, evalAgainstInputs, display, errs)
+	checkEntry(idx, c, values, evalAgainstInputs, display, isPending, errs)
 	return errs
 }
 
@@ -187,13 +218,22 @@ func checkEntry(
 	values map[string]any,
 	evalAgainstInputs ConstraintEvalFunc,
 	display FieldDisplay,
+	isPending func(any) bool,
 	errs *ErrorList,
 ) {
 	if c.Kind != "predicate" && hasSplatField(c.Fields) {
-		checkSplatEntry(idx, c, values, evalAgainstInputs, display, errs)
+		checkSplatEntry(idx, c, values, evalAgainstInputs, display, isPending, errs)
 		return
 	}
 	if check, ok := fieldsConstraintCheckers[c.Kind]; ok {
+		if isPending != nil {
+			for _, field := range c.Fields {
+				value, _ := lookupPathUntil(values, field, isPending)
+				if isPending(value) {
+					return
+				}
+			}
+		}
 		check(idx, c.Fields, values, display, errs)
 		return
 	}
@@ -287,6 +327,7 @@ func checkSplatEntry(
 	values map[string]any,
 	evalAgainstInputs ConstraintEvalFunc,
 	display FieldDisplay,
+	isPending func(any) bool,
 	errs *ErrorList,
 ) {
 	if msg := splatRuleViolation(display.names(c.Fields)); msg != "" {
@@ -296,8 +337,8 @@ func checkSplatEntry(
 		return
 	}
 	prefix := splatPrefix(c.Fields)
-	root, ok := lookupPath(values, prefix)
-	if !ok || root == nil {
+	root, ok := lookupPathUntil(values, prefix, isPending)
+	if !ok || root == nil || (isPending != nil && isPending(root)) {
 		return
 	}
 	lst, ok := root.([]any)
@@ -314,7 +355,7 @@ func checkSplatEntry(
 		for j, f := range c.Fields {
 			elem.Fields[j] = strings.Replace(f, splatMarker, "["+strconv.Itoa(i)+"]", 1)
 		}
-		checkEntry(idx, elem, values, evalAgainstInputs, display, errs)
+		checkEntry(idx, elem, values, evalAgainstInputs, display, isPending, errs)
 	}
 }
 
@@ -440,12 +481,19 @@ func literalIndex(e Expr) (int, bool) {
 // value is not the right container, so an unset nested field reads the
 // same as an unset top-level one.
 func lookupPath(values map[string]any, name string) (any, bool) {
+	return lookupPathUntil(values, name, nil)
+}
+
+func lookupPathUntil(values map[string]any, name string, stop func(any) bool) (any, bool) {
 	rest, ok := strings.CutPrefix(name, "input.")
 	if !ok {
 		return nil, false
 	}
 	cur := any(values)
 	for seg := range strings.SplitSeq(rest, ".") {
+		if stop != nil && stop(cur) {
+			return cur, true
+		}
 		base, indexes, ok := splitIndexes(seg)
 		if !ok {
 			return nil, false
@@ -460,6 +508,9 @@ func lookupPath(values map[string]any, name string) (any, bool) {
 		}
 		cur = v
 		for _, idx := range indexes {
+			if stop != nil && stop(cur) {
+				return cur, true
+			}
 			lst, ok := cur.([]any)
 			if !ok || idx >= len(lst) {
 				return nil, false
@@ -661,6 +712,9 @@ func checkPredicateLevels(
 	}
 	lv := levels[0]
 	iterable, err := evalAgainstInputs(lv.In, binds)
+	if errors.Is(err, ErrConstraintPending) {
+		return
+	}
 	if err != nil {
 		errs.Addf(ErrSchema, lv.In.Span().Start,
 			"constraints[%d] (predicate): @for-each: %v", idx, err)
@@ -732,6 +786,9 @@ func checkPredicateOnce(
 		suffix = " (" + at + ")"
 	}
 	whenVal, err := evalAgainstInputs(c.When, binds)
+	if errors.Is(err, ErrConstraintPending) {
+		return
+	}
 	if err != nil {
 		errs.Addf(ErrSchema, c.When.Span().Start,
 			"constraints[%d] (predicate): when: %v", idx, err)
@@ -748,6 +805,9 @@ func checkPredicateOnce(
 		return
 	}
 	requireVal, err := evalAgainstInputs(c.Require, binds)
+	if errors.Is(err, ErrConstraintPending) {
+		return
+	}
 	if err != nil {
 		errs.Addf(ErrSchema, c.Require.Span().Start,
 			"constraints[%d] (predicate): require: %v", idx, err)
