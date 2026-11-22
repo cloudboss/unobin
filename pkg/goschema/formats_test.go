@@ -106,9 +106,10 @@ func TestReadNativeFormatPredicates(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, warnings)
 	specs := schema.Resources["thing"].Constraints
-	require.Len(t, specs, 12)
+	require.Len(t, specs, 15)
 	require.Equal(t, "(@core.is-match(input.object.metadata.name, '^[a-z][a-z0-9.-]*$'))",
 		specs[0].Require)
+	require.Equal(t, "(@core.is-format(input.duration, 'positive-duration'))", specs[5].Require)
 	entries, errs := lang.ParseSpecs(specs)
 	require.Empty(t, errs.Errors())
 	roots := map[string][]string{
@@ -153,10 +154,11 @@ func TestReadNativeFormatPredicates(t *testing.T) {
 				require.Empty(t, errs.Messages())
 				return
 			}
-			require.Len(t, errs.Messages(), 12)
+			require.Len(t, errs.Messages(), 15)
 			for _, message := range []string{
 				"name format", "regex format", "IP format", "CIDR format", "base64 format",
-				"duration format", "label key (labels['z-invalid!'])",
+				"duration format", "date-time format", "JSON format", "int64 format",
+				"label key (labels['z-invalid!'])",
 				"label value (labels['z-invalid!'])", "group key", "group value",
 				"list IP (lists['second'][1])",
 				"nested value (nested['outer']['middle']['second'])",

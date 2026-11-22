@@ -35,7 +35,7 @@ type Thing struct {
 type ThingOutput struct{ ID string }
 
 const (
-	signedFormat = "int" + "64"
+	signedFormat = constraint.FormatInt64
 	message      = "invalid user"
 )
 

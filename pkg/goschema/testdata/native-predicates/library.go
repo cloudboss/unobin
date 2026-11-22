@@ -28,6 +28,9 @@ type Thing struct {
 	CIDR     *string
 	Data     *string
 	Duration *string
+	DateTime *string
+	JSON     *string
+	Signed   *string
 	Labels   *Labels
 	Groups   *map[string]Labels
 	Lists    *map[string][]string
@@ -40,11 +43,16 @@ func (v Thing) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{
 		constraint.Must(constraint.IsMatch(v.Object.Metadata.Name, "^[a-z][a-z0-9.-]*$")).
 			Message("name format"),
-		constraint.Must(constraint.IsFormat(v.Pattern, "regex")).Message("regex format"),
-		constraint.Must(constraint.IsFormat(v.IP, "ip")).Message("IP format"),
-		constraint.Must(constraint.IsFormat(v.CIDR, "cidr")).Message("CIDR format"),
-		constraint.Must(constraint.IsFormat(v.Data, "base64")).Message("base64 format"),
-		constraint.Must(constraint.IsFormat(v.Duration, "positive-duration")).Message("duration format"),
+		constraint.Must(constraint.IsFormat(v.Pattern, constraint.FormatRegex)).Message("regex format"),
+		constraint.Must(constraint.IsFormat(v.IP, constraint.FormatIP)).Message("IP format"),
+		constraint.Must(constraint.IsFormat(v.CIDR, constraint.FormatCIDR)).Message("CIDR format"),
+		constraint.Must(constraint.IsFormat(v.Data, constraint.FormatBase64)).Message("base64 format"),
+		constraint.Must(constraint.IsFormat(v.Duration, constraint.FormatPositiveDuration)).
+			Message("duration format"),
+		constraint.Must(constraint.IsFormat(v.DateTime, constraint.FormatDateTime)).
+			Message("date-time format"),
+		constraint.Must(constraint.IsFormat(v.JSON, constraint.FormatJSON)).Message("JSON format"),
+		constraint.Must(constraint.IsFormat(v.Signed, constraint.FormatInt64)).Message("int64 format"),
 		constraint.ForEach(v.Labels, func(entry constraint.MapEntry[string]) []constraint.Constraint {
 			return []constraint.Constraint{
 				constraint.Must(constraint.IsMatch(entry.Key, "^[a-z]+$")).Message("label key"),

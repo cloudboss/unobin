@@ -7,32 +7,34 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/cloudboss/unobin/pkg/constraint"
 )
 
 // StringFormat looks up a string validator by its format name.
 func StringFormat(name string) (func(string) bool, bool) {
 	switch name {
-	case "regex":
+	case constraint.FormatRegex:
 		return func(s string) bool { _, err := regexp.Compile(s); return err == nil }, true
-	case "ip":
+	case constraint.FormatIP:
 		return func(s string) bool { return net.ParseIP(s) != nil }, true
-	case "cidr":
+	case constraint.FormatCIDR:
 		return func(s string) bool { _, _, err := net.ParseCIDR(s); return err == nil }, true
-	case "base64":
+	case constraint.FormatBase64:
 		return func(s string) bool {
 			_, err := base64.StdEncoding.DecodeString(s)
 			return err == nil
 		}, true
-	case "positive-duration":
+	case constraint.FormatPositiveDuration:
 		return func(s string) bool {
 			d, err := time.ParseDuration(s)
 			return err == nil && d > 0
 		}, true
-	case "date-time":
+	case constraint.FormatDateTime:
 		return func(s string) bool { return validateDateTime(s) == nil }, true
-	case "json":
+	case constraint.FormatJSON:
 		return func(s string) bool { return json.Valid([]byte(s)) }, true
-	case "int64":
+	case constraint.FormatInt64:
 		return func(s string) bool { _, err := strconv.ParseInt(s, 10, 64); return err == nil }, true
 	default:
 		return nil, false

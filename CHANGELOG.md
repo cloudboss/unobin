@@ -9,6 +9,7 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 - Add shared string and collection predicates, including `@core.is-match`,
   `@core.is-format`, `@core.has-key`, `@core.has-item`, and `@core.is-unique`.
   Go constraints can use computed operands and bound Unobin expressions.
+- Add Go SDK constants for all formats accepted by `constraint.IsFormat`.
 - Implement library API 1.1 for native constraints. Libraries that use API 1.0 remain compatible.
 
 ### Changed

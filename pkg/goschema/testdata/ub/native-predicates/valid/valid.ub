@@ -1,13 +1,16 @@
 value: {
-  object:   { metadata: { name: 'valid.name' } }
-  pattern:  '^good$'
-  ip:       '2001:db8::1'
-  cidr:     '10.0.0.1/24'
-  data:     'aGk='
-  duration: '1s'
-  labels:   { a: 'aGk=', z: '' }
-  expected: 'same'
-  groups:   { first: { same: 'aGk=' }, second: { same: '' } }
-  lists:    { first: ['127.0.0.1'], second: ['::1'] }
-  nested:   { outer: { middle: { first: 'aGk=', second: '' } } }
+  object:    { metadata: { name: 'valid.name' } }
+  pattern:   '^good$'
+  ip:        '2001:db8::1'
+  cidr:      '10.0.0.1/24'
+  data:      'aGk='
+  duration:  '1s'
+  date-time: '2026-11-21T15:04:05Z'
+  json:      '{"key":1}'
+  signed:    '-9223372036854775808'
+  labels:    { a: 'aGk=', z: '' }
+  expected:  'same'
+  groups:    { first: { same: 'aGk=' }, second: { same: '' } }
+  lists:     { first: ['127.0.0.1'], second: ['::1'] }
+  nested:    { outer: { middle: { first: 'aGk=', second: '' } } }
 }

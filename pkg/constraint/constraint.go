@@ -157,7 +157,20 @@ func AtMost(field, value any) Condition { return Condition{} }
 // IsMatch tests a string against a Go regular expression. Null passes.
 func IsMatch(value any, pattern string) Condition { return Condition{} }
 
+// Formats accepted by IsFormat.
+const (
+	FormatRegex            = "regex"
+	FormatIP               = "ip"
+	FormatCIDR             = "cidr"
+	FormatBase64           = "base64"
+	FormatPositiveDuration = "positive-duration"
+	FormatDateTime         = "date-time"
+	FormatJSON             = "json"
+	FormatInt64            = "int64"
+)
+
 // IsFormat checks the syntax of a string according to a named format. Null passes.
+// Use a Format constant to select the format.
 func IsFormat(value any, format string) Condition { return Condition{} }
 
 // OneOf holds when field's value is one of the given values.
