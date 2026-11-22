@@ -1311,9 +1311,9 @@ func keepUsedSchema(
 		return nil
 	}
 	out := &ubruntime.LibrarySchema{
-		Resources:   keepSensitiveTypes(schema.Resources, used, string(ubruntime.NodeResource)),
-		DataSources: keepSensitiveTypes(schema.DataSources, used, string(ubruntime.NodeDataSource)),
-		Actions:     keepSensitiveTypes(schema.Actions, used, string(ubruntime.NodeAction)),
+		Resources:   program.RuntimeTypeSchemas(schema.Resources, used, ubruntime.NodeResource),
+		DataSources: program.RuntimeTypeSchemas(schema.DataSources, used, ubruntime.NodeDataSource),
+		Actions:     program.RuntimeTypeSchemas(schema.Actions, used, ubruntime.NodeAction),
 	}
 	copyConfigurationSchema(out, schema)
 	if len(out.Resources)+len(out.DataSources)+len(out.Actions) == 0 &&
@@ -1335,31 +1335,6 @@ func copyConfigurationSchema(dst, src *ubruntime.LibrarySchema) {
 	dst.ConfigurationIdentity = src.ConfigurationIdentity
 	dst.ConfigurationDigest = src.ConfigurationDigest
 	dst.ConfigurationEmpty = src.ConfigurationEmpty
-}
-
-func keepSensitiveTypes(
-	types map[string]*ubruntime.TypeSchema,
-	used map[string]bool,
-	kind string,
-) map[string]*ubruntime.TypeSchema {
-	out := map[string]*ubruntime.TypeSchema{}
-	for typ, ts := range types {
-		if !used[kind+"."+typ] || !typeHasSensitivity(ts) {
-			continue
-		}
-		out[typ] = &ubruntime.TypeSchema{
-			SensitiveInputs:  append([]string(nil), ts.SensitiveInputs...),
-			SensitiveOutputs: append([]string(nil), ts.SensitiveOutputs...),
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func typeHasSensitivity(ts *ubruntime.TypeSchema) bool {
-	return ts != nil && (len(ts.SensitiveInputs) > 0 || len(ts.SensitiveOutputs) > 0)
 }
 
 // ReadGoSchema reads a fetched Go library's source from sourcePath

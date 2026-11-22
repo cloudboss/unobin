@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -330,16 +331,32 @@ func schemaNeedsLang(schema *runtime.LibrarySchema) bool {
 }
 
 func schemaNeedsTypecheck(schema *runtime.LibrarySchema) bool {
-	return schema != nil && len(schema.ConfigurationFields) > 0
-}
-
-func schemaTypesHaveSensitivity(types map[string]*runtime.TypeSchema) bool {
-	for _, ts := range types {
-		if ts != nil && (len(ts.SensitiveInputs) > 0 || len(ts.SensitiveOutputs) > 0) {
-			return true
+	if schema == nil {
+		return false
+	}
+	if len(schema.ConfigurationFields) > 0 {
+		return true
+	}
+	for _, types := range []map[string]*runtime.TypeSchema{
+		schema.Resources, schema.DataSources, schema.Actions,
+	} {
+		for _, ts := range types {
+			if ts != nil && len(ts.Inputs) > 0 {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+func inputTypesLiteral(inputs map[string]typecheck.Type) string {
+	var b strings.Builder
+	b.WriteString("map[string]typecheck.Type{\n")
+	for _, name := range slices.Sorted(maps.Keys(inputs)) {
+		fmt.Fprintf(&b, "%q: %s,\n", name, typeLiteral(inputs[name]))
+	}
+	b.WriteString("}")
+	return b.String()
 }
 
 // injectConstraints renders the assignment that attaches one Go library's
@@ -473,11 +490,12 @@ func schemaMapLiteral(
 	field string,
 	types map[string]*runtime.TypeSchema,
 ) {
-	if !schemaTypesHaveSensitivity(types) {
+	keys := sortedSchemaTypeKeys(types)
+	if len(keys) == 0 {
 		return
 	}
 	fmt.Fprintf(b, "%s: map[string]*runtime.TypeSchema{\n", field)
-	for _, typ := range sortedSchemaTypeKeys(types) {
+	for _, typ := range keys {
 		fmt.Fprintf(b, "%q: %s,\n", typ, typeSchemaLiteral(types[typ]))
 	}
 	b.WriteString("},\n")
@@ -605,6 +623,9 @@ func elemType(t typecheck.Type) typecheck.Type {
 
 func typeSchemaLiteral(ts *runtime.TypeSchema) string {
 	parts := []string{}
+	if len(ts.Inputs) > 0 {
+		parts = append(parts, "EvaluatedInputs: "+inputTypesLiteral(ts.Inputs))
+	}
 	if len(ts.SensitiveInputs) > 0 {
 		parts = append(parts, stringSliceField("SensitiveInputs", ts.SensitiveInputs))
 	}
@@ -625,7 +646,7 @@ func stringSliceField(name string, values []string) string {
 func sortedSchemaTypeKeys(types map[string]*runtime.TypeSchema) []string {
 	keys := make([]string, 0, len(types))
 	for typ, ts := range types {
-		if ts != nil && (len(ts.SensitiveInputs) > 0 || len(ts.SensitiveOutputs) > 0) {
+		if ts.HasRuntimeData() {
 			keys = append(keys, typ)
 		}
 	}

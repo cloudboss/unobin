@@ -33,7 +33,7 @@ type Library struct {
 	ActionComposites   map[string]*CompositeType
 	Functions          map[string]FunctionType
 	// Schema contains field types for compile-time checks. Generated libraries
-	// retain sensitivity and configuration metadata for plan and apply.
+	// retain inputs, sensitivity, and configuration metadata for plan and apply.
 	Schema *LibrarySchema
 
 	// Constraints holds each Go type's cross-field constraints in the

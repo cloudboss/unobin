@@ -585,9 +585,9 @@ func keepUsedSchema(
 		return nil
 	}
 	out := &runtime.LibrarySchema{
-		Resources:   keepSensitiveTypes(schema.Resources, used, string(runtime.NodeResource)),
-		DataSources: keepSensitiveTypes(schema.DataSources, used, string(runtime.NodeDataSource)),
-		Actions:     keepSensitiveTypes(schema.Actions, used, string(runtime.NodeAction)),
+		Resources:   program.RuntimeTypeSchemas(schema.Resources, used, runtime.NodeResource),
+		DataSources: program.RuntimeTypeSchemas(schema.DataSources, used, runtime.NodeDataSource),
+		Actions:     program.RuntimeTypeSchemas(schema.Actions, used, runtime.NodeAction),
 	}
 	copyConfigurationSchema(out, schema)
 	if len(out.Resources)+len(out.DataSources)+len(out.Actions) == 0 &&
@@ -609,29 +609,4 @@ func copyConfigurationSchema(dst, src *runtime.LibrarySchema) {
 	dst.ConfigurationIdentity = src.ConfigurationIdentity
 	dst.ConfigurationDigest = src.ConfigurationDigest
 	dst.ConfigurationEmpty = src.ConfigurationEmpty
-}
-
-func keepSensitiveTypes(
-	types map[string]*runtime.TypeSchema,
-	used map[string]bool,
-	kind string,
-) map[string]*runtime.TypeSchema {
-	out := map[string]*runtime.TypeSchema{}
-	for typ, ts := range types {
-		if !used[kind+"."+typ] || !typeHasSensitivity(ts) {
-			continue
-		}
-		out[typ] = &runtime.TypeSchema{
-			SensitiveInputs:  append([]string(nil), ts.SensitiveInputs...),
-			SensitiveOutputs: append([]string(nil), ts.SensitiveOutputs...),
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func typeHasSensitivity(ts *runtime.TypeSchema) bool {
-	return ts != nil && (len(ts.SensitiveInputs) > 0 || len(ts.SensitiveOutputs) > 0)
 }

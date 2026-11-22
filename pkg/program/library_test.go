@@ -18,7 +18,7 @@ func TestLibrarySpecRetainsRuntimeMetadata(t *testing.T) {
 	}{
 		{name: "empty", empty: true},
 		{name: "empty schema", spec: LibrarySpec{Schema: &runtime.LibrarySchema{}}, empty: true},
-		{name: "static types", empty: true, spec: LibrarySpec{Schema: &runtime.LibrarySchema{
+		{name: "input types", spec: LibrarySpec{Schema: &runtime.LibrarySchema{
 			Resources: map[string]*runtime.TypeSchema{
 				"file": {Inputs: map[string]typecheck.Type{"path": typecheck.TString()}},
 			},

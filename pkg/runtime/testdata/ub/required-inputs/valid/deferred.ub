@@ -1,0 +1,13 @@
+locals: {
+  specs: { good: { capacity: { storage: '1Gi' } }, bad: {} }
+}
+actions: {
+  seed: core.seed { echo: 'bad' }
+}
+resources: {
+  consumer: core.thing {
+    name:  'new'
+    valid: true
+    spec:  @core.lookup(local.specs, action.seed.value)
+  }
+}

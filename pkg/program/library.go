@@ -1,11 +1,35 @@
 package program
 
 import (
+	"maps"
+	"slices"
+
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/resolve"
 	"github.com/cloudboss/unobin/pkg/runtime"
 )
+
+// RuntimeTypeSchemas retains schema fields needed for the types used by a factory.
+func RuntimeTypeSchemas(
+	types map[string]*runtime.TypeSchema, used map[string]bool, category runtime.Category,
+) map[string]*runtime.TypeSchema {
+	out := make(map[string]*runtime.TypeSchema)
+	for name, schema := range types {
+		if !used[string(category)+"."+name] || !schema.HasRuntimeData() {
+			continue
+		}
+		out[name] = &runtime.TypeSchema{
+			Inputs:           maps.Clone(schema.Inputs),
+			SensitiveInputs:  slices.Clone(schema.SensitiveInputs),
+			SensitiveOutputs: slices.Clone(schema.SensitiveOutputs),
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
 
 type LibrarySpec struct {
 	Constraints map[string][]lang.ConstraintSpec
@@ -31,7 +55,7 @@ func (s LibrarySpec) Empty() bool {
 		schema.Resources, schema.DataSources, schema.Actions,
 	} {
 		for _, typ := range types {
-			if typ != nil && (len(typ.SensitiveInputs) > 0 || len(typ.SensitiveOutputs) > 0) {
+			if typ.HasRuntimeData() {
 				return false
 			}
 		}

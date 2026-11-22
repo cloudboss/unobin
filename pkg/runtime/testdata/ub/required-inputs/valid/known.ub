@@ -1,0 +1,10 @@
+locals: {
+  specs: { good: { capacity: { storage: '1Gi' } }, bad: {} }
+}
+resources: {
+  consumer: core.thing {
+    name:  input.name
+    valid: true
+    spec:  @core.lookup(local.specs, input.selection)
+  }
+}
