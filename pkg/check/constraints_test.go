@@ -250,6 +250,47 @@ func TestCheckLiteralConstraintsLengthPredicate(t *testing.T) {
 	require.Equal(t, 0, ok.Len(), "got: %v", ok.Err())
 }
 
+func TestCheckLiteralConstraintsWithNestedReferences(t *testing.T) {
+	rules, err := lang.ParseSource("partial-rules.ub",
+		[]byte(checkConstraintFixture(t, "partial-rules")))
+	require.NoError(t, err)
+	expr := make(map[string]string)
+	for _, field := range rules.Body.Fields {
+		formatted, err := lang.FormatExpr(field.Value)
+		require.NoError(t, err)
+		expr[field.Key.Name] = string(formatted)
+	}
+	libs := constrainedLibs()
+	schema := libs["core"].Schema.Resources["thing"]
+	schema.Constraints = []lang.ConstraintSpec{
+		{Kind: "exactly-one-of", Fields: []string{"input.metadata.name", "input.metadata.generate-name"}},
+		{Kind: "predicate", When: "true", Require: expr["limit"], Message: "too many topology terms"},
+		{Kind: "predicate", When: "true", Require: expr["label"], Message: "owner must match"},
+		{Kind: "predicate", When: "true", Require: expr["namespace"], Message: "namespace must match"},
+	}
+	schema.Defaults = []lang.DefaultSpec{{Field: "input.metadata.namespace", Value: expr["default"]}}
+	errs := checkSyntaxLiteralConstraints(t, checkConstraintFixture(t, "partial-containers"), libs)
+	require.Equal(t, []string{
+		"resource.conflict: constraints[0] (exactly-one-of [metadata.name, metadata.generate-name]): " +
+			"expected exactly one to be set, got 2 (metadata.name, metadata.generate-name)",
+		"resource.conflict: constraints[1] (predicate): too many topology terms",
+	}, errs.Messages())
+}
+
+func TestCheckLiteralCompositeConstraintsWithNestedReferences(t *testing.T) {
+	libs := constrainedLibs()
+	fixture := parseSyntaxCompositeFixture(t, checkConstraintFixture(t, "partial-composite"))
+	libs["core"].ResourceComposites = map[string]*runtime.CompositeType{
+		"thing": {Name: "thing", SyntaxBody: &fixture.body},
+	}
+	errs := checkSyntaxLiteralConstraints(t, checkConstraintFixture(t, "partial-containers"), libs)
+	require.Equal(t, []string{
+		"resource.conflict: constraints[0] (exactly-one-of [metadata.name, metadata.generate-name]): " +
+			"expected exactly one to be set, got 2 (metadata.name, metadata.generate-name)",
+		"resource.conflict: constraints[1] (predicate): too many topology terms",
+	}, errs.Messages())
+}
+
 // TestCheckLiteralConstraintsInsideComposite proves the check reaches
 // the nodes inside a composite body: a literal violation there is
 // reported under the call site's address, and a conforming body
@@ -296,10 +337,9 @@ func TestCheckLiteralConstraintsDeterministic(t *testing.T) {
 
 func TestLiteralValues(t *testing.T) {
 	tests := []struct {
-		name         string
-		src          string
-		want         map[string]any
-		wantDeferred map[string]bool
+		name string
+		src  string
+		want map[string]any
 	}{
 		{
 			name: "all scalar literals",
@@ -322,46 +362,39 @@ func TestLiteralValues(t *testing.T) {
 			want: map[string]any{"name": "x"},
 		},
 		{
-			name:         "input reference defers its field",
-			src:          `{ name: input.who }`,
-			want:         map[string]any{},
-			wantDeferred: map[string]bool{"name": true},
+			name: "input reference defers its field",
+			src:  `{ name: input.who }`,
+			want: map[string]any{"name": runtime.PendingValue{}},
 		},
 		{
-			name:         "output reference defers its field",
-			src:          `{ name: resource.a.id }`,
-			want:         map[string]any{},
-			wantDeferred: map[string]bool{"name": true},
+			name: "output reference defers its field",
+			src:  `{ name: resource.a.id }`,
+			want: map[string]any{"name": runtime.PendingValue{}},
 		},
 		{
-			name:         "nested reference defers its field",
-			src:          `{ tags: { owner: input.who } }`,
-			want:         map[string]any{},
-			wantDeferred: map[string]bool{"tags": true},
+			name: "nested reference defers its field",
+			src:  `{ tags: { owner: input.who } }`,
+			want: map[string]any{"tags": map[string]any{"owner": runtime.PendingValue{}}},
 		},
 		{
-			name:         "literal fields reduce alongside a deferred one",
-			src:          `{ name: 'x', size: input.n }`,
-			want:         map[string]any{"name": "x"},
-			wantDeferred: map[string]bool{"size": true},
+			name: "literal fields reduce alongside a deferred one",
+			src:  `{ name: 'x', size: input.n }`,
+			want: map[string]any{"name": "x", "size": runtime.PendingValue{}},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			values, deferred, ok := literalValues(parseValue(t, tt.src))
-			require.True(t, ok)
+			values, err := runtime.LiteralConstraintInputs(parseValue(t, tt.src), nil)
+			require.NoError(t, err)
 			require.Equal(t, tt.want, values)
-			if tt.wantDeferred == nil {
-				tt.wantDeferred = map[string]bool{}
-			}
-			require.Equal(t, tt.wantDeferred, deferred)
 		})
 	}
 }
 
 func TestLiteralValuesNonObjectBody(t *testing.T) {
-	_, _, ok := literalValues(parseValue(t, `'not an object'`))
-	require.False(t, ok)
+	values, err := runtime.LiteralConstraintInputs(parseValue(t, `'not an object'`), nil)
+	require.NoError(t, err)
+	require.Nil(t, values)
 }
 
 // checkLiteralMsgs runs the compile-time check against one core.thing

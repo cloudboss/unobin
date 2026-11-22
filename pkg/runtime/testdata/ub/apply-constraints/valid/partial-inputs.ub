@@ -1,0 +1,23 @@
+actions: {
+  seed: core.seed {
+    echo: input.owner
+  }
+}
+data-sources: {
+  consumer: core.lookup {
+    key:   'good'
+    limit: input.limit
+    items: [
+      {
+        name:          'example'
+        generate-name: input.generate-name
+        labels:        { owner: action.seed.value }
+        topologies:    [action.seed.value, 'fixed']
+      },
+      {
+        name:       action.seed.value
+        topologies: if action.seed.value == 'good' then ['primary'] else ['secondary']
+      },
+    ]
+  }
+}

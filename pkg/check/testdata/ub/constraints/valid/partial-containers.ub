@@ -1,0 +1,26 @@
+resources: {
+  upstream: core.plain {}
+  conflict: core.thing {
+    metadata: {
+      name:          'storage'
+      generate-name: 'storage-'
+      labels:        { owner: resource.upstream.owner }
+    }
+    topologies: [{ zone: resource.upstream.zone }, { zone: 'fixed' }]
+  }
+  deferred: core.thing {
+    metadata: {
+      name:          'storage'
+      generate-name: resource.upstream.prefix
+      labels:        { owner: resource.upstream.owner }
+    }
+    topologies: resource.upstream.topologies
+  }
+  valid: core.thing {
+    metadata: {
+      name:   'storage'
+      labels: { owner: resource.upstream.owner }
+    }
+    topologies: [{ zone: resource.upstream.zone }]
+  }
+}

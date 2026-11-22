@@ -8,6 +8,30 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 )
 
+// LiteralConstraintInputs evaluates a node body without stack or upstream
+// values. Objects and lists retain their known parts, and omitted fields
+// receive their declared defaults. A non-object body returns a nil map.
+func LiteralConstraintInputs(
+	body lang.Expr, specs []lang.DefaultSpec,
+) (map[string]any, error) {
+	object, ok := body.(*lang.ObjectLit)
+	if !ok {
+		return nil, nil
+	}
+	evaluator := partialEvaluator{ec: &EvalContext{}, literal: true}
+	values := make(map[string]any, len(object.Fields))
+	for _, field := range object.Fields {
+		if field.Key.Kind == lang.FieldIdent && !field.Key.IsMeta() {
+			value, _, err := evaluator.element(field.Value)
+			if err != nil {
+				return nil, err
+			}
+			values[field.Key.Name] = value
+		}
+	}
+	return values, overlayDefaults(values, specs, nil)
+}
+
 // applyInputDefaults fills the node type's declared defaults into the
 // evaluated inputs. unresolved names the fields still waiting on an
 // upstream output, which keep their pending placeholder rather than
@@ -187,7 +211,7 @@ func overlayDefaults(
 			continue
 		}
 		segments := strings.Split(path, ".")
-		if _, pending := unresolved[segments[0]]; pending {
+		if _, pending := unresolved[segments[0]]; pending && len(segments) == 1 {
 			continue
 		}
 		target := inputs

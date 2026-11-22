@@ -1,0 +1,4 @@
+items:          input.items
+has-topologies: @each.value.topologies != null
+topology-limit: @core.length(@each.value.topologies ?? []) <= input.limit
+owner:          @core.lookup(input.items[0].labels, 'owner') == 'good'

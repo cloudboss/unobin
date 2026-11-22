@@ -106,6 +106,18 @@ func TestOverlayDefaults(t *testing.T) {
 			},
 		},
 		{
+			name: "fills a nested field beside a pending field",
+			inputs: map[string]any{"code": map[string]any{
+				"inline": PendingValue{Refs: []string{"action.seed.value"}},
+			}},
+			specs:      []lang.DefaultSpec{value("input.code.retries", "3")},
+			unresolved: map[string][]string{"code": {"action.seed.value"}},
+			want: map[string]any{"code": map[string]any{
+				"inline":  PendingValue{Refs: []string{"action.seed.value"}},
+				"retries": int64(3),
+			}},
+		},
+		{
 			name:   "does not invent an absent parent object",
 			inputs: map[string]any{},
 			specs:  []lang.DefaultSpec{value("input.code.retries", "3")},

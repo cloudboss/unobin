@@ -146,7 +146,7 @@ func TestEvalAssetEqualityWithSavedReferences(t *testing.T) {
 		},
 	}
 	step := &PlanStep{Address: "resource.native.blob.target", Kind: NodeResource}
-	require.Empty(t, exec.checkStepConstraints(step, loaded.Inputs, nil))
+	require.Empty(t, exec.checkStepConstraints(step, loaded.Inputs))
 
 	type config struct {
 		First  []byte

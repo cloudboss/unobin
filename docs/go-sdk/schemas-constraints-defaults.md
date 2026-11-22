@@ -188,10 +188,10 @@ that use only API `1.0` contracts can keep that requirement. See
 ## Check timing
 
 The compiler derives schemas and constraints from the selected library source
-and checks values that are known at compile time. During planning, each native
-resource, data source, or action constraint runs as soon as all fields it reads
-are resolved. A rule that reads a pending dependency waits for apply; unrelated
-rules still run during planning.
+and checks values that are known at compile time. During compilation and
+planning, native constraints can inspect known fields of partially resolved
+objects and check list lengths while elements are pending. A check that
+needs a pending value runs once that value resolves during planning or apply.
 
 For a data source read during planning, resolved inputs and their defaults are
 checked before the read. Invalid inputs produce constraint diagnostics without

@@ -27,6 +27,12 @@ type PendingValue struct {
 	Refs []string
 }
 
+// IsPendingValue reports whether the value itself is unknown.
+func IsPendingValue(value any) bool {
+	_, pending := value.(PendingValue)
+	return pending
+}
+
 func pendingValueRefs(value any) ([]string, bool) {
 	var refs []string
 	found := false
@@ -122,8 +128,9 @@ func planEvalBody(body lang.Expr, ec *EvalContext) (map[string]any, map[string][
 // references, and chooses a conditional branch when its condition is known.
 // Resolved elements keep their values; unresolved elements become PendingValue
 // markers at their real positions. Expressions that cannot be reduced safely
-// remain one PendingValue holding the addresses they read. The result is for
-// display only; withoutPending discards the whole field for plan decisions.
+// remain one PendingValue holding the addresses they read. Constraints can
+// inspect known parts of the result; withoutPending discards the whole field
+// for plan decisions.
 func partialValue(
 	e lang.Expr,
 	ec *EvalContext,
@@ -141,6 +148,7 @@ type partialEvaluator struct {
 	ec        *EvalContext
 	locals    map[string]lang.Expr
 	expanding map[string]bool
+	literal   bool
 }
 
 func (p *partialEvaluator) value(e lang.Expr) (any, []string, error) {
@@ -201,6 +209,9 @@ func (p *partialEvaluator) value(e lang.Expr) (any, []string, error) {
 		if value, refs, err, ok := p.local(v); ok {
 			return value, refs, err
 		}
+	}
+	if p.literal {
+		return PendingValue{}, nil, nil
 	}
 	refs, err := pendingRefs(e, p.ec, p.locals)
 	if err != nil {
@@ -284,10 +295,14 @@ func (p *partialEvaluator) element(e lang.Expr) (any, []string, error) {
 	if err == nil {
 		return value, nil, nil
 	}
-	if !errors.Is(err, ErrEvalNotFound) {
+	if !p.literal && !errors.Is(err, ErrEvalNotFound) {
 		return nil, nil, err
 	}
-	return p.value(e)
+	value, refs, err := p.value(e)
+	if p.literal && err != nil {
+		return PendingValue{}, nil, nil
+	}
+	return value, refs, err
 }
 
 // withoutPending returns inputs with every still-unresolved field reset to
@@ -536,7 +551,7 @@ func (e *Executor) Plan(ctx context.Context) (*Plan, error) {
 				if err := e.seedStepAttrs(rs, step); err != nil {
 					return nil, diagnostic.Context(step.Address, err)
 				}
-				for _, err := range e.checkStepConstraints(step, step.Inputs, step.UnresolvedInputs) {
+				for _, err := range e.checkStepConstraints(step, step.Inputs) {
 					constraintErrs = append(constraintErrs, fmt.Errorf("%s: %v", step.Address, err))
 				}
 				constraintErrs = append(constraintErrs, e.checkCompositeConstraints(rs, step)...)
@@ -1095,15 +1110,9 @@ func (e *Executor) planNode(ctx context.Context, rs *runState, n *Node) (*PlanSt
 
 // checkStepConstraints validates a leaf node's evaluated args against its
 // Go type's constraints, returning one error per violation.
-// Each rule runs as soon as every field it reads
-// has resolved, so a forward-reference arg (unknown until apply)
-// never causes a false violation: only the rules that read a pending
-// field wait for apply. A missing optional arg evaluates to null in a
-// predicate rather than erroring. Composite boundaries and types that
-// declare no constraint contribute nothing.
-func (e *Executor) checkStepConstraints(
-	step *PlanStep, inputs map[string]any, unresolved map[string][]string,
-) []error {
+// Rules can use known fields and collection lengths even when parts of
+// an input are pending. A missing optional argument evaluates to null.
+func (e *Executor) checkStepConstraints(step *PlanStep, inputs map[string]any) []error {
 	if step.Composite {
 		return nil
 	}
@@ -1125,31 +1134,16 @@ func (e *Executor) checkStepConstraints(
 	if len(specs) == 0 {
 		return nil
 	}
-	deferred := make(map[string]bool, len(unresolved))
-	for name := range unresolved {
-		deferred[name] = true
-	}
 	entries, perr := lang.ParseSpecs(specs)
-	values := make(map[string]any, len(inputs))
-	maps.Copy(values, inputs)
-	eval := func(ex lang.Expr, binds []lang.EachBinding) (any, error) {
-		ctx := &EvalContext{Inputs: values, AssetCache: e.AssetCache, MissingAsNull: true}
-		ApplyBindings(ctx, binds)
-		v, err := Eval(ex, ctx)
-		if errors.Is(err, ErrEvalNotFound) {
-			return nil, nil
-		}
-		return v, err
-	}
+	eval := ConstraintEvaluator(EvalContext{Inputs: inputs, AssetCache: e.AssetCache})
 	var out []error
 	for _, er := range perr.Errors() {
 		out = append(out, er)
 	}
 	for i, c := range entries {
-		if c.ReadsAny(deferred) {
-			continue
-		}
-		checked := lang.CheckConstraintEntry(i, c, values, eval, lang.DisplayNodeRelative)
+		checked := lang.CheckPartialConstraintEntry(
+			i, c, inputs, eval, lang.DisplayNodeRelative, IsPendingValue,
+		)
 		for _, er := range checked.Errors() {
 			out = append(out, er)
 		}
@@ -1762,7 +1756,7 @@ func (e *Executor) planOneData(
 		step.DeferredConfig = configAddr
 		return step, nil
 	}
-	if errs := e.checkStepConstraints(step, inputs, unresolved); len(errs) > 0 {
+	if errs := e.checkStepConstraints(step, inputs); len(errs) > 0 {
 		return nil, errors.Join(errs...)
 	}
 	dt, err := e.dataRegistration(n)

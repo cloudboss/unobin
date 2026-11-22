@@ -1,0 +1,18 @@
+thing: resource {
+  inputs: {
+    metadata:   { type: opaque }
+    topologies: { type: opaque }
+  }
+  constraints: [
+    {
+      kind:   exactly-one-of
+      fields: [input.metadata.name, input.metadata.generate-name]
+    },
+    {
+      kind:    predicate
+      when:    true
+      require: @core.length(input.topologies ?? []) <= 1
+      message: 'too many topology terms'
+    },
+  ]
+}

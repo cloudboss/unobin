@@ -55,6 +55,10 @@ type EvalContext struct {
 	// that have not run yet.
 	MissingAsNull bool
 
+	// partialConstraints lets constraint expressions inspect known parts of
+	// collections that contain pending values.
+	partialConstraints bool
+
 	// locals holds the scope's `locals:` declarations and folds them
 	// lazily as `local.<name>` references are evaluated. Shared with
 	// child contexts so a comprehension inside the scope sees the
@@ -81,6 +85,12 @@ func Eval(e lang.Expr, ctx *EvalContext) (any, error) {
 	value, err := evalExpr(e, ctx)
 	if err != nil {
 		return nil, err
+	}
+	if ctx != nil && ctx.partialConstraints {
+		if IsPendingValue(value) {
+			return nil, lang.ErrConstraintPending
+		}
+		return value, nil
 	}
 	if _, pending := pendingValueRefs(value); pending {
 		return nil, ErrEvalNotFound
@@ -405,7 +415,7 @@ func evalLibraryCall(c *lang.Call, ctx *EvalContext) (any, error) {
 			c.Library.Name, c.Func.Name)
 	}
 	name := c.Library.Name + "." + c.Func.Name
-	args, err := evalArgs(name, c.Args, ctx)
+	args, err := evalArgs(name, c.Args, ctx, false)
 	if err != nil {
 		return nil, err
 	}
@@ -429,7 +439,9 @@ func evalCoreCall(c *lang.Call, ctx *EvalContext) (any, error) {
 			lang.CoreNamespace, c.Func.Name)
 	}
 	name := lang.CoreNamespace + "." + c.Func.Name
-	args, err := evalArgs(name, c.Args, ctx)
+	partialCollection := c.Func.Name == "length" || c.Func.Name == "lookup" ||
+		c.Func.Name == "has-key"
+	args, err := evalArgs(name, c.Args, ctx, partialCollection)
 	if err != nil {
 		return nil, err
 	}
@@ -442,12 +454,19 @@ func evalCoreCall(c *lang.Call, ctx *EvalContext) (any, error) {
 	})
 }
 
-func evalArgs(name string, exprs []lang.Expr, ctx *EvalContext) ([]any, error) {
+func evalArgs(
+	name string, exprs []lang.Expr, ctx *EvalContext, partialCollection bool,
+) ([]any, error) {
 	args := make([]any, len(exprs))
 	for i, a := range exprs {
 		v, err := Eval(a, ctx)
 		if err != nil {
 			return nil, diagnostic.Context(fmt.Sprintf("eval: %s arg %d", name, i), err)
+		}
+		if ctx.partialConstraints && (i != 0 || !partialCollection) {
+			if _, pending := pendingValueRefs(v); pending {
+				return nil, lang.ErrConstraintPending
+			}
 		}
 		args[i] = v
 	}
@@ -478,6 +497,13 @@ func evalInfix(n *lang.Infix, ctx *EvalContext) (any, error) {
 	case "<", "<=", ">", ">=":
 		return evalCmp(n.Op, left, right)
 	case "==", "!=":
+		if ctx.partialConstraints && left != nil && right != nil {
+			_, leftPending := pendingValueRefs(left)
+			_, rightPending := pendingValueRefs(right)
+			if leftPending || rightPending {
+				return nil, lang.ErrConstraintPending
+			}
+		}
 		resolver := expressionAssetResolver(ctx)
 		equal, err := equalValues(left, right, &resolver)
 		if err != nil {
@@ -828,6 +854,9 @@ func navigateSegments(
 	cur any, path string, segs []lang.DotSegment, ctx *EvalContext,
 ) (any, error) {
 	for i, seg := range segs {
+		if ctx != nil && ctx.partialConstraints && IsPendingValue(cur) {
+			return nil, lang.ErrConstraintPending
+		}
 		if cur == nil && seg.Guarded {
 			return nil, nil
 		}
@@ -943,5 +972,21 @@ func ApplyBindings(ctx *EvalContext, binds []lang.EachBinding) {
 	ctx.Each = make(map[string]lang.EachValue, len(binds))
 	for _, b := range binds {
 		ctx.Each[b.Name] = lang.EachValue{Key: b.Key, Value: b.Value}
+	}
+}
+
+// ConstraintEvaluator lets predicates inspect known parts of inputs. Missing
+// optional fields read as null, and pending values defer the predicate.
+func ConstraintEvaluator(scope EvalContext) lang.ConstraintEvalFunc {
+	scope.MissingAsNull = true
+	scope.partialConstraints = true
+	return func(expr lang.Expr, binds []lang.EachBinding) (any, error) {
+		ctx := scope
+		ApplyBindings(&ctx, binds)
+		value, err := Eval(expr, &ctx)
+		if errors.Is(err, ErrEvalNotFound) {
+			return nil, nil
+		}
+		return value, err
 	}
 }

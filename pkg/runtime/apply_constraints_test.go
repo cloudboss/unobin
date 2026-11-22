@@ -14,7 +14,10 @@ import (
 )
 
 type applyConstraintItem struct {
-	Name string
+	Name         string
+	GenerateName *string
+	Labels       map[string]string
+	Topologies   []string
 }
 
 type applyConstraintSeed struct {
@@ -31,6 +34,7 @@ func (a *applyConstraintSeed) Run(_ context.Context, _ any) (any, error) {
 type applyConstraintData struct {
 	Key   string
 	Items []applyConstraintItem
+	Limit int64
 	reads *int64
 }
 
@@ -333,4 +337,75 @@ func TestPlanChecksKnownRulesWithDeferredInputs(t *testing.T) {
 	require.NotContains(t, err.Error(), "constraints[0]")
 	require.Zero(t, seedRuns)
 	require.Zero(t, c.creates)
+}
+
+func TestPlanChecksPartiallyKnownConstraintInputs(t *testing.T) {
+	rules, err := lang.ParseSource("partial-rules.ub",
+		[]byte(applyConstraintFixture(t, "partial-rules")))
+	require.NoError(t, err)
+	expr := make(map[string]string)
+	for _, field := range rules.Body.Fields {
+		formatted, err := lang.FormatExpr(field.Value)
+		require.NoError(t, err)
+		expr[field.Key.Name] = string(formatted)
+	}
+	length := predSpec(expr["has-topologies"], expr["topology-limit"])
+	length.ForEach = expr["items"]
+	for _, tc := range []struct {
+		name         string
+		generateName any
+		limit        int64
+		owner        string
+		planError    string
+		applyError   string
+	}{
+		{
+			name: "known names", generateName: "prefix-", limit: 2, owner: "bad",
+			planError: "constraints[0] (exactly-one-of [items[0].name, items[0].generate-name])",
+		},
+		{
+			name: "known length", limit: 1, owner: "bad",
+			planError: "constraints[1] (predicate): predicate requirement not satisfied (items[0])",
+		},
+		{
+			name: "pending violation", limit: 2, owner: "bad",
+			applyError: "constraints[2] (predicate): predicate requirement not satisfied",
+		},
+		{name: "valid", limit: 2, owner: "good"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var seedRuns, actionRuns, dataReads int64
+			libs := applyConstraintLibrary(&resourceCounters{}, &seedRuns, &actionRuns,
+				&dataReads)
+			libs["core"].Constraints["data-source.lookup"] = []lang.ConstraintSpec{
+				setSpec("exactly-one-of", "input.items[*].name", "input.items[*].generate-name"),
+				length,
+				predSpec("true", expr["owner"]),
+			}
+			exec := planTestExecutor(t, applyConstraintFixture(t, "partial-inputs"),
+				libs, newStateStore(t), state.FactoryInfo{})
+			exec.Inputs = map[string]any{
+				"generate-name": tc.generateName, "limit": tc.limit, "owner": tc.owner,
+			}
+			if tc.planError != "" {
+				_, err := exec.Plan(context.Background())
+				require.ErrorContains(t, err, "data-source.consumer: schema: "+tc.planError)
+				require.Equal(t, 1, strings.Count(err.Error(), "constraints["))
+				require.Zero(t, seedRuns)
+				require.Zero(t, dataReads)
+				return
+			}
+			pf := savedConstraintPlan(t, exec)
+			require.Zero(t, dataReads)
+			_, err := exec.ApplyPlan(context.Background(), pf)
+			require.EqualValues(t, 1, seedRuns)
+			if tc.applyError != "" {
+				require.ErrorContains(t, err, "data-source.consumer: schema: "+tc.applyError)
+				require.Zero(t, dataReads)
+			} else {
+				require.NoError(t, err)
+				require.EqualValues(t, 1, dataReads)
+			}
+		})
+	}
 }
