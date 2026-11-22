@@ -13,7 +13,7 @@ import (
 
 func Library() *runtime.Library {
 	return &runtime.Library{
-		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.0"},
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.1"},
 
 		Name:        "demo",
 		LibraryPath: "example.com/demo",

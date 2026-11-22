@@ -56,7 +56,7 @@ func TestCompatibilityContextChecksCurrentDeclaration(t *testing.T) {
 }
 
 func TestCompatibilityContextChecksEverySelectedPackageBeforeRegistration(t *testing.T) {
-	newer := writeContextPackage(t, "1.1", "")
+	newer := writeContextPackage(t, "1.2", "")
 	unsupported := writeContextPackage(t, "2.0", "")
 	compatible := writeContextPackage(t, "1.0", "")
 	path := filepath.Join(compatible, "library.go")
@@ -157,8 +157,8 @@ func TestCompatibilityContextCoreReplacement(t *testing.T) {
 	var toolchain *CoreDescriptorError
 	require.ErrorAs(t, err, &toolchain)
 	assert.Contains(t, err.Error(), "replacement")
-	descriptor.ImplementedAPIs = []string{"1.1"}
-	descriptor.GeneratorAPI = "1.1"
+	descriptor.ImplementedAPIs = []string{"1.2"}
+	descriptor.GeneratorAPI = "1.2"
 	writeCoreDescriptor(t, core, descriptor)
 	_, err = NewCompatibilityContext(CompatibilityOptions{CoreReplacement: core})
 	require.ErrorAs(t, err, &toolchain)

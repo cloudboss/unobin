@@ -17,7 +17,7 @@ func LibraryConfiguration() *cfg.ConfigurationType[*Configuration] {
 
 func Library() *runtime.Library {
 	return &runtime.Library{
-		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.1"},
+		Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.2"},
 		Configuration: LibraryConfiguration(),
 	}
 }

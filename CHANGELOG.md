@@ -6,7 +6,10 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ### Added
 
-- Add string, collection, and computed predicates for Go and Unobin constraints.
+- Add shared string and collection predicates, including `@core.is-match`,
+  `@core.is-format`, `@core.has-key`, `@core.has-item`, and `@core.is-unique`.
+  Go constraints can use computed operands and bound Unobin expressions.
+- Implement library API 1.1 for native constraints. Libraries that use API 1.0 remain compatible.
 
 ### Changed
 

@@ -24,7 +24,7 @@ func TestSchemaCacheChecksCompatibilityBeforeReaders(t *testing.T) {
 				body, err := os.ReadFile(path)
 				require.NoError(t, err)
 				require.NoError(t, os.WriteFile(path, []byte(strings.ReplaceAll(
-					string(body), `RequiredAPI: "1.0"`, `RequiredAPI: "1.1"`)), 0o644))
+					string(body), `RequiredAPI: "1.0"`, `RequiredAPI: "1.2"`)), 0o644))
 				calls := 0
 				reader := func(string) (*runtime.LibrarySchema, []string, error) {
 					calls++
@@ -98,9 +98,9 @@ func TestSchemaCacheUsesInjectedDescriptorForBothReaders(t *testing.T) {
 	body, err := os.ReadFile(path)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(path, []byte(strings.ReplaceAll(
-		string(body), `"1.0"`, `"1.1"`)), 0o644))
+		string(body), `"1.0"`, `"1.2"`)), 0o644))
 	descriptor := libraryapi.Descriptor{
-		FormatVersion: 1, ImplementedAPIs: []string{"1.1"}, GeneratorAPI: "1.1",
+		FormatVersion: 1, ImplementedAPIs: []string{"1.2"}, GeneratorAPI: "1.2",
 	}
 	context, err := golibrary.NewCompatibilityContext(golibrary.CompatibilityOptions{
 		Descriptor: &descriptor,
@@ -183,7 +183,7 @@ func TestSchemaCacheRejectsSourceChangesDuringRead(t *testing.T) {
 				require.NoError(t, err)
 				reader := func(string) (*runtime.LibrarySchema, []string, error) {
 					require.NoError(t, os.WriteFile(path, []byte(strings.ReplaceAll(
-						string(body), `"1.0"`, `"1.1"`)), 0o644))
+						string(body), `"1.0"`, `"1.2"`)), 0o644))
 					return importAnalysisSchema(), nil, nil
 				}
 				cache := NewSchemaCacheWithReaders(reader, reader)

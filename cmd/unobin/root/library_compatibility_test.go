@@ -111,7 +111,7 @@ func TestCommandsUseCompatibilityContextForLibraryReads(t *testing.T) {
 					source, err := os.ReadFile(path)
 					require.NoError(t, err)
 					source = []byte(strings.ReplaceAll(string(source),
-						`RequiredAPI: "1.0"`, `RequiredAPI: "1.1"`))
+						`RequiredAPI: "1.0"`, `RequiredAPI: "1.2"`))
 					require.NoError(t, os.WriteFile(path, source, 0o644))
 				} else {
 					mod := "module example.com/lib\n\ngo 1.26.2\n\n" +
@@ -120,7 +120,7 @@ func TestCommandsUseCompatibilityContextForLibraryReads(t *testing.T) {
 				}
 				if condition == "injected minor" {
 					descriptor := libraryapi.Descriptor{
-						FormatVersion: 1, ImplementedAPIs: []string{"1.1"}, GeneratorAPI: "1.1",
+						FormatVersion: 1, ImplementedAPIs: []string{"1.2"}, GeneratorAPI: "1.2",
 					}
 					t.Cleanup(cmdconfig.SetLibraryAPIDescriptorForTest(&descriptor))
 				}
