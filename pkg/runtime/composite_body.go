@@ -67,6 +67,8 @@ func checkCompositeConstraintValues(n *Node, scope *EvalContext) *lang.ErrorList
 		ctx := &EvalContext{
 			Inputs:        values,
 			Libraries:     n.Libraries,
+			Assets:        scope.Assets,
+			AssetCache:    scope.AssetCache,
 			MissingAsNull: true,
 		}
 		ApplyBindings(ctx, binds)

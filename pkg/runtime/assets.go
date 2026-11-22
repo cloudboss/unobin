@@ -48,19 +48,21 @@ func (r assetResolver) resolve(value any) (any, error) {
 		}
 		return resolved, nil
 	default:
-		return r.resolveLeaf(value)
+		return r.resolveLeaf(value, true)
 	}
 }
 
-func (r assetResolver) resolveLeaf(value any) (any, error) {
+func (r assetResolver) resolveLeaf(value any, allowStoredReferences bool) (any, error) {
 	switch typed := value.(type) {
 	case asset.PathRef:
 		return r.resolveReference(string(typed), asset.ReferenceKindPath)
 	case asset.ContentRef:
 		return r.resolveReference(string(typed), asset.ReferenceKindContent)
 	case string:
-		if ref, ok := asset.ParseReference(typed); ok {
-			return r.resolveReference(typed, ref.Kind)
+		if allowStoredReferences {
+			if ref, ok := asset.ParseReference(typed); ok {
+				return r.resolveReference(typed, ref.Kind)
+			}
 		}
 	case []byte:
 		if r.materializePaths {
@@ -121,5 +123,5 @@ func (e *Executor) resolveAssetMap(logical map[string]any) (map[string]any, erro
 }
 
 func (e *Executor) decodeLibraryConfig(lib *Library, raw map[string]any) (any, error) {
-	return decodeLibraryConfigWith(lib, raw, e.resolveAssetMap)
+	return decodeLibraryConfigWith(lib, raw, e.resolveAssetMap, e.AssetCache)
 }

@@ -3,6 +3,7 @@ package runtime
 import (
 	"encoding/base64"
 	"io/fs"
+	"path/filepath"
 	"testing"
 	"testing/fstest"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/resolve"
+	"github.com/cloudboss/unobin/pkg/sdk/cfg"
 )
 
 const assetEvalFixtureDir = "testdata/ub/asset-eval"
@@ -65,6 +67,100 @@ func TestEvalAssetObjectsAndAttributes(t *testing.T) {
 	pathReference, ok := catalog.Reference(string(selectedValue.Path))
 	require.True(t, ok)
 	require.Same(t, selectedEntry, pathReference.Entry)
+}
+
+func TestEvalAssetEquality(t *testing.T) {
+	body := assetEvalFactoryFixture(t, "equality")
+	_, set := assetEvalCatalog(t, body, assetEvalFS("zip bytes"))
+
+	values, err := Eval(assetEvalLocal(t, body, "equality"), &EvalContext{Assets: set})
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{
+		"contents": true, "paths": true, "path-text": true, "byte-list": true,
+		"non-byte": true, "different-content": true, "nested": true,
+	}, values)
+}
+
+func TestEvalAssetEqualityWithSavedReferences(t *testing.T) {
+	body := assetEvalFactoryFixture(t, "equality")
+	catalog, set := assetEvalCatalog(t, body, assetEvalFS("zip bytes"))
+	first, err := set.Value("archive", "")
+	require.NoError(t, err)
+	second, err := set.Value("copy", "")
+	require.NoError(t, err)
+
+	encoded, err := EncodePlan(&Plan{Inputs: map[string]any{
+		"first": first.Content, "second": second.Content,
+	}})
+	require.NoError(t, err)
+	loaded, err := DecodePlan(encoded)
+	require.NoError(t, err)
+	require.Equal(t, string(first.Content), loaded.Inputs["first"])
+	require.Equal(t, string(second.Content), loaded.Inputs["second"])
+
+	cacheRoot := filepath.Join(t.TempDir(), "assets")
+	current, err := asset.NewCache(catalog, cacheRoot)
+	require.NoError(t, err)
+	_, err = current.Resolve(string(first.Content))
+	require.NoError(t, err)
+	_, err = current.Resolve(string(second.Content))
+	require.NoError(t, err)
+	historical, err := asset.NewCache(nil, cacheRoot)
+	require.NoError(t, err)
+
+	expr := assetEvalLocal(t, body, "stored")
+	value, err := Eval(expr, &EvalContext{Inputs: loaded.Inputs, AssetCache: historical})
+	require.NoError(t, err)
+	require.Equal(t, true, value)
+
+	value, err = Eval(expr, &EvalContext{Inputs: loaded.Inputs})
+	require.NoError(t, err)
+	require.Equal(t, false, value)
+
+	ctx := &EvalContext{Inputs: map[string]any{
+		"first": first.Content, "second": second.Content,
+	}}
+	for _, name := range []string{"presence", "different-length", "different-key"} {
+		value, err := Eval(assetEvalLocal(t, body, name), ctx)
+		require.NoError(t, err, name)
+		require.Equal(t, true, value, name)
+	}
+	_, err = Eval(expr, ctx)
+	require.EqualError(t, err,
+		`eval: ==: key "files": index 0: left operand: asset content: no asset catalog is available`)
+
+	when, err := lang.FormatExpr(assetEvalLocal(t, body, "presence"))
+	require.NoError(t, err)
+	required, err := lang.FormatExpr(expr)
+	require.NoError(t, err)
+	exec := &Executor{
+		AssetCache: historical,
+		Libraries: map[string]*Library{
+			"native": {
+				Constraints: map[string][]lang.ConstraintSpec{
+					"resource.blob": {
+						{Kind: "predicate", When: string(when), Require: string(required)},
+					},
+				},
+			},
+		},
+	}
+	step := &PlanStep{Address: "resource.native.blob.target", Kind: NodeResource}
+	require.Empty(t, exec.checkStepConstraints(step, loaded.Inputs, nil))
+
+	type config struct {
+		First  []byte
+		Second []byte
+	}
+	native := exec.Libraries["native"]
+	native.Configuration = &cfg.ConfigurationType[*config]{New: func() *config { return &config{} }}
+	native.Schema = &LibrarySchema{
+		HasConfiguration:         true,
+		ConfigurationConstraints: native.Constraints["resource.blob"],
+	}
+	decoded, err := exec.decodeLibraryConfig(native, loaded.Inputs)
+	require.NoError(t, err)
+	require.Equal(t, &config{First: []byte("zip bytes"), Second: []byte("zip bytes")}, decoded)
 }
 
 func TestEvalAssetValueIsKnownDuringPartialEvaluation(t *testing.T) {

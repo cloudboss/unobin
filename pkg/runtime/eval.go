@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -478,10 +477,16 @@ func evalInfix(n *lang.Infix, ctx *EvalContext) (any, error) {
 		return evalArith(n.Op, left, right)
 	case "<", "<=", ">", ">=":
 		return evalCmp(n.Op, left, right)
-	case "==":
-		return evalEq(left, right), nil
-	case "!=":
-		return !evalEq(left, right), nil
+	case "==", "!=":
+		resolver := expressionAssetResolver(ctx)
+		equal, err := equalValues(left, right, &resolver)
+		if err != nil {
+			return nil, diagnostic.Context("eval: "+n.Op, err)
+		}
+		if n.Op == "!=" {
+			equal = !equal
+		}
+		return equal, nil
 	}
 	return nil, fmt.Errorf("eval: unknown operator %q", n.Op)
 }
@@ -636,43 +641,6 @@ func evalCmp(op string, a, b any) (any, error) {
 	return nil, fmt.Errorf(
 		"eval: %s: operands must be numbers or strings, got %s and %s",
 		op, lang.TypeMessage(a), lang.TypeMessage(b))
-}
-
-// evalEq reports value equality with numeric promotion at every
-// position: a pair of numbers compares by value (1 == 1.0), and the
-// promotion reaches inside lists and maps, so [1] == [1.0] too. Lists
-// compare element-wise and maps key-wise; anything else falls to
-// reflect.DeepEqual.
-func evalEq(a, b any) bool {
-	if c, ok := numericCmp(a, b); ok {
-		return c == 0
-	}
-	switch av := a.(type) {
-	case []any:
-		bv, ok := b.([]any)
-		if !ok || len(av) != len(bv) {
-			return false
-		}
-		for i := range av {
-			if !evalEq(av[i], bv[i]) {
-				return false
-			}
-		}
-		return true
-	case map[string]any:
-		bv, ok := b.(map[string]any)
-		if !ok || len(av) != len(bv) {
-			return false
-		}
-		for k, v := range av {
-			w, ok := bv[k]
-			if !ok || !evalEq(v, w) {
-				return false
-			}
-		}
-		return true
-	}
-	return reflect.DeepEqual(a, b)
 }
 
 // numericCmp orders two numeric values, returning -1, 0, or 1 with ok

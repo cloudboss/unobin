@@ -19,6 +19,8 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ### Fixed
 
+- Compare asset paths as logical strings and asset content by its bytes, including
+  when the other operand is a byte list.
 - Check resolved and defaulted data-source input constraints before planning reads, so lookup errors cannot mask constraint diagnostics.
 - Preserve literal string escaping in extracted constraints and inherit constraint declarations through local and imported type aliases.
 - Validate resolved and defaulted inputs during apply, including saved no-op plans and deferred resource decisions, before executing resource, data-source, or action operations. Historical state can still be destroyed when its inputs no longer satisfy current constraints.
