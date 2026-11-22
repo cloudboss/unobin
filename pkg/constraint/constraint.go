@@ -154,25 +154,11 @@ func Below(field, value any) Condition { return Condition{} }
 // field). A null operand makes the condition pass.
 func AtMost(field, value any) Condition { return Condition{} }
 
-// Matches tests a string against a Go regular expression. The pattern must be
-// a constant string expression of literals, concatenations, and parentheses.
-// Null passes.
-func Matches(field any, pattern string) Condition { return Condition{} }
+// IsMatch tests a string against a Go regular expression. Null passes.
+func IsMatch(value any, pattern string) Condition { return Condition{} }
 
-// IsRegex tests whether a string is a valid Go regular expression. Null passes.
-func IsRegex(field any) Condition { return Condition{} }
-
-// IsIP tests whether a string is an IPv4 or IPv6 address. Null passes.
-func IsIP(field any) Condition { return Condition{} }
-
-// IsCIDR tests whether a string is an IPv4 or IPv6 CIDR prefix. Null passes.
-func IsCIDR(field any) Condition { return Condition{} }
-
-// IsBase64 tests whether a string uses standard padded base64. Null passes.
-func IsBase64(field any) Condition { return Condition{} }
-
-// IsPositiveDuration tests whether a string is a positive Go duration. Null passes.
-func IsPositiveDuration(field any) Condition { return Condition{} }
+// IsFormat checks the syntax of a string according to a named format. Null passes.
+func IsFormat(value any, format string) Condition { return Condition{} }
 
 // OneOf holds when field's value is one of the given values.
 func OneOf(field any, values ...any) Condition { return Condition{} }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
 	"unicode/utf8"
 )
 
@@ -635,7 +634,7 @@ func checkFormat(expr Expr, v any) error {
 	}
 	switch id.Name {
 	case "date-time":
-		if _, err := time.Parse(time.RFC3339, s); err != nil {
+		if err := validateDateTime(s); err != nil {
 			return fmt.Errorf("value %q is not a valid date-time: %w", s, err)
 		}
 		return nil

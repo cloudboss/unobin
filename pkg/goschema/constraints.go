@@ -780,18 +780,10 @@ func (w *walker) condString(arg ast.Expr, scope constraintScope) (string, bool) 
 		return w.orderedCond(call, "<", scope)
 	case "AtMost":
 		return w.orderedCond(call, "<=", scope)
-	case "Matches":
-		return w.formatCond(call, "matches", true, scope)
-	case "IsRegex":
-		return w.formatCond(call, "is-regex", false, scope)
-	case "IsIP":
-		return w.formatCond(call, "is-ip", false, scope)
-	case "IsCIDR":
-		return w.formatCond(call, "is-cidr", false, scope)
-	case "IsBase64":
-		return w.formatCond(call, "is-base64", false, scope)
-	case "IsPositiveDuration":
-		return w.formatCond(call, "is-positive-duration", false, scope)
+	case "IsMatch":
+		return w.formatCond(call, "is-match", scope)
+	case "IsFormat":
+		return w.formatCond(call, "is-format", scope)
 	case "IsTrue":
 		return w.boolCond(call, "true", scope)
 	case "IsFalse":
@@ -820,14 +812,10 @@ func (w *walker) condString(arg ast.Expr, scope constraintScope) (string, bool) 
 }
 
 func (w *walker) formatCond(
-	call *ast.CallExpr, name string, pattern bool, scope constraintScope,
+	call *ast.CallExpr, name string, scope constraintScope,
 ) (string, bool) {
-	want := 1
-	if pattern {
-		want = 2
-	}
-	if len(call.Args) != want {
-		w.addErrf("%s requires %d arguments", condName(call), want)
+	if len(call.Args) != 2 {
+		w.addErrf("%s requires 2 arguments", condName(call))
 		return "", false
 	}
 	field, ok := w.selectorFieldRef(call.Args[0], scope)
@@ -838,20 +826,21 @@ func (w *walker) formatCond(
 		w.addErrf("%s requires a string field, got %s", condName(call), field.valueType)
 		return "", false
 	}
-	args := field.expr
-	if pattern {
-		pattern, ok := stringConstant(call.Args[1])
-		if !ok {
-			w.addErrf("Matches requires a regular expression constant string expression")
-			return "", false
-		}
-		if _, err := regexp.Compile(pattern); err != nil {
-			w.addErrf("Matches regular expression: %v", err)
-			return "", false
-		}
-		args += ", " + lang.Render(pattern)
+	param, ok := stringConstant(call.Args[1])
+	if !ok {
+		w.addErrf("%s requires a constant string expression", condName(call))
+		return "", false
 	}
-	return "(@core." + name + "(" + args + "))", true
+	if name == "is-match" {
+		if _, err := regexp.Compile(param); err != nil {
+			w.addErrf("IsMatch regular expression: %v", err)
+			return "", false
+		}
+	} else if _, ok := lang.StringFormat(param); !ok {
+		w.addErrf("IsFormat: unknown format %q", param)
+		return "", false
+	}
+	return "(@core." + name + "(" + field.expr + ", " + lang.Render(param) + "))", true
 }
 
 func (w *walker) compareCond(

@@ -86,50 +86,21 @@ fallback explicitly for optional lists; a bare `@for-each: input.labels` is
 rejected when `labels` may be null. Library configuration structs use the same
 constraints method model.
 
-### String format predicates
+### String predicates
 
-Use these conditions with `Must` or `When(...).Require(...)`:
+`IsMatch(field, pattern)` searches for a Go regular expression match. Use
+`^` and `$` for a full-string match. An invalid pattern is a schema extraction
+error. `IsFormat(field, format)` checks any of the
+[language string formats](../language/functions.md#string-predicates).
 
-| Condition | Check |
-| --- | --- |
-| `Matches(field, pattern)` | A match for a Go regular expression; use `^` and `$` for a full-string match. |
-| `IsRegex(field)` | Valid Go regular expression syntax. |
-| `IsIP(field)` | An IPv4 or IPv6 address. |
-| `IsCIDR(field)` | An IPv4 or IPv6 CIDR prefix. |
-| `IsBase64(field)` | A string that decodes as standard padded base64. |
-| `IsPositiveDuration(field)` | A valid Go duration greater than zero. |
-
-The field must be a string field, a nullable string field, or a string iteration
-parameter. Each format condition passes for null. Pair it with `Present` or
-`NotEmpty` when the value must be set or non-empty. Nested selectors can refer to
-fields below optional objects; a missing object makes the selected field null.
-See [String format predicates](../language/functions.md#string-format-predicates)
-for format details.
-
-`Matches` requires a pattern made from string literals, `+` concatenation, and
-parentheses. For example, `"^" + ("[a-z][a-z0-9-]*") + "$"` is accepted. Named
-constants, variables, and function calls are not accepted in that argument.
-An invalid regular expression is a schema extraction error. This differs from
-calling `@core.matches` directly, which returns false for an invalid pattern and
-a non-null string value.
+Both checks accept null. Pair them with `Present` or `NotEmpty` where the value
+must be set. Nested selectors below missing objects read as null.
 
 ```go
-type Endpoint struct {
-    Name    *string
-    Address *string
-    Timeout *string
-}
-
-func (e Endpoint) Constraints() []constraint.Constraint {
-    return []constraint.Constraint{
-        constraint.Must(
-            constraint.Present(e.Name),
-            constraint.Matches(e.Name, "^" + "[a-z][a-z0-9-]*" + "$"),
-        ).Message("name must start with a lowercase letter"),
-        constraint.Must(constraint.IsIP(e.Address)),
-        constraint.Must(constraint.IsPositiveDuration(e.Timeout)),
-    }
-}
+constraint.Must(constraint.IsMatch(e.Name, "^[a-z][a-z0-9-]*$")).
+    Message("name must start with a lowercase letter")
+constraint.Must(constraint.IsFormat(e.Address, "ip")).
+    Message("address must be an IPv4 or IPv6 address")
 ```
 
 ### Map iteration
@@ -151,7 +122,7 @@ func (f TaggedFile) Constraints() []constraint.Constraint {
         constraint.ForEach(f.Tags, func(entry constraint.MapEntry[string]) []constraint.Constraint {
             return []constraint.Constraint{
                 constraint.Must(
-                    constraint.Matches(entry.Key, "^[a-z][a-z0-9-]*$"),
+                    constraint.IsMatch(entry.Key, "^[a-z][a-z0-9-]*$"),
                     constraint.NotEmpty(entry.Value),
                 ),
                 constraint.When(constraint.Equals(entry.Key, "environment")).

@@ -185,6 +185,9 @@ func inferCall(c *lang.Call, scope *Scope, errs *lang.ErrorList) Type {
 	if !ok {
 		return TUnknown()
 	}
+	if c.Library.Name == lang.CoreNamespace && c.Func.Name == "is-format" && len(c.Args) == 2 {
+		checkStringFormat(c.Args[1], errs)
+	}
 	var argTypes []Type
 	if sig.Infer != nil {
 		argTypes = make([]Type, 0, len(c.Args))
@@ -228,6 +231,17 @@ func inferCall(c *lang.Call, scope *Scope, errs *lang.ErrorList) Type {
 		return sig.Infer(argTypes)
 	}
 	return sig.Result
+}
+
+func checkStringFormat(expr lang.Expr, errs *lang.ErrorList) {
+	name, ok := expr.(*lang.StringLit)
+	if !ok {
+		errs.Addf(lang.ErrType, expr.Span().Start, "is-format: format must be a string literal")
+		return
+	}
+	if _, ok := lang.StringFormat(name.Value); !ok {
+		errs.Addf(lang.ErrType, expr.Span().Start, "is-format: unknown format %q", name.Value)
+	}
 }
 
 func inferCoreArgument(

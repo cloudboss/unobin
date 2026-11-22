@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"net"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/cloudboss/unobin/pkg/diagnostic"
@@ -64,18 +62,8 @@ var coreRegistrations = []struct {
 		}},
 	{"all", "Report whether every element of a list of booleans is true.", fnAll, nil},
 	{"any", "Report whether at least one element of a list of booleans is true.", fnAny, nil},
-	{"matches", "Test a string against a Go regular expression; null passes.", fnMatches,
-		formatSignature(true)},
-	{"is-regex", "Test whether a string is a Go regular expression; null passes.", fnIsRegex,
-		formatSignature(false)},
-	{"is-ip", "Test whether a string is an IPv4 or IPv6 address; null passes.", fnIsIP,
-		formatSignature(false)},
-	{"is-cidr", "Test whether a string is an IPv4 or IPv6 CIDR prefix; null passes.", fnIsCIDR,
-		formatSignature(false)},
-	{"is-base64", "Test whether a string is standard padded base64; null passes.", fnIsBase64,
-		formatSignature(false)},
-	{"is-positive-duration", "Test whether a string is a positive Go duration; null passes.",
-		fnIsPositiveDuration, formatSignature(false)},
+	{"is-match", "Test a string against a Go regular expression.", fnIsMatch, formatSignature()},
+	{"is-format", "Test whether a string has a named format.", fnIsFormat, formatSignature()},
 	{"merge",
 		"Merge objects left to right; under the same key a later value replaces an earlier one.",
 		fnMerge,
@@ -114,12 +102,11 @@ var coreRegistrations = []struct {
 		}},
 }
 
-func formatSignature(pattern bool) *typecheck.FuncSig {
-	params := []typecheck.Type{typecheck.TOptional(typecheck.TString())}
-	if pattern {
-		params = append(params, typecheck.TString())
+func formatSignature() *typecheck.FuncSig {
+	return &typecheck.FuncSig{
+		Params: []typecheck.Type{typecheck.TOptional(typecheck.TString()), typecheck.TString()},
+		Result: typecheck.TBoolean(),
 	}
-	return &typecheck.FuncSig{Params: params, Result: typecheck.TBoolean()}
 }
 
 func formatString(name string, value any, test func(string) bool) (bool, error) {
@@ -134,43 +121,19 @@ func formatString(name string, value any, test func(string) bool) (bool, error) 
 	return test(s), nil
 }
 
-func fnMatches(value any, pattern string) (bool, error) {
-	return formatString("matches", value, func(s string) bool {
+func fnIsMatch(value any, pattern string) (bool, error) {
+	return formatString("is-match", value, func(s string) bool {
 		re, err := regexp.Compile(pattern)
 		return err == nil && re.MatchString(s)
 	})
 }
 
-func fnIsRegex(value any) (bool, error) {
-	return formatString("is-regex", value, func(s string) bool {
-		_, err := regexp.Compile(s)
-		return err == nil
-	})
-}
-
-func fnIsIP(value any) (bool, error) {
-	return formatString("is-ip", value, func(s string) bool { return net.ParseIP(s) != nil })
-}
-
-func fnIsCIDR(value any) (bool, error) {
-	return formatString("is-cidr", value, func(s string) bool {
-		_, _, err := net.ParseCIDR(s)
-		return err == nil
-	})
-}
-
-func fnIsBase64(value any) (bool, error) {
-	return formatString("is-base64", value, func(s string) bool {
-		_, err := base64.StdEncoding.DecodeString(s)
-		return err == nil
-	})
-}
-
-func fnIsPositiveDuration(value any) (bool, error) {
-	return formatString("is-positive-duration", value, func(s string) bool {
-		duration, err := time.ParseDuration(s)
-		return err == nil && duration > 0
-	})
+func fnIsFormat(value any, name string) (bool, error) {
+	test, ok := lang.StringFormat(name)
+	if !ok {
+		return false, fmt.Errorf("is-format: unknown format %q", name)
+	}
+	return formatString("is-format", value, test)
 }
 
 // coreFunctions is the language's function namespace: what a call

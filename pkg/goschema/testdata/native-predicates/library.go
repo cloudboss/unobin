@@ -38,21 +38,21 @@ type ThingOutput struct{ ID string }
 
 func (v Thing) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{
-		constraint.Must(constraint.Matches(v.Object.Metadata.Name, "^[a-z][a-z0-9.-]*$")).
+		constraint.Must(constraint.IsMatch(v.Object.Metadata.Name, "^[a-z][a-z0-9.-]*$")).
 			Message("name format"),
-		constraint.Must(constraint.IsRegex(v.Pattern)).Message("regex format"),
-		constraint.Must(constraint.IsIP(v.IP)).Message("IP format"),
-		constraint.Must(constraint.IsCIDR(v.CIDR)).Message("CIDR format"),
-		constraint.Must(constraint.IsBase64(v.Data)).Message("base64 format"),
-		constraint.Must(constraint.IsPositiveDuration(v.Duration)).Message("duration format"),
+		constraint.Must(constraint.IsFormat(v.Pattern, "regex")).Message("regex format"),
+		constraint.Must(constraint.IsFormat(v.IP, "ip")).Message("IP format"),
+		constraint.Must(constraint.IsFormat(v.CIDR, "cidr")).Message("CIDR format"),
+		constraint.Must(constraint.IsFormat(v.Data, "base64")).Message("base64 format"),
+		constraint.Must(constraint.IsFormat(v.Duration, "positive-duration")).Message("duration format"),
 		constraint.ForEach(v.Labels, func(entry constraint.MapEntry[string]) []constraint.Constraint {
 			return []constraint.Constraint{
-				constraint.Must(constraint.Matches(entry.Key, "^[a-z]+$")).Message("label key"),
+				constraint.Must(constraint.IsMatch(entry.Key, "^[a-z]+$")).Message("label key"),
 			}
 		}),
 		constraint.ForEach(v.Labels, func(entry constraint.MapEntry[string]) []constraint.Constraint {
 			return []constraint.Constraint{
-				constraint.Must(constraint.IsBase64(entry.Value)).Message("label value"),
+				constraint.Must(constraint.IsFormat(entry.Value, "base64")).Message("label value"),
 			}
 		}),
 		constraint.ForEach(v.Groups, func(group constraint.MapEntry[Labels]) []constraint.Constraint {
@@ -69,7 +69,7 @@ func (v Thing) Constraints() []constraint.Constraint {
 				) []constraint.Constraint {
 					return []constraint.Constraint{
 						constraint.Must(
-							constraint.IsBase64(entry.Value),
+							constraint.IsFormat(entry.Value, "base64"),
 							constraint.MinItems(group.Value, 1),
 						).Message("group value"),
 					}
@@ -80,7 +80,7 @@ func (v Thing) Constraints() []constraint.Constraint {
 			return []constraint.Constraint{
 				constraint.ForEach(list.Value, func(value string) []constraint.Constraint {
 					return []constraint.Constraint{
-						constraint.Must(constraint.IsIP(value)).Message("list IP"),
+						constraint.Must(constraint.IsFormat(value, "ip")).Message("list IP"),
 					}
 				}),
 			}
@@ -98,7 +98,7 @@ func (v Thing) Constraints() []constraint.Constraint {
 						) []constraint.Constraint {
 							return []constraint.Constraint{
 								constraint.Must(
-									constraint.IsBase64(entry.Value),
+									constraint.IsFormat(entry.Value, "base64"),
 									constraint.MinItems(outer.Value, 1),
 								).Message("nested value"),
 							}

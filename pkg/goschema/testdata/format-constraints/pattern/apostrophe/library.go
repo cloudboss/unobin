@@ -28,6 +28,6 @@ type ThingOutput struct{ ID string }
 
 func (v Thing) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{
-		constraint.Must(constraint.Matches(v.Domain, "^it's \\d+$")),
+		constraint.Must(constraint.IsMatch(v.Domain, "^it's \\d+$")),
 	}
 }

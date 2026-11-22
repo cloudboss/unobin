@@ -27,7 +27,7 @@ func TestCoreFormatPredicates(t *testing.T) {
 
 func TestCoreFormatPredicateFaces(t *testing.T) {
 	for _, name := range []string{
-		"matches", "is-regex", "is-ip", "is-cidr", "is-base64", "is-positive-duration",
+		"is-match", "is-format",
 	} {
 		t.Run(name, func(t *testing.T) {
 			sig, ok := CoreFunctionSigs()[name]
@@ -42,9 +42,11 @@ func TestCoreFormatPredicateFaces(t *testing.T) {
 				{map[string]any{}, typecheck.TMap(typecheck.TString())},
 			} {
 				args := []any{value.value}
-				if name == "matches" {
-					args = append(args, "^text$")
+				pattern := "^text$"
+				if name == "is-format" {
+					pattern = "regex"
 				}
+				args = append(args, pattern)
 				_, err := coreFunctions[name].Func(args)
 				require.Equal(t, typecheck.Assignable(sig.Params[0], value.typ), err == nil)
 			}
