@@ -1766,6 +1766,9 @@ func (e *Executor) planOneData(
 	if len(unresolved) > 0 || e.dependsOnChange(rs, n) || configPending {
 		return step, nil
 	}
+	if errs := e.checkStepConstraints(step, inputs, unresolved); len(errs) > 0 {
+		return nil, errors.Join(errs...)
+	}
 	dt, err := e.dataRegistration(n)
 	if err != nil {
 		return nil, err

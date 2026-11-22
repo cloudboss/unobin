@@ -1,0 +1,10 @@
+data-sources: {
+  cfg: core.dial {
+    key: input.key
+  }
+}
+resources: {
+  one: core.thing {
+    tag: 'steady'
+  }
+}

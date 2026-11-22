@@ -191,6 +191,10 @@ resource, data source, or action constraint runs as soon as all fields it reads
 are resolved. A rule that reads a pending dependency waits for apply; unrelated
 rules still run during planning.
 
+For a data source read during planning, resolved inputs and their defaults are
+checked before the read. Invalid inputs produce constraint diagnostics without
+calling the data source, including when related resources are unchanged.
+
 At apply, the compiled factory resolves leaf inputs, applies their declared
 defaults, and checks the native constraints before decoding inputs and calling
 the leaf's lifecycle methods. These checks also run when applying a saved plan
