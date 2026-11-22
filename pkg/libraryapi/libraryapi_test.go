@@ -124,7 +124,7 @@ func TestReadDescriptor(t *testing.T) {
 	descriptor, err := ReadDescriptor(moduleFS)
 	require.NoError(t, err)
 	assert.Equal(t, Descriptor{
-		FormatVersion: 1, ImplementedAPIs: []string{"1.0"}, GeneratorAPI: "1.0",
+		FormatVersion: 1, ImplementedAPIs: []string{"1.1"}, GeneratorAPI: "1.1",
 	}, descriptor)
 
 	_, err = ReadDescriptor(fstest.MapFS{
@@ -178,6 +178,15 @@ func TestCurrentDescriptor(t *testing.T) {
 	current.ImplementedAPIs[0] = "9.0"
 	current.GeneratorAPI = "9.0"
 	assert.Equal(t, embedded, Current())
+}
+
+func TestCurrentSupportsNativeConstraintAPI(t *testing.T) {
+	descriptor := Current()
+	require.NoError(t, Check("1.0", descriptor))
+	require.NoError(t, Check("1.1", descriptor))
+	require.Equal(t, "1.1", descriptor.GeneratorAPI)
+	var newer *NewerMinorError
+	require.ErrorAs(t, Check("1.2", descriptor), &newer)
 }
 
 type unreadableFS struct{}

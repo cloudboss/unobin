@@ -26,7 +26,7 @@ func TestImportAnalysisChecksEveryDeclarationBeforeSchemaErrors(t *testing.T) {
 			versions := map[string]string{}
 			refs := map[string]resolve.ImportRef{}
 			for name, api := range map[string]string{
-				"schema": "1.0", "minor": "1.1", "major": "2.0",
+				"schema": "1.0", "minor": "1.2", "major": "2.0",
 			} {
 				dir := writeImportAnalysisGoLibrary(t)
 				for _, file := range []string{"go.mod", "library.go"} {

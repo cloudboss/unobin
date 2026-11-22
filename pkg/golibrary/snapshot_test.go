@@ -149,7 +149,7 @@ func TestCompatibilityContextRechecksCoreDescriptor(t *testing.T) {
 	root := writeContextPackage(t, "1.0", "")
 	require.NoError(t, c.CheckPackage(PackageSource{Dir: root}))
 	writeCoreDescriptor(t, core, libraryapi.Descriptor{
-		FormatVersion: 1, ImplementedAPIs: []string{"1.1"}, GeneratorAPI: "1.1",
+		FormatVersion: 1, ImplementedAPIs: []string{"1.2"}, GeneratorAPI: "1.2",
 	})
 	var mismatch *CoreDescriptorError
 	require.ErrorAs(t, c.CheckPackage(PackageSource{Dir: root}), &mismatch)

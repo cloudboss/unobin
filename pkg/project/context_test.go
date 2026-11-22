@@ -13,7 +13,7 @@ import (
 
 func TestCompatibilityUsesInjectedDescriptor(t *testing.T) {
 	descriptor := libraryapi.Descriptor{
-		FormatVersion: 1, ImplementedAPIs: []string{"1.1"}, GeneratorAPI: "1.1",
+		FormatVersion: 1, ImplementedAPIs: []string{"1.2"}, GeneratorAPI: "1.2",
 	}
 	options := Options{UnobinVersion: "v0.1.0", LibraryAPIDescriptor: &descriptor}
 	context, err := options.Compatibility(t.TempDir(), nil, "")
@@ -23,7 +23,7 @@ func TestCompatibilityUsesInjectedDescriptor(t *testing.T) {
 	path := filepath.Join(root, "library.go")
 	source, err := os.ReadFile(path)
 	require.NoError(t, err)
-	source = []byte(strings.ReplaceAll(string(source), `RequiredAPI: "1.0"`, `RequiredAPI: "1.1"`))
+	source = []byte(strings.ReplaceAll(string(source), `RequiredAPI: "1.0"`, `RequiredAPI: "1.2"`))
 	require.NoError(t, os.WriteFile(path, source, 0o644))
 	require.NoError(t, context.CheckDirectory(root, true))
 }

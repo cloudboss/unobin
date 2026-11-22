@@ -157,7 +157,7 @@ func TestGetTriesCompatibleCandidates(t *testing.T) {
 		name, query, api, code, alter string
 	}{
 		{name: "automatic unsupported major", api: "2.0", code: "unsupported-major"},
-		{name: "latest newer minor", query: "latest", api: "1.1", code: "newer-minor"},
+		{name: "latest newer minor", query: "latest", api: "1.2", code: "newer-minor"},
 		{name: "major prefix", query: "v0", api: "2.0", code: "unsupported-major"},
 		{name: "minor prefix", query: "v0.2", api: "2.0", code: "unsupported-major"},
 		{name: "missing declaration", api: "", code: "missing-declaration"},

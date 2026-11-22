@@ -74,7 +74,7 @@ func TestCompileSchemaReadersUseOneCompatibilityDescriptor(t *testing.T) {
 		body, err := os.ReadFile(filepath.Join(
 			"..", "sourcecheck", "testdata", "golibrary", "schema", name))
 		require.NoError(t, err)
-		updated := strings.ReplaceAll(string(body), `RequiredAPI: "1.0"`, `RequiredAPI: "1.1"`)
+		updated := strings.ReplaceAll(string(body), `RequiredAPI: "1.0"`, `RequiredAPI: "1.2"`)
 		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(updated), 0o644))
 	}
 	cache := NewSchemaCache()
@@ -89,7 +89,7 @@ func TestCompileSchemaReadersUseOneCompatibilityDescriptor(t *testing.T) {
 		require.ErrorAs(t, err, &newer)
 	}
 	descriptor := libraryapi.Descriptor{
-		FormatVersion: 1, ImplementedAPIs: []string{"1.1"}, GeneratorAPI: "1.1",
+		FormatVersion: 1, ImplementedAPIs: []string{"1.2"}, GeneratorAPI: "1.2",
 	}
 	context, err := golibrary.NewCompatibilityContext(golibrary.CompatibilityOptions{
 		Descriptor: &descriptor,

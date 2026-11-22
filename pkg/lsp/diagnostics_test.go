@@ -81,10 +81,10 @@ func TestDiagnosticsRecheckCachedLibraryMetadataAndSchema(t *testing.T) {
 		cacheRoot, "imports", "example.com/definition", "abc123", "library.go")
 	body, err := os.ReadFile(libraryPath)
 	require.NoError(t, err)
-	newer := strings.ReplaceAll(string(body), `RequiredAPI: "1.0"`, `RequiredAPI: "1.1"`)
+	newer := strings.ReplaceAll(string(body), `RequiredAPI: "1.0"`, `RequiredAPI: "1.2"`)
 	require.NoError(t, os.WriteFile(libraryPath, []byte(newer), 0o644))
 	diags := DiagnosticsForTextWithProjects(path, source, projects)
-	require.Contains(t, strings.Join(diagnosticMessages(diags), "\n"), "required library API 1.1")
+	require.Contains(t, strings.Join(diagnosticMessages(diags), "\n"), "required library API 1.2")
 
 	require.NoError(t, os.WriteFile(libraryPath, body, 0o644))
 	require.Empty(t, DiagnosticsForTextWithProjects(path, source, projects))

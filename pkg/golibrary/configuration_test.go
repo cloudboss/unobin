@@ -49,7 +49,7 @@ func TestCompatibilityContextRejectsForwardedRequirement(t *testing.T) {
 	service := writeForwardingPackage(t, root, "service", "1.0",
 		"settings.LibraryConfiguration()", "",
 		`import settings "example.com/lib/config"`)
-	config := writeForwardingPackage(t, root, "config", "1.1", "LibraryConfiguration()",
+	config := writeForwardingPackage(t, root, "config", "1.2", "LibraryConfiguration()",
 		inlineConfiguration, "")
 	c, err := NewCompatibilityContext(CompatibilityOptions{})
 	require.NoError(t, err)
@@ -62,7 +62,7 @@ func TestCompatibilityContextRejectsForwardedRequirement(t *testing.T) {
 	assert.Equal(t, filepath.Join(config, "library.go"), ds[0].Path)
 
 	descriptor := libraryapi.Descriptor{
-		FormatVersion: 1, ImplementedAPIs: []string{"1.1"}, GeneratorAPI: "1.1",
+		FormatVersion: 1, ImplementedAPIs: []string{"1.2"}, GeneratorAPI: "1.2",
 	}
 	c, err = NewCompatibilityContext(CompatibilityOptions{Descriptor: &descriptor})
 	require.NoError(t, err)

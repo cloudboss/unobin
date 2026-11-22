@@ -38,7 +38,7 @@ func TestProjectLockChecksEveryDeclarationBeforeRegistration(t *testing.T) {
 	r := &fakeResolver{sources: map[string]*resolve.Source{}}
 	selection := map[Dependency]string{}
 	for name, api := range map[string]string{
-		"registration": "1.0", "minor": "1.1", "major": "2.0",
+		"registration": "1.0", "minor": "1.2", "major": "2.0",
 	} {
 		url := "example.com/" + name
 		source := projectCompatibilitySource(t, url, api)
@@ -63,7 +63,7 @@ func TestProjectLockChecksEveryDeclarationBeforeRegistration(t *testing.T) {
 	for _, d := range ds {
 		apis[d.LibraryCompatibility.Dependency] = d.LibraryCompatibility.RequiredAPI
 	}
-	assert.Equal(t, map[string]string{"example.com/major": "2.0", "example.com/minor": "1.1"}, apis)
+	assert.Equal(t, map[string]string{"example.com/major": "2.0", "example.com/minor": "1.2"}, apis)
 }
 
 func TestProjectLockChecksConfigurationAndReplacementMetadata(t *testing.T) {
