@@ -1762,6 +1762,9 @@ func (e *Executor) planOneData(
 		step.DeferredConfig = configAddr
 		return step, nil
 	}
+	if errs := e.checkStepConstraints(step, inputs, unresolved); len(errs) > 0 {
+		return nil, errors.Join(errs...)
+	}
 	dt, err := e.dataRegistration(n)
 	if err != nil {
 		return nil, err

@@ -1,0 +1,3 @@
+data-sources: {
+  cfg: core.dial {}
+}
