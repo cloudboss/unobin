@@ -75,7 +75,7 @@ func (w *walker) constraintsFromType(typeName string) []lang.ConstraintSpec {
 	var out []lang.ConstraintSpec
 	for _, call := range w.listReturnCalls(
 		method.Body, "Constraints method", "constraint", "pkg/constraint") {
-		base, message, _ := peelMessage(call)
+		base, message, _ := w.peelMessage(call, scope)
 		if w.isForEachCall(base) {
 			if message != "" {
 				w.addErrf("Message applies to the constraints inside ForEach, not ForEach itself")
@@ -103,15 +103,17 @@ type constraintScope map[string]scopeRoot
 // A scalar root has no type to select fields from; the identifier
 // renders as its prefix alone, the element itself.
 type scopeRoot struct {
-	w         *walker
-	typeName  string
-	prefix    string
-	scalar    bool
-	valueType typecheck.Type
-	nullable  bool
-	nonNull   map[string]bool
-	source    sourceTypeRef
-	mapEntry  *scopeRoot
+	w              *walker
+	typeName       string
+	prefix         string
+	scalar         bool
+	valueType      typecheck.Type
+	nullable       bool
+	nonNull        map[string]bool
+	source         sourceTypeRef
+	mapEntry       *scopeRoot
+	mapKeyPrefix   string
+	mapValuePrefix string
 }
 
 func (scope constraintScope) withNonNullFacts(facts map[string]bool) constraintScope {
@@ -369,7 +371,7 @@ func (w *walker) forEachSpecsAt(
 
 	var out []lang.ConstraintSpec
 	for _, c := range w.listReturnCalls(fl.Body, "ForEach body", "constraint", "pkg/constraint") {
-		base, message, _ := peelMessage(c)
+		base, message, _ := w.peelMessage(c, innerSet)
 		if w.isForEachCall(base) {
 			if message != "" {
 				w.addErrf("Message applies to the constraints inside ForEach, not ForEach itself")
@@ -380,7 +382,7 @@ func (w *walker) forEachSpecsAt(
 			)...)
 			continue
 		}
-		if isPredicateCall(c) {
+		if isPredicateCall(base) {
 			if len(chain) > 0 {
 				spec, ok := w.specFromCall(c, innerChain)
 				if !ok {
@@ -441,8 +443,7 @@ func chainPath(listPath string, scope, chainScope constraintScope) string {
 // predicate: Must, or a When chain completed by Require, with any
 // trailing Message peeled first.
 func isPredicateCall(call *ast.CallExpr) bool {
-	base, _, _ := peelMessage(call)
-	sel, ok := base.Fun.(*ast.SelectorExpr)
+	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok {
 		return false
 	}
@@ -582,9 +583,9 @@ func collectionIterablePath(path string, nullable, isMap bool) string {
 func (w *walker) specFromCall(
 	call *ast.CallExpr, scope constraintScope,
 ) (lang.ConstraintSpec, bool) {
-	base, message, badMessage := peelMessage(call)
+	base, message, badMessage := w.peelMessage(call, scope)
 	if badMessage != nil {
-		w.addWarnf("Message must be a string literal, got %s", renderExpr(badMessage))
+		w.addWarnf("Message must be a constant string, got %s", renderExpr(badMessage))
 	}
 	sel, ok := base.Fun.(*ast.SelectorExpr)
 	if !ok {
@@ -711,7 +712,7 @@ func (w *walker) nonNullFactsFromPresent(
 	if len(call.Args) != 1 {
 		return nil
 	}
-	field, ok := w.selectorFieldRef(call.Args[0], scope)
+	field, ok := w.operand(call.Args[0], scope)
 	if !ok {
 		return nil
 	}
@@ -780,6 +781,11 @@ func (w *walker) condString(arg ast.Expr, scope constraintScope) (string, bool) 
 		return w.orderedCond(call, "<", scope)
 	case "AtMost":
 		return w.orderedCond(call, "<=", scope)
+	case "Expr":
+		return w.expressionCondition(call, scope)
+	case "HasKey", "HasItem", "IsUnique":
+		ref, ok := w.coreOperand(call, operandCalls[sel.Sel.Name], scope)
+		return ref.expr, ok
 	case "IsMatch":
 		return w.formatCond(call, "is-match", scope)
 	case "IsFormat":
@@ -818,15 +824,16 @@ func (w *walker) formatCond(
 		w.addErrf("%s requires 2 arguments", condName(call))
 		return "", false
 	}
-	field, ok := w.selectorFieldRef(call.Args[0], scope)
+	field, ok := w.operand(call.Args[0], scope)
 	if !ok {
+		w.addErrf("%s requires a string expression as its first argument", condName(call))
 		return "", false
 	}
-	if field.valueType.Kind != typecheck.String {
+	if field.valueType.Kind != typecheck.String && field.valueType.Kind != typecheck.Null {
 		w.addErrf("%s requires a string field, got %s", condName(call), field.valueType)
 		return "", false
 	}
-	param, ok := stringConstant(call.Args[1])
+	param, ok := w.constraintString(call.Args[1], scope)
 	if !ok {
 		w.addErrf("%s requires a constant string expression", condName(call))
 		return "", false
@@ -850,7 +857,7 @@ func (w *walker) compareCond(
 		w.addWarnf("%s takes a field and a value", condName(call))
 		return "", false
 	}
-	field, ok := w.selectorField(call.Args[0], scope)
+	field, ok := w.valueString(call.Args[0], scope)
 	if !ok {
 		return "", false
 	}
@@ -871,19 +878,20 @@ func (w *walker) orderedCond(
 		w.addWarnf("%s takes a field and a value", condName(call))
 		return "", false
 	}
-	field, ok := w.selectorFieldRef(call.Args[0], scope)
+	field, ok := w.operand(call.Args[0], scope)
 	if !ok {
 		return "", false
 	}
-	val, ok := w.valueString(call.Args[1], scope)
+	valRef, ok := w.operand(call.Args[1], scope)
 	if !ok {
 		return "", false
 	}
+	val := valRef.expr
 	guards := []string{}
 	if field.nullable {
 		guards = append(guards, field.expr+" == null")
 	}
-	if valRef, isField := w.valueFieldRef(call.Args[1], scope); isField && valRef.nullable {
+	if valRef.nullable {
 		guards = append(guards, val+" == null")
 	}
 	check := field.expr + " " + op + " " + val
@@ -898,7 +906,7 @@ func (w *walker) boolCond(call *ast.CallExpr, lit string, scope constraintScope)
 		w.addWarnf("%s takes one field", condName(call))
 		return "", false
 	}
-	field, ok := w.selectorField(call.Args[0], scope)
+	field, ok := w.valueString(call.Args[0], scope)
 	if !ok {
 		return "", false
 	}
@@ -910,7 +918,7 @@ func (w *walker) nullCond(call *ast.CallExpr, op string, scope constraintScope) 
 		w.addWarnf("%s takes one field", condName(call))
 		return "", false
 	}
-	field, ok := w.selectorFieldRef(call.Args[0], scope)
+	field, ok := w.operand(call.Args[0], scope)
 	if !ok {
 		return "", false
 	}
@@ -928,7 +936,7 @@ func (w *walker) oneOfCond(call *ast.CallExpr, scope constraintScope) (string, b
 		w.addWarnf("OneOf needs a field and at least one value")
 		return "", false
 	}
-	field, ok := w.selectorField(call.Args[0], scope)
+	field, ok := w.valueString(call.Args[0], scope)
 	if !ok {
 		return "", false
 	}
@@ -950,7 +958,7 @@ func (w *walker) notEmptyCond(call *ast.CallExpr, scope constraintScope) (string
 		w.addWarnf("NotEmpty takes one field")
 		return "", false
 	}
-	field, ok := w.selectorFieldRef(call.Args[0], scope)
+	field, ok := w.operand(call.Args[0], scope)
 	if !ok {
 		return "", false
 	}
@@ -978,27 +986,26 @@ func lengthOperand(field constraintFieldRef) string {
 }
 
 // itemsCond renders MinItems (>=) and MaxItems (<=). A null field
-// passes, since presence is Present's job; only the count argument is
-// embedded, so it must be a whole-number literal.
+// passes, since presence is Present's job. The count must be an integer constant.
 func (w *walker) itemsCond(call *ast.CallExpr, op string, scope constraintScope) (string, bool) {
 	if len(call.Args) != 2 {
-		w.addWarnf("%s takes a field and a whole-number literal", condName(call))
+		w.addWarnf("%s takes a field and a whole-number constant", condName(call))
 		return "", false
 	}
-	field, ok := w.selectorFieldRef(call.Args[0], scope)
+	field, ok := w.operand(call.Args[0], scope)
 	if !ok {
 		return "", false
 	}
-	n, ok := intLiteral(call.Args[1])
-	if !ok {
-		w.addWarnf("%s takes a field and a whole-number literal", condName(call))
+	n, ok := w.constantOperand(call.Args[1], scope)
+	if !ok || n.valueType.Kind != typecheck.Integer {
+		w.addWarnf("%s takes a field and a whole-number constant", condName(call))
 		return "", false
 	}
 	operand := field.expr
 	if op == "<=" {
 		operand = lengthOperand(field)
 	}
-	check := "@core.length(" + operand + ") " + op + " " + strconv.Itoa(n)
+	check := "@core.length(" + operand + ") " + op + " " + n.expr
 	if !field.nullable || operand != field.expr {
 		return "(" + check + ")", true
 	}
@@ -1038,56 +1045,16 @@ func (w *walker) notCond(call *ast.CallExpr, scope constraintScope) (string, boo
 // a named constant or a conversion included, has no value in the
 // source, so it warns and returns ok=false.
 func (w *walker) valueString(arg ast.Expr, scope constraintScope) (string, bool) {
-	switch v := arg.(type) {
-	case *ast.SelectorExpr:
-		return w.selectorField(v, scope)
-	case *ast.BasicLit:
-		if s, ok := basicLitString(v); ok {
-			return s, true
-		}
-	case *ast.Ident:
-		if v.Name == "true" || v.Name == "false" {
-			return v.Name, true
-		}
-		if entry, found := scope[v.Name]; found && entry.scalar {
-			return entry.prefix, true
-		}
-	case *ast.UnaryExpr:
-		if v.Op == token.SUB {
-			if bl, ok := v.X.(*ast.BasicLit); ok &&
-				(bl.Kind == token.INT || bl.Kind == token.FLOAT) {
-				return "-" + bl.Value, true
-			}
-		}
+	if value, ok := w.operand(arg, scope); ok {
+		return value.expr, true
 	}
 	w.addWarnf("a condition value must be a literal or a field, got %s", renderExpr(arg))
 	return "", false
 }
 
-// basicLitString renders a Go string, int, or float literal in unobin
-// form: a Go double-quoted string becomes a single-quoted unobin string;
-// numbers pass through unchanged.
-func basicLitString(bl *ast.BasicLit) (string, bool) {
-	switch bl.Kind {
-	case token.STRING:
-		s, err := strconv.Unquote(bl.Value)
-		if err != nil {
-			return "", false
-		}
-		return "'" + s + "'", true
-	case token.INT, token.FLOAT:
-		return bl.Value, true
-	}
-	return "", false
-}
-
-// peelMessage unwraps a trailing .Message("...") call, returning the
-// inner constructor call and the message text (empty when absent). The
-// argument may concatenate string literals; the constant fold joins
-// them. An argument with no constant value comes back as bad, so the
-// caller can warn; the message is then empty and the rule still
-// extracts.
-func peelMessage(call *ast.CallExpr) (inner *ast.CallExpr, msg string, bad ast.Expr) {
+func (w *walker) peelMessage(
+	call *ast.CallExpr, scope constraintScope,
+) (inner *ast.CallExpr, msg string, bad ast.Expr) {
 	sel, ok := call.Fun.(*ast.SelectorExpr)
 	if !ok || sel.Sel.Name != "Message" {
 		return call, "", nil
@@ -1099,40 +1066,10 @@ func peelMessage(call *ast.CallExpr) (inner *ast.CallExpr, msg string, bad ast.E
 	if len(call.Args) != 1 {
 		return inner, "", call
 	}
-	if s, ok := stringConstant(call.Args[0]); ok {
+	if s, ok := w.constraintString(call.Args[0], scope); ok {
 		return inner, s, nil
 	}
 	return inner, "", call.Args[0]
-}
-
-// stringConstant folds an expression to its constant string value: a
-// string literal, a parenthesized constant, or a + concatenation of
-// constants. ok is false for anything the fold cannot reduce.
-func stringConstant(e ast.Expr) (string, bool) {
-	switch v := e.(type) {
-	case *ast.BasicLit:
-		if v.Kind != token.STRING {
-			return "", false
-		}
-		value, err := strconv.Unquote(v.Value)
-		return value, err == nil
-	case *ast.ParenExpr:
-		return stringConstant(v.X)
-	case *ast.BinaryExpr:
-		if v.Op != token.ADD {
-			return "", false
-		}
-		left, ok := stringConstant(v.X)
-		if !ok {
-			return "", false
-		}
-		right, ok := stringConstant(v.Y)
-		if !ok {
-			return "", false
-		}
-		return left + right, true
-	}
-	return "", false
 }
 
 // selectorField reads a v.Field argument and returns the field's input
@@ -1406,6 +1343,12 @@ func mapEntryFieldRoot(root scopeRoot, hop selectorHop) (scopeRoot, bool) {
 		child.prefix = root.prefix + ".value"
 	default:
 		return scopeRoot{}, false
+	}
+	if hop.name == "Key" && root.mapKeyPrefix != "" {
+		child.prefix = root.mapKeyPrefix
+	}
+	if hop.name == "Value" && root.mapValuePrefix != "" {
+		child.prefix = root.mapValuePrefix
 	}
 	child.nonNull = root.nonNull
 	if len(hop.indexes) > 0 {

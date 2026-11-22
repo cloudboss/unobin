@@ -1,0 +1,31 @@
+constraints: [
+  { kind: predicate when: true
+    require: @core.all([for p in input.listen-ports ?? []: p > 0])
+    message: 'invalid port' },
+  { kind: predicate when: input.period != null
+    require: @core.remainder(input.period, 60) == 0
+    message: 'invalid period' },
+  { kind: predicate when: true
+    require: @core.is-unique([for v in input.volumes ?? []: v.name])
+    message: 'duplicate volume' },
+  { kind: predicate when: input.mount != null
+    require: @core.has-item([for v in input.volumes ?? []: v.name], input.mount)
+    message: 'unknown volume' },
+  { kind: predicate when: input.selector != null
+    require: @core.has-key(input.labels, input.selector) &&
+      @core.lookup(input.labels, input.selector) == 'yes'
+    message: 'label mismatch' },
+  { kind: predicate when: true
+    require: @core.length([for k, v in input.labels ?? {}:
+      true when k != 'ignored' && v == 'yes']) <= 1
+    message: 'too many matching labels' },
+  { kind: predicate when: true
+    require: @core.sum([for v in input.volumes ?? []: @core.byte-length(v.name)]) <= input.limit
+    message: 'volume byte limit' },
+  { kind: predicate when: true
+    require: @core.length(input.text) == input.size
+    message: 'text size mismatch' },
+  { kind: predicate when: true
+    require: input.user == '' || @core.is-format(input.user, 'int64')
+    message: 'invalid user' },
+]

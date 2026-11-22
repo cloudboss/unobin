@@ -20,6 +20,10 @@ import (
 // or null for an argument that adds nothing.
 var mergeParam = typecheck.TOptional(typecheck.TObject(nil))
 
+var optionalListParam = typecheck.TOptional(typecheck.TList(typecheck.TOpaque()))
+var optionalMapParam = typecheck.TOptional(typecheck.TMap(typecheck.TOpaque()))
+var optionalIntegerParam = typecheck.TOptional(typecheck.TInteger())
+
 // coreRegistrations binds each @core function to its typed
 // implementation. The runtime registration and the compile-time
 // signature both derive from this one list, so the language's
@@ -64,6 +68,51 @@ var coreRegistrations = []struct {
 	{"any", "Report whether at least one element of a list of booleans is true.", fnAny, nil},
 	{"is-match", "Test a string against a Go regular expression.", fnIsMatch, formatSignature()},
 	{"is-format", "Test whether a string has a named format.", fnIsFormat, formatSignature()},
+	{"byte-length", "Count the bytes in a string or bytes.", fnByteLength,
+		&typecheck.FuncSig{
+			Params: []typecheck.Type{typecheck.TUnion([]typecheck.Type{
+				typecheck.TString(), typecheck.TBytes(),
+			})},
+			Result: typecheck.TInteger(),
+		}},
+	{"remainder", "Return the remainder of integer division.", fnRemainder,
+		&typecheck.FuncSig{
+			Params: []typecheck.Type{optionalIntegerParam, optionalIntegerParam},
+			Result: optionalIntegerParam,
+			Infer:  remainderType,
+		}},
+	{"lookup", "Read a list index or map key, returning null for an absent entry.", fnLookup,
+		&typecheck.FuncSig{
+			Params: []typecheck.Type{
+				typecheck.TOptional(typecheck.TUnion([]typecheck.Type{
+					optionalListParam.Unwrap(), optionalMapParam.Unwrap(),
+				})),
+				typecheck.TUnion([]typecheck.Type{typecheck.TInteger(), typecheck.TString()}),
+			},
+			Result: typecheck.TUnknown(),
+			Infer:  lookupType,
+		}},
+	{"has-key", "Report whether a map contains a key.", fnHasKey,
+		&typecheck.FuncSig{
+			Params: []typecheck.Type{optionalMapParam, typecheck.TString()},
+			Result: typecheck.TBoolean(),
+		}},
+	{"has-item", "Report whether a list contains a scalar value.", fnHasItem,
+		&typecheck.FuncSig{
+			Params: []typecheck.Type{optionalListParam, typecheck.TOpaque()},
+			Result: typecheck.TBoolean(),
+		}},
+	{"is-unique", "Report whether a list's scalar values are distinct.", fnIsUnique,
+		&typecheck.FuncSig{
+			Params: []typecheck.Type{optionalListParam},
+			Result: typecheck.TBoolean(),
+		}},
+	{"sum", "Add the numbers in a list.", fnSum,
+		&typecheck.FuncSig{
+			Params: []typecheck.Type{typecheck.TOptional(typecheck.TList(typecheck.TNumber()))},
+			Result: typecheck.TNumber(),
+			Infer:  sumType,
+		}},
 	{"merge",
 		"Merge objects left to right; under the same key a later value replaces an earlier one.",
 		fnMerge,
@@ -243,14 +292,14 @@ func fnToJSON(v any) (string, error) {
 }
 
 func fnB64Encode(value any) (string, error) {
-	content, err := b64Bytes(value)
+	content, err := constraintBytes("b64-encode", value)
 	if err != nil {
 		return "", err
 	}
 	return base64.StdEncoding.EncodeToString(content), nil
 }
 
-func b64Bytes(value any) ([]byte, error) {
+func constraintBytes(name string, value any) ([]byte, error) {
 	switch typed := value.(type) {
 	case string:
 		return []byte(typed), nil
@@ -262,15 +311,15 @@ func b64Bytes(value any) ([]byte, error) {
 			number, ok := value.(int64)
 			if !ok {
 				return nil, fmt.Errorf(
-					"b64-encode: element %d must be a byte, got %s",
-					i,
+					"%s: element %d must be a byte, got %s",
+					name, i,
 					lang.TypeMessage(value),
 				)
 			}
 			if number < 0 || number > 255 {
 				return nil, fmt.Errorf(
-					"b64-encode: element %d must be a byte, got %d",
-					i,
+					"%s: element %d must be a byte, got %d",
+					name, i,
 					number,
 				)
 			}
@@ -279,8 +328,8 @@ func b64Bytes(value any) ([]byte, error) {
 		return content, nil
 	default:
 		return nil, fmt.Errorf(
-			"b64-encode: argument must be a string or bytes, got %s",
-			lang.TypeMessage(value),
+			"%s: argument must be a string or bytes, got %s",
+			name, lang.TypeMessage(value),
 		)
 	}
 }

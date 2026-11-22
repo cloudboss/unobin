@@ -234,14 +234,28 @@ func inferCall(c *lang.Call, scope *Scope, errs *lang.ErrorList) Type {
 }
 
 func checkStringFormat(expr lang.Expr, errs *lang.ErrorList) {
-	name, ok := expr.(*lang.StringLit)
+	name, ok := constantString(expr)
 	if !ok {
-		errs.Addf(lang.ErrType, expr.Span().Start, "is-format: format must be a string literal")
+		errs.Addf(lang.ErrType, expr.Span().Start, "is-format: format must be a constant string")
 		return
 	}
-	if _, ok := lang.StringFormat(name.Value); !ok {
-		errs.Addf(lang.ErrType, expr.Span().Start, "is-format: unknown format %q", name.Value)
+	if _, ok := lang.StringFormat(name); !ok {
+		errs.Addf(lang.ErrType, expr.Span().Start, "is-format: unknown format %q", name)
 	}
+}
+
+func constantString(expr lang.Expr) (string, bool) {
+	switch expr := expr.(type) {
+	case *lang.StringLit:
+		return expr.Value, true
+	case *lang.Infix:
+		if expr.Op == "+" {
+			left, leftOK := constantString(expr.Left)
+			right, rightOK := constantString(expr.Right)
+			return left + right, leftOK && rightOK
+		}
+	}
+	return "", false
 }
 
 func inferCoreArgument(
