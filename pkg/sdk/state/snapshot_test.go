@@ -1,6 +1,7 @@
 package state
 
 import (
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -34,7 +35,7 @@ func sampleSnapshot() *Snapshot {
 				Composite: true,
 				Category:  "resource",
 				Binding:   &Binding{Alias: "net", LibraryPath: "example.com/net", Export: "cluster"},
-				Inputs:    map[string]any{"name": "web", "size": float64(5)},
+				Inputs:    map[string]any{"name": "web", "size": int64(5)},
 				Outputs:   map[string]any{"arn": "arn:..."},
 				DependsOn: []string{"resource.main"},
 			},
@@ -50,6 +51,25 @@ func TestSnapshotRoundTrip(t *testing.T) {
 	out, err := DecodeSnapshot(b)
 	require.NoError(t, err)
 	require.Equal(t, in, out)
+}
+
+func TestSnapshotPreservesLargeIntegers(t *testing.T) {
+	const size int64 = 9007199254740993
+	entry := sampleSnapshot().Entries[0]
+	entry.Inputs = map[string]any{"object": map[string]any{
+		"sizes": []any{size, -size, int64(math.MaxInt64), int64(math.MinInt64)},
+	}}
+	entry.Configuration = map[string]any{"generation": size}
+	entry.Outputs = map[string]any{"size": size, "ratio": 0.25}
+	snapshot := sampleSnapshot()
+	snapshot.Entries = []*Entry{entry}
+	snapshot.Outputs = map[string]any{"size": size}
+
+	body, err := EncodeSnapshot(snapshot)
+	require.NoError(t, err)
+	loaded, err := DecodeSnapshot(body)
+	require.NoError(t, err)
+	require.Equal(t, snapshot, loaded)
 }
 
 func TestSnapshotEncodeStable(t *testing.T) {
@@ -192,7 +212,7 @@ func TestSnapshotActionEntry(t *testing.T) {
 				Binding:     &Binding{Alias: "core", LibraryPath: "example.com/core", Export: "command"},
 				TriggerHash: "sha256:deadbeef",
 				Inputs:      map[string]any{"argv": []any{"true"}},
-				Outputs:     map[string]any{"stdout": "", "exit-code": float64(0)},
+				Outputs:     map[string]any{"stdout": "", "exit-code": int64(0)},
 			},
 		},
 	}
@@ -206,7 +226,7 @@ func TestSnapshotActionEntry(t *testing.T) {
 
 func TestSnapshotPersistsOutputs(t *testing.T) {
 	snap := sampleSnapshot()
-	snap.Outputs = map[string]any{"vpc-id": "vpc-abc", "size": float64(5)}
+	snap.Outputs = map[string]any{"vpc-id": "vpc-abc", "size": int64(5)}
 
 	b, err := EncodeSnapshot(snap)
 	require.NoError(t, err)

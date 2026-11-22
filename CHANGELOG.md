@@ -20,6 +20,8 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ### Fixed
 
+- Preserve 64-bit integers when loading saved state so unchanged inputs do not
+  plan a replacement because of rounding.
 - Compare asset paths as logical strings and asset content by its bytes, including
   when the other operand is a byte list.
 - Check resolved and defaulted data-source input constraints before planning reads, so lookup errors cannot mask constraint diagnostics.
