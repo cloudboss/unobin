@@ -78,6 +78,44 @@ func TestCoreFunctionSet(t *testing.T) {
 	number := typecheck.TNumber()
 	boolean := typecheck.TBoolean()
 	expected := map[string]typecheck.FuncSig{
+		"byte-length": {
+			Params: []typecheck.Type{typecheck.TUnion([]typecheck.Type{str, bytes})},
+			Result: integer,
+		},
+		"remainder": {
+			Params: []typecheck.Type{typecheck.TOptional(integer), typecheck.TOptional(integer)},
+			Result: typecheck.TOptional(integer),
+			Infer:  remainderType,
+		},
+		"lookup": {
+			Params: []typecheck.Type{
+				typecheck.TOptional(typecheck.TUnion([]typecheck.Type{
+					typecheck.TList(typecheck.TOpaque()), typecheck.TMap(typecheck.TOpaque()),
+				})),
+				typecheck.TUnion([]typecheck.Type{integer, str}),
+			},
+			Result: typecheck.TUnknown(),
+			Infer:  lookupType,
+		},
+		"has-key": {
+			Params: []typecheck.Type{typecheck.TOptional(typecheck.TMap(typecheck.TOpaque())), str},
+			Result: boolean,
+		},
+		"has-item": {
+			Params: []typecheck.Type{
+				typecheck.TOptional(typecheck.TList(typecheck.TOpaque())), typecheck.TOpaque(),
+			},
+			Result: boolean,
+		},
+		"is-unique": {
+			Params: []typecheck.Type{typecheck.TOptional(typecheck.TList(typecheck.TOpaque()))},
+			Result: boolean,
+		},
+		"sum": {
+			Params: []typecheck.Type{typecheck.TOptional(typecheck.TList(number))},
+			Result: number,
+			Infer:  sumType,
+		},
 		"is-format": {Params: []typecheck.Type{typecheck.TOptional(str), str}, Result: boolean},
 		"is-match":  {Params: []typecheck.Type{typecheck.TOptional(str), str}, Result: boolean},
 		"all": {

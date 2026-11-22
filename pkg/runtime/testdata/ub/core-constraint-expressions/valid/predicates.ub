@@ -1,0 +1,19 @@
+checks: {
+  bytes:           @core.byte-length('é') == 2
+  unicode:         @core.length('é') == 1
+  remainder:       @core.remainder(-61, 60) == -1
+  null-remainder:  @core.remainder(null, 60) == null
+  lookup:          @core.lookup({ api: 'v1' }, 'api') == 'v1'
+  missing-key:     @core.lookup({}, 'api') == null
+  missing-index:   @core.lookup([1], 1) == null
+  null-key:        @core.has-key({ api: null }, 'api')
+  no-key:          !@core.has-key(null, 'api')
+  numeric-member:  @core.has-item([1], 1.0)
+  no-member:       !@core.has-item(null, 1)
+  unique:          @core.is-unique([1, 2])
+  duplicate:       !@core.is-unique([1, 1])
+  empty-unique:    @core.is-unique(null)
+  sum:             @core.sum([2, 3]) == 5
+  decimal-sum:     @core.sum([2.5, 3.5]) == 6.0
+  empty-sum:       @core.sum(null) == 0
+}

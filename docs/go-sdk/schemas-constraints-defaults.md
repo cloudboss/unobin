@@ -144,9 +144,39 @@ enclosing fields and parameters. Map iteration permits only predicates
 Set constraints such as `ExactlyOneOf` are rejected within map iteration.
 Attach `Message` to rules inside the body, not to the iteration itself.
 
+### Computed predicates
+
+Predicates accept computed operands. Use `Length`, `ByteLength`, `Remainder`,
+`Lookup`, and `Sum` as values. Use `HasKey`, `HasItem`, and `IsUnique` as
+conditions. Named Go constants can provide bounds, strings, or messages.
+
+`Project(collection, func(T) any)` produces a list. Use it to extract values
+for membership, uniqueness, and sums. `CountWhere(collection, func(T)
+constraint.Condition)` counts entries that satisfy a condition. Both accept
+list and map fields, with the same callback argument types and optional
+collection behavior as `ForEach`. Each callback returns one expression.
+
+```go
+constraint.Must(constraint.IsUnique(
+    constraint.Project(p.Volumes, func(v Volume) any { return v.Name }),
+)).Message("volume names must be unique")
+```
+
+Use `Expr` for an input-only Unobin Boolean expression. Each `Bind` call names
+a Go field the expression can read under `input`. The compiler checks the
+expression using the selected field types and tracks the actual fields it
+reads. `@core` functions are available.
+
+```go
+constraint.Must(constraint.Expr(
+    "@core.all([for p in input.ports ?? []: p > 0])",
+    constraint.Bind("ports", r.ListenPorts),
+)).Message("listen ports must be positive")
+```
+
 ### Library API compatibility
 
-Libraries that use the string format conditions or map iteration declare
+Libraries that use string predicates, map iteration, or computed predicates declare
 `Compatibility: runtime.LibraryCompatibility{RequiredAPI: "1.1"}` in their
 `Library()` return value. This lets tools that implement only API `1.0` reject
 the library before schema extraction. The current implementation supports API

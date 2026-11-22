@@ -53,3 +53,17 @@ func TestCoreFormatPredicateFaces(t *testing.T) {
 		})
 	}
 }
+
+func TestCoreConstraintExpressions(t *testing.T) {
+	src, err := os.ReadFile("testdata/ub/core-constraint-expressions/valid/predicates.ub")
+	require.NoError(t, err)
+	file, err := lang.ParseSource("predicates.ub", src)
+	require.NoError(t, err)
+	result, err := Eval(file.Body.Fields[0].Value, &EvalContext{})
+	require.NoError(t, err)
+	for name, passed := range result.(map[string]any) {
+		require.Equal(t, true, passed, name)
+	}
+	_, err = coreFunctions["sum"].Func([]any{[]any{int64(1<<63 - 1), int64(1)}})
+	require.ErrorContains(t, err, "integer overflow")
+}

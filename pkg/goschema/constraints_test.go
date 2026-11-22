@@ -133,7 +133,7 @@ func TestReadWarnsOnUnextractableConstraints(t *testing.T) {
 		wantWarns []string
 	}{
 		{
-			name: "non-literal message keeps the rule and warns",
+			name: "named constant message",
 			method: `func (v Thing) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{
 		constraint.ExactlyOneOf(v.Name, v.Kind).Message(defaultMessage),
@@ -141,10 +141,7 @@ func TestReadWarnsOnUnextractableConstraints(t *testing.T) {
 }`,
 			extra: `const defaultMessage = "pick one"`,
 			wantSpecs: []lang.ConstraintSpec{
-				{Kind: "exactly-one-of", Fields: []string{"input.name", "input.kind"}},
-			},
-			wantWarns: []string{
-				"Thing: Message must be a string literal, got defaultMessage",
+				{Kind: "exactly-one-of", Fields: []string{"input.name", "input.kind"}, Message: "pick one"},
 			},
 		},
 		{
@@ -155,8 +152,8 @@ func TestReadWarnsOnUnextractableConstraints(t *testing.T) {
 	}
 }`,
 			extra: `const kindDefault = "beta"`,
-			wantWarns: []string{
-				"Thing: a condition value must be a literal or a field, got kindDefault",
+			wantSpecs: []lang.ConstraintSpec{
+				{Kind: "predicate", When: "true", Require: "(input.kind == 'alpha' || input.kind == 'beta')"},
 			},
 		},
 		{
@@ -166,8 +163,8 @@ func TestReadWarnsOnUnextractableConstraints(t *testing.T) {
 		constraint.Must(constraint.Equals(v.Port, int64(8080))),
 	}
 }`,
-			wantWarns: []string{
-				"Thing: a condition value must be a literal or a field, got int64(8080)",
+			wantSpecs: []lang.ConstraintSpec{
+				{Kind: "predicate", When: "true", Require: "(input.port == 8080)"},
 			},
 		},
 		{
@@ -583,9 +580,8 @@ func (v Thing) Constraints() []constraint.Constraint {
 	}, schema.Resources["thing"].Constraints)
 }
 
-// TestReadRejectsNonLiteralLengthCount proves the count argument must
-// be a whole-number literal the schema can embed.
-func TestReadRejectsNonLiteralLengthCount(t *testing.T) {
+// TestReadAcceptsConstantLengthCount checks that a named integer is included in the rule.
+func TestReadAcceptsConstantLengthCount(t *testing.T) {
 	src := constraintLibrary + `
 func (v Thing) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{
@@ -597,10 +593,10 @@ const maxTargets = 5
 `
 	schema, warnings, err := readConstraintLibrary(t, src)
 	require.NoError(t, err)
-	require.Equal(t,
-		[]string{"Thing: MinItems takes a field and a whole-number literal"},
-		warnings)
-	require.Empty(t, schema.Resources["thing"].Constraints)
+	require.Empty(t, warnings)
+	require.Equal(t, []lang.ConstraintSpec{
+		{Kind: "predicate", When: "true", Require: "(@core.length(input.items) >= 5)"},
+	}, schema.Resources["thing"].Constraints)
 }
 
 // TestReadExtractsScalarForEach proves a ForEach over a list of
