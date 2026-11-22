@@ -7,7 +7,7 @@ import (
 )
 
 func TestFormatBuildersAndMapLoops(t *testing.T) {
-	require.Equal(t, KindPredicate, Must(IsFormat(nil, "ip")).kind)
+	require.Equal(t, KindPredicate, Must(IsFormat(nil, FormatIP)).kind)
 	require.Equal(t, KindPredicate, Must(IsMatch(nil, "^a$")).kind)
 	var values *map[string]string
 	require.Equal(t, KindForEach, ForEach(values, func(MapEntry[string]) []Constraint {

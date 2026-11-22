@@ -10,9 +10,22 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/cloudboss/unobin/pkg/constraint"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
+
+// SDK constants that schema extraction can resolve without the SDK source tree.
+var constraintFormatConstants = map[string]string{
+	"FormatRegex":            constraint.FormatRegex,
+	"FormatIP":               constraint.FormatIP,
+	"FormatCIDR":             constraint.FormatCIDR,
+	"FormatBase64":           constraint.FormatBase64,
+	"FormatPositiveDuration": constraint.FormatPositiveDuration,
+	"FormatDateTime":         constraint.FormatDateTime,
+	"FormatJSON":             constraint.FormatJSON,
+	"FormatInt64":            constraint.FormatInt64,
+}
 
 func (w *walker) constraintString(arg ast.Expr, scope constraintScope) (string, bool) {
 	v := w.constraintConstant(arg, scope, -1, map[ast.Expr]bool{})
@@ -91,9 +104,14 @@ func (w *walker) constraintConstant(
 			if _, shadowed := scope[root]; shadowed {
 				break
 			}
-			if sub := w.constantPackage(w.importPathFor(root, x.Pos())); sub != nil {
+			path := w.importPathFor(root, x.Pos())
+			if sub := w.constantPackage(path); sub != nil {
 				if value, typ, i, ok := findConstraintConstant(sub.files, x.Sel.Name); ok {
 					return sub.convertConstraintConstant(sub.constraintConstant(value, nil, i, active), typ)
+				}
+			} else if path == constraintPkgPath {
+				if value, ok := constraintFormatConstants[x.Sel.Name]; ok {
+					return constant.MakeString(value)
 				}
 			}
 		}

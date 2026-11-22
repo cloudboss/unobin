@@ -90,8 +90,9 @@ constraints method model.
 
 `IsMatch(field, pattern)` searches for a Go regular expression match. Use
 `^` and `$` for a full-string match. An invalid pattern is a schema extraction
-error. `IsFormat(field, format)` checks any of the
-[language string formats](../language/functions.md#string-predicates).
+error. `IsFormat(field, format)` checks the syntax of a string. Select a
+[language string format](../language/functions.md#string-predicates) with
+a constant such as `constraint.FormatIP` or `constraint.FormatPositiveDuration`.
 
 Both checks accept null. Pair them with `Present` or `NotEmpty` where the value
 must be set. Nested selectors below missing objects read as null.
@@ -99,7 +100,7 @@ must be set. Nested selectors below missing objects read as null.
 ```go
 constraint.Must(constraint.IsMatch(e.Name, "^[a-z][a-z0-9-]*$")).
     Message("name must start with a lowercase letter")
-constraint.Must(constraint.IsFormat(e.Address, "ip")).
+constraint.Must(constraint.IsFormat(e.Address, constraint.FormatIP)).
     Message("address must be an IPv4 or IPv6 address")
 ```
 
