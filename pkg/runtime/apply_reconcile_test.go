@@ -265,7 +265,7 @@ func TestApplyReconcilesNestedForEachOutputs(t *testing.T) {
 		"resource.group['two']", "resource.group['two']/resource.child",
 	} {
 		entry := findEntry(t, snapshot, address)
-		assert.Equal(t, map[string]any{"size": float64(99)}, entry.Outputs, address)
+		assert.Equal(t, map[string]any{"size": int64(99)}, entry.Outputs, address)
 	}
 }
 

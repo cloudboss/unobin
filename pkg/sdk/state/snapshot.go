@@ -1,10 +1,13 @@
 package state
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"slices"
 	"time"
+
+	"github.com/cloudboss/unobin/internal/jsonvalue"
 )
 
 // CurrentFormatVersion is the schema version this package reads and writes
@@ -84,13 +87,18 @@ func (e *Entry) UnmarshalJSON(b []byte) error {
 		entryJSON
 		Composite *bool `json:"composite"`
 	}
-	if err := json.Unmarshal(b, &raw); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(b))
+	decoder.UseNumber()
+	if err := decoder.Decode(&raw); err != nil {
 		return err
 	}
 	if raw.Composite == nil {
 		return fmt.Errorf("entry %q missing composite", raw.Address)
 	}
 	raw.entryJSON.Composite = *raw.Composite
+	jsonvalue.CoerceNumbers(raw.Inputs)
+	jsonvalue.CoerceNumbers(raw.Outputs)
+	jsonvalue.CoerceNumbers(raw.Configuration)
 	*e = Entry(raw.entryJSON)
 	return nil
 }
@@ -150,7 +158,7 @@ func EncodeSnapshot(s *Snapshot) ([]byte, error) {
 	return append(b, '\n'), nil
 }
 
-// DecodeSnapshot parses a snapshot from JSON bytes.
+// DecodeSnapshot parses a JSON snapshot and restores integer values as int64.
 func DecodeSnapshot(b []byte) (*Snapshot, error) {
 	var header struct {
 		FormatVersion int `json:"format-version"`
@@ -166,9 +174,12 @@ func DecodeSnapshot(b []byte) (*Snapshot, error) {
 		)
 	}
 	var s Snapshot
-	if err := json.Unmarshal(b, &s); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(b))
+	decoder.UseNumber()
+	if err := decoder.Decode(&s); err != nil {
 		return nil, fmt.Errorf("snapshot: %w", err)
 	}
+	jsonvalue.CoerceNumbers(s.Outputs)
 	if err := s.Validate(); err != nil {
 		return nil, err
 	}

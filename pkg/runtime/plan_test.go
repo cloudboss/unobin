@@ -973,8 +973,7 @@ func TestPlanUpdateForNonReplaceFieldChange(t *testing.T) {
 	one := stepFor(plan, "resource.one")
 	require.Equal(t, DecisionUpdate, one.Decision)
 	require.Empty(t, one.ReplacementReasons)
-	require.Equal(t, float64(1), one.PriorInputs["size"],
-		"the prior body is recorded (state round trip renders numbers as float)")
+	require.Equal(t, int64(1), one.PriorInputs["size"])
 }
 
 func TestPlanReplaceForReplaceFieldChange(t *testing.T) {

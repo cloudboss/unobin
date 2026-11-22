@@ -238,6 +238,27 @@ func TestApplyPendingReplacementInputConstraints(t *testing.T) {
 	require.EqualValues(t, 1, snapshot.Find("resource.consumer").Inputs["size"])
 }
 
+func TestReplacementKeepsLargeSavedInteger(t *testing.T) {
+	c := &resourceCounters{}
+	var seedRuns, actionRuns, dataReads int64
+	libs := applyConstraintLibrary(c, &seedRuns, &actionRuns, &dataReads)
+	exec := planTestExecutor(t, applyConstraintFixture(t, "settled-resource"),
+		libs, newStateStore(t), state.FactoryInfo{})
+	const size int64 = 9007199254740993
+	exec.Inputs = map[string]any{"value": "good", "size": size}
+	applyOnce(t, exec)
+	plan, err := exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.Len(t, plan.Steps, 1)
+	require.Equal(t, DecisionNoOp, plan.Steps[0].Decision)
+	require.Equal(t, size, plan.Steps[0].PriorInputs["size"])
+	exec.Inputs["size"] = size - 1
+	plan, err = exec.Plan(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []string{"size"}, plan.Steps[0].ReplacementReasons)
+	require.Equal(t, DecisionReplace, plan.Steps[0].Decision)
+}
+
 func TestApplyInputConstraintsSeeDefaults(t *testing.T) {
 	for _, value := range []string{"good", "bad"} {
 		t.Run(value, func(t *testing.T) {

@@ -279,7 +279,7 @@ func TestConditionalResourcePlanAppliesOnce(t *testing.T) {
 			snapshot, err := store.Current()
 			require.NoError(t, err)
 			require.Equal(t, map[string]any{
-				"name": tt.newName, "ref": tt.ref, "size": float64(tt.size),
+				"name": tt.newName, "ref": tt.ref, "size": tt.size,
 			}, snapshot.Find("resource.consumer").Inputs)
 		})
 	}

@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
+	"github.com/cloudboss/unobin/internal/jsonvalue"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 )
 
@@ -71,12 +71,8 @@ func EncodePlan(p *Plan) ([]byte, error) {
 }
 
 // DecodePlan parses a plan file from JSON bytes. JSON has no native
-// distinction between int and float, so the decoder reads numbers as
-// json.Number and coerceNumbers walks the result, restoring int64 for
-// values whose text has no decimal point or exponent and float64 for
-// everything else. This preserves the typing that Plan emitted: a
-// re-evaluation at apply time gets int64 back where the schema said
-// integer.
+// distinction between int and float. DecodePlan restores integer tokens
+// as int64 when they fit and decodes decimal and exponent tokens as float64.
 func DecodePlan(b []byte) (*PlanFile, error) {
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.UseNumber()
@@ -91,58 +87,18 @@ func DecodePlan(b []byte) (*PlanFile, error) {
 			PlanFormatVersion,
 		)
 	}
-	pf.Inputs = coerceMap(pf.Inputs)
+	jsonvalue.CoerceNumbers(pf.Inputs)
 	if pf.Backend != nil {
-		pf.Backend.Body = coerceMap(pf.Backend.Body)
+		jsonvalue.CoerceNumbers(pf.Backend.Body)
 	}
 	for i := range pf.Steps {
 		s := &pf.Steps[i]
-		s.Inputs = coerceMap(s.Inputs)
-		s.Configuration = coerceMap(s.Configuration)
-		s.PriorInputs = coerceMap(s.PriorInputs)
-		s.PriorConfiguration = coerceMap(s.PriorConfiguration)
-		s.PriorOutputs = coerceMap(s.PriorOutputs)
-		s.ObservedOutputs = coerceMap(s.ObservedOutputs)
+		jsonvalue.CoerceNumbers(s.Inputs)
+		jsonvalue.CoerceNumbers(s.Configuration)
+		jsonvalue.CoerceNumbers(s.PriorInputs)
+		jsonvalue.CoerceNumbers(s.PriorConfiguration)
+		jsonvalue.CoerceNumbers(s.PriorOutputs)
+		jsonvalue.CoerceNumbers(s.ObservedOutputs)
 	}
 	return &pf, nil
-}
-
-// coerceNumbers walks a decoded JSON tree and replaces every json.Number with
-// int64 when the number has no decimal point or exponent, or float64 otherwise.
-// Maps and slices recurse.
-func coerceNumbers(v any) any {
-	switch x := v.(type) {
-	case json.Number:
-		s := x.String()
-		if !strings.ContainsAny(s, ".eE") {
-			if i, err := x.Int64(); err == nil {
-				return i
-			}
-		}
-		if f, err := x.Float64(); err == nil {
-			return f
-		}
-		return s
-	case map[string]any:
-		return coerceMap(x)
-	case []any:
-		out := make([]any, len(x))
-		for i, el := range x {
-			out[i] = coerceNumbers(el)
-		}
-		return out
-	default:
-		return v
-	}
-}
-
-func coerceMap(m map[string]any) map[string]any {
-	if m == nil {
-		return nil
-	}
-	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = coerceNumbers(v)
-	}
-	return out
 }
