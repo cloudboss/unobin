@@ -8,23 +8,29 @@ import (
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 )
 
+type assetResolver struct {
+	cache            *asset.Cache
+	catalog          *asset.Catalog
+	materializePaths bool
+}
+
+func expressionAssetResolver(ctx *EvalContext) assetResolver {
+	if ctx == nil {
+		return assetResolver{}
+	}
+	return assetResolver{cache: ctx.AssetCache, catalog: ctx.Assets.Catalog()}
+}
+
 func resolveAssetValue(cache *asset.Cache, value any) (any, error) {
+	return (assetResolver{cache: cache, materializePaths: true}).resolve(value)
+}
+
+func (r assetResolver) resolve(value any) (any, error) {
 	switch typed := value.(type) {
-	case asset.PathRef:
-		return resolveAssetReference(cache, string(typed))
-	case asset.ContentRef:
-		return resolveAssetReference(cache, string(typed))
-	case string:
-		if _, ok := asset.ParseReference(typed); !ok {
-			return typed, nil
-		}
-		return resolveAssetReference(cache, typed)
-	case []byte:
-		return slices.Clone(typed), nil
 	case []any:
 		resolved := make([]any, len(typed))
 		for i, element := range typed {
-			next, err := resolveAssetValue(cache, element)
+			next, err := r.resolve(element)
 			if err != nil {
 				return nil, diagnostic.Context(fmt.Sprintf("index %d", i), err)
 			}
@@ -34,7 +40,7 @@ func resolveAssetValue(cache *asset.Cache, value any) (any, error) {
 	case map[string]any:
 		resolved := make(map[string]any, len(typed))
 		for key, element := range typed {
-			next, err := resolveAssetValue(cache, element)
+			next, err := r.resolve(element)
 			if err != nil {
 				return nil, diagnostic.Context(fmt.Sprintf("key %q", key), err)
 			}
@@ -42,18 +48,56 @@ func resolveAssetValue(cache *asset.Cache, value any) (any, error) {
 		}
 		return resolved, nil
 	default:
-		return value, nil
+		return r.resolveLeaf(value)
 	}
 }
 
-func resolveAssetReference(cache *asset.Cache, token string) (any, error) {
-	if cache == nil {
+func (r assetResolver) resolveLeaf(value any) (any, error) {
+	switch typed := value.(type) {
+	case asset.PathRef:
+		return r.resolveReference(string(typed), asset.ReferenceKindPath)
+	case asset.ContentRef:
+		return r.resolveReference(string(typed), asset.ReferenceKindContent)
+	case string:
+		if ref, ok := asset.ParseReference(typed); ok {
+			return r.resolveReference(typed, ref.Kind)
+		}
+	case []byte:
+		if r.materializePaths {
+			return slices.Clone(typed), nil
+		}
+	}
+	return value, nil
+}
+
+func (r assetResolver) resolveReference(token string, kind asset.ReferenceKind) (any, error) {
+	if !r.materializePaths && kind == asset.ReferenceKindPath {
+		return token, nil
+	}
+	if r.cache != nil {
+		return r.cache.Resolve(token)
+	}
+	if r.materializePaths {
 		return nil, fmt.Errorf(
 			"asset %s: cache is not configured",
 			asset.DisplayReference(token),
 		)
 	}
-	return cache.Resolve(token)
+	if r.catalog == nil {
+		return nil, fmt.Errorf("asset content: no asset catalog is available")
+	}
+	return r.catalog.Content(token)
+}
+
+func (r assetResolver) resolveArgs(args []any, context string) error {
+	for i, value := range args {
+		resolved, err := r.resolve(value)
+		if err != nil {
+			return diagnostic.Context(fmt.Sprintf("%s arg %d", context, i), err)
+		}
+		args[i] = resolved
+	}
+	return nil
 }
 
 func (e *Executor) decodeInputs(dst any, logical map[string]any) error {

@@ -410,14 +410,9 @@ func evalLibraryCall(c *lang.Call, ctx *EvalContext) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	for i := range args {
-		args[i], err = resolveAssetValue(ctx.AssetCache, args[i])
-		if err != nil {
-			return nil, diagnostic.Context(
-				fmt.Sprintf("eval: %s arg %d", name, i),
-				err,
-			)
-		}
+	resolver := assetResolver{cache: ctx.AssetCache, materializePaths: true}
+	if err := resolver.resolveArgs(args, "eval: "+name); err != nil {
+		return nil, err
 	}
 	out, err := guard("calling "+name, false, func() (any, error) {
 		return fn.Func(args)
@@ -439,82 +434,13 @@ func evalCoreCall(c *lang.Call, ctx *EvalContext) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	args, err = resolveCoreArgs(args, ctx)
-	if err != nil {
-		return nil, diagnostic.Context("eval: "+name, err)
+	resolver := expressionAssetResolver(ctx)
+	if err := resolver.resolveArgs(args, "eval: "+name+":"); err != nil {
+		return nil, err
 	}
 	return guard("calling "+name, true, func() (any, error) {
 		return fn.Func(args)
 	})
-}
-
-func resolveCoreArgs(args []any, ctx *EvalContext) ([]any, error) {
-	resolved := make([]any, len(args))
-	for i, value := range args {
-		next, err := resolveCoreValue(value, ctx)
-		if err != nil {
-			return nil, diagnostic.Context(fmt.Sprintf("arg %d", i), err)
-		}
-		resolved[i] = next
-	}
-	return resolved, nil
-}
-
-func resolveCoreValue(value any, ctx *EvalContext) (any, error) {
-	switch typed := value.(type) {
-	case asset.PathRef:
-		return string(typed), nil
-	case asset.ContentRef:
-		if ctx != nil && ctx.AssetCache != nil {
-			return ctx.AssetCache.Resolve(string(typed))
-		}
-		if ctx == nil || ctx.Assets == nil || ctx.Assets.Catalog() == nil {
-			return nil, fmt.Errorf("asset content: no asset catalog is available")
-		}
-		return ctx.Assets.Catalog().Content(string(typed))
-	case []any:
-		resolved := make([]any, len(typed))
-		for i, element := range typed {
-			next, err := resolveCoreValue(element, ctx)
-			if err != nil {
-				return nil, diagnostic.Context(fmt.Sprintf("index %d", i), err)
-			}
-			resolved[i] = next
-		}
-		return resolved, nil
-	case map[string]any:
-		resolved := make(map[string]any, len(typed))
-		for key, element := range typed {
-			next, err := resolveCoreValue(element, ctx)
-			if err != nil {
-				return nil, diagnostic.Context(fmt.Sprintf("key %q", key), err)
-			}
-			resolved[key] = next
-		}
-		return resolved, nil
-	case string:
-		reference, isReference := asset.ParseReference(typed)
-		if !isReference {
-			return typed, nil
-		}
-		if reference.Kind == asset.ReferenceKindPath {
-			return typed, nil
-		}
-		if ctx != nil && ctx.AssetCache != nil {
-			return ctx.AssetCache.Resolve(typed)
-		}
-		if ctx == nil || ctx.Assets == nil || ctx.Assets.Catalog() == nil {
-			return nil, fmt.Errorf("asset content: no asset catalog is available")
-		}
-		if _, ok := ctx.Assets.Catalog().Reference(typed); !ok {
-			return nil, fmt.Errorf(
-				"asset content %s: not found in asset catalog",
-				asset.DisplayReference(typed),
-			)
-		}
-		return ctx.Assets.Catalog().Content(typed)
-	}
-	return value, nil
 }
 
 func evalArgs(name string, exprs []lang.Expr, ctx *EvalContext) ([]any, error) {
