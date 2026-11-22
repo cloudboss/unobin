@@ -88,8 +88,8 @@ func TestReadRejectsInvalidFormatDeclarations(t *testing.T) {
 		want string
 	}{
 		{"non-string", "requires a string field"},
-		{"missing-field", "requires 1 arguments"},
-		{"extra-field", "requires 1 arguments"},
+		{"missing-field", "requires 2 arguments"},
+		{"extra-field", "requires 2 arguments"},
 		{"invalid-pattern", "regular expression"},
 		{"pattern-field", "constant string expression"},
 	} {
@@ -107,7 +107,7 @@ func TestReadNativeFormatPredicates(t *testing.T) {
 	require.Empty(t, warnings)
 	specs := schema.Resources["thing"].Constraints
 	require.Len(t, specs, 12)
-	require.Equal(t, "(@core.matches(input.object.metadata.name, '^[a-z][a-z0-9.-]*$'))",
+	require.Equal(t, "(@core.is-match(input.object.metadata.name, '^[a-z][a-z0-9.-]*$'))",
 		specs[0].Require)
 	entries, errs := lang.ParseSpecs(specs)
 	require.Empty(t, errs.Errors())

@@ -7,7 +7,7 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 ### Added
 
 - Add native string predicates for regular expressions, IP addresses, CIDR blocks, and base64 data, with matching `@core` functions.
-- Add `constraint.IsPositiveDuration` and `@core.is-positive-duration` to test positive Go durations.
+- Add string pattern and format predicates for native Go and Unobin constraints.
 
 ### Changed
 

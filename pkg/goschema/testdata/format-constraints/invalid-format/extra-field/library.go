@@ -28,6 +28,6 @@ type ThingOutput struct{ ID string }
 
 func (v Thing) Constraints() []constraint.Constraint {
 	return []constraint.Constraint{
-		constraint.Must(constraint.IsIP(v.Domain, v.Name)),
+		constraint.Must(constraint.IsFormat(v.Domain, "ip", v.Name)),
 	}
 }
