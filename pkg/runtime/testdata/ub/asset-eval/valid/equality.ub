@@ -1,0 +1,23 @@
+factory: {
+  assets: {
+    archive: './archive.zip'
+    copy:    './shared.txt'
+    tree:    './tree'
+  }
+
+  locals: {
+    equality: {
+      contents:  asset.archive.content == asset.copy.content
+      paths:     asset.archive.path != asset.copy.path
+      path-text: asset.archive.path == @core.b64-decode(@core.b64-encode(asset.archive.path))
+      byte-list:         asset.archive.content == [122, 105, 112, 32, 98, 121, 116, 101, 115]
+      non-byte:          [256, 105, 112, 32, 98, 121, 116, 101, 115] != asset.archive.content
+      different-content: asset.archive.content != asset.tree['main.go'].content
+      nested:            [{ value: asset.archive.content }] == [{ value: asset.copy.content }]
+    }
+    stored:           { files: [input.first] } == { files: [input.second] }
+    presence:         input.first != null
+    different-length: [input.first] != []
+    different-key:    { a: input.first } != { b: input.second }
+  }
+}

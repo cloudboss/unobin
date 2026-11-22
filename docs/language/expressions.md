@@ -75,8 +75,9 @@ are invalid.
 Asset paths support `==` and `!=` with other path or string expressions. The
 comparison uses the logical reference, not a host cache path. Asset content
 compares as bytes and can be passed to byte-compatible functions such as
-`@core.b64-encode`. Equality between disjoint types, such as asset content and a
-string, is a type mismatch.
+`@core.b64-encode`. Two assets with the same bytes compare equal. Asset content
+can also be compared with a list of integers that represent bytes. Equality
+between disjoint types, such as asset content and a string, is a type mismatch.
 
 ## Operators
 

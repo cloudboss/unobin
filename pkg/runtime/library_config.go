@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/asset"
 	"github.com/cloudboss/unobin/pkg/diagnostic"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/sdk/cfg"
@@ -14,13 +15,14 @@ import (
 )
 
 func decodeLibraryConfig(lib *Library, raw map[string]any) (any, error) {
-	return decodeLibraryConfigWith(lib, raw, nil)
+	return decodeLibraryConfigWith(lib, raw, nil, nil)
 }
 
 func decodeLibraryConfigWith(
 	lib *Library,
 	raw map[string]any,
 	resolve func(map[string]any) (map[string]any, error),
+	assetCache *asset.Cache,
 ) (any, error) {
 	if lib == nil || lib.Configuration == nil {
 		return nil, errors.New("library declares no configuration")
@@ -35,7 +37,7 @@ func decodeLibraryConfigWith(
 				return nil, err
 			}
 		}
-		if err := checkConfigConstraints(schema.ConfigurationConstraints, values); err != nil {
+		if err := checkConfigConstraints(schema.ConfigurationConstraints, values, assetCache); err != nil {
 			return nil, err
 		}
 	}
@@ -244,7 +246,9 @@ func elemType(t typecheck.Type) typecheck.Type {
 	return *t.Elem
 }
 
-func checkConfigConstraints(specs []lang.ConstraintSpec, values map[string]any) error {
+func checkConfigConstraints(
+	specs []lang.ConstraintSpec, values map[string]any, assetCache *asset.Cache,
+) error {
 	if len(specs) == 0 {
 		return nil
 	}
@@ -253,7 +257,7 @@ func checkConfigConstraints(specs []lang.ConstraintSpec, values map[string]any) 
 		return perr.Err()
 	}
 	eval := func(expr lang.Expr, binds []lang.EachBinding) (any, error) {
-		ctx := &EvalContext{Inputs: values, MissingAsNull: true}
+		ctx := &EvalContext{Inputs: values, AssetCache: assetCache, MissingAsNull: true}
 		ApplyBindings(ctx, binds)
 		return Eval(expr, ctx)
 	}

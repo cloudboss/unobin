@@ -1133,7 +1133,7 @@ func (e *Executor) checkStepConstraints(
 	values := make(map[string]any, len(inputs))
 	maps.Copy(values, inputs)
 	eval := func(ex lang.Expr, binds []lang.EachBinding) (any, error) {
-		ctx := &EvalContext{Inputs: values, MissingAsNull: true}
+		ctx := &EvalContext{Inputs: values, AssetCache: e.AssetCache, MissingAsNull: true}
 		ApplyBindings(ctx, binds)
 		v, err := Eval(ex, ctx)
 		if errors.Is(err, ErrEvalNotFound) {
