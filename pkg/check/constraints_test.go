@@ -274,6 +274,7 @@ func TestCheckLiteralConstraintsWithNestedReferences(t *testing.T) {
 		"resource.conflict: constraints[0] (exactly-one-of [metadata.name, metadata.generate-name]): " +
 			"expected exactly one to be set, got 2 (metadata.name, metadata.generate-name)",
 		"resource.conflict: constraints[1] (predicate): too many topology terms",
+		"resource.generated: constraints[1] (predicate): too many topology terms",
 	}, errs.Messages())
 }
 
@@ -288,6 +289,7 @@ func TestCheckLiteralCompositeConstraintsWithNestedReferences(t *testing.T) {
 		"resource.conflict: constraints[0] (exactly-one-of [metadata.name, metadata.generate-name]): " +
 			"expected exactly one to be set, got 2 (metadata.name, metadata.generate-name)",
 		"resource.conflict: constraints[1] (predicate): too many topology terms",
+		"resource.generated: constraints[1] (predicate): too many topology terms",
 	}, errs.Messages())
 }
 

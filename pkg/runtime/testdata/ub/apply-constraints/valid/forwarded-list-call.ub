@@ -1,0 +1,11 @@
+actions: {
+  seed: core.seed {
+    echo: 'later'
+  }
+}
+resources: {
+  box: w.box {
+    items: [{ name: action.seed.value }, { name: 'fixed' }]
+    limit: input.limit
+  }
+}

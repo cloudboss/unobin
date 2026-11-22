@@ -72,6 +72,7 @@ func (e *Executor) ApplyPlan(ctx context.Context, pf *PlanFile) (result *ExecRes
 		return nil, NewApplyFailure(ApplyFailureSetup, err)
 	}
 	e.prepareApplySnapshot(rs)
+	rs.applying = true
 	// The apply subcommand is invoked with only the plan file, so the
 	// executor's own Inputs is typically empty. Seed root Inputs from
 	// the plan file so root-scope references like `input.X` resolve when

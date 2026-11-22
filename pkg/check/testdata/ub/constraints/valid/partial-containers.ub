@@ -8,6 +8,10 @@ resources: {
     }
     topologies: [{ zone: resource.upstream.zone }, { zone: 'fixed' }]
   }
+  generated: core.thing {
+    metadata:   { name: 'storage', labels: { owner: 'team' } }
+    topologies: [ for zone in ['east', 'west'] : { zone: resource.upstream.zone } ]
+  }
   deferred: core.thing {
     metadata: {
       name:          'storage'

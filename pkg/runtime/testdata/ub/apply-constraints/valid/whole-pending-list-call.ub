@@ -1,0 +1,13 @@
+actions: {
+  seed: core.seed {
+    echo: 'later'
+  }
+}
+resources: {
+  box: w.box {
+    items: if action.seed.value == 'later'
+      then [{ name: 'one' }, { name: 'two' }]
+      else [{ name: 'one' }]
+    limit: input.limit
+  }
+}

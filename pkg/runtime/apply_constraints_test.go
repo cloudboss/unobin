@@ -318,11 +318,12 @@ func TestApplyNestedForEachInputConstraints(t *testing.T) {
 				Kind: "predicate", When: "true", Require: "@each.value.name == 'good'",
 				ForEach: "input.items", Message: "item name must be good",
 			}}
+			composite := syntaxResourceComposite(t, "box", applyConstraintFixture(t, "nested-body"))
+			composite.Libraries = map[string]*Library{"core": libs["core"]}
 			libs["w"] = &Library{
 				Name: "w",
 				ResourceComposites: map[string]*CompositeType{
-					"box": syntaxResourceComposite(t, "box",
-						applyConstraintFixture(t, "nested-body")),
+					"box": composite,
 				},
 			}
 			exec := planTestExecutor(t, applyConstraintFixture(t, "nested-call"),
@@ -427,6 +428,105 @@ func TestPlanChecksPartiallyKnownConstraintInputs(t *testing.T) {
 				require.NoError(t, err)
 				require.EqualValues(t, 1, dataReads)
 			}
+		})
+	}
+}
+
+func TestPlanChecksListLimitThroughComposite(t *testing.T) {
+	rules, err := lang.ParseSource("list-limit-rules.ub",
+		[]byte(applyConstraintFixture(t, "list-limit-rules")))
+	require.NoError(t, err)
+	limit, err := lang.FormatExpr(rules.Body.Fields[0].Value)
+	require.NoError(t, err)
+
+	for _, body := range []string{"forwarded-list-body", "comprehension-list-body"} {
+		t.Run(body, func(t *testing.T) {
+			var seedRuns, actionRuns, dataReads int64
+			libs := applyConstraintLibrary(&resourceCounters{}, &seedRuns, &actionRuns, &dataReads)
+			libs["core"].Constraints["data-source.lookup"] = []lang.ConstraintSpec{{
+				Kind: "predicate", When: "true", Require: string(limit),
+				Message: "too many items",
+			}}
+			composite := syntaxResourceComposite(t, "box", applyConstraintFixture(t, body))
+			composite.Libraries = map[string]*Library{"core": libs["core"]}
+			libs["w"] = &Library{ResourceComposites: map[string]*CompositeType{
+				"box": composite,
+			}}
+			exec := planTestExecutor(t, applyConstraintFixture(t, "forwarded-list-call"),
+				libs, newStateStore(t), state.FactoryInfo{})
+			exec.Inputs = map[string]any{"limit": int64(1)}
+			_, err := exec.Plan(context.Background())
+			require.ErrorContains(t, err,
+				"resource.box/data-source.consumer: schema: constraints[0] (predicate): too many items")
+			require.Zero(t, seedRuns)
+			require.Zero(t, dataReads)
+		})
+	}
+}
+
+func TestCompositeListLimitWithPendingInputs(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		call      string
+		limit     int64
+		planError bool
+	}{
+		{"oversized", "forwarded-list-call", 1, true},
+		{"within limit", "forwarded-list-call", 2, false},
+		{"unknown size", "whole-pending-list-call", 1, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var seedRuns, actionRuns, dataReads int64
+			libs := applyConstraintLibrary(&resourceCounters{}, &seedRuns, &actionRuns, &dataReads)
+			body := applyConstraintFixture(t, "composite-limit-body")
+			composite := syntaxResourceComposite(t, "box", body)
+			composite.Libraries = map[string]*Library{"core": libs["core"]}
+			libs["w"] = &Library{ResourceComposites: map[string]*CompositeType{
+				"box": composite,
+			}}
+			exec := planTestExecutor(t, applyConstraintFixture(t, tc.call),
+				libs, newStateStore(t), state.FactoryInfo{})
+			exec.Inputs = map[string]any{"limit": tc.limit}
+			const violation = "resource.box: schema: constraints[0] (predicate): too many items"
+			if tc.planError {
+				_, err := exec.Plan(context.Background())
+				require.ErrorContains(t, err, violation)
+				require.Zero(t, seedRuns)
+				require.Zero(t, dataReads)
+				return
+			}
+			plan := savedConstraintPlan(t, exec)
+			_, err := exec.ApplyPlan(context.Background(), plan)
+			require.EqualValues(t, 1, seedRuns)
+			if tc.limit == 2 {
+				require.NoError(t, err)
+				require.EqualValues(t, 1, dataReads)
+			} else {
+				require.ErrorContains(t, err, violation)
+				require.Zero(t, dataReads)
+			}
+		})
+	}
+}
+
+func TestConstraintEvaluatorKeepsKnownListSizes(t *testing.T) {
+	src := applyConstraintFixture(t, "list-limit-rules")
+	rules, err := lang.ParseSource("list-limit-rules.ub", []byte(src))
+	require.NoError(t, err)
+	pending := PendingValue{Refs: []string{"action.seed.value"}}
+	eval := ConstraintEvaluator(EvalContext{Inputs: map[string]any{
+		"limit": int64(1),
+		"items": []any{map[string]any{"name": pending}, pending},
+	}})
+	for _, rule := range rules.Body.Fields {
+		t.Run(rule.Key.Name, func(t *testing.T) {
+			got, err := eval(rule.Value, nil)
+			if rule.Key.Name == "filtered" {
+				require.ErrorIs(t, err, lang.ErrConstraintPending)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, false, got)
 		})
 	}
 }

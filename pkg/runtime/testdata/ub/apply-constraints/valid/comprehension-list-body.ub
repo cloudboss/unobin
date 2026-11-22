@@ -1,0 +1,11 @@
+inputs: {
+  items: { type: list(object({ name: string })) }
+  limit: { type: integer }
+}
+data-sources: {
+  consumer: core.lookup {
+    key:   'good'
+    items: [ for item in input.items : { name: item.name } ]
+    limit: input.limit
+  }
+}

@@ -1,0 +1,17 @@
+inputs: {
+  items: { type: list(object({ name: string })) }
+  limit: { type: integer }
+}
+constraints: [
+  {
+    kind:    predicate
+    when:    true
+    require: @core.length(input.items) <= input.limit
+    message: 'too many items'
+  },
+]
+data-sources: {
+  consumer: core.lookup {
+    key: 'good'
+  }
+}
