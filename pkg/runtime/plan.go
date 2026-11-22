@@ -1233,7 +1233,7 @@ func (e *Executor) planOneAction(
 	if err != nil {
 		return nil, err
 	}
-	if err := e.applyInputDefaults(n, display, unresolved); err != nil {
+	if err := e.prepareDesiredInputs(n, display, unresolved); err != nil {
 		return nil, err
 	}
 	inputs := withoutPending(display, unresolved)
@@ -1307,7 +1307,7 @@ func (e *Executor) planOneResource(
 	if err != nil {
 		return nil, err
 	}
-	if err := e.applyInputDefaults(n, display, unresolved); err != nil {
+	if err := e.prepareDesiredInputs(n, display, unresolved); err != nil {
 		return nil, err
 	}
 	var prior *state.Entry
@@ -1738,7 +1738,7 @@ func (e *Executor) planOneData(
 	if err != nil {
 		return nil, err
 	}
-	if err := e.applyInputDefaults(n, inputs, unresolved); err != nil {
+	if err := e.prepareDesiredInputs(n, inputs, unresolved); err != nil {
 		return nil, err
 	}
 	step := &PlanStep{

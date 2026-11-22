@@ -8,6 +8,7 @@ import (
 	"github.com/cloudboss/unobin/pkg/lang/syntax"
 	"github.com/cloudboss/unobin/pkg/runner"
 	"github.com/cloudboss/unobin/pkg/runtime"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 )
 
 var factorySource = parse.NewSourceFile(
@@ -49,6 +50,17 @@ func main() {
 			{Kind: "predicate", When: "true", Require: "(@core.length(input.optional-methods ?? []) <= 5)", Message: "too many methods"},
 			{Kind: "predicate", When: "true", Require: "(input.optional-methods == null || @core.length(input.optional-methods) >= 1)", Message: "null or at least one method"},
 			{Kind: "predicate", When: "true", Require: "(@core.length(@each.value ?? '') >= 1)", Message: "them values required", ForEach: "input.them ?? []"},
+		},
+	}
+	libraries["len"].Schema = &runtime.LibrarySchema{
+		Resources: map[string]*runtime.TypeSchema{
+			"length": {EvaluatedInputs: map[string]typecheck.Type{
+				"name":             typecheck.TString(),
+				"optional-methods": typecheck.TOptional(typecheck.TList(typecheck.TString())),
+				"optional-tags":    typecheck.TOptional(typecheck.TMap(typecheck.TString())),
+				"profile":          typecheck.TOptional(typecheck.TString()),
+				"them":             typecheck.TOptional(typecheck.TList(typecheck.TOptional(typecheck.TString()))),
+			}},
 		},
 	}
 	runner.Run(runner.Info{

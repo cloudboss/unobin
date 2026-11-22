@@ -1,0 +1,17 @@
+factory: {
+  imports: { core: 'example.com/unobin/e2elib' }
+  inputs: {
+    key:         { type: string }
+    core-config: {
+      type:    library-config('example.com/unobin/e2elib')
+      default: { nested: {} }
+    }
+  }
+  library-configs: { core: input.core-config }
+  resources: {
+    example: core.file {
+      path:    'example.txt'
+      content: @core.lookup({ example: 'example' }, input.key)
+    }
+  }
+}

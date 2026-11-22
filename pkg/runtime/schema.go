@@ -58,6 +58,10 @@ type TypeSchema struct {
 	SensitiveInputs  []string
 	SensitiveOutputs []string
 
+	// EvaluatedInputs describes inputs in a compiled factory. The runtime can
+	// validate presence without making a partial schema available to source checks.
+	EvaluatedInputs map[string]typecheck.Type
+
 	// Constraints holds the type's cross-field constraints, derived from
 	// its Constraints method at compile time, in the embeddable string
 	// form. A check parses them with lang.ParseSpecs and runs them through
@@ -69,6 +73,12 @@ type TypeSchema struct {
 	// is filled in when a body leaves it out; an Optional marker only
 	// declares that absence is fine. Any other input is required.
 	Defaults []lang.DefaultSpec
+}
+
+// HasRuntimeData reports whether the compiler should emit this type's metadata.
+func (s *TypeSchema) HasRuntimeData() bool {
+	return s != nil &&
+		(len(s.Inputs) > 0 || len(s.SensitiveInputs) > 0 || len(s.SensitiveOutputs) > 0)
 }
 
 // ForType returns the selected export's schema within a node category.

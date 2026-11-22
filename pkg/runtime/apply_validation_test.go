@@ -6,7 +6,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/cloudboss/unobin/internal/ubtest"
 	"github.com/cloudboss/unobin/pkg/sdk/state"
+	"github.com/cloudboss/unobin/pkg/typecheck"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,8 +24,13 @@ type validationCounters struct {
 type validatingResource struct {
 	Name  string
 	Valid bool
+	Spec  *volumeSpec
 
 	counters *validationCounters
+}
+
+type volumeSpec struct {
+	Capacity map[string]string
 }
 
 type validatingResourceOutput struct {
@@ -111,6 +118,56 @@ func validationModules(c *validationCounters) map[string]*Library {
 			},
 		},
 	}
+}
+
+func TestRequiredEvaluatedInputBeforeReplacement(t *testing.T) {
+	c := &validationCounters{}
+	var seedRuns int64
+	libs := validationModules(c)
+	lib := libs["core"]
+	lib.Actions = map[string]ActionRegistration{
+		"seed": MakeActionWith[applyConstraintSeed, any, any](
+			func() *applyConstraintSeed { return &applyConstraintSeed{runs: &seedRuns} },
+		),
+	}
+	lib.Schema = &LibrarySchema{Resources: map[string]*TypeSchema{
+		"thing": {EvaluatedInputs: map[string]typecheck.Type{
+			"name":  typecheck.TString(),
+			"valid": typecheck.TBoolean(),
+			"spec": typecheck.TOptional(typecheck.TObject([]typecheck.ObjectField{
+				{Name: "capacity", Type: typecheck.TMap(typecheck.TString())},
+			})),
+		}},
+	}}
+	store := newStateStore(t)
+	fixture := func(name string) string {
+		return ubtest.ReadValidFixture(t, "testdata/ub/required-inputs", name)
+	}
+	ctx := context.Background()
+	known := planTestExecutor(t, fixture("known"), libs, store, state.FactoryInfo{})
+	known.Inputs = map[string]any{"name": "old", "selection": "good"}
+	applyOnce(t, known)
+	known.Inputs = map[string]any{"name": "new", "selection": "bad"}
+	_, err := known.Plan(ctx)
+	require.ErrorContains(t, err, `spec.capacity": required but not provided`)
+
+	deferred := planTestExecutor(t, fixture("deferred"), libs, store, state.FactoryInfo{})
+	plan := savedConstraintPlan(t, deferred)
+	for _, step := range plan.Steps {
+		if step.Address == "resource.consumer" {
+			require.Equal(t, DecisionReplace, step.Decision)
+			require.Equal(t, map[string][]string{"spec": {"action.seed.value"}},
+				step.UnresolvedInputs)
+		}
+	}
+	_, err = deferred.ApplyPlan(ctx, plan)
+	require.ErrorContains(t, err, `spec.capacity": required but not provided`)
+	require.EqualValues(t, 1, seedRuns)
+	require.EqualValues(t, 1, c.creates)
+	require.Zero(t, c.deletes)
+	snapshot, err := store.Current()
+	require.NoError(t, err)
+	require.Equal(t, "old", snapshot.Find("resource.consumer").Inputs["name"])
 }
 
 func bindingValidationModules(oldC, newC *validationCounters) map[string]*Library {

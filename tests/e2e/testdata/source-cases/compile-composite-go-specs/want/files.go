@@ -37,6 +37,16 @@ func Library() *runtime.Library {
 		},
 	}
 	e2elibLib.Schema = &runtime.LibrarySchema{
+		Resources: map[string]*runtime.TypeSchema{
+			"file": {EvaluatedInputs: map[string]typecheck.Type{
+				"content":        typecheck.TString(),
+				"create-parents": typecheck.TBoolean(),
+				"fail-update":    typecheck.TOptional(typecheck.TBoolean()),
+				"mode":           typecheck.TInteger(),
+				"path":           typecheck.TString(),
+				"tags":           typecheck.TOptional(typecheck.TMap(typecheck.TString())),
+			}},
+		},
 		HasConfiguration: true,
 		ConfigurationFields: []typecheck.ObjectField{
 			{Name: "base-dir", Type: typecheck.TString(), Defaulted: true},

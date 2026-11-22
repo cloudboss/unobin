@@ -1,0 +1,14 @@
+{
+  "name": "evaluated-required-input",
+  "factoryPath": "src",
+  "libraryPath": "example.com/unobin/e2e/evaluated-required-input",
+  "build": true,
+  "commands": [
+    {
+      "name": "plan-required-null",
+      "args": ["plan", "--ascii", "-c", "stacks/dev.ub"],
+      "stderr": "want/plan-required-null.stderr",
+      "exitCode": 1
+    }
+  ]
+}
