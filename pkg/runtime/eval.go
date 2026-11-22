@@ -155,7 +155,7 @@ func evalComprehension(n *lang.Comprehension, ctx *EvalContext) (any, error) {
 	if n.Kind == lang.CompMap {
 		return evalMapComp(n, binds, ctx)
 	}
-	return evalListComp(n, binds, ctx)
+	return evalListComp(n, binds, ctx, evalCollectionValue)
 }
 
 // comprehensionBindings turns the source value into one binding map per
@@ -199,7 +199,10 @@ func bindNames(names []string, first, second any) map[string]any {
 	return b
 }
 
-func evalListComp(n *lang.Comprehension, binds []map[string]any, ctx *EvalContext) (any, error) {
+func evalListComp(
+	n *lang.Comprehension, binds []map[string]any, ctx *EvalContext,
+	evalItem func(lang.Expr, *EvalContext) (any, error),
+) ([]any, error) {
 	out := make([]any, 0, len(binds))
 	for _, b := range binds {
 		child := ctx.withBindings(b)
@@ -210,7 +213,7 @@ func evalListComp(n *lang.Comprehension, binds []map[string]any, ctx *EvalContex
 		if !keep {
 			continue
 		}
-		val, err := Eval(n.Value, child)
+		val, err := evalItem(n.Value, child)
 		if err != nil {
 			return nil, err
 		}
@@ -239,7 +242,7 @@ func evalMapComp(n *lang.Comprehension, binds []map[string]any, ctx *EvalContext
 			return nil, fmt.Errorf(
 				"eval: comprehension key must be a string, got %s", lang.TypeMessage(keyVal))
 		}
-		val, err := Eval(n.Value, child)
+		val, err := evalCollectionValue(n.Value, child)
 		if err != nil {
 			return nil, err
 		}
@@ -357,7 +360,7 @@ func renderScalar(v any) string {
 func evalArray(a *lang.ArrayLit, ctx *EvalContext) ([]any, error) {
 	out := make([]any, 0, len(a.Elements))
 	for i, el := range a.Elements {
-		val, err := Eval(el, ctx)
+		val, err := evalCollectionValue(el, ctx)
 		if err != nil {
 			return nil, diagnostic.Context(fmt.Sprintf("eval: array[%d]", i), err)
 		}
@@ -376,7 +379,7 @@ func evalObject(o *lang.ObjectLit, ctx *EvalContext) (map[string]any, error) {
 		case lang.FieldString:
 			key = fld.Key.String
 		}
-		val, err := Eval(fld.Value, ctx)
+		val, err := evalCollectionValue(fld.Value, ctx)
 		if err != nil {
 			return nil, diagnostic.Context(fmt.Sprintf("eval: field %q", key), err)
 		}
@@ -854,8 +857,11 @@ func navigateSegments(
 	cur any, path string, segs []lang.DotSegment, ctx *EvalContext,
 ) (any, error) {
 	for i, seg := range segs {
-		if ctx != nil && ctx.partialConstraints && IsPendingValue(cur) {
-			return nil, lang.ErrConstraintPending
+		if IsPendingValue(cur) {
+			if ctx != nil && ctx.partialConstraints {
+				return nil, lang.ErrConstraintPending
+			}
+			return nil, ErrEvalNotFound
 		}
 		if cur == nil && seg.Guarded {
 			return nil, nil
@@ -919,13 +925,30 @@ func splatProject(cur any, path string, rest []lang.DotSegment, ctx *EvalContext
 	}
 	out := make([]any, 0, len(lst))
 	for n, el := range lst {
-		elem, err := navigateSegments(el, fmt.Sprintf("%s[%d]", path, n), rest, ctx)
+		elem, err := retainPendingElement(
+			navigateSegments(el, fmt.Sprintf("%s[%d]", path, n), rest, ctx),
+		)
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, elem)
 	}
 	return out, nil
+}
+
+func retainPendingElement(value any, err error) (any, error) {
+	if errors.Is(err, lang.ErrConstraintPending) {
+		return PendingValue{}, nil
+	}
+	return value, err
+}
+
+func evalCollectionValue(e lang.Expr, ctx *EvalContext) (any, error) {
+	value, err := Eval(e, ctx)
+	if ctx != nil && ctx.partialConstraints {
+		return retainPendingElement(value, err)
+	}
+	return value, err
 }
 
 // mapStep steps into a map by key, extending path for diagnostics. A

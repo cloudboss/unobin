@@ -209,6 +209,18 @@ func (p *partialEvaluator) value(e lang.Expr) (any, []string, error) {
 		if value, refs, err, ok := p.local(v); ok {
 			return value, refs, err
 		}
+		if value, err := evalDotPath(v, p.ec); err == nil && !IsPendingValue(value) {
+			if refs, pending := pendingValueRefs(value); pending {
+				return value, refs, nil
+			}
+		}
+	case *lang.Comprehension:
+		if v.Kind == lang.CompList {
+			values, refs, err := p.listComprehension(v)
+			if values != nil || err != nil {
+				return values, refs, err
+			}
+		}
 	}
 	if p.literal {
 		return PendingValue{}, nil, nil
@@ -218,6 +230,30 @@ func (p *partialEvaluator) value(e lang.Expr) (any, []string, error) {
 		return nil, nil, err
 	}
 	return PendingValue{Refs: refs}, refs, nil
+}
+
+func (p *partialEvaluator) listComprehension(n *lang.Comprehension) ([]any, []string, error) {
+	source, refs, err := p.element(n.Source)
+	if err != nil || IsPendingValue(source) {
+		return nil, nil, err
+	}
+	bindings, err := comprehensionBindings(source, n.Names)
+	if err != nil {
+		return nil, nil, err
+	}
+	values, err := evalListComp(n, bindings, p.ec, func(
+		expr lang.Expr, scope *EvalContext,
+	) (any, error) {
+		item := *p
+		item.ec = scope
+		value, itemRefs, err := item.element(expr)
+		refs = append(refs, itemRefs...)
+		return value, err
+	})
+	if errors.Is(err, ErrEvalNotFound) {
+		return nil, nil, nil
+	}
+	return values, dedupe(refs), err
 }
 
 func (p *partialEvaluator) local(
@@ -1155,13 +1191,7 @@ func (e *Executor) checkStepConstraints(step *PlanStep, inputs map[string]any) [
 // `constraints:` block, returning one error per violation prefixed with
 // the boundary address. A composite's constraints are its input contract,
 // checked the same way the factory checks its own: against the inputs
-// alone. The call site's args were evaluated when the boundary scope was
-// built, so a forward-reference arg makes that fail earlier and never
-// reaches here. A composite applies no defaults, so every declared input
-// the call site left out is filled with null first; an unset input then
-// reads as null in a predicate, the same as an unset optional input does
-// for the factory. Nodes other than composites contribute nothing, as do
-// composites with no scope or no constraints.
+// alone. The boundary scope can contain partially resolved inputs.
 func (e *Executor) checkCompositeConstraints(rs *runState, step *PlanStep) []error {
 	if !step.Composite {
 		return nil

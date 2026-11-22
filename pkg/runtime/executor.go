@@ -337,6 +337,7 @@ type runState struct {
 	priorRevision string
 	next          *state.Snapshot
 	planning      bool
+	applying      bool
 
 	priorEntries *snapshotEntries
 	nextEntries  *snapshotEntries
@@ -569,6 +570,11 @@ func (e *Executor) ensureCompositeScope(rs *runState, callSite string) (*EvalCon
 		Assets:     assets,
 		AssetCache: e.AssetCache,
 		locals:     compositeLocalScope(boundary),
+	}
+	if rs.applying {
+		if err := checkCompositeConstraintValues(boundary, scope).Err(); err != nil {
+			return nil, diagnostic.Context(callSite, err)
+		}
 	}
 	rs.composites[callSite] = scope
 	return scope, nil

@@ -1,0 +1,5 @@
+direct:        @core.length(input.items) <= input.limit
+splat:         @core.length(input.items[*].name) <= input.limit
+comprehension: @core.length([ for item in input.items : item.name ]) <= input.limit
+literal:       @core.length([input.items[0].name, 'fixed']) <= input.limit
+filtered: @core.length([ for item in input.items : item.name when item.name != null ]) <= input.limit

@@ -63,22 +63,18 @@ func checkCompositeConstraintValues(n *Node, scope *EvalContext) *lang.ErrorList
 		values[name] = nil
 	}
 	maps.Copy(values, scope.Inputs)
-	eval := func(ex lang.Expr, binds []lang.EachBinding) (any, error) {
-		ctx := &EvalContext{
-			Inputs:        values,
-			Libraries:     n.Libraries,
-			Assets:        scope.Assets,
-			AssetCache:    scope.AssetCache,
-			MissingAsNull: true,
-		}
-		ApplyBindings(ctx, binds)
-		return Eval(ex, ctx)
-	}
-	return lang.CheckConstraints(
+	eval := ConstraintEvaluator(EvalContext{
+		Inputs:     values,
+		Libraries:  n.Libraries,
+		Assets:     scope.Assets,
+		AssetCache: scope.AssetCache,
+	})
+	return lang.CheckPartialConstraints(
 		constraints,
 		values,
 		eval,
 		lang.DisplayNodeRelative,
+		IsPendingValue,
 	)
 }
 
