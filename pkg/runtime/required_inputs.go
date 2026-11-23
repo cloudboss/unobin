@@ -74,6 +74,13 @@ func (optional optionalInputPaths) checkContents(t typecheck.Type, value any, pa
 	switch t.Kind {
 	case typecheck.Object:
 		if object, ok := value.(map[string]any); ok {
+			if !t.Open {
+				for _, name := range slices.Sorted(maps.Keys(object)) {
+					if _, declared := t.Field(name); !declared {
+						return fmt.Errorf("unknown field %q", path+"."+name)
+					}
+				}
+			}
 			for _, field := range t.Fields {
 				fieldValue, present := object[field.Name]
 				fieldType := field.Type

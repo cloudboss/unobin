@@ -38,6 +38,7 @@ type Thing struct {
 	Timeout     time.Duration
 	Dir         string
 	Code        Code
+	OptionalCode *Code
 	Ptr         *string
 	Profile     *string
 	MaxAttempts *int64
@@ -396,6 +397,20 @@ func TestReadExtractsDefaults(t *testing.T) {
 			require.Equal(t, tt.wantSpecs, schema.Resources["thing"].Defaults)
 		})
 	}
+}
+
+func TestReadMarksDefaultedFieldsInsideOptionalInput(t *testing.T) {
+	schema, warnings, err := readConstraintLibrary(t, defaultsLibrary+`
+func (f Thing) Defaults() []defaults.Default {
+	return []defaults.Default{defaults.Value(f.OptionalCode.Retries, 3)}
+}
+`)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	code := schema.Resources["thing"].Inputs["optional-code"].Unwrap()
+	field, ok := code.Field("retries")
+	require.True(t, ok)
+	require.True(t, field.Defaulted)
 }
 
 func TestReadRejectsMalformedDefaults(t *testing.T) {

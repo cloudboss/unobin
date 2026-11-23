@@ -58,8 +58,7 @@ type TypeSchema struct {
 	SensitiveInputs  []string
 	SensitiveOutputs []string
 
-	// EvaluatedInputs describes inputs in a compiled factory. The runtime can
-	// validate presence without making a partial schema available to source checks.
+	// EvaluatedInputs describes inputs for runtime validation in a compiled factory.
 	EvaluatedInputs map[string]typecheck.Type
 
 	// Constraints holds the type's cross-field constraints, derived from

@@ -152,7 +152,7 @@ func (c *analysisContext) readSchema(
 		kind := registrationKindLabel(reg.Field)
 		w := c.newWalker()
 		w.subject = fmt.Sprintf("%s %q input", kind, reg.Name)
-		inputs, sensitiveIn := w.lookupFields(reg.InputRef)
+		inputFields, sensitiveIn := w.lookupObjectFields(reg.InputRef)
 		w = c.newWalker()
 		w.subject = fmt.Sprintf("%s %q output", kind, reg.Name)
 		outputs, sensitiveOut := w.lookupFields(reg.OutputRef)
@@ -165,8 +165,9 @@ func (c *analysisContext) readSchema(
 		constraints := w.lookupConstraints(reg.InputRef)
 		w = c.newWalker()
 		defaultSpecs := w.lookupDefaults(reg.InputRef)
+		markDefaultedFields(inputFields, defaultSpecs)
 		ts := &runtime.TypeSchema{
-			Inputs:           inputs,
+			Inputs:           objectFieldsToMap(inputFields),
 			Outputs:          outputs,
 			SensitiveInputs:  sortedKeys(sensitiveIn),
 			SensitiveOutputs: sortedKeys(sensitiveOut),

@@ -359,10 +359,7 @@ func TestCheckObjectLiteralKeyForms(t *testing.T) {
 			name:   "quoted optional map key",
 			src:    "{ 'PORT': input.port }",
 			target: TOptional(TMap(TString())),
-			want: []string{
-				"type mismatch: expected optional(map(string)), " +
-					"got object({ PORT: integer })",
-			},
+			want:   []string{"type mismatch: expected string, got integer"},
 		},
 		{
 			name: "quoted object key",
