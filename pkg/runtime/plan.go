@@ -215,11 +215,9 @@ func (p *partialEvaluator) value(e lang.Expr) (any, []string, error) {
 			}
 		}
 	case *lang.Comprehension:
-		if v.Kind == lang.CompList {
-			values, refs, err := p.listComprehension(v)
-			if values != nil || err != nil {
-				return values, refs, err
-			}
+		values, refs, err := p.comprehension(v)
+		if values != nil || err != nil {
+			return values, refs, err
 		}
 	}
 	if p.literal {
@@ -232,7 +230,7 @@ func (p *partialEvaluator) value(e lang.Expr) (any, []string, error) {
 	return PendingValue{Refs: refs}, refs, nil
 }
 
-func (p *partialEvaluator) listComprehension(n *lang.Comprehension) ([]any, []string, error) {
+func (p *partialEvaluator) comprehension(n *lang.Comprehension) (any, []string, error) {
 	source, refs, err := p.element(n.Source)
 	if err != nil || IsPendingValue(source) {
 		return nil, nil, err
@@ -241,15 +239,19 @@ func (p *partialEvaluator) listComprehension(n *lang.Comprehension) ([]any, []st
 	if err != nil {
 		return nil, nil, err
 	}
-	values, err := evalListComp(n, bindings, p.ec, func(
-		expr lang.Expr, scope *EvalContext,
-	) (any, error) {
+	evalValue := func(expr lang.Expr, scope *EvalContext) (any, error) {
 		item := *p
 		item.ec = scope
 		value, itemRefs, err := item.element(expr)
 		refs = append(refs, itemRefs...)
 		return value, err
-	})
+	}
+	var values any
+	if n.Kind == lang.CompMap {
+		values, err = evalMapComp(n, bindings, p.ec, evalValue)
+	} else {
+		values, err = evalListComp(n, bindings, p.ec, evalValue)
+	}
 	if errors.Is(err, ErrEvalNotFound) {
 		return nil, nil, nil
 	}

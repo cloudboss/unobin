@@ -1,0 +1,21 @@
+inputs: {
+  label:         { type: string, default: 'Upper.example/label' }
+  comprehension: { type: boolean, default: true }
+}
+resources: {
+  seed: core.thing {
+    name: 'good'
+  }
+}
+data-sources: {
+  probe: core.lookup {
+    metadata: {
+      labels: if input.comprehension
+        then { for k in [input.label, 'good']: k => if k == 'good' then resource.seed.id else '' }
+        else {
+          'Upper.example/label': ''
+          good: resource.seed.id
+        }
+    }
+  }
+}
