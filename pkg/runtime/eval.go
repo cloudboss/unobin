@@ -153,7 +153,7 @@ func evalComprehension(n *lang.Comprehension, ctx *EvalContext) (any, error) {
 		return nil, err
 	}
 	if n.Kind == lang.CompMap {
-		return evalMapComp(n, binds, ctx)
+		return evalMapComp(n, binds, ctx, evalCollectionValue)
 	}
 	return evalListComp(n, binds, ctx, evalCollectionValue)
 }
@@ -222,7 +222,10 @@ func evalListComp(
 	return out, nil
 }
 
-func evalMapComp(n *lang.Comprehension, binds []map[string]any, ctx *EvalContext) (any, error) {
+func evalMapComp(
+	n *lang.Comprehension, binds []map[string]any, ctx *EvalContext,
+	evalItem func(lang.Expr, *EvalContext) (any, error),
+) (map[string]any, error) {
 	out := make(map[string]any, len(binds))
 	for _, b := range binds {
 		child := ctx.withBindings(b)
@@ -242,7 +245,7 @@ func evalMapComp(n *lang.Comprehension, binds []map[string]any, ctx *EvalContext
 			return nil, fmt.Errorf(
 				"eval: comprehension key must be a string, got %s", lang.TypeMessage(keyVal))
 		}
-		val, err := evalCollectionValue(n.Value, child)
+		val, err := evalItem(n.Value, child)
 		if err != nil {
 			return nil, err
 		}

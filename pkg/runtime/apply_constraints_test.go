@@ -32,10 +32,11 @@ func (a *applyConstraintSeed) Run(_ context.Context, _ any) (any, error) {
 }
 
 type applyConstraintData struct {
-	Key   string
-	Items []applyConstraintItem
-	Limit int64
-	reads *int64
+	Key      string
+	Items    []applyConstraintItem
+	Limit    int64
+	Metadata applyConstraintItem
+	reads    *int64
 }
 
 func (d *applyConstraintData) Read(_ context.Context, _ any) (any, error) {
@@ -359,6 +360,50 @@ func TestPlanChecksKnownRulesWithDeferredInputs(t *testing.T) {
 	require.NotContains(t, err.Error(), "constraints[0]")
 	require.Zero(t, seedRuns)
 	require.Zero(t, c.creates)
+}
+
+func TestPlanChecksKnownLabelKeysBeforeCreate(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		comprehension bool
+		label         string
+		valid         bool
+	}{
+		{name: "literal", label: "Upper.example/label"},
+		{name: "comprehension", comprehension: true, label: "Upper.example/label"},
+		{name: "valid", comprehension: true, label: "lower.example/label", valid: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &resourceCounters{}
+			var seedRuns, actionRuns, dataReads int64
+			libs := applyConstraintLibrary(c, &seedRuns, &actionRuns, &dataReads)
+			libs["core"].Constraints["data-source.lookup"] = []lang.ConstraintSpec{{
+				Kind: "predicate", When: "true", ForEach: "input.metadata.labels ?? {}",
+				Require: "@core.is-match(@each.key, '^[a-z]+[.]example/label$') || @each.key == 'good'",
+				Message: "metadata.labels keys must be Kubernetes qualified names",
+			}}
+			exec := planTestExecutor(t, applyConstraintFixture(t, "partial-labels"),
+				libs, newStateStore(t), state.FactoryInfo{})
+			exec.Inputs = map[string]any{"label": tc.label, "comprehension": tc.comprehension}
+			plan, err := exec.Plan(context.Background())
+			require.Zero(t, c.creates)
+			require.Zero(t, dataReads)
+			if tc.valid {
+				require.NoError(t, err)
+				step := findStep(t, plan, "data-source.probe")
+				require.Equal(t, []string{"resource.seed.id"}, step.UnresolvedInputs["metadata"])
+				pf := savedConstraintPlan(t, exec)
+				_, err := exec.ApplyPlan(context.Background(), pf)
+				require.NoError(t, err)
+				require.EqualValues(t, 1, c.creates)
+				require.EqualValues(t, 1, dataReads)
+				return
+			}
+			require.ErrorContains(t, err, "data-source.probe: schema: constraints[0] (predicate): "+
+				"metadata.labels keys must be Kubernetes qualified names "+
+				"(metadata.labels['Upper.example/label'])")
+		})
+	}
 }
 
 func TestPlanChecksPartiallyKnownConstraintInputs(t *testing.T) {
