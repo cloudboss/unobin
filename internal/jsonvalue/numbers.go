@@ -7,7 +7,8 @@ import (
 )
 
 // CoerceNumbers updates decoded maps and lists in place. It restores integer
-// tokens as int64 when they fit and decimal and exponent tokens as float64.
+// tokens as int64 when they fit, and negative zero, decimals, and exponents
+// as float64.
 func CoerceNumbers(values map[string]any) map[string]any {
 	for key, value := range values {
 		values[key] = coerce(value)
@@ -19,7 +20,8 @@ func coerce(value any) any {
 	switch v := value.(type) {
 	case json.Number:
 		text := v.String()
-		if !strings.ContainsAny(text, ".eE") {
+		// encoding/json writes negative floating-point zero as -0.
+		if text != "-0" && !strings.ContainsAny(text, ".eE") {
 			if integer, err := v.Int64(); err == nil {
 				return integer
 			}

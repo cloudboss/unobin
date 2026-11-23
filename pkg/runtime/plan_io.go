@@ -70,9 +70,8 @@ func EncodePlan(p *Plan) ([]byte, error) {
 	return append(b, '\n'), nil
 }
 
-// DecodePlan parses a plan file from JSON bytes. JSON has no native
-// distinction between int and float. DecodePlan restores integer tokens
-// as int64 when they fit and decodes decimal and exponent tokens as float64.
+// DecodePlan parses a plan file from JSON bytes. It restores integer tokens
+// as int64 when they fit, and negative zero, decimals, and exponents as float64.
 func DecodePlan(b []byte) (*PlanFile, error) {
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.UseNumber()
