@@ -4,33 +4,30 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-22
+
 ### Added
 
-- Add shared string and collection predicates, including `@core.is-match`,
-  `@core.is-format`, `@core.has-key`, `@core.has-item`, and `@core.is-unique`.
-  Go constraints can use computed operands and bound Unobin expressions.
+- Add shared string and collection predicates, including `@core.is-match`, `@core.is-format`, `@core.has-key`, `@core.has-item`, and `@core.is-unique`. Go constraints can use computed operands and bound Unobin expressions.
 - Add Go SDK constants for all formats accepted by `constraint.IsFormat`.
-- Implement library API 1.1 for native constraints. Libraries that use API 1.0 remain compatible.
+- Implement library API 1.1 for native constraints.
 
 ### Changed
 
 - Extend `ForEach` in the Go SDK to support maps through `MapEntry[T]` callbacks exposing keys and values.
-
 - Share asset resolution across builtin and Go execution boundaries.
 
 ### Fixed
 
-- Preserve 64-bit integers when loading saved state so unchanged inputs do not
-  plan a replacement because of rounding.
-- Check required fields in evaluated Go resource, data source, and action
-  inputs during planning and before apply operations, including replacement.
-- Compare asset paths as logical strings and asset content by its bytes, including
-  when the other operand is a byte list.
+- Preserve 64-bit integers when loading saved state so unchanged inputs do not plan a replacement because of rounding.
+- Preserve negative zero in saved plans and state so an unchanged data-source response passes apply verification.
+- Check required fields in evaluated Go resource, data source, and action inputs during planning and before apply operations, including replacement.
+- Reject unknown fields in objects inside optional input collections during compilation, planning, and apply.
+- Compare asset paths as logical strings and asset content by its bytes, including when the other operand is a byte list.
 - Check resolved and defaulted data-source input constraints before planning reads, so lookup errors cannot mask constraint diagnostics.
-- Check native constraints on known nested fields and list lengths during
-  compilation and planning when other values in the same input are pending.
-- Check list size limits when values are pending in lists forwarded through
-  composites or built with projections and comprehensions.
+- Check native constraints on known nested fields and list lengths during compilation and planning when other values in the same input are pending.
+- Check list size limits when values are pending in lists forwarded through composites or built with projections and comprehensions.
+- Check known keys and values in map comprehensions during planning when other values are pending.
 - Preserve literal string escaping in extracted constraints and inherit constraint declarations through local and imported type aliases.
 - Validate resolved and defaulted inputs during apply, including saved no-op plans and deferred resource decisions, before executing resource, data-source, or action operations. Historical state can still be destroyed when its inputs no longer satisfy current constraints.
 - Keep plans bound to the exact state snapshot read during planning and reject stale plans after concurrent state changes.
@@ -81,6 +78,7 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 - Preserve source locations in triple-string interpolation so imported libraries compile with accurate diagnostics.
 - Defer composite outputs with unresolved inputs until apply can evaluate them.
 
-[Unreleased]: https://github.com/cloudboss/unobin/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/cloudboss/unobin/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/cloudboss/unobin/releases/tag/v0.13.0
 [0.12.0]: https://github.com/cloudboss/unobin/releases/tag/v0.12.0
 [0.11.1]: https://github.com/cloudboss/unobin/releases/tag/v0.11.1
