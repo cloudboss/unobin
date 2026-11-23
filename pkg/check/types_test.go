@@ -438,6 +438,27 @@ func TestCheckTypesRejectsUnknownLibraryConfigBindingField(t *testing.T) {
 		errs.Messages())
 }
 
+func TestCheckTypesChecksFieldsInOptionalLists(t *testing.T) {
+	spec := typecheck.TObject([]typecheck.ObjectField{
+		{Name: "validations", Optional: true, Type: typecheck.TList(
+			typecheck.TObject([]typecheck.ObjectField{
+				{Name: "expression", Type: typecheck.TString()},
+			}),
+		)},
+	})
+	libs := map[string]*runtime.Library{
+		"example": {Schema: &runtime.LibrarySchema{Resources: map[string]*runtime.TypeSchema{
+			"policy": {Inputs: map[string]typecheck.Type{"spec": typecheck.TOptional(spec)}},
+		}}},
+	}
+	errs := checkSyntaxReferences(t, invalidTypeFixture(t, "unknown-optional-list-field"), libs)
+	const unknown = `unknown field "reason" on object({ expression: string })`
+	require.Equal(t, []string{unknown, unknown}, errs.Messages())
+
+	errs = checkSyntaxReferences(t, typeFixture(t, "valid-optional-list-fields"), libs)
+	require.Empty(t, errs.Messages())
+}
+
 func TestCheckTypesRejectsWrongNominalLibraryConfigBinding(t *testing.T) {
 	errs := checkSyntaxReferences(t, invalidTypeFixture(t, "wrong-nominal-library-config-binding"),
 		map[string]*runtime.Library{

@@ -151,9 +151,9 @@ func infer(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 		}
 		return TUnknown()
 	case *lang.ArrayLit:
-		return inferArray(v, target, scope, errs)
+		return inferArray(v, target.Unwrap(), scope, errs)
 	case *lang.ObjectLit:
-		return inferObject(v, target, scope, errs)
+		return inferObject(v, target.Unwrap(), scope, errs)
 	case *lang.DotPath:
 		return inferDotPath(v, scope, errs)
 	case *lang.Call:
@@ -165,7 +165,7 @@ func infer(e lang.Expr, target Type, scope *Scope, errs *lang.ErrorList) Type {
 	case *lang.Conditional:
 		return inferConditional(v, target, scope, errs)
 	case *lang.Comprehension:
-		return inferComprehension(v, target, scope, errs)
+		return inferComprehension(v, target.Unwrap(), scope, errs)
 	}
 	return TUnknown()
 }
@@ -642,10 +642,10 @@ func reportMismatch(e lang.Expr, target, got Type, errs *lang.ErrorList) {
 
 // literalEnforced reports whether Infer already checked e against
 // target at the element or field level: an array literal against a
-// list, set, or tuple target, or an object literal against an object
-// or map target. Opaque other pairing falls back to free inference, so
-// Check must compare the result itself.
+// list or tuple target, or an object literal against an object or map
+// target. Other pairings fall back to free inference.
 func literalEnforced(e lang.Expr, target Type) bool {
+	target = target.Unwrap()
 	switch e.(type) {
 	case *lang.ArrayLit:
 		return target.Kind == List || target.Kind == Tuple

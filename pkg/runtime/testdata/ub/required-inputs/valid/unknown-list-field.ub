@@ -1,0 +1,22 @@
+locals: {
+  selected: if input.deferred then action.seed.value else input.selection
+  sets: {
+    valid:   [{ expression: 'true' }]
+    invalid: [{ expression: 'true', reason: 'Forbidden' }]
+  }
+}
+actions: {
+  seed: core.seed {
+    echo: 'invalid'
+  }
+}
+resources: {
+  consumer: core.thing {
+    name:  'example'
+    valid: true
+    spec: {
+      capacity:    { storage: '1Gi' }
+      validations: @core.lookup(local.sets, local.selected)
+    }
+  }
+}

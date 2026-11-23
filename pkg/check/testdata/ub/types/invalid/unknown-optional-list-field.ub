@@ -1,0 +1,10 @@
+resources: {
+  literal: example.policy {
+    spec: { validations: [{ expression: 'true', reason: 'Forbidden' }] }
+  }
+  computed: example.policy {
+    spec: {
+      validations: [ for expr in ['true'] : { expression: expr, reason: 'Forbidden' } ]
+    }
+  }
+}

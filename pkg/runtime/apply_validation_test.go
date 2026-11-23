@@ -24,13 +24,78 @@ type validationCounters struct {
 type validatingResource struct {
 	Name  string
 	Valid bool
-	Spec  *volumeSpec
+	Spec  *testInputSpec
 
 	counters *validationCounters
 }
 
-type volumeSpec struct {
-	Capacity map[string]string
+type testInputSpec struct {
+	Capacity    map[string]string
+	Validations *[]testPolicyValidation
+}
+
+type testPolicyValidation struct {
+	Expression string
+}
+
+func TestUnknownEvaluatedOptionalListField(t *testing.T) {
+	src := ubtest.ReadValidFixture(t, "testdata/ub/required-inputs", "unknown-list-field")
+	for _, tc := range []struct {
+		name      string
+		selection string
+		deferred  bool
+	}{
+		{name: "valid", selection: "valid"},
+		{name: "fresh plan rejects unknown field", selection: "invalid"},
+		{name: "apply rejects unknown field", deferred: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &validationCounters{}
+			var seedRuns int64
+			libs := validationModules(c)
+			lib := libs["core"]
+			lib.Actions = map[string]ActionRegistration{
+				"seed": MakeActionWith[applyConstraintSeed, any, any](
+					func() *applyConstraintSeed { return &applyConstraintSeed{runs: &seedRuns} },
+				),
+			}
+			spec := typecheck.TObject([]typecheck.ObjectField{
+				{Name: "capacity", Type: typecheck.TMap(typecheck.TString())},
+				{Name: "validations", Optional: true, Type: typecheck.TList(
+					typecheck.TObject([]typecheck.ObjectField{
+						{Name: "expression", Type: typecheck.TString()},
+					}),
+				)},
+			})
+			lib.Schema = &LibrarySchema{Resources: map[string]*TypeSchema{
+				"thing": {EvaluatedInputs: map[string]typecheck.Type{
+					"name":  typecheck.TString(),
+					"valid": typecheck.TBoolean(),
+					"spec":  typecheck.TOptional(spec),
+				}},
+			}}
+			exec := planTestExecutor(t, src, libs, newStateStore(t), state.FactoryInfo{})
+			exec.Inputs = map[string]any{"selection": tc.selection, "deferred": tc.deferred}
+			const unknown = `unknown field "spec.validations[0].reason"`
+			if tc.selection == "invalid" {
+				_, err := exec.Plan(context.Background())
+				require.ErrorContains(t, err, unknown)
+				require.Zero(t, seedRuns)
+			} else {
+				plan := savedConstraintPlan(t, exec)
+				_, err := exec.ApplyPlan(context.Background(), plan)
+				if tc.deferred {
+					require.ErrorContains(t, err, unknown)
+				} else {
+					require.NoError(t, err)
+					require.EqualValues(t, 1, c.creates)
+					return
+				}
+			}
+			require.Zero(t, c.creates)
+			require.Zero(t, c.validations)
+		})
+	}
 }
 
 type validatingResourceOutput struct {
