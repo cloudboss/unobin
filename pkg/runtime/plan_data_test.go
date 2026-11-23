@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"math"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -282,6 +283,37 @@ func TestApplyErrorsWhenDataChangedSincePlan(t *testing.T) {
 	require.Contains(t, err.Error(), "changed since the plan")
 	require.Contains(t, err.Error(), `value: "a:k" -> "b:k"`,
 		"the error names each differing field with both values")
+}
+
+type signedZeroDataSource struct{}
+
+func (*signedZeroDataSource) Read(context.Context, any) (any, error) {
+	return map[string]any{"object": map[string]any{
+		"values": []any{math.Copysign(0, -1), int64(0)},
+	}}, nil
+}
+
+func TestApplySavedPlanPreservesNegativeZeroInData(t *testing.T) {
+	libs := map[string]*Library{"core": {
+		DataSources: map[string]DataSourceRegistration{
+			"dial": MakeDataSource[signedZeroDataSource, any, any](),
+		},
+	}}
+	store := newStateStore(t)
+	exec := planTestExecutor(t, planDataFixture(t, "constraint-default"),
+		libs, store, state.FactoryInfo{})
+
+	_, err := planAndApply(exec)
+	require.NoError(t, err)
+
+	snap, err := store.Current()
+	require.NoError(t, err)
+	entry := snap.Find("data-source.cfg")
+	require.NotNil(t, entry)
+	values := entry.Outputs["object"].(map[string]any)["values"].([]any)
+	require.IsType(t, float64(0), values[0])
+	require.True(t, math.Signbit(values[0].(float64)))
+	require.Equal(t, int64(0), values[1])
 }
 
 // Data reads are recorded in state, like Terraform's data entries, so
