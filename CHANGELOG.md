@@ -4,6 +4,8 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-11-24
+
 ### Fixed
 
 - Check resolved resource, data-source, and action input types during planning and saved apply, including scalar values and mismatched containers.
@@ -83,7 +85,8 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 - Preserve source locations in triple-string interpolation so imported libraries compile with accurate diagnostics.
 - Defer composite outputs with unresolved inputs until apply can evaluate them.
 
-[Unreleased]: https://github.com/cloudboss/unobin/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/cloudboss/unobin/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/cloudboss/unobin/releases/tag/v0.13.1
 [0.13.0]: https://github.com/cloudboss/unobin/releases/tag/v0.13.0
 [0.12.0]: https://github.com/cloudboss/unobin/releases/tag/v0.12.0
 [0.11.1]: https://github.com/cloudboss/unobin/releases/tag/v0.11.1
