@@ -1,0 +1,151 @@
+/* The cloudboss look: cloudboss.co palette and typography over Material. */
+
+:root {
+  --md-text-font: "Cantarell";
+  --md-code-font: "SFMono-Regular", "Consolas", "Liberation Mono", "Menlo";
+}
+
+[data-md-color-scheme="default"] {
+  --md-default-fg-color: #1a1a1a;
+  --md-default-fg-color--light: #555555;
+  --md-default-fg-color--lighter: #888888;
+  --md-default-fg-color--lightest: #ebebeb;
+  --md-default-bg-color: #ffffff;
+  --md-typeset-color: #1a1a1a;
+
+  /* White header with dark text, like cloudboss.co. */
+  --md-primary-fg-color: #ffffff;
+  --md-primary-fg-color--light: #ffffff;
+  --md-primary-fg-color--dark: #f5f5f5;
+  --md-primary-bg-color: #1a1a1a;
+  --md-primary-bg-color--light: #555555;
+
+  /* The one accent: cloudboss link blue. */
+  --md-accent-fg-color: #2a7ab5;
+  --md-typeset-a-color: #2a7ab5;
+
+  --md-code-bg-color: #f5f5f5;
+  --md-code-fg-color: #1a1a1a;
+}
+
+.md-header {
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+  box-shadow: none;
+}
+
+/* A bit larger than Material's default 1.2rem logo. */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 1.8rem;
+  width: auto;
+}
+
+.md-typeset {
+  line-height: 1.6;
+}
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3 {
+  letter-spacing: -0.01em;
+  font-weight: 700;
+}
+
+.md-typeset h2 {
+  margin-top: 1.8em;
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.md-typeset pre > code {
+  border-radius: 9px;
+}
+
+.md-nav__link--active,
+.md-nav__item .md-nav__link--active {
+  font-weight: 700;
+}
+
+/* Admonitions styled like the cloudboss mockup callout: a soft-tinted box with a
+   left accent bar and an uppercase title, no icon and no tinted title bar. Each type
+   sets --cb-admon to its own color; the box, bar, and title all read from it. */
+.md-typeset .admonition,
+.md-typeset details {
+  --cb-admon: var(--md-accent-fg-color);
+  margin: 1.5em 0;
+  padding: 0;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-left: 4px solid var(--cb-admon);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--cb-admon) 9%, #ffffff);
+  box-shadow: none;
+  font-size: 0.8rem;
+}
+
+/* Informational types all share one blue. */
+.md-typeset .note,
+.md-typeset .info,
+.md-typeset .todo,
+.md-typeset .abstract,
+.md-typeset .summary,
+.md-typeset .tldr,
+.md-typeset .tip,
+.md-typeset .hint,
+.md-typeset .important,
+.md-typeset .success,
+.md-typeset .check,
+.md-typeset .done,
+.md-typeset .question,
+.md-typeset .help,
+.md-typeset .faq {
+  --cb-admon: #2a7ab5;
+}
+
+.md-typeset .warning,
+.md-typeset .caution,
+.md-typeset .attention {
+  --cb-admon: #b8730a;
+}
+
+.md-typeset .danger,
+.md-typeset .error,
+.md-typeset .failure,
+.md-typeset .fail,
+.md-typeset .missing,
+.md-typeset .bug {
+  --cb-admon: #c0392b;
+}
+
+.md-typeset .example {
+  --cb-admon: #6a5acd;
+}
+
+.md-typeset .quote,
+.md-typeset .cite {
+  --cb-admon: #6b7280;
+}
+
+.md-typeset .admonition-title {
+  margin: 0;
+  padding: 0.65rem 0.85rem 0;
+  background: transparent;
+  border: 0;
+  color: var(--cb-admon);
+  font-weight: 700;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.md-typeset .admonition-title::before {
+  display: none;
+}
+
+.md-typeset .admonition > :not(.admonition-title) {
+  margin: 0;
+  padding: 0.2rem 0.85rem 0;
+}
+
+.md-typeset .admonition > :last-child {
+  padding-bottom: 0.7rem;
+}

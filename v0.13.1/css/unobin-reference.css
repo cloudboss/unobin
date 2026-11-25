@@ -1,0 +1,303 @@
+:root {
+  --md-grid-width: 88rem;
+  --ub-reference-font-size: 0.78rem;
+  --ub-reference-small-font-size: 0.72rem;
+  --ub-reference-field-name-font-size: 0.86rem;
+}
+
+.md-grid {
+  max-width: var(--md-grid-width);
+}
+
+.md-typeset :not(pre) > code {
+  background-color: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  color: inherit;
+  font-size: 0.9em;
+  padding: 0;
+}
+
+.md-typeset table:not([class]),
+.md-typeset .ub-fields,
+.md-typeset .ub-constraints {
+  font-size: var(--ub-reference-font-size);
+}
+
+.md-typeset table:not([class]) th:first-child,
+.md-typeset table:not([class]) td:first-child,
+.md-typeset table:not([class]) td:first-child code {
+  white-space: nowrap;
+}
+
+.md-typeset > p,
+.md-typeset > ul,
+.md-typeset > ol {
+  max-width: 48rem;
+}
+
+.md-typeset .ub-field {
+  border-top: 0.05rem solid var(--md-default-fg-color--lightest);
+  padding: 0.55rem 0;
+}
+
+.md-typeset .ub-field:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.md-typeset .ub-field-header {
+  align-items: baseline;
+  display: grid;
+  gap: 0.25rem 1rem;
+  grid-template-columns: minmax(10rem, 0.85fr) minmax(14rem, 1.15fr);
+}
+
+.md-typeset .ub-field p,
+.md-typeset .ub-constraint p {
+  line-height: 1.42;
+  margin: 0.25em 0;
+}
+
+.md-typeset .ub-field-name {
+  font-size: var(--ub-reference-field-name-font-size);
+  font-weight: 700;
+}
+
+.md-typeset .ub-field-type,
+.md-typeset .ub-field-type-details {
+  color: var(--md-default-fg-color--light);
+  min-width: 0;
+}
+
+.md-typeset .ub-field-type code {
+  white-space: nowrap;
+}
+
+.md-typeset .ub-field-meta {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.md-typeset .ub-badge,
+.md-typeset .ub-default-label {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 999px;
+  color: var(--md-default-fg-color--light);
+  display: inline-flex;
+  font-size: var(--ub-reference-small-font-size);
+  line-height: 1.2;
+  padding: 0.08rem 0.38rem;
+}
+
+.md-typeset .ub-badge--required {
+  border-color: color-mix(in srgb, var(--md-accent-fg-color) 35%, #ffffff);
+  color: var(--md-accent-fg-color);
+  font-weight: 700;
+}
+
+.md-typeset .ub-badge--sensitive {
+  border-color: color-mix(in srgb, #c0392b 35%, #ffffff);
+  color: #9f2f24;
+  font-weight: 700;
+}
+
+.md-typeset .ub-field-default {
+  align-items: baseline;
+  display: grid;
+  gap: 0.3rem 0.45rem;
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin: 0.25em 0;
+}
+
+.md-typeset .ub-default-value,
+.md-typeset .ub-default-value-block {
+  justify-self: start;
+}
+
+.md-typeset .ub-default-value-block {
+  font-size: var(--ub-reference-small-font-size);
+  margin: 0;
+}
+
+.md-typeset .ub-default-value-block code {
+  font-size: inherit;
+}
+
+.md-typeset details.ub-field-type-details,
+.md-typeset details.ub-constraint-logic {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  font-size: inherit;
+  margin: 0;
+  padding: 0 !important;
+}
+
+.md-typeset details.ub-field-type-details {
+  display: inline-block;
+}
+
+.md-typeset details.ub-constraint-logic {
+  color: inherit;
+  display: block;
+  margin-top: 0.3rem;
+}
+
+.md-typeset details.ub-field-type-details > summary,
+.md-typeset details.ub-constraint-logic > summary {
+  align-items: baseline;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  display: inline-flex !important;
+  gap: 0.3rem;
+  list-style: none;
+  margin: 0;
+  min-height: 0;
+  padding: 0 !important;
+  width: fit-content;
+}
+
+.md-typeset details.ub-field-type-details > summary {
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset details.ub-constraint-logic > summary {
+  color: var(--md-accent-fg-color);
+  font-size: var(--ub-reference-small-font-size);
+  font-weight: 700;
+}
+
+.md-typeset details.ub-field-type-details > summary::-webkit-details-marker,
+.md-typeset details.ub-constraint-logic > summary::-webkit-details-marker {
+  display: none;
+}
+
+.md-typeset details.ub-field-type-details > summary::before,
+.md-typeset details.ub-constraint-logic > summary::before {
+  -webkit-mask-image: none !important;
+  background: transparent !important;
+  color: var(--md-default-fg-color--lighter);
+  content: "▸" !important;
+  display: inline-block !important;
+  flex: none;
+  font-size: 0.65rem;
+  height: auto !important;
+  margin: 0;
+  mask-image: none !important;
+  position: static !important;
+  transform: translateY(-0.02rem);
+  width: auto !important;
+}
+
+.md-typeset details.ub-field-type-details > summary::after,
+.md-typeset details.ub-constraint-logic > summary::after {
+  content: none !important;
+  display: none !important;
+}
+
+.md-typeset details.ub-field-type-details[open] > summary::before,
+.md-typeset details.ub-constraint-logic[open] > summary::before {
+  transform: rotate(90deg) translateX(0.02rem);
+}
+
+.md-typeset .ub-field-type-block {
+  font-size: var(--ub-reference-small-font-size);
+  margin: 0.25rem 0 0;
+}
+
+.md-typeset details.ub-field-type-details[open] .ub-field-type-block {
+  background: color-mix(in srgb, var(--md-accent-fg-color) 7%, #ffffff);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-left: 3px solid var(--md-accent-fg-color);
+  border-radius: 7px;
+  padding: 0.45rem 0.6rem;
+}
+
+.md-typeset .ub-field-type-block code {
+  font-size: inherit;
+}
+
+.md-typeset .ub-field-description {
+  color: var(--md-default-fg-color--light);
+  margin-top: 0.35rem;
+}
+
+.md-typeset .ub-constraints {
+  margin-top: 0.4rem;
+}
+
+.md-typeset .ub-constraint-group {
+  margin: 1rem 0 1.15rem;
+}
+
+.md-typeset .ub-constraint-group-title {
+  border: 0;
+  font-size: 0.92rem;
+  letter-spacing: -0.005em;
+  margin: 0 0 0.35rem;
+  padding: 0;
+}
+
+.md-typeset .ub-constraint {
+  background: transparent;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 7px;
+  margin: 0.35rem 0;
+  padding: 0.5rem 0.65rem;
+}
+
+.md-typeset .ub-constraint-summary {
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.md-typeset .ub-constraint-summary strong {
+  font-weight: 700;
+}
+
+.md-typeset .ub-constraint-logic dl {
+  display: grid;
+  gap: 0.18rem 0.7rem;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  margin: 0.35rem 0 0;
+}
+
+.md-typeset details.ub-constraint-logic[open] dl {
+  background: color-mix(in srgb, var(--md-accent-fg-color) 7%, #ffffff);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-left: 3px solid var(--md-accent-fg-color);
+  border-radius: 7px;
+  padding: 0.45rem 0.6rem;
+}
+
+.md-typeset .ub-constraint-logic dt {
+  color: var(--md-default-fg-color--light);
+  font-weight: 700;
+  margin: 0;
+}
+
+.md-typeset .ub-constraint-logic dd {
+  margin: 0;
+  min-width: 0;
+}
+
+@media screen and (max-width: 44.984375em) {
+  .md-typeset .ub-field-header,
+  .md-typeset .ub-constraint-logic dl {
+    display: block;
+  }
+
+  .md-typeset .ub-field-type code {
+    white-space: normal;
+  }
+
+  .md-typeset .ub-constraint-logic dd {
+    margin-bottom: 0.35rem;
+  }
+}
