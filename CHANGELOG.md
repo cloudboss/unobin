@@ -4,6 +4,11 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ## [Unreleased]
 
+### Fixed
+
+- Check resolved resource, data-source, and action input types during planning and saved apply, including scalar values and mismatched containers.
+- Reject fractional and overflowing values when decoding Go integer fields instead of silently truncating or wrapping them.
+
 ## [0.13.0] - 2026-11-22
 
 ### Added

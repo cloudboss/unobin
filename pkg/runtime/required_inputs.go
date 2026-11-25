@@ -3,9 +3,11 @@ package runtime
 import (
 	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 	"strings"
 
+	"github.com/cloudboss/unobin/pkg/asset"
 	"github.com/cloudboss/unobin/pkg/lang"
 	"github.com/cloudboss/unobin/pkg/typecheck"
 )
@@ -72,6 +74,27 @@ func (optional optionalInputPaths) checkField(
 
 func (optional optionalInputPaths) checkContents(t typecheck.Type, value any, path string) error {
 	switch t.Kind {
+	case typecheck.Unknown, typecheck.Opaque:
+		return nil
+	case typecheck.String, typecheck.AssetPath:
+		switch value.(type) {
+		case string, asset.PathRef:
+			return nil
+		}
+	case typecheck.Boolean:
+		if _, ok := value.(bool); ok {
+			return nil
+		}
+	case typecheck.Integer, typecheck.Number:
+		switch reflect.TypeOf(value).Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			return nil
+		case reflect.Float32, reflect.Float64:
+			if t.Kind == typecheck.Number {
+				return nil
+			}
+		}
 	case typecheck.Object:
 		if object, ok := value.(map[string]any); ok {
 			if !t.Open {
@@ -93,9 +116,13 @@ func (optional optionalInputPaths) checkContents(t typecheck.Type, value any, pa
 					return err
 				}
 			}
+			return nil
 		}
 	case typecheck.List:
-		if items, ok := value.([]any); ok && t.Elem != nil {
+		if items, ok := value.([]any); ok {
+			if t.Elem == nil {
+				return nil
+			}
 			for i, item := range items {
 				if err := optional.checkField(
 					*t.Elem, item, true, fmt.Sprintf("%s[%d]", path, i),
@@ -103,9 +130,13 @@ func (optional optionalInputPaths) checkContents(t typecheck.Type, value any, pa
 					return err
 				}
 			}
+			return nil
 		}
 	case typecheck.Map:
-		if items, ok := value.(map[string]any); ok && t.Elem != nil {
+		if items, ok := value.(map[string]any); ok {
+			if t.Elem == nil {
+				return nil
+			}
 			for _, key := range slices.Sorted(maps.Keys(items)) {
 				if err := optional.checkField(
 					*t.Elem, items[key], true, fmt.Sprintf("%s[%q]", path, key),
@@ -113,7 +144,30 @@ func (optional optionalInputPaths) checkContents(t typecheck.Type, value any, pa
 					return err
 				}
 			}
+			return nil
+		}
+	case typecheck.Bytes:
+		switch value := value.(type) {
+		case []byte, asset.ContentRef:
+			return nil
+		case string:
+			if ref, ok := asset.ParseReference(value); ok && ref.Kind == asset.ReferenceKindContent {
+				return nil
+			}
+		case []any:
+			return optional.checkContents(typecheck.TList(typecheck.TInteger()), value, path)
+		}
+	case typecheck.Tuple:
+		if items, ok := value.([]any); ok && len(items) == len(t.Elems) {
+			for i, elem := range t.Elems {
+				if err := optional.checkField(
+					elem, items[i], true, fmt.Sprintf("%s[%d]", path, i),
+				); err != nil {
+					return err
+				}
+			}
+			return nil
 		}
 	}
-	return nil
+	return fmt.Errorf("field %q: expected %s, got %s", path, t, lang.TypeMessage(value))
 }

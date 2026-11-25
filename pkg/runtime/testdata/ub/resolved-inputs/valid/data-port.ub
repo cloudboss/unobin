@@ -1,0 +1,11 @@
+actions: {
+  seed: core.seed { selection: 'configured' }
+}
+locals: {
+  selection: if input.deferred then action.seed.value else 'configured'
+}
+data-sources: {
+  example: core.endpoint {
+    port: @core.lookup({ configured: input.port }, local.selection)
+  }
+}

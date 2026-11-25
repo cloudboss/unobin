@@ -22,11 +22,14 @@ func Decode(v any, inputs map[string]any) error {
 		return err
 	}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		Result:           v,
-		TagName:          "ub",
-		MatchName:        matchUBName,
-		ErrorUnused:      true,
-		DecodeHook:       mapstructure.StringToTimeDurationHookFunc(),
+		Result:      v,
+		TagName:     "ub",
+		MatchName:   matchUBName,
+		ErrorUnused: true,
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToTimeDurationHookFunc(),
+			integerDecodeHook,
+		),
 		WeaklyTypedInput: false,
 	})
 	if err != nil {
