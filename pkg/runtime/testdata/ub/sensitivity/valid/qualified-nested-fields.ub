@@ -1,0 +1,4 @@
+outputs: {
+  token:  { value: action.vault.login.session.credentials.token }
+  public: { value: action.vault.login.session.metadata.credentials }
+}

@@ -77,6 +77,33 @@ func TestSensitivityRecognizesSensitiveGoInput(t *testing.T) {
 		"a reader of a sensitive input is masked, the same as a sensitive output")
 }
 
+func TestSensitivityOfNestedNodeFields(t *testing.T) {
+	libs := map[string]*Library{
+		"vault": {Schema: &LibrarySchema{Resources: map[string]*TypeSchema{
+			"connection": {
+				SensitiveInputs:  []string{"auth-parameters"},
+				SensitiveOutputs: []string{"credentials"},
+			},
+		}}},
+	}
+	fixture := parseSyntaxFactoryFixture(t, factorySource(sensitivityFixture(t, "nested-fields")))
+	dag := BuildSyntaxDAG(fixture.body, libs)
+	got := RootSensitiveOutputs(fixture.body, libs, dag)
+	require.Equal(t, map[string]bool{"password": true, "indexed": true}, got)
+}
+
+func TestSensitivityOfQualifiedFieldsWithoutDAG(t *testing.T) {
+	libs := map[string]*Library{
+		"vault": {Schema: &LibrarySchema{Actions: map[string]*TypeSchema{
+			"login": {SensitiveOutputs: []string{"credentials"}},
+		}}},
+	}
+	source := sensitivityFixture(t, "qualified-nested-fields")
+	fixture := parseSyntaxFactoryFixture(t, factorySource(source))
+	got := RootSensitiveOutputs(fixture.body, libs, nil)
+	require.Equal(t, map[string]bool{"token": true}, got)
+}
+
 func TestCompositeSensitivityDoesNotUseRootImports(t *testing.T) {
 	composite := syntaxResourceComposite(t, "box", sensitivityFixture(t, "composite-go-field-box"))
 	libs := map[string]*Library{

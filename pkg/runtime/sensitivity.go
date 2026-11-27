@@ -358,7 +358,7 @@ func (s *sensitivityAnalyzer) dotPathSensitive(dp *lang.DotPath, sc *sensScope) 
 	case "resource", "data-source", "action":
 		if sc.nodes != nil {
 			if match, ok := RefMatchInScope(dp, sc.nodes, sc.scope); ok {
-				field := trailingNamedSegmentAfter(dp, match.Segments)
+				field := referencedNodeField(dp.Segments[match.Segments:])
 				return s.nodeFieldSensitive(sc.libs, sc.nodes[match.Address], dp.Root.Name, field)
 			}
 		}
@@ -367,7 +367,7 @@ func (s *sensitivityAnalyzer) dotPathSensitive(dp *lang.DotPath, sc *sensScope) 
 		}
 		alias := dp.Segments[0].Name
 		typ := dp.Segments[1].Name
-		field := trailingNamedSegmentAfter(dp, 3)
+		field := referencedNodeField(dp.Segments[3:])
 		return s.libraryFieldSensitive(sc.libs[alias], dp.Root.Name, typ, field)
 	}
 	return false
@@ -480,14 +480,11 @@ func (s *sensitivityAnalyzer) compositeTypeOutputs(ct *CompositeType) map[string
 	return cs.outputs
 }
 
-// trailingNamedSegmentAfter returns the last named segment of a dot
-// path past the node address. Index-only segments at the tail are
-// skipped so `resource.app['k'].field` returns "field". Returns ""
-// when no trailing named segment exists.
-func trailingNamedSegmentAfter(dp *lang.DotPath, consumed int) string {
-	for i := len(dp.Segments) - 1; i >= consumed; i-- {
-		if dp.Segments[i].Name != "" {
-			return dp.Segments[i].Name
+// Sensitivity is declared on the top-level field, after any instance index.
+func referencedNodeField(segments []lang.DotSegment) string {
+	for _, segment := range segments {
+		if segment.Name != "" {
+			return segment.Name
 		}
 	}
 	return ""

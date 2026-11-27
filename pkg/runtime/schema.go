@@ -50,8 +50,8 @@ type LibrarySchema struct {
 //
 // SensitiveInputs and SensitiveOutputs hold the kebab-case names of
 // fields a library marked sensitive via a `ub:",sensitive"` struct
-// tag. Both are top-level only; sensitivity does not descend into
-// nested object fields.
+// tag. These names identify top-level fields. Selections within a
+// sensitive field inherit its sensitivity.
 type TypeSchema struct {
 	Inputs           map[string]typecheck.Type
 	Outputs          map[string]typecheck.Type

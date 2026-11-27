@@ -4,6 +4,10 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ## [Unreleased]
 
+### Fixed
+
+- Mask nested values selected from sensitive resource, data-source, and action fields in apply and output.
+
 ## [0.13.1] - 2026-11-24
 
 ### Fixed

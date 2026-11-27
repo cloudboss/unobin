@@ -1,0 +1,10 @@
+resources: {
+  connection: vault.connection {}
+  replica:    vault.connection { @for-each: { one: true } }
+}
+
+outputs: {
+  password: { value: resource.connection.auth-parameters?.basic-auth-parameters?.password }
+  indexed:  { value: resource.replica['one'].credentials[0].value }
+  public:   { value: resource.connection.metadata.credentials }
+}
