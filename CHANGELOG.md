@@ -4,6 +4,8 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-11-27
+
 ### Fixed
 
 - Mask nested values selected from sensitive resource, data-source, and action fields in apply and output.
@@ -89,7 +91,8 @@ This changelog starts with v0.11.1. Earlier releases are listed in the [reposito
 - Preserve source locations in triple-string interpolation so imported libraries compile with accurate diagnostics.
 - Defer composite outputs with unresolved inputs until apply can evaluate them.
 
-[Unreleased]: https://github.com/cloudboss/unobin/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/cloudboss/unobin/compare/v0.13.2...HEAD
+[0.13.2]: https://github.com/cloudboss/unobin/releases/tag/v0.13.2
 [0.13.1]: https://github.com/cloudboss/unobin/releases/tag/v0.13.1
 [0.13.0]: https://github.com/cloudboss/unobin/releases/tag/v0.13.0
 [0.12.0]: https://github.com/cloudboss/unobin/releases/tag/v0.12.0
